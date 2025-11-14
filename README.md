@@ -1,186 +1,204 @@
-# declarch
+# 🌱 **declarch**
 
-A declarative package management CLI for Arch Linux, inspired by Nix and built with Rust.
+<p align="center">
+  <strong>A declarative package manager for Arch Linux — powered by Rust, inspired by Nix.</strong><br>
+  Make your Arch setup reproducible, modular, and clean.
+</p>
 
-## Philosophy
-
-`declarch` (Declarative Arch) aims to bring the power and convenience of declarative package management (like Nix) to the rolling-release ecosystem of Arch Linux.
-
-Instead of manually running `paru -S ...` and forgetting which packages you've installed, `declarch` allows you to define your **entire system** (packages, modules, and per-machine configurations) in simple, human-readable KDL text files.
-
-`declarch` acts as your "single source of truth." It ensures your system always matches the state you defined in your configuration.
-
-## Features
-
-* **Declarative:** Define your desired state; let `declarch` make it happen.
-* **KDL Syntax:** Uses [KDL](https://kdl.dev/) for clean, minimal config files that are immune to YAML's indentation errors.
-* **Modular:** Organize your configuration into reusable modules (e.g., `gaming`, `development`, `shell`).
-* **Host-Specific:** Automatically apply different packages based on the machine (e.g., `hosts/desktop.kdl` vs. `hosts/laptop.kdl`).
-* **Stateful & Safe Pruning:** `declarch` tracks the packages it manages. Running `--prune` will only remove packages *you* decided you no longer want, not your entire system.
-* **Conflict Detection:** Automatically prevents you from enabling mutually exclusive modules (like `hyprland` and `sway`).
-* **Version Checking:** Warns you if an installed package doesn't match a version you pinned in your configuration.
-* **AUR Support:** Fully integrated with `paru` (or other AUR helpers) by default.
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="Build" src="https://img.shields.io/badge/status-alpha-orange">
+  <img alt="Arch" src="https://img.shields.io/badge/arch-linux-blue">
+  <img alt="Rust" src="https://img.shields.io/badge/built_with-rust-orange">
+</p>
 
 ---
 
-## 1. Installation
+## 🌟 What Is `declarch`?
 
-There are two ways to install `declarch`.
+Arch Linux is powerful, but its package management is **fully imperative** — you install things manually, forget what you installed, and eventually the system becomes a museum of old packages.
 
-### Option 1: Install Script (Recommended)
+`declarch` brings **declarative package management** to Arch, without trying to replace pacman or introduce a new filesystem.
+You write *what you want*, and `declarch` ensures your system matches it.
 
-This script will automatically download the latest binary release from GitHub, set its permissions, and move it to `/usr/local/bin/`.
+Think of it as:
+
+> 🧠 *“Nix-style reproducibility, but the Arch way.”*
+
+---
+
+## ✨ Features
+
+* **Declarative system state** – control everything through KDL files.
+* **KDL configs** – clean syntax, zero indentation nightmares.
+* **Modular design** – split configs into `gaming.kdl`, `shell.kdl`, `dev.kdl`, etc.
+* **Per-host configs** – different packages for laptop, desktop, server.
+* **Safe pruning** – only removes packages managed by `declarch`, never the whole system.
+* **Conflict detection** – avoid enabling incompatible modules.
+* **Version pinning warnings** – get notified if versions drift.
+* **AUR support** – works seamlessly with `paru` or other helpers.
+
+---
+
+# 🚀 Installation
+
+## Option 1 — Install Script (recommended)
+
+Downloads the latest release binary and installs it to `/usr/local/bin/`.
 
 ```bash
-curl -sSL [https://raw.githubusercontent.com/nixval/declarch/main/install.sh](https://raw.githubusercontent.com/nixval/declarch/main/install.sh) | bash
+curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | bash
 ```
 
-Option 2: Build from Source (Manual)
+---
 
-If you prefer to build it manually, you will need the Rust toolchain (cargo).
+## Option 2 — Build From Source
 
 ```bash
-# 1. Clone the repository
-git clone [https://github.com/nixval/declarch.git](https://github.com/nixval/declarch.git)
+git clone https://github.com/nixval/declarch.git
 cd declarch
-
-# 2. Build the optimized release binary
 cargo build --release
-
-# 3. Move the binary to your path
 sudo cp target/release/declarch /usr/local/bin/
 ```
 
-2. Initial Setup (Required)
+---
 
-After installation, declarch won't work until you create its configuration files. By default, declarch looks for its configuration in ~/.config/declarch/.
+# 📁 Initial Setup (Required)
 
-Here are the steps to create a minimal configuration structure.
+Before using `declarch`, create the config directory:
 
-Step 1: Create Directories
-
-Run this in your terminal to create the required directory structure:
 ```bash
 mkdir -p ~/.config/declarch/modules
 mkdir -p ~/.config/declarch/hosts
 ```
-Step 2: Create Configuration Files
 
-Create these three essential files.
+---
 
-1. ~/.config/declarch/config.kdl (Main Config File) This is the main entrypoint. declarch reads this file first.
-Code snippet
+## 1. `config.kdl` (main entrypoint)
 
 ```kdl
-// Define your host's name. This MUST match
-// the filename in the 'hosts/' folder.
 host "your_hostname_here"
-
-// List which modules you want to enable.
 enabled_modules "base"
 ```
-(You can get your_hostname_here by running the hostname command)
 
-2. ~/.config/declarch/hosts/your_hostname_here.kdl (Host File) Rename your_hostname_here.kdl to match your actual hostname (e.g., valiE.kdl). This file is for hardware-specific packages.
-Code snippet
+> Replace `"your_hostname_here"` with the output of `hostname`.
+
+---
+
+## 2. `hosts/<hostname>.kdl`
+
+For machine-specific packages:
 
 ```kdl
-// ~/.config/declarch/hosts/valiE.kdl
-description "Packages specific to the valiE machine"
+description "Machine-specific packages"
 packages zsh
 ```
 
-3. ~/.config/declarch/modules/base.kdl (Your First Module) This is your base module, containing packages you want on all your machines.
-Code snippet
+---
+
+## 3. `modules/base.kdl`
+
+Your global packages:
+
 ```kdl
-// ~/.config/declarch/modules/base.kdl
-description "Universal base packages"
+description "Base packages"
 packages git vim ripgrep
 ```
-Step 3: Run Your First Sync
 
-You are now ready. Run your first sync. declarch will read these files, see that git, vim, ripgrep, and zsh are not in its state file, and install them.
+---
+
+# 🔧 First Sync
 
 ```bash
 declarch sync
 ```
 
-3. Usage & Core Concepts
+`declarch` will initialize state tracking and install the packages you declared.
 
-Managing your system is now just a matter of editing KDL files and running sync.
+---
 
-File Concepts
+# 🧠 Usage Overview
 
-    config.kdl: The main file. It controls which host is active and which enabled_modules to load.
+Once setup is done, the workflow becomes extremely simple:
 
-    hosts/*.kdl: Loaded automatically based on the host value in config.kdl. Use this for drivers (e.g., nvidia-utils) or hardware packages (e.g., tlp).
+1. Edit KDL files
+2. Run `declarch sync`
 
-    modules/*.kdl: Loaded only if its name is in enabled_modules. Use this for software sets (e.g., gaming.kdl, development.kdl).
+That’s it.
 
-Module Management
+---
 
-You don't have to edit config.kdl manually.
+## 📦 Module Management
 
-To see all available modules (and their status):
+List all modules:
 
 ```bash
 declarch module list
 ```
-To enable a new module:
+
+Enable one:
 
 ```bash
 declarch module enable gaming
 ```
-To disable a module:
+
+Disable:
 
 ```bash
 declarch module disable gaming
 ```
-System Synchronization
 
-declarch sync Your main command. This will:
+---
 
-    Read all KDL files.
+## 🔄 Synchronization
 
-    Compare against installed packages.
+Normal sync:
 
-    Install any missing packages (like the gaming module you just enabled).
-
-declarch sync --prune This command is powerful. It does the same as sync, but it will also uninstall any packages that are:
-
-    In the state.json file (managed by declarch),
-
-    BUT are no longer in your KDL files (like the gaming module you just disabled).
-
-This is the recommended workflow to keep your system clean.
-
-Advanced Features (Examples)
-
-Excludes Use exclude in your host file to block a package from a module.
-Code snippet
 ```bash
-// ~/.config/declarch/hosts/laptop.kdl
-// Don't install 'neofetch' from 'base', install 'fastfetch' instead
+declarch sync
+```
+
+Sync + prune unused packages:
+
+```bash
+declarch sync --prune
+```
+
+Only packages managed by `declarch` will ever be pruned — safe for daily use.
+
+---
+
+# 🧩 Advanced Examples
+
+## Excluding packages on specific machines
+
+```kdl
 packages fastfetch
 exclude neofetch
 ```
-Conflicts (Safety) declarch will stop with an error if you try to enable two modules that conflict.
-Code snippet
-```bash
-// ~/.config/declarch/modules/hyprland.kdl
+
+---
+
+## Module conflict safety
+
+```kdl
 description "Hyprland compositor"
 packages hyprland
 conflicts sway
 ```
-Version Pinning (Warning) declarch will warn you if your installed version doesn't match. (Auto-downgrade is not currently supported).
-Code snippet
-```bash
-// ~/.config/declarch/modules/base.kdl
-// Will warn if git is not version 1.0.0
-packages "git=1.0.0" vim
-```
+
 ---
 
-License
+## Version pinning with warnings
 
-This project is licensed under the MIT License.
+```kdl
+packages "git=1.0.0" vim
+```
+
+---
+
+# 📜 License
+
+MIT — free to use, modify, hack, and enjoy.
+
+---
