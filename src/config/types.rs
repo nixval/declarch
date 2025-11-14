@@ -21,6 +21,7 @@ pub enum Commands {
     Sync(SyncArgs),
     /// Manage configuration modules
     Module(ModuleArgs),
+    Init,
 }
 
 #[derive(Parser, Debug)]

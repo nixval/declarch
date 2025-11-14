@@ -1,4 +1,5 @@
 mod config;
+mod init;
 mod module;
 mod state;
 mod system;
@@ -31,10 +32,19 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Sync(args) => {
+            if !config_dir.exists() {
+                return Err(miette!("Configuration directory not found at: {:?}. \nPlease run 'declarch init' first.", config_dir));
+            }
             run_sync(args, &config_dir, cli.quiet)?;
         }
         Commands::Module(args) => {
+            if !config_dir.exists() {
+                return Err(miette!("Configuration directory not found at: {:?}. \nPlease run 'declarch init' first.", config_dir));
+            }
             module::run_module_command(args, &config_dir, cli.quiet)?;
+        }
+        Commands::Init => { // <-- 3. Tambahkan handler 'Init'
+            init::run_init(&config_dir, cli.quiet)?;
         }
     }
 
