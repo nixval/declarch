@@ -1,204 +1,193 @@
+
 # 🌱 **declarch**
 
-<p align="center">
-  <strong>A declarative package manager for Arch Linux — powered by Rust, inspired by Nix.</strong><br>
-  Make your Arch setup reproducible, modular, and clean.
-</p>
+\<p align="center"\>
+\<strong\>A declarative package manager for Arch Linux — powered by Rust.\</strong\><br>
+Inspired by Nix workflow, built for the chaotic reality of Arch.
+\</p\>
 
-<p align="center">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="Build" src="https://img.shields.io/badge/status-alpha-orange">
-  <img alt="Arch" src="https://img.shields.io/badge/arch-linux-blue">
-  <img alt="Rust" src="https://img.shields.io/badge/built_with-rust-orange">
-</p>
+\<p align="center"\>
+\<img alt="License" src="[https://img.shields.io/badge/license-MIT-blue?style=flat-square](https://www.google.com/search?q=https://img.shields.io/badge/license-MIT-blue%3Fstyle%3Dflat-square)"\>
+\<img alt="Status" src="[https://img.shields.io/badge/status-alpha-orange?style=flat-square](https://www.google.com/search?q=https://img.shields.io/badge/status-alpha-orange%3Fstyle%3Dflat-square)"\>
+\<img alt="Language" src="[https://img.shields.io/badge/rust-1.75%2B-orange?style=flat-square](https://www.google.com/search?q=https://img.shields.io/badge/rust-1.75%252B-orange%3Fstyle%3Dflat-square)"\>
+\</p\>
 
----
+-----
 
-## 🌟 What Is `declarch`?
+## 🧠 The Philosophy
 
-Arch Linux is powerful, but its package management is **fully imperative** — you install things manually, forget what you installed, and eventually the system becomes a museum of old packages.
+Arch Linux is fantastic, but its package management is **imperative**. You run `pacman -S git`, and then you forget about it. Over time, your system becomes a "museum" of forgotten packages, orphans, and drift.
 
-`declarch` brings **declarative package management** to Arch, without trying to replace pacman or introduce a new filesystem.
-You write *what you want*, and `declarch` ensures your system matches it.
+```kdl
+// ~/.config/hypr/hyprland.decl
 
-Think of it as:
+packages {
+  hyprland 
+  hyprlock
+  hypridle 
+  quickshell
+  noctalia-shell
+  //till bunch of other required and optional packages tracked
+}
+```
+then just simply
 
-> 🧠 *“Nix-style reproducibility, but the Arch way.”*
+```bash
+declarch sync
+```
+then just share it with your own dotfiles to anyone that using arch base distro
 
----
+**declarch** imposes a **Declarative Layer** on top of Pacman/AUR without replacing them.
 
-## ✨ Features
+1.  **Intent vs. State:** You declare *what* you want in a `.decl` file. `declarch` ensures your system matches that state.
+2.  **Adoption, Not Reinstallation:** If you declare `vim` and it's already installed manually, `declarch` simply "adopts" it into its state file. It won't waste bandwidth reinstalling it.
+3.  **Safe Pruning:** Unlike NixOS which might wipe your system, `declarch` only removes packages that it *knows* it manages. It tracks history in `~/.local/state/declarch/state.json`.
 
-* **Declarative system state** – control everything through KDL files.
-* **KDL configs** – clean syntax, zero indentation nightmares.
-* **Modular design** – split configs into `gaming.kdl`, `shell.kdl`, `dev.kdl`, etc.
-* **Per-host configs** – different packages for laptop, desktop, server.
-* **Safe pruning** – only removes packages managed by `declarch`, never the whole system.
-* **Conflict detection** – avoid enabling incompatible modules.
-* **Version pinning warnings** – get notified if versions drift.
-* **AUR support** – works seamlessly with `paru` or other helpers.
+-----
 
----
+## ✨ Key Features
 
-# 🚀 Installation
+  * **Declarative Config:** Use the clean, readable **KDL** syntax (no indentation hell like YAML).
+  * **Recursive Imports:** Structure your config however you want. Import a module from a subdirectory, or import a file directly from another dotfiles folder (e.g., `import "~/.config/hypr/hyprland.decl"`).
+  * **Multi-Backend:** Supports **Repo (Pacman)**, **AUR (Paru/Yay)**, and **Flatpak** seamlessly.
+  * **Smart Sync:**
+      * **Install:** Missing packages.
+      * **Adopt:** Existing packages (zero-cost).
+      * **Prune:** Packages removed from config (optional strict mode).
+  * **Garbage Collection:** Integrated `pacman -Qdtq` cleaning.
 
-## Option 1 — Install Script (recommended)
+-----
 
-Downloads the latest release binary and installs it to `/usr/local/bin/`.
+## 🚀 Installation
+
+### Option 1: Install Script (Recommended)
+
+Downloads the latest binary and sets up the environment.
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | bash
 ```
 
----
+### Option 2: Build from Source
 
-## Option 2 — Build From Source
+Requirements: `cargo`, `git`, `pacman`.
 
 ```bash
 git clone https://github.com/nixval/declarch.git
 cd declarch
-cargo build --release
-sudo cp target/release/declarch /usr/local/bin/
+cargo install --path .
 ```
 
----
+-----
 
-# 📁 Initial Setup (Required)
+## 📁 Getting Started
 
-Before using `declarch`, create the config directory:
+Initialize your configuration directory. This respects XDG standards (`~/.config/declarch`).
 
 ```bash
-mkdir -p ~/.config/declarch/modules
-mkdir -p ~/.config/declarch/hosts
+declarch init
 ```
 
----
+This creates a default `declarch.decl` entry point.
 
-## 1. `config.kdl` (main entrypoint)
+### Anatomy of `declarch.decl`
+
+The syntax uses **KDL**. Quotes are optional for simple names.
 
 ```kdl
-host "your_hostname_here"
-enabled_modules "base"
+// ~/.config/declarch/declarch.decl
+
+// 1. Imports: Load other declarative files
+// You can point to local folders or absolute paths in your dotfiles
+imports {
+    "modules/core.decl"
+    "modules/gaming.decl"
+    "~/.config/hypr/hyprland-packages.decl"
+}
+
+// 2. Packages: Define what you want installed
+packages {
+    // Native / AUR packages (auto-detected)
+    git
+    neovim
+    zsh
+    visual-studio-code-bin
+    
+    // Flatpak packages (use prefix)
+    flatpak:com.obsproject.Studio
+}
+
+// 3. Excludes: Block specific packages even if imported by modules
+excludes {
+    nano
+    vi
+}
 ```
+-----
 
-> Replace `"your_hostname_here"` with the output of `hostname`.
+## 🛠️ Usage Workflow
 
----
+The workflow is simple: **Edit** -\> **Sync**.
 
-## 2. `hosts/<hostname>.kdl`
+### 1\. The Magic Command
 
-For machine-specific packages:
-
-```kdl
-description "Machine-specific packages"
-packages zsh
-```
-
----
-
-## 3. `modules/base.kdl`
-
-Your global packages:
-
-```kdl
-description "Base packages"
-packages git vim ripgrep
-```
-
----
-
-# 🔧 First Sync
+Update your system, sync packages, prune removed ones, and clean orphans in one go:
 
 ```bash
-declarch sync
+declarch sync -u --prune --gc
 ```
 
-`declarch` will initialize state tracking and install the packages you declared.
+### 2\. Command Reference
 
----
+| Command | Description |
+| :--- | :--- |
+| `declarch init` | Create initial configuration files. |
+| `declarch check` | Validate syntax and import paths without running. |
+| `declarch info` | Show managed packages and last sync status. |
+| `declarch sync` | The main workhorse. See flags below. |
 
-# 🧠 Usage Overview
+### 3\. Sync Flags
 
-Once setup is done, the workflow becomes extremely simple:
+| Flag | Description |
+| :--- | :--- |
+| `-u` / `--update` | Run `paru -Syu` before syncing. |
+| `--dry-run` | Preview changes without doing anything. |
+| `--prune` | **Strict Mode.** Remove managed packages that are no longer in the config. |
+| `--gc` | Garbage collect system orphans (dependencies no longer needed). |
+| `-y` / `--yes` | Skip confirmation prompts (useful for scripts). |
 
-1. Edit KDL files
-2. Run `declarch sync`
+-----
 
-That’s it.
+## 💡 Why KDL?
 
----
+We chose [KDL](https://kdl.dev/) because it's designed for configuration, not data serialization.
 
-## 📦 Module Management
+  * **VS JSON:** Comments are supported\! `// like this`.
+  * **VS YAML:** No whitespace/indentation anxiety.
+  * **VS TOML:** Better support for nested hierarchies (blocks).
 
-List all modules:
+-----
 
-```bash
-declarch module list
-```
+## ⚠️ Safety First
 
-Enable one:
+`declarch` keeps its state in `~/.local/state/declarch/state.json`.
 
-```bash
-declarch module enable gaming
-```
+  * If you delete a package from your `.decl` file, `declarch` will **NOT** remove it from your system unless you run `sync --prune`.
+  * It automatically creates a backup of the state file before every write operation.
 
-Disable:
+-----
 
-```bash
-declarch module disable gaming
-```
+## 🤝 Contributing
 
----
+Pull requests are welcome\! This project is written in **Rust**.
+Check the `src/` folder for the codebase. The core logic resides in `src/core/resolver.rs`.
 
-## 🔄 Synchronization
+1.  Fork it
+2.  Create your feature branch (`git checkout -b feature/amazing-feature`)
+3.  Commit your changes (`git commit -m 'Add some amazing feature'`)
+4.  Push to the branch (`git push origin feature/amazing-feature`)
+5.  Open a Pull Request
 
-Normal sync:
+-----
 
-```bash
-declarch sync
-```
-
-Sync + prune unused packages:
-
-```bash
-declarch sync --prune
-```
-
-Only packages managed by `declarch` will ever be pruned — safe for daily use.
-
----
-
-# 🧩 Advanced Examples
-
-## Excluding packages on specific machines
-
-```kdl
-packages fastfetch
-exclude neofetch
-```
-
----
-
-## Module conflict safety
-
-```kdl
-description "Hyprland compositor"
-packages hyprland
-conflicts sway
-```
-
----
-
-## Version pinning with warnings
-
-```kdl
-packages "git=1.0.0" vim
-```
-
----
-
-# 📜 License
-
-MIT — free to use, modify, hack, and enjoy.
-
----
+**License:** MIT

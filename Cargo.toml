@@ -1,14 +1,36 @@
 [package]
 name = "declarch"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
+# CLI parsing
 clap = { version = "4.5.51", features = ["derive"] }
-colored = "3.0.0"
-dirs = "6.0.0"
-hostname = "0.4.1"
+
+# KDL parsing
 kdl = "6.5.0"
-miette = { version = "7.6.0", features = ["fancy"] }
+
+# JSON state management
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+
+# Error handling
+thiserror = "2.0.17"
+
+# Home directory detection
+dirs = "6.0.0"
+
+# Colored output
+colored = "3.0.0"
+
+# Date/time (with serde support)
+chrono = { version = "0.4", features = ["serde"] }
+
+# Better error messages
+miette = { version = "7.6.0", features = ["fancy"] }
+
+# Hostname detection
+hostname = "0.4.1"
+directories = "6.0.0"
+which = "8.0.0"
+ctrlc = "3.5.1"

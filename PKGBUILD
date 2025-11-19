@@ -1,20 +1,21 @@
 # Maintainer: Nico Valianto Kusuma <YOUR_EMAIL@gmail.com>
 
 pkgname=declarch
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
-pkgdesc="A declarative package management CLI for Arch Linux, inspired by Nix."
+pkgdesc="A declarative package management for Arch base Linux, inspired by Nix workflow."
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')
-depends=('pacman')
+depends=('pacman' 'git')
 optdepends=(
   'paru: AUR backend for syncing'
   'yay: alternative AUR backend'
+  'flatpak: For managing Flatpak applications'
 )
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP') # Replace with real checksum using 'updpkgsums'
+sha256sums=('SKIP')
 
 build() {
   cd "$pkgname-$pkgver"

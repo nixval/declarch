@@ -1,78 +1,77 @@
-use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-#[command(propagate_version = true)]
-pub struct Cli {
-    #[command(subcommand)]
-    pub command: Commands,
+/// Global declarch configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalConfig {
+    /// Which AUR helper to use (paru or yay)
+    #[serde(default = "default_aur_helper")]
+    pub aur_helper: AurHelper,
 
-    #[arg(short, long, global = true)]
-    pub quiet: bool,
-
-    #[arg(short, long, global = true, value_name = "DIR")]
-    pub config: Option<PathBuf>,
+    /// Other settings (future)
+    #[serde(default)]
+    pub other: std::collections::HashMap<String, String>,
 }
 
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-    /// Synchronize the system state
-    Sync(SyncArgs),
-    /// Manage configuration modules
-    Module(ModuleArgs),
-    Init,
+fn default_aur_helper() -> AurHelper {
+    AurHelper::Paru
 }
 
-#[derive(Parser, Debug)]
-pub struct SyncArgs {
-    /// Remove packages not present in configuration (orphans)
-    #[arg(long)]
-    pub prune: bool,
+/// AUR helper choice
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum AurHelper {
+    Paru,
+    Yay,
 }
 
-#[derive(Parser, Debug)]
-pub struct ModuleArgs {
-    #[command(subcommand)]
-    pub command: ModuleCommand,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum ModuleCommand {
-    /// List all available modules and their status
-    List,
-    /// Enable a module
-    Enable { name: String },
-    /// Disable a module
-    Disable { name: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PackageRequest {
-    pub name: String,
-    pub version: Option<String>,
-}
-
-impl PackageRequest {
-    pub fn from_kdl_string(pkg_str: &str) -> Self {
-        if let Some((name, version)) = pkg_str.split_once('=') {
-            PackageRequest {
-                name: name.to_string(),
-                version: Some(version.to_string()),
-            }
-        } else {
-            PackageRequest {
-                name: pkg_str.to_string(),
-                version: None,
-            }
+impl std::fmt::Display for AurHelper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Paru => write!(f, "paru"),
+            Self::Yay => write!(f, "yay"),
         }
     }
+}
 
-    pub fn to_paru_string(&self) -> String {
-        if let Some(version) = &self.version {
-            format!("{}={}", self.name, version)
-        } else {
-            self.name.clone()
+impl Default for GlobalConfig {
+    fn default() -> Self {
+        Self {
+            aur_helper: AurHelper::Paru,
+            other: std::collections::HashMap::new(),
         }
+    }
+}
+
+/// Host-specific configuration
+#[derive(Debug, Clone, Default)]
+pub struct HostConfig {
+    pub description: Option<String>,
+    pub modules: Vec<String>,
+    pub packages: Vec<String>,
+    pub exclude: Vec<String>,
+    pub conflicts: Vec<String>,
+}
+
+/// Module configuration
+#[derive(Debug, Clone, Default)]
+pub struct ModuleConfig {
+    pub description: Option<String>,
+    pub packages: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = GlobalConfig::default();
+        assert_eq!(config.aur_helper, AurHelper::Paru);
+    }
+
+    #[test]
+    fn test_aur_helper_display() {
+        assert_eq!(AurHelper::Paru.to_string(), "paru");
+        assert_eq!(AurHelper::Yay.to_string(), "yay");
     }
 }
