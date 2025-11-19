@@ -6,10 +6,12 @@
 Inspired by Nix workflow, built for the chaotic reality of Arch.
 </p>
 
+
 <p align="center">
-<img alt="License" src="[https://img.shields.io/badge/license-MIT-blue?style=flat-square](https://www.google.com/search?q=https://img.shields.io/badge/license-MIT-blue%3Fstyle%3Dflat-square)">
-<img alt="Status" src="[https://img.shields.io/badge/status-alpha-orange?style=flat-square](https://www.google.com/search?q=https://img.shields.io/badge/status-alpha-orange%3Fstyle%3Dflat-square)">
-<img alt="Language" src="[https://img.shields.io/badge/rust-1.75%2B-orange?style=flat-square](https://www.google.com/search?q=https://img.shields.io/badge/rust-1.75%252B-orange%3Fstyle%3Dflat-square)">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="Build" src="https://img.shields.io/badge/status-alpha-orange">
+  <img alt="Arch" src="https://img.shields.io/badge/arch-linux-blue">
+  <img alt="Rust" src="https://img.shields.io/badge/built_with-rust-orange">
 </p>
 
 -----
