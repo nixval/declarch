@@ -1,46 +1,48 @@
-# .github/workflows/release.yml
-
-# This is the name of the workflow as it will appear in the "Actions" tab
 name: Release
 
-# This controls when the workflow runs
 on:
   push:
-    # We only want this to run when we push a tag that starts with 'v'
-    # e.g., v0.1.1, v0.2.0, v1.0.0
     tags:
-      - 'v*.*.*'
+      - "v*" 
+
+permissions:
+  contents: write
 
 jobs:
-  build-release:
-    # The name of the job
-    name: Build & Release
-    # We will run this on the latest version of Ubuntu
+  build-and-release:
+    name: Build and Release
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out our repository's code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Install the Rust toolchain
-      - name: Install Rust
+      - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # Step 3: Build the release binary (optimized)
-      - name: Build binary
-        run: cargo build --release --locked
+      
+      - name: Build Binary
+        run: cargo build --release --locked --verbose
 
-      # Step 4: Create the release and upload the binary
-      # This 'action' is a community tool that handles
-      # creating the release and uploading assets in one step.
-      - name: Create Release and Upload Asset
-        uses: softprops/action-gh-release@v1
+     
+      - name: Strip Binary
+        run: strip target/release/declarch
+
+      - name: Package
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          ARCHIVE_NAME="declarch-$VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          
+          cd target/release
+          tar -czf "../../$ARCHIVE_NAME" declarch
+          
+          cd ../..
+          echo "ASSET_PATH=$ARCHIVE_NAME" >> $GITHUB_ENV
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          # This tells the action to upload the file located at
-          # 'target/release/declarch'
-          files: target/release/declarch
-        env:
-          # This token is automatically provided by GitHub
-          # so the action has permission to post to your repo.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: ${{ env.ASSET_PATH }}
+          generate_release_notes: true 
