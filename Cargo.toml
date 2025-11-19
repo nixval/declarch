@@ -1,6 +1,6 @@
 [package]
 name = "declarch"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [dependencies]
@@ -34,3 +34,9 @@ hostname = "0.4.1"
 directories = "6.0.0"
 which = "8.0.0"
 ctrlc = "3.5.1"
+
+[profile.release]
+lto = false
+codegen-units = 16
+opt-level = "s"
+strip = true
