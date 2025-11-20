@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(
     name = "declarch",
-    version = "0.2.0",
+    version = "0.2.2",
     about = "Declarative Arch packages manager",
     long_about = "A declarative package manager for Arch Linux, inspired by Nix workflow",
     next_line_help = false,
