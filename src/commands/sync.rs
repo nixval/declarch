@@ -90,7 +90,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // STEP 4: Execute
-    if !tx.to_install.is_empty() || (options.prune && !tx.to_prune.is_empty()) {
+    if !tx.to_install.is_empty() || !tx.to_adopt.is_empty() || (options.prune && !tx.to_prune.is_empty()) {
         if !options.yes {
             if !output::prompt_yes_no("Proceed with changes?") {
                 output::warning("Aborted by user.");

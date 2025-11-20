@@ -6,7 +6,6 @@ pub struct RawConfig {
     pub imports: Vec<String>,
     pub packages: Vec<String>,
     pub excludes: Vec<String>,
-    pub raw_flatpaks: Vec<String>,
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
@@ -17,7 +16,6 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         imports: vec![],
         packages: vec![],
         excludes: vec![],
-        raw_flatpaks: vec![],
     };
 
     for node in doc.nodes() {
@@ -67,7 +65,10 @@ fn extract_strings(node: &KdlNode, target: &mut Vec<String>) {
     }
     if let Some(children) = node.children() {
         for child in children.nodes() {
-             for entry in child.entries() {
+            let name = child.name().value();
+            target.push(name.to_string());
+
+            for entry in child.entries() {
                 if let Some(val) = entry.value().as_string() {
                     target.push(val.to_string());
                 }
