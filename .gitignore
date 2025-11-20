@@ -11,3 +11,4 @@ config.decl
 state.json
 package.sh
 deploy-aur.sh
+release-wizard.sh
