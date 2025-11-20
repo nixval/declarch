@@ -9,5 +9,5 @@ Cargo.lock
 
 config.decl
 state.json
-
+package.sh
 deploy-aur.sh
