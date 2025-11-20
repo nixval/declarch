@@ -8,7 +8,6 @@ arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')
 
-
 depends=('pacman' 'git')
 optdepends=(
   'paru: Recommended AUR helper'
@@ -16,11 +15,12 @@ optdepends=(
   'flatpak: For managing Flatpak applications'
 )
 
-
 provides=('declarch')
 conflicts=('declarch')
-source=("declarch-v\${pkgver}-\${CARCH}-unknown-linux-gnu.tar.gz::$url/releases/download/v\${pkgver}/declarch-v\${pkgver}-\${CARCH}-unknown-linux-gnu.tar.gz")
+
+source=("declarch-v${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz::${url}/releases/download/v${pkgver}/declarch-v${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz")
 sha256sums=('SKIP')
+
 package() {
   install -Dm755 "declarch" "$pkgdir/usr/bin/declarch"
   install -Dm644 "README.md" "$pkgdir/usr/share/doc/declarch/README.md"
