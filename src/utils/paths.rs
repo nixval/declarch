@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use crate::utils::errors::{DeclarchError, Result};
+use crate::error::{DeclarchError, Result};
 use directories::{UserDirs, ProjectDirs};
 
 pub fn expand_home(path: &Path) -> Result<PathBuf> {
@@ -31,7 +31,7 @@ pub fn config_dir() -> Result<PathBuf> {
 }
 
 pub fn config_file() -> Result<PathBuf> {
-    Ok(config_dir()?.join("declarch.decl"))
+    Ok(config_dir()?.join("declarch.kdl"))
 }
 
 pub fn hosts_dir() -> Result<PathBuf> {
@@ -43,9 +43,9 @@ pub fn modules_dir() -> Result<PathBuf> {
 }
 
 pub fn host_file(name: &str) -> Result<PathBuf> {
-    Ok(hosts_dir()?.join(format!("{}.decl", name)))
+    Ok(hosts_dir()?.join(format!("{}.kdl", name)))
 }
 
 pub fn module_file(name: &str) -> Result<PathBuf> {
-    Ok(modules_dir()?.join(format!("{}.decl", name)))
+    Ok(modules_dir()?.join(format!("{}.kdl", name)))
 }

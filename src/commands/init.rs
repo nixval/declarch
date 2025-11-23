@@ -1,5 +1,7 @@
-use crate::utils::{output, errors::Result, paths}; 
+use crate::utils::paths;
+use crate::error::Result;
 use crate::state;
+use crate::ui as output;
 use std::fs;
 use colored::Colorize;
 
@@ -38,7 +40,7 @@ pub fn run(options: InitOptions) -> Result<()> {
 
 // Import other module files (optional)
 // imports {{
-//     "modules/common.decl"
+//     "modules/common.kdl"
 // }}
 
 packages {{

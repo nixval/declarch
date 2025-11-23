@@ -1,12 +1,30 @@
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 use crate::config::kdl::parse_kdl_content;
-use crate::utils::errors::{DeclarchError, Result};
+use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
+use crate::core::types::PackageId;
+
 
 #[derive(Debug, Default)]
 pub struct MergedConfig {
-    pub packages: Vec<String>,
+
+    pub packages: HashMap<PackageId, Vec<PathBuf>>,
     pub excludes: Vec<String>,
+}
+
+impl MergedConfig {
+
+    pub fn get_unique_packages(&self) -> Vec<PackageId> {
+        self.packages.keys().cloned().collect()
+    }
+
+
+    pub fn get_duplicates(&self) -> Vec<(&PackageId, &Vec<PathBuf>)> {
+        self.packages.iter()
+            .filter(|(_, sources)| sources.len() > 1)
+            .collect()
+    }
 }
 
 pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
@@ -26,20 +44,36 @@ fn recursive_load(
     let abs_path = expand_home(path)
         .map_err(|e| DeclarchError::Other(format!("Path expansion error: {}", e)))?;
 
-    let canonical_path = std::fs::canonicalize(&abs_path)
-        .map_err(|_e| DeclarchError::ConfigNotFound { path: abs_path.clone() })?;
+
+    let path_with_ext = if !abs_path.exists() && abs_path.extension().is_none() {
+        abs_path.with_extension("kdl")
+    } else {
+        abs_path.clone()
+    };
+
+    let canonical_path = std::fs::canonicalize(&path_with_ext)
+        .map_err(|_e| DeclarchError::ConfigNotFound { path: path_with_ext.clone() })?;
 
     if visited.contains(&canonical_path) {
         return Ok(());
     }
     visited.insert(canonical_path.clone());
 
-    let content = std::fs::read_to_string(&canonical_path)
-        .map_err(|e| DeclarchError::FileReadError { path: canonical_path.clone(), reason: e.to_string() })?;
+    let content = std::fs::read_to_string(&canonical_path)?;
     
+    // Parsing KDL
     let raw = parse_kdl_content(&content)?;
 
-    merged.packages.extend(raw.packages);
+  
+    for pkg_str in raw.packages {
+ 
+        let pkg_id: PackageId = pkg_str.parse().map_err(|e| DeclarchError::ConfigError(e))?;
+        
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
     merged.excludes.extend(raw.excludes);
 
     let parent_dir = canonical_path.parent().unwrap();

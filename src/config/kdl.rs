@@ -1,5 +1,5 @@
 use kdl::{KdlDocument, KdlNode};
-use crate::utils::errors::{DeclarchError, Result};
+use crate::error::Result;
 
 #[derive(Debug, Clone)]
 pub struct RawConfig {
@@ -9,8 +9,7 @@ pub struct RawConfig {
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
-    let doc: KdlDocument = content.parse()
-        .map_err(|e: kdl::KdlError| DeclarchError::KdlParseError { reason: e.to_string() })?;
+    let doc: KdlDocument = content.parse()?;
 
     let mut config = RawConfig {
         imports: vec![],

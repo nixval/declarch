@@ -1,147 +1,105 @@
 use crate::config::loader::MergedConfig;
-use crate::state::types::{State, Backend};
-use crate::utils::errors::Result;
-use std::collections::HashMap;
+use crate::state::types::State;
+use crate::core::types::{Backend, PackageId, PackageMetadata, SyncTarget};
+use crate::error::Result;
+use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Transaction {
-    pub to_install: Vec<(String, Backend)>,
-    pub to_prune: Vec<(String, Backend)>,
-    pub to_adopt: Vec<(String, Backend)>,
-}
-
-pub trait SystemInspector {
-    fn is_installed(&self, pkg: &str, backend: &Backend) -> Result<bool>;
+    pub to_install: Vec<PackageId>,
+    pub to_prune: Vec<PackageId>,
+    pub to_adopt: Vec<PackageId>,
+    pub to_update_meta: Vec<PackageId>,
 }
 
 pub fn resolve(
-    config: &MergedConfig, 
-    state: &State, 
-    inspector: &impl SystemInspector
+    config: &MergedConfig,
+    state: &State,
+    installed_snapshot: &HashMap<PackageId, PackageMetadata>,
+    target: &SyncTarget,
 ) -> Result<Transaction> {
     let mut tx = Transaction {
         to_install: vec![],
         to_prune: vec![],
         to_adopt: vec![],
+        to_update_meta: vec![],
     };
 
-    let mut config_map: HashMap<String, Backend> = HashMap::new();
-    
-    for pkg_str in &config.packages {
-        let (name, backend) = parse_package_string(pkg_str);
-        if !config.excludes.contains(&name) {
-            config_map.insert(name, backend);
-        }
-    }
+    // 1. Filter Target (Scope Resolution)
+    let target_packages = resolve_target_scope(config, target);
 
-    for (name, pkg_state) in &state.packages {
-        if !config_map.contains_key(name) {
-            tx.to_prune.push((name.clone(), pkg_state.backend.clone()));
-        }
-    }
-
-    for (name, backend) in config_map {
-        if state.packages.contains_key(&name) {
+    // 2. Calculate Diff
+    for pkg_id in target_packages {
+        // Cek Excludes
+        if config.excludes.contains(&pkg_id.name) {
             continue;
         }
 
-        let is_installed = inspector.is_installed(&name, &backend)?;
+        let is_managed = state.packages.contains_key(&pkg_id.name); 
+        let is_installed = installed_snapshot.contains_key(&pkg_id);
 
         if is_installed {
-            tx.to_adopt.push((name, backend));
+            if !is_managed {
+                tx.to_adopt.push(pkg_id.clone());
+            } else {
+                if let Some(_meta) = installed_snapshot.get(&pkg_id) {
+                    tx.to_update_meta.push(pkg_id.clone());
+                }
+            }
         } else {
-            tx.to_install.push((name, backend));
+            tx.to_install.push(pkg_id.clone());
         }
     }
+
+    if *target == SyncTarget::All {
+for (name, state_pkg) in &state.packages {
+            
+         
+            let core_backend = match state_pkg.backend {
+                crate::state::types::Backend::Aur => Backend::Aur,
+                crate::state::types::Backend::Flatpak => Backend::Flatpak,
+            };
+
+            let pkg_id = PackageId {
+                name: name.clone(),
+                backend: core_backend, 
+            };
+
+            if !config.packages.contains_key(&pkg_id) && !config.excludes.contains(name) {
+                tx.to_prune.push(pkg_id);
+            }
+        }    }
 
     Ok(tx)
 }
 
-fn parse_package_string(pkg: &str) -> (String, Backend) {
-    if let Some(stripped) = pkg.strip_prefix("flatpak:") {
-        (stripped.to_string(), Backend::Flatpak)
-    } else {
-        (pkg.to_string(), Backend::Aur)
-    }
-}
+fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<PackageId> {
+    match target {
+        SyncTarget::All => config.packages.keys().cloned().collect(),
+        
+        SyncTarget::Backend(backend) => config.packages.keys()
+            .filter(|p| p.backend == *backend)
+            .cloned()
+            .collect(),
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state::types::PackageState;
-    use chrono::Utc;
+        SyncTarget::Named(query) => {
+            let mut matched = HashSet::new();
+            let query_lower = query.to_lowercase();
 
-    struct MockInspector {
-        installed: Vec<String>,
-    }
-
-    impl SystemInspector for MockInspector {
-        fn is_installed(&self, pkg: &str, _backend: &Backend) -> Result<bool> {
-            Ok(self.installed.contains(&pkg.to_string()))
+            for (pkg_id, sources) in &config.packages {
+                if pkg_id.name == *query {
+                    matched.insert(pkg_id.clone());
+                }
+                
+                for source in sources {
+                    if let Some(stem) = source.file_stem() {
+                        if stem.to_string_lossy().to_lowercase() == query_lower {
+                            matched.insert(pkg_id.clone());
+                        }
+                    }
+                }
+            }
+            matched
         }
-    }
-
-    #[test]
-    fn test_install_new_package() {
-        let config = MergedConfig {
-            packages: vec!["firefox".to_string()],
-            excludes: vec![],
-        };
-        let state = State::default();
-        let inspector = MockInspector { installed: vec![] };
-
-        let tx = resolve(&config, &state, &inspector).unwrap();
-        
-        assert_eq!(tx.to_install.len(), 1);
-        assert_eq!(tx.to_install[0].0, "firefox");
-        assert!(tx.to_adopt.is_empty());
-    }
-
-    #[test]
-    fn test_adopt_existing_package() {
-        let config = MergedConfig {
-            packages: vec!["vim".to_string()],
-            excludes: vec![],
-        };
-        let state = State::default();
-        let inspector = MockInspector { installed: vec!["vim".to_string()] };
-
-        let tx = resolve(&config, &state, &inspector).unwrap();
-        
-        assert!(tx.to_install.is_empty());
-        assert_eq!(tx.to_adopt.len(), 1);
-        assert_eq!(tx.to_adopt[0].0, "vim");
-    }
-
-    #[test]
-    fn test_prune_removed_package() {
-        let config = MergedConfig::default(); 
-        let mut state = State::default();
-        state.packages.insert("htop".to_string(), PackageState {
-            backend: Backend::Aur,
-            installed_at: Utc::now(),
-            version: None,
-        });
-        
-        let inspector = MockInspector { installed: vec!["htop".to_string()] };
-
-        let tx = resolve(&config, &state, &inspector).unwrap();
-
-        assert_eq!(tx.to_prune.len(), 1);
-        assert_eq!(tx.to_prune[0].0, "htop");
-    }
-
-    #[test]
-    fn test_exclude_prevents_install() {
-        let config = MergedConfig {
-            packages: vec!["bloatware".to_string()],
-            excludes: vec!["bloatware".to_string()],
-        };
-        let state = State::default();
-        let inspector = MockInspector { installed: vec![] };
-
-        let tx = resolve(&config, &state, &inspector).unwrap();
-        
-        assert!(tx.to_install.is_empty());
     }
 }

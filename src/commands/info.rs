@@ -1,10 +1,9 @@
-use crate::utils::{output, errors::Result};
+use crate::ui as output;
+use crate::error::Result;
 use crate::state;
-use crate::state::types::Backend;
 use colored::Colorize;
 
 pub fn run() -> Result<()> {
-    // Load State
     let state = state::io::load_state()?;
 
     output::header("System Status");
@@ -12,8 +11,10 @@ pub fn run() -> Result<()> {
     output::keyval("Last Sync", &state.meta.last_sync.format("%Y-%m-%d %H:%M:%S").to_string());
 
     let pkg_count = state.packages.len();
-    let aur_count = state.packages.values().filter(|p| p.backend == Backend::Aur).count();
-    let flatpak_count = state.packages.values().filter(|p| p.backend == Backend::Flatpak).count();
+    
+
+    let aur_count = state.packages.values().filter(|p| matches!(p.backend, crate::state::types::Backend::Aur)).count();
+    let flatpak_count = state.packages.values().filter(|p| matches!(p.backend, crate::state::types::Backend::Flatpak)).count();
 
     println!();
     output::tag("Total Managed", &pkg_count.to_string());
@@ -29,8 +30,8 @@ pub fn run() -> Result<()> {
 
         for (name, pkg_state) in sorted_packages {
             let backend_tag = match pkg_state.backend {
-                Backend::Aur => "aur".blue(),
-                Backend::Flatpak => "flt".green(),
+                crate::state::types::Backend::Aur => "aur".blue(),
+                crate::state::types::Backend::Flatpak => "flt".green(),
             };
             
             println!("  {} {} {}", 
