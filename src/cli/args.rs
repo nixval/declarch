@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "declarch",
     about = "Declarative Arch packages manager",
+    version,
     long_about = "A declarative package manager for Arch Linux, inspired by Nix workflow",
     next_line_help = false,
     term_width = 80

@@ -67,7 +67,7 @@ then just share it with your own dotfiles to anyone that using arch base distro
 Downloads the latest binary and sets up the environment.
 
 ```bash
-paru -S declarch
+paru -S declarch-bin
 ```
 or
 ```bash
