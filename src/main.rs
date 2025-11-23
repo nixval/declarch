@@ -13,7 +13,6 @@ fn main() {
 
     let args = Cli::parse();
 
-
     if let Err(e) = run(&args) {
         output::error(&format!("{}", e));
         exit(1);
@@ -35,13 +34,12 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 gc: *gc,
                 update: *update,
                 yes: args.global.yes,
+                force: args.global.force,
                 target: target.clone(),
                 noconfirm: *noconfirm,
-
             })
         }
         Some(Command::Check { verbose, duplicates }) => {
-
             let is_verbose = *verbose || args.global.verbose;
             commands::check::run(is_verbose, *duplicates)
         }

@@ -5,7 +5,15 @@ use std::collections::HashMap;
 use std::process::{Command, Stdio};
 use chrono::Utc;
 
-pub struct FlatpakManager;
+pub struct FlatpakManager {
+    pub noconfirm: bool,
+}
+
+impl FlatpakManager {
+    pub fn new(noconfirm: bool) -> Self {
+        Self { noconfirm }
+    }
+}
 
 impl PackageManager for FlatpakManager {
     fn backend_type(&self) -> Backend {
@@ -31,7 +39,6 @@ impl PackageManager for FlatpakManager {
         let mut installed = HashMap::new();
 
         for line in stdout.lines() {
-            
             let parts: Vec<&str> = line.split('\t').collect();
             if let Some(name) = parts.get(0) {
                 let version = parts.get(1).map(|&v| v.to_string());
@@ -39,7 +46,7 @@ impl PackageManager for FlatpakManager {
                 installed.insert(name.to_string(), PackageMetadata {
                     version,
                     installed_at: Utc::now(), 
-                    source_file: None, 
+                    source_file: None,
                 });
             }
         }
@@ -50,12 +57,14 @@ impl PackageManager for FlatpakManager {
     fn install(&self, packages: &[String]) -> Result<()> {
         if packages.is_empty() { return Ok(()); }
         
-        // Batch install
-        let status = Command::new("flatpak")
-            .arg("install")
-            .arg("--user")
-            .arg("-y") 
-            .arg("flathub")
+        let mut cmd = Command::new("flatpak");
+        cmd.arg("install").arg("--user").arg("flathub");
+
+        if self.noconfirm {
+            cmd.arg("-y");
+        }
+
+        let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
@@ -70,10 +79,14 @@ impl PackageManager for FlatpakManager {
     fn remove(&self, packages: &[String]) -> Result<()> {
         if packages.is_empty() { return Ok(()); }
 
-        let status = Command::new("flatpak")
-            .arg("uninstall")
-            .arg("--user")
-            .arg("-y")
+        let mut cmd = Command::new("flatpak");
+        cmd.arg("uninstall").arg("--user");
+
+        if self.noconfirm {
+            cmd.arg("-y");
+        }
+
+        let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())

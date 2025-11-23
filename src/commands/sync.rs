@@ -17,6 +17,7 @@ pub struct SyncOptions {
     pub gc: bool,
     pub update: bool,
     pub yes: bool,
+    pub force: bool,
     pub target: Option<String>,
     pub noconfirm: bool,
 }
@@ -24,7 +25,6 @@ pub struct SyncOptions {
 pub fn run(options: SyncOptions) -> Result<()> {
     output::header("Synchronizing Packages");
 
-    // 0. Determine Sync Target (Logic Baru)
     let sync_target = if let Some(t) = &options.target {
         match t.to_lowercase().as_str() {
             "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::Aur),
@@ -35,18 +35,26 @@ pub fn run(options: SyncOptions) -> Result<()> {
         SyncTarget::All
     };
 
-    if let SyncTarget::Named(ref s) = sync_target {
-        output::info(&format!("Targeting specific scope: {}", s.cyan()));
+    let is_partial_sync = !matches!(sync_target, SyncTarget::All);
+    
+    if is_partial_sync {
+        if let SyncTarget::Named(ref s) = sync_target {
+            output::info(&format!("Targeting specific scope: {}", s.cyan()));
+        }
+        
         if options.prune {
-            output::warning("Pruning is disabled when using --target for safety.");
+            if options.force {
+                output::warning("FORCE MODE: Pruning enabled despite partial sync target.");
+            } else {
+                output::warning("Pruning is disabled when using --target for safety.");
+                output::info("Use --force to override this safety check.");
+            }
         }
     }
 
-    // 1. System Update
     if options.update {
         output::info("Updating system...");
         if !options.dry_run {
-            // Detect helper
             let helper = if which::which("paru").is_ok() { "paru" } else { "yay" };
             let mut cmd = Command::new(helper);
             cmd.arg("-Syu");
@@ -57,16 +65,13 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    // 2. Load Managers & Batch Fetch Installed Packages
     output::info("Scanning system state...");
     let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
     let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
 
-    // Init Managers
-    managers.insert(Backend::Aur, Box::new(AurManager::new()));
-    managers.insert(Backend::Flatpak, Box::new(FlatpakManager));
+    managers.insert(Backend::Aur, Box::new(AurManager::new(options.noconfirm)));
+    managers.insert(Backend::Flatpak, Box::new(FlatpakManager::new(options.noconfirm)));
 
-    // Fetch Data
     for (backend, mgr) in &managers {
         if !mgr.is_available() { continue; }
         
@@ -77,26 +82,39 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    // 3. Load Config & State
-    let state = state::io::load_state()?;
+    let mut state = state::io::load_state()?;
     let config_path = paths::config_file()?;
     let config = loader::load_root_config(&config_path)?;
 
-    // 4. Resolve
+    let duplicates = config.get_duplicates();
+    if !duplicates.is_empty() {
+        println!("  ℹ {} duplicate packages merged automatically.", duplicates.len().to_string().yellow());
+    }
+
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
 
-    // 5. Preview
     output::separator();
     if !tx.to_install.is_empty() {
         println!("{}", "To Install:".green().bold());
         for pkg in &tx.to_install { println!("  + {}", pkg); }
     }
+    
+    if !tx.to_update_meta.is_empty() && options.dry_run {
+        println!("{}", "State Updates (Drift detected):".blue().bold());
+        for pkg in &tx.to_update_meta { 
+            if let Some(meta) = installed_snapshot.get(pkg) {
+                println!("  ~ {} (v{})", pkg, meta.version.as_deref().unwrap_or("?")); 
+            }
+        }
+    }
+
     if !tx.to_adopt.is_empty() {
         println!("{}", "To Adopt (Track in State):".yellow().bold());
         for pkg in &tx.to_adopt { println!("  ~ {}", pkg); }
     }
     
-    let should_prune = options.prune && matches!(sync_target, SyncTarget::All);
+    let allow_prune = matches!(sync_target, SyncTarget::All) || options.force;
+    let should_prune = options.prune && allow_prune;
     
     if !tx.to_prune.is_empty() {
         let header = if should_prune { "To Remove:".red().bold() } else { "To Remove (Skipped):".dimmed() };
@@ -107,32 +125,31 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    if tx.to_install.is_empty() && tx.to_adopt.is_empty() && (!should_prune || tx.to_prune.is_empty()) {
-        output::success("Nothing to do.");
+    if tx.to_install.is_empty() && tx.to_adopt.is_empty() && tx.to_update_meta.is_empty() && (!should_prune || tx.to_prune.is_empty()) {
+        output::success("System is in sync.");
         return Ok(());
     }
 
     if options.dry_run { return Ok(()); }
 
-    // 6. Execute
-    if !options.yes && !options.noconfirm {
+    let skip_prompt = options.yes || options.noconfirm || options.force;
+    
+    if !skip_prompt {
         if !output::prompt_yes_no("Proceed?") { return Err(DeclarchError::Interrupted); }
     }
 
-    // Grouping by backend for batch execution
     let mut installs: HashMap<Backend, Vec<String>> = HashMap::new();
-    for pkg in tx.to_install {
-        installs.entry(pkg.backend).or_default().push(pkg.name.clone());
+    for pkg in tx.to_install.iter() {
+        installs.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
     }
 
     let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
     if should_prune {
-        for pkg in tx.to_prune {
-            removes.entry(pkg.backend).or_default().push(pkg.name.clone());
+        for pkg in tx.to_prune.iter() {
+            removes.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
         }
     }
 
-    // Execute Installs
     for (backend, pkgs) in installs {
         if let Some(mgr) = managers.get(&backend) {
             output::info(&format!("Installing {} packages...", backend.to_string()));
@@ -140,7 +157,6 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    // Execute Removes
     for (backend, pkgs) in removes {
         if let Some(mgr) = managers.get(&backend) {
             output::info(&format!("Removing {} packages...", backend.to_string()));
@@ -148,17 +164,32 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    let mut new_state = state.clone();
-    
-    for pkg in tx.to_adopt {
-        new_state.packages.insert(pkg.name, PackageState { 
-            backend: match pkg.backend { Backend::Aur => StateBackend::Aur, Backend::Flatpak => StateBackend::Flatpak },
+    let mut to_upsert = tx.to_install.clone();
+    to_upsert.extend(tx.to_adopt.clone());
+    to_upsert.extend(tx.to_update_meta.clone());
+
+    for pkg in to_upsert {
+        let version = installed_snapshot.get(&pkg).and_then(|m| m.version.clone());
+        
+        state.packages.insert(pkg.name, PackageState { 
+            backend: match pkg.backend {
+                Backend::Aur => StateBackend::Aur,
+                Backend::Flatpak => StateBackend::Flatpak,
+            },
             installed_at: Utc::now(),
-            version: None 
+            version,
         });
     }
 
-    state::io::save_state(&new_state)?;
+    if should_prune {
+        for pkg in tx.to_prune {
+            state.packages.remove(&pkg.name);
+        }
+    }
+
+    state.meta.last_sync = Utc::now();
+    state::io::save_state(&state)?;
+    
     output::success("Sync complete!");
 
     Ok(())

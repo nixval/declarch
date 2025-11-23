@@ -6,20 +6,24 @@ use std::process::{Command, Stdio};
 use chrono::Utc;
 
 pub struct AurManager {
-    pub helper_cmd: String, 
+    pub helper_cmd: String,
+    pub noconfirm: bool,
 }
 
 impl AurManager {
-    pub fn new() -> Self {
+    pub fn new(noconfirm: bool) -> Self {
         let helper = if which::which("paru").is_ok() {
             "paru"
         } else if which::which("yay").is_ok() {
             "yay"
         } else {
-            "paru" 
+            "paru"
         }.to_string();
 
-        Self { helper_cmd: helper }
+        Self { 
+            helper_cmd: helper,
+            noconfirm 
+        }
     }
 }
 
@@ -65,11 +69,14 @@ impl PackageManager for AurManager {
     fn install(&self, packages: &[String]) -> Result<()> {
         if packages.is_empty() { return Ok(()); }
         
- 
-        let status = Command::new(&self.helper_cmd)
-            .arg("-S")
-            .arg("--needed")
-            .arg("--noconfirm") 
+        let mut cmd = Command::new(&self.helper_cmd);
+        cmd.arg("-S").arg("--needed");
+
+        if self.noconfirm {
+            cmd.arg("--noconfirm");
+        }
+
+        let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
@@ -84,10 +91,14 @@ impl PackageManager for AurManager {
     fn remove(&self, packages: &[String]) -> Result<()> {
         if packages.is_empty() { return Ok(()); }
 
-        let status = Command::new("sudo")
-            .arg("pacman")
-            .arg("-Rns")
-            .arg("--noconfirm")
+        let mut cmd = Command::new("sudo");
+        cmd.arg("pacman").arg("-Rns");
+
+        if self.noconfirm {
+            cmd.arg("--noconfirm");
+        }
+
+        let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())

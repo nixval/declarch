@@ -41,35 +41,44 @@ then just share it with your own dotfiles to anyone that using arch base distro
 
 **declarch** imposes a **Declarative Layer** on top of Pacman/AUR without replacing them.
 
-1.  **Intent vs. State:** You declare *what* you want in a `.decl` file. `declarch` ensures your system matches that state.
-2.  **Adoption, Not Reinstallation:** If you declare `vim` and it's already installed manually, `declarch` simply "adopts" it into its state file. It won't waste bandwidth reinstalling it.
-3.  **Safe Pruning:** Unlike NixOS which might wipe your system, `declarch` only removes packages that it *knows* it manages. It tracks history in `~/.local/state/declarch/state.json`.
+1.  **Intent vs. State:** You declare *what* you want in a `.kdl` file. `declarch` ensures your system matches that state.
+2.  **Adoption, Not Reinstallation:** If you declare `vim` and it's already installed manually, `declarch` simply "adopts" it into its state file.
+3.  **Performance:** Uses smart batching to check hundreds of packages instantly.
+4.  **Safe Pruning:** Only removes packages that it *knows* it manages.
 
 -----
 
 ## ✨ Key Features
 
-  * **Declarative Config:** Use the clean, readable **KDL** syntax (no indentation hell like YAML).
-  * **Recursive Imports:** Structure your config however you want. Import a module from a subdirectory, or import a file directly from another dotfiles folder (e.g., `import "~/.config/hypr/hyprland.decl"`).
-  * **Multi-Backend:** Supports **Repo (Pacman)**, **AUR (Paru/Yay)**, and **Flatpak** seamlessly.
+  * **Declarative Config:** Uses the clean, readable **KDL** syntax (`.kdl`).
+  * **Recursive Imports:** Structure your config cleanly (e.g., `import "modules/gaming"`).
+  * **Multi-Backend:** Supports **Repo (Pacman)**, **AUR (Paru/Yay)**, and **Flatpak**.
+  * **Partial Sync:** Sync only specific modules or packages with `--target`.
   * **Smart Sync:**
       * **Install:** Missing packages.
       * **Adopt:** Existing packages (zero-cost).
       * **Prune:** Packages removed from config (optional strict mode).
-  * **Garbage Collection:** Integrated `pacman -Qdtq` cleaning.
+  * **Drift Detection:** Detects if package versions in system differ from state.
 
 -----
 
 ## 🚀 Installation
-
-### Option 1: Install Script (Recommended)
-
-Downloads the latest binary and sets up the environment.
+### Option 1: Install from AUR
 
 ```bash
 paru -S declarch-bin
 ```
-or
+
+or compile manually
+
+```bash 
+paru -S declarch
+```
+
+### Option 2: Install Script
+
+Downloads the latest binary and sets up the environment.
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | bash
 ```
@@ -96,19 +105,17 @@ declarch init
 
 This creates a default `declarch.decl` entry point.
 
-### Anatomy of `declarch.decl`
+### Anatomy of `declarch.kdl`
 
 The syntax uses **KDL**. Quotes are optional for simple names.
 
 ```kdl
-// ~/.config/declarch/declarch.decl
+// ~/.config/declarch/declarch.kdl
 
 // 1. Imports: Load other declarative files
-// You can point to local folders or absolute paths in your dotfiles
 imports {
-    "modules/core.decl"
-    "modules/gaming.decl"
-    "~/.config/hypr/hyprland-packages.decl"
+    "modules/core.kdl"
+    "modules/dev.kdl"
 }
 
 // 2. Packages: Define what you want installed
@@ -117,10 +124,10 @@ packages {
     git
     neovim
     zsh
-    visual-studio-code-bin
     
-    // Flatpak packages (use prefix)
+    // Flatpak packages (use prefix) **make sure no space type**
     flatpak:com.obsproject.Studio
+    flatpak:spotify
 }
 
 // 3. Excludes: Block specific packages even if imported by modules
@@ -136,33 +143,41 @@ excludes {
 The workflow is simple: **Edit** -\> **Sync**.
 
 ### 1\. The Magic Command
-
-Update your system, sync packages, prune removed ones, and clean orphans in one go:
-
+Update system, sync packages, and remove unlisted ones:
 ```bash
-declarch sync -u --prune --gc
+declarch sync -u --prune
 ```
 
-### 2\. Command Reference
+### 2\. Targeted Sync (Partial)
+Only sync packages related to "gaming" (matches module filename or package name):
+```bash
+declarch sync --target gaming
+```
+*Note: Pruning is automatically disabled in targeted mode for safety.*
 
+### 3\. CI/CD / Automation
+Run without confirmation prompts:
+```bash
+declarch sync --noconfirm
+```
+
+### 4\. Command Reference
 | Command | Description |
 | :--- | :--- |
-| `declarch init` | Create initial configuration files. |
-| `declarch check` | Validate syntax and import paths without running. |
-| `declarch info` | Show managed packages and last sync status. |
+| `declarch init` | Create initial configuration. |
+| `declarch check` | Validate syntax and check for duplicates. |
+| `declarch info` | Show managed packages and stats. |
 | `declarch sync` | The main workhorse. See flags below. |
 
-### 3\. Sync Flags
-
+### Sync Flags
 | Flag | Description |
 | :--- | :--- |
 | `-u` / `--update` | Run `paru -Syu` before syncing. |
 | `--dry-run` | Preview changes without doing anything. |
-| `--prune` | **Strict Mode.** Remove managed packages that are no longer in the config. |
-| `--gc` | Garbage collect system orphans (dependencies no longer needed). |
-| `-y` / `--yes` | Skip confirmation prompts (useful for scripts). |
-
------
+| `--prune` | **Strict Mode.** Remove managed packages not in config. |
+| `--target <NAME>` | Sync only specific package or module scope. |
+| `--noconfirm` | Skip package manager prompts (CI/CD). |
+| `-f` / `--force` | Force operations (bypass safety checks). |
 
 ## 💡 Why KDL?
 
@@ -178,7 +193,7 @@ We chose [KDL](https://kdl.dev/) because it's designed for configuration, not da
 
 `declarch` keeps its state in `~/.local/state/declarch/state.json`.
 
-  * If you delete a package from your `.decl` file, `declarch` will **NOT** remove it from your system unless you run `sync --prune`.
+  * If you delete a package from your `.kdl` file, `declarch` will **NOT** remove it from your system unless you run `sync --prune`.
   * It automatically creates a backup of the state file before every write operation.
 
 -----
