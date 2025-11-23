@@ -28,7 +28,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 force: args.global.force,
             })
         }
-        Some(Command::Sync { dry_run, prune, gc, update, target, noconfirm, only_aur, only_flatpak }) => {
+        Some(Command::Sync { dry_run, prune, gc, update, target, noconfirm }) => {
             commands::sync::run(commands::sync::SyncOptions {
                 dry_run: *dry_run,
                 prune: *prune,
@@ -37,8 +37,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 yes: args.global.yes,
                 target: target.clone(),
                 noconfirm: *noconfirm,
-                only_aur: *only_aur,
-                only_flatpak: *only_flatpak,
+
             })
         }
         Some(Command::Check { verbose, duplicates }) => {

@@ -19,20 +19,18 @@ pub struct SyncOptions {
     pub yes: bool,
     pub target: Option<String>,
     pub noconfirm: bool,
-    pub only_aur: bool,
-    pub only_flatpak: bool,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
     output::header("Synchronizing Packages");
 
-    // 0. Determine Sync Target
+    // 0. Determine Sync Target (Logic Baru)
     let sync_target = if let Some(t) = &options.target {
-        SyncTarget::Named(t.clone())
-    } else if options.only_aur {
-        SyncTarget::Backend(Backend::Aur)
-    } else if options.only_flatpak {
-        SyncTarget::Backend(Backend::Flatpak)
+        match t.to_lowercase().as_str() {
+            "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::Aur),
+            "flatpak" => SyncTarget::Backend(Backend::Flatpak),
+            _ => SyncTarget::Named(t.clone()),
+        }
     } else {
         SyncTarget::All
     };
