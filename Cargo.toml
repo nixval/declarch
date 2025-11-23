@@ -1,6 +1,6 @@
 [package]
 name = "declarch"
-version = "0.2.5"
+version = "3.0.0"
 edition = "2024"
 
 [dependencies]
@@ -17,26 +17,28 @@ serde_json = "1.0.145"
 # Error handling
 thiserror = "2.0.17"
 
-# Home directory detection
-dirs = "6.0.0"
-
-# Colored output
-colored = "3.0.0"
-
 # Date/time (with serde support)
 chrono = { version = "0.4", features = ["serde"] }
 
-# Better error messages
-miette = { version = "7.6.0", features = ["fancy"] }
-
-# Hostname detection
+# System path info and host detection
 hostname = "0.4.1"
 directories = "6.0.0"
 which = "8.0.0"
+
+# UX / UI
 ctrlc = "3.5.1"
+colored = "3.0.0"
+
 
 [profile.release]
 lto = false
 codegen-units = 16
 opt-level = "s"
 strip = true
+
+# Development dependencies (only for testing/benchmarking)
+[dev-dependencies]
+tempfile = "3.23.0"
+assert_cmd = "2.1.1"
+predicates = "3.1.3"
+
