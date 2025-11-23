@@ -1,7 +1,7 @@
 # Maintainer: Nico Valianto Kusuma <YOUR_EMAIL@gmail.com>
 
 pkgname=declarch
-pkgver=0.2.5
+pkgver=3.0.0
 pkgrel=1
 pkgdesc="A declarative package management for Arch base Linux, inspired by Nix workflow."
 arch=('x86_64')

@@ -1,7 +1,7 @@
 # Maintainer: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch-bin
-pkgver=0.2.5
+pkgver=3.0.0
 pkgrel=1
 pkgdesc="A declarative package manager for Arch Linux (Binary Release)"
 arch=('x86_64')
