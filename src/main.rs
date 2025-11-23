@@ -46,6 +46,9 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         Some(Command::Info) => {
             commands::info::run()
         }
+        Some(Command::Completions { shell }) => {
+            commands::completions::run(*shell)
+        }
         None => {
             output::info("No command provided. Use --help.");
             Ok(())
