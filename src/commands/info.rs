@@ -12,7 +12,7 @@ pub fn run() -> Result<()> {
 
     let pkg_count = state.packages.len();
     
-
+    // Count logic needs to parse the new Keys or iterate values
     let aur_count = state.packages.values().filter(|p| matches!(p.backend, crate::state::types::Backend::Aur)).count();
     let flatpak_count = state.packages.values().filter(|p| matches!(p.backend, crate::state::types::Backend::Flatpak)).count();
 
@@ -25,20 +25,34 @@ pub fn run() -> Result<()> {
         output::separator();
         println!("{}", "Managed Packages:".bold());
         
+        // Sort by name (need to extract name from key "backend:name")
         let mut sorted_packages: Vec<_> = state.packages.iter().collect();
-        sorted_packages.sort_by_key(|(name, _)| *name);
+        sorted_packages.sort_by(|(k1, _), (k2, _)| {
+             let n1 = k1.split_once(':').map(|(_,n)| n).unwrap_or(k1);
+             let n2 = k2.split_once(':').map(|(_,n)| n).unwrap_or(k2);
+             n1.cmp(n2)
+        });
 
-        for (name, pkg_state) in sorted_packages {
-            let backend_tag = match pkg_state.backend {
-                crate::state::types::Backend::Aur => "aur".blue(),
-                crate::state::types::Backend::Flatpak => "flt".green(),
+        for (key, pkg_state) in sorted_packages {
+            // Extract pure name for display
+            let name = key.split_once(':').map(|(_,n)| n).unwrap_or(key);
+
+            match pkg_state.backend {
+                crate::state::types::Backend::Aur => {
+                    // Requested: Remove 'aur' prefix/tag for native packages
+                    println!("  {} {}", 
+                        "→".dimmed(), 
+                        name
+                    );
+                },
+                crate::state::types::Backend::Flatpak => {
+                    println!("  {} {} {}", 
+                        "flt".green(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
             };
-            
-            println!("  {} {} {}", 
-                backend_tag,
-                "→".dimmed(),
-                name
-            );
         }
     }
 

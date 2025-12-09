@@ -1,6 +1,5 @@
 /target/
 **/*.rs.bk
-Cargo.lock
 
 .vscode/
 .idea/
@@ -12,3 +11,11 @@ state.json
 package.sh
 deploy-aur.sh
 release-wizard.sh
+*.log
+
+declarch-*.tar.gz
+declarch-*.zip
+package.sh
+deploy-aur.sh
+release-wizard.sh
+repomix-output.xml

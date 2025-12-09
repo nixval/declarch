@@ -1,0 +1,23 @@
+// declarch configuration
+// Created for host: Arch
+
+// Import other module files (optional)
+// imports {
+//     "modules/common.kdl"
+// }
+
+packages {
+    // Add packages here
+    sudo
+    ffmpeg
+    rofi-wayland
+    gdu
+    base-devel
+    // gcc-libs
+    lib32-gcc-libs
+    // flatpak:obsidian
+}
+
+excludes {
+    // Add packages to exclude
+}

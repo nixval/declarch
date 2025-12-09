@@ -5,6 +5,8 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
     pub meta: StateMeta,
+    // Key format is now explicit: "backend_type:package_name"
+    // Example: "aur:firefox" or "flatpak:com.spotify.Client"
     pub packages: HashMap<String, PackageState>,
 }
 
@@ -18,7 +20,7 @@ pub struct StateMeta {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Backend {
-    Aur,     // Handles both repo & AUR via paru/yay
+    Aur,     
     Flatpak,
 }
 
@@ -26,7 +28,6 @@ pub enum Backend {
 pub struct PackageState {
     pub backend: Backend,
     pub installed_at: DateTime<Utc>,
-   
     pub version: Option<String>, 
 }
 
@@ -34,7 +35,8 @@ impl Default for State {
     fn default() -> Self {
         Self {
             meta: StateMeta {
-                schema_version: 1,
+                // Bumped schema version to indicate breaking change if needed in future migrations
+                schema_version: 2, 
                 last_sync: Utc::now(),
                 hostname: "unknown".to_string(),
             },

@@ -11,15 +11,8 @@ pub struct AurManager {
 }
 
 impl AurManager {
-    pub fn new(noconfirm: bool) -> Self {
-        let helper = if which::which("paru").is_ok() {
-            "paru"
-        } else if which::which("yay").is_ok() {
-            "yay"
-        } else {
-            "paru"
-        }.to_string();
-
+    // Now accepts the specific helper command string from config/cli
+    pub fn new(helper: String, noconfirm: bool) -> Self {
         Self { 
             helper_cmd: helper,
             noconfirm 
@@ -33,6 +26,7 @@ impl PackageManager for AurManager {
     }
 
     fn list_installed(&self) -> Result<HashMap<String, PackageMetadata>> {
+        // We use pacman -Q for speed. It covers both Repo and AUR.
         let output = Command::new("pacman")
             .arg("-Q")
             .output()
@@ -76,6 +70,7 @@ impl PackageManager for AurManager {
             cmd.arg("--noconfirm");
         }
 
+        // Pass packages to the command
         let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
@@ -111,6 +106,6 @@ impl PackageManager for AurManager {
     }
 
     fn is_available(&self) -> bool {
-        which::which("pacman").is_ok()
+        which::which(&self.helper_cmd).is_ok()
     }
 }

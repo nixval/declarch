@@ -22,9 +22,19 @@ pub struct SyncOptions {
     pub noconfirm: bool,
 }
 
+// --- SAFETY NET ---
+const CRITICAL_PACKAGES: &[&str] = &[
+    "linux", "linux-zen", "linux-lts", "linux-hardened",
+    "linux-firmware", "intel-ucode", "amd-ucode",
+    "base", "base-devel", "systemd", "systemd-libs",
+    "glibc", "gcc-libs", "sudo", "openssl",
+    "pacman", "paru", "yay", "git", "declarch", "declarch-bin"
+];
+
 pub fn run(options: SyncOptions) -> Result<()> {
     output::header("Synchronizing Packages");
 
+    // 1. Target Resolution
     let sync_target = if let Some(t) = &options.target {
         match t.to_lowercase().as_str() {
             "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::Aur),
@@ -35,28 +45,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
         SyncTarget::All
     };
 
-    let is_partial_sync = !matches!(sync_target, SyncTarget::All);
+    // 2. Load Config
+    let config_path = paths::config_file()?;
+    let config = loader::load_root_config(&config_path)?;
     
-    if is_partial_sync {
-        if let SyncTarget::Named(ref s) = sync_target {
-            output::info(&format!("Targeting specific scope: {}", s.cyan()));
-        }
-        
-        if options.prune {
-            if options.force {
-                output::warning("FORCE MODE: Pruning enabled despite partial sync target.");
-            } else {
-                output::warning("Pruning is disabled when using --target for safety.");
-                output::info("Use --force to override this safety check.");
-            }
-        }
-    }
+    // 3. System Update
+    let global_config = crate::config::types::GlobalConfig::default(); 
+    let aur_helper = global_config.aur_helper.to_string();
 
     if options.update {
         output::info("Updating system...");
         if !options.dry_run {
-            let helper = if which::which("paru").is_ok() { "paru" } else { "yay" };
-            let mut cmd = Command::new(helper);
+            let mut cmd = Command::new(&aur_helper);
             cmd.arg("-Syu");
             if options.yes || options.noconfirm { cmd.arg("--noconfirm"); }
             
@@ -65,15 +65,21 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
+    // 4. Initialize Managers & Snapshot
     output::info("Scanning system state...");
     let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
     let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
 
-    managers.insert(Backend::Aur, Box::new(AurManager::new(options.noconfirm)));
+    managers.insert(Backend::Aur, Box::new(AurManager::new(aur_helper, options.noconfirm)));
     managers.insert(Backend::Flatpak, Box::new(FlatpakManager::new(options.noconfirm)));
 
     for (backend, mgr) in &managers {
-        if !mgr.is_available() { continue; }
+        if !mgr.is_available() {
+            if matches!(sync_target, SyncTarget::Backend(ref b) if b == backend) {
+                 output::warning(&format!("Backend '{}' is not available on this system.", backend));
+            }
+            continue; 
+        }
         
         let packages = mgr.list_installed()?;
         for (name, meta) in packages {
@@ -82,17 +88,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
+    // 5. Load State & Resolve
     let mut state = state::io::load_state()?;
-    let config_path = paths::config_file()?;
-    let config = loader::load_root_config(&config_path)?;
-
-    let duplicates = config.get_duplicates();
-    if !duplicates.is_empty() {
-        println!("  ℹ {} duplicate packages merged automatically.", duplicates.len().to_string().yellow());
-    }
-
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
 
+    // 6. Display Plan
     output::separator();
     if !tx.to_install.is_empty() {
         println!("{}", "To Install:".green().bold());
@@ -102,9 +102,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
     if !tx.to_update_meta.is_empty() && options.dry_run {
         println!("{}", "State Updates (Drift detected):".blue().bold());
         for pkg in &tx.to_update_meta { 
-            if let Some(meta) = installed_snapshot.get(pkg) {
-                println!("  ~ {} (v{})", pkg, meta.version.as_deref().unwrap_or("?")); 
-            }
+             let v_display = installed_snapshot.get(pkg)
+                .map(|m| m.version.as_deref().unwrap_or("?"))
+                .unwrap_or("smart-match");
+            println!("  ~ {} (v{})", pkg, v_display); 
         }
     }
 
@@ -119,9 +120,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
     if !tx.to_prune.is_empty() {
         let header = if should_prune { "To Remove:".red().bold() } else { "To Remove (Skipped):".dimmed() };
         println!("{}", header);
-        for pkg in &tx.to_prune { 
-            if should_prune { println!("  - {}", pkg); } 
-            else { println!("  - {}", pkg.to_string().dimmed()); }
+        for pkg in &tx.to_prune {
+            let is_critical = CRITICAL_PACKAGES.contains(&pkg.name.as_str());
+            
+            if should_prune { 
+                if is_critical {
+                     println!("  - {} {}", pkg.to_string().yellow(), "(Protected - Detaching from State)".italic());
+                } else {
+                     println!("  - {}", pkg); 
+                }
+            } else { 
+                println!("  - {}", pkg.to_string().dimmed()); 
+            }
         }
     }
 
@@ -132,22 +142,16 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     if options.dry_run { return Ok(()); }
 
+    // 7. Execution
     let skip_prompt = options.yes || options.noconfirm || options.force;
-    
     if !skip_prompt {
         if !output::prompt_yes_no("Proceed?") { return Err(DeclarchError::Interrupted); }
     }
 
+    // -- INSTALLATION --
     let mut installs: HashMap<Backend, Vec<String>> = HashMap::new();
     for pkg in tx.to_install.iter() {
         installs.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
-    }
-
-    let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
-    if should_prune {
-        for pkg in tx.to_prune.iter() {
-            removes.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
-        }
     }
 
     for (backend, pkgs) in installs {
@@ -157,33 +161,93 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    for (backend, pkgs) in removes {
-        if let Some(mgr) = managers.get(&backend) {
-            output::info(&format!("Removing {} packages...", backend.to_string()));
-            mgr.remove(&pkgs)?;
+    // -- REFRESH SNAPSHOT --
+    if !tx.to_install.is_empty() {
+        output::info("Refreshing package state...");
+        for (backend, mgr) in &managers {
+            if !mgr.is_available() { continue; }
+            let packages = mgr.list_installed()?;
+            for (name, meta) in packages {
+                let id = PackageId { name, backend: backend.clone() };
+                installed_snapshot.insert(id, meta);
+            }
         }
     }
 
+    // -- REMOVAL --
+    if should_prune {
+        let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
+        
+        for pkg in tx.to_prune.iter() {
+            // SAFETY NET CHECK
+            if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) {
+                // Skip adding to removal list, so we don't call pacman -R
+                continue;
+            }
+            removes.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
+        }
+
+        for (backend, pkgs) in removes {
+            if !pkgs.is_empty() {
+                 if let Some(mgr) = managers.get(&backend) {
+                    output::info(&format!("Removing {} packages...", backend.to_string()));
+                    mgr.remove(&pkgs)?;
+                }
+            }
+        }
+    }
+
+    // 8. Update State
     let mut to_upsert = tx.to_install.clone();
     to_upsert.extend(tx.to_adopt.clone());
     to_upsert.extend(tx.to_update_meta.clone());
 
     for pkg in to_upsert {
-        let version = installed_snapshot.get(&pkg).and_then(|m| m.version.clone());
+        let mut meta = installed_snapshot.get(&pkg);
         
-        state.packages.insert(pkg.name, PackageState { 
+        // Smart Matching Reverse Lookup for Key Stability
+        if meta.is_none() && pkg.backend == Backend::Aur {
+             // Suffix Check
+            let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+             for suffix in suffixes {
+                let alt_name = format!("{}{}", pkg.name, suffix);
+                let alt_id = PackageId { name: alt_name, backend: Backend::Aur };
+                if let Some(m) = installed_snapshot.get(&alt_id) {
+                    meta = Some(m);
+                    break;
+                }
+            }
+            // Prefix Check
+            if meta.is_none() {
+                if let Some((prefix, _)) = pkg.name.split_once('-') {
+                     let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
+                     if let Some(m) = installed_snapshot.get(&alt_id) {
+                         meta = Some(m);
+                     }
+                }
+            }
+        }
+
+        let version = meta.and_then(|m| m.version.clone());
+        let key = format!("{}:{}", pkg.backend, pkg.name);
+        
+        state.packages.insert(key, PackageState { 
             backend: match pkg.backend {
                 Backend::Aur => StateBackend::Aur,
                 Backend::Flatpak => StateBackend::Flatpak,
             },
             installed_at: Utc::now(),
-            version,
+            version, 
         });
     }
 
+    // PRUNE FROM STATE
+    // This logic runs for ALL items in to_prune, including Critical ones.
+    // This creates the "Ghost" behavior (Detached from state, but kept on system).
     if should_prune {
         for pkg in tx.to_prune {
-            state.packages.remove(&pkg.name);
+            let key = format!("{}:{}", pkg.backend, pkg.name);
+            state.packages.remove(&key);
         }
     }
 
