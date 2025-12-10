@@ -5,6 +5,7 @@
 .idea/
 *.swp
 .DS_Store
+.dev/
 
 config.decl
 state.json
