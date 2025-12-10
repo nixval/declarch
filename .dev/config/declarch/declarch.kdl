@@ -1,26 +1,16 @@
-// declarch configuration
-// Created for host: Arch
+// Host configuration for Arch
+description "My Arch setup"
 
-// Import other module files (optional)
 // imports {
-    "modules/hyprland.kdl"
-//     "modules/common.kdl"
+    "modules/try1.kdl"
+//     "modules/base.kdl"
 // }
 
 packages {
     // Add packages here
-    // sudo
-    ffmpeg
-    rofi-wayland
-    gdu
-    // base-devel
-    onefetch
-    // gcc-libs
-    lib32-gcc-libs
-    // flatpak:md.obsidian.Obsidian
-    // flatpak:obsidian
-    // obsidian
-    hyprland
+    // git
+    // vim
+    // flatpak:org.mozilla.firefox
 }
 
 excludes {

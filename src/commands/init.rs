@@ -1,4 +1,4 @@
-use crate::utils::{self, paths};
+use crate::utils::{self, paths, remote};
 use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
@@ -88,22 +88,41 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     }
 
     // 3. Select Template
-    let slug = full_path.file_stem()
+ let slug = full_path.file_stem()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
 
-    let content = utils::templates::get_template_by_name(&slug)
-        .unwrap_or_else(|| utils::templates::default_module(&slug));
+    output::info(&format!("Resolving module '{}'...", slug.cyan()));
+
+    // STRATEGY A: Hardcoded Template (Fastest, Offline)
+    let content = if let Some(local_tmpl) = utils::templates::get_template_by_name(&slug) {
+        output::success("Using built-in template.");
+        local_tmpl
+    } 
+    // STRATEGY B: Remote Registry (The "Marketplace")
+    else {
+        output::info("Fetching from community registry...");
+        match remote::fetch_module_content(&slug) {
+            Ok(remote_content) => {
+                output::success("Module downloaded successfully.");
+                remote_content
+            },
+            Err(e) => {
+                output::warning(&format!("Remote fetch failed: {}", e));
+                output::info("Falling back to generic empty module.");
+                utils::templates::default_module(&slug)
+            }
+        }
+    };
 
     // 4. Write File
     fs::write(&full_path, &content)?;
     output::success(&format!("Created module: {}", full_path.display()));
 
-    // 5. AUTO INJECT IMPORT (Active Automation)
+    // 5. AUTO INJECT IMPORT 
     let root_config_path = paths::config_file()?;
     if root_config_path.exists() {
-        // Normalize path separators to forward slash for KDL consistency
         let import_path = path_buf.to_string_lossy().replace("\\", "/");
         inject_import_to_root(&root_config_path, &import_path)?;
     }

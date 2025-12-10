@@ -12,9 +12,9 @@ pub fn default_host(hostname: &str) -> String {
         r#"// Host configuration for {}
 description "My {} setup"
 
-// imports {{
-//     "modules/base.kdl"
-// }}
+imports {{
+     "modules/base.kdl"
+}}
 
 packages {{
     // Add packages here
@@ -50,63 +50,11 @@ packages {{
 /// Contributors can add new recipes here!
 pub fn get_template_by_name(name: &str) -> Option<String> {
     match name.to_lowercase().as_str() {
-        "hyprland" => Some(r#"// Hyprland Desktop Environment
-// Maintainer: Declarch Community
-
-packages {
-    // Core
-    hyprland
-    hyprlock
-    hypridle
-    hyprpaper
-    xdg-desktop-portal-hyprland
-    
-    // UI/UX
-    waybar
-    rofi-wayland
-    dunst
-    kitty
-    
-    // Qt/GTK Theming
-    qt5-wayland
-    qt6-wayland
-    nwg-look
-}
-"#.to_string()),
-
-        "gaming" => Some(r#"// Gaming Suite
-// Maintainer: Declarch Community
-
-packages {
-    steam
-    gamemode
-    mangohud
-    lutris
-    
-    // Wine dependencies
-    wine
-    winetricks
-    
-    // Common libs
-    lib32-mesa
-    lib32-gcc-libs
-    lib32-glibc
-}
-"#.to_string()),
-
         "dev" => Some(r#"// Developer Tools
 // Maintainer: Declarch Community
 
 packages {
-    git
-    base-devel
-    neovim
-    lazygit
-    ripgrep
-    fd
-    eza
-    bat
-    jq
+    mise
 }
 "#.to_string()),
 
