@@ -10,7 +10,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
-// --- SAFETY NET EXPANDED (The Doomsday List) ---
+// --- SAFETY NET (Static Doomsday List) ---
 const CRITICAL_PACKAGES: &[&str] = &[
     "linux", "linux-lts", "linux-zen", "linux-hardened", 
     "linux-api-headers", "linux-firmware", 
@@ -103,22 +103,14 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let mut state = state::io::load_state()?;
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
 
-    // --- SMART PARTIAL UPGRADE CHECK ---
-    // Only warn if:
-    // 1. We are installing new things
-    // 2. We are NOT updating in this run
-    // 3. Last update was > 24 hours ago (or never)
+    // --- WARNINGS ---
     if !options.update && !tx.to_install.is_empty() {
         let should_warn = match state.meta.last_update {
-            Some(last) => {
-                let hours = Utc::now().signed_duration_since(last).num_hours();
-                hours > 24 
-            },
-            None => true, // Warn if we have no record of update
+            Some(last) => Utc::now().signed_duration_since(last).num_hours() > 24,
+            None => true,
         };
 
         if should_warn {
-            // Short, non-intrusive warning
             let time_str = state.meta.last_update
                 .map(|t| format!("{}h ago", Utc::now().signed_duration_since(t).num_hours()))
                 .unwrap_or("unknown".to_string());
@@ -162,7 +154,6 @@ pub fn run(options: SyncOptions) -> Result<()> {
         println!("{}", header);
         for pkg in &tx.to_prune {
             let is_critical = CRITICAL_PACKAGES.contains(&pkg.name.as_str());
-            
             if should_prune { 
                 if is_critical {
                      println!("  - {} {}", pkg.to_string().yellow(), "(Protected - Detaching from State)".italic());
@@ -177,7 +168,6 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     if tx.to_install.is_empty() && tx.to_adopt.is_empty() && tx.to_update_meta.is_empty() && (!should_prune || tx.to_prune.is_empty()) {
         output::success("System is in sync.");
-        // Even if nothing to do, if user requested update, we should record it.
         if options.update {
             state.meta.last_update = Some(Utc::now());
             state::io::save_state(&state)?;
@@ -219,15 +209,122 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
     }
 
-    // -- REMOVAL --
+// -- REMOVAL --
     if should_prune {
+        // A. BUILD PROTECTED LIST (Antidote for Aliasing Bug - FIXED)
+        // Kumpulkan semua "Nama Asli" dari paket yang ADA DI CONFIG.
+        // Tidak peduli apakah dia baru (Adopt) atau lama (Stable), fisiknya harus dilindungi.
+        let mut protected_physical_names: Vec<String> = Vec::new();
+        
+        // ITERASI CONFIG LANGSUNG (Bukan Transaction)
+        for pkg in config.packages.keys() {
+            // Skip jika user mengecualikan paket ini
+            if config.excludes.contains(&pkg.name) {
+                continue;
+            }
+
+            let mut real_name = pkg.name.clone();
+
+            // Try Exact Match
+            if installed_snapshot.contains_key(pkg) {
+                real_name = pkg.name.clone();
+            } else {
+                // Try Smart Match Resolution
+                match pkg.backend {
+                    Backend::Aur => {
+                        let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+                        for suffix in suffixes {
+                            let alt_name = format!("{}{}", pkg.name, suffix);
+                            let alt_id = PackageId { name: alt_name.clone(), backend: Backend::Aur };
+                            if installed_snapshot.contains_key(&alt_id) {
+                                real_name = alt_name;
+                                break;
+                            }
+                        }
+                         // Prefix
+                        if real_name == pkg.name {
+                             if let Some((prefix, _)) = pkg.name.split_once('-') {
+                                let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
+                                if installed_snapshot.contains_key(&alt_id) {
+                                    real_name = prefix.to_string();
+                                }
+                            }
+                        }
+                    },
+                    Backend::Flatpak => {
+                        let search = pkg.name.to_lowercase();
+                        for (installed_id, _) in &installed_snapshot {
+                            if installed_id.backend == Backend::Flatpak {
+                                if installed_id.name.to_lowercase().contains(&search) {
+                                    real_name = installed_id.name.clone();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            protected_physical_names.push(real_name);
+        }
+
+        // B. EXECUTE REMOVAL
         let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
         
         for pkg in tx.to_prune.iter() {
+            // ... (kode di bawah ini SAMA PERSIS dengan sebelumnya) ...
+            // ... (Copy paste dari file lamamu mulai dari sini ke bawah) ...
+            
+            // 1. GHOST MODE (Static Check)
             if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) {
                 continue;
             }
-            removes.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
+
+            // 2. REAL ID RESOLUTION
+            let mut real_name = pkg.name.clone();
+
+            match pkg.backend {
+                 Backend::Flatpak => {
+                    let search = pkg.name.to_lowercase();
+                    for (installed_id, _) in &installed_snapshot {
+                        if installed_id.backend == Backend::Flatpak {
+                            if installed_id.name.to_lowercase().contains(&search) {
+                                real_name = installed_id.name.clone();
+                                break; 
+                            }
+                        }
+                    }
+                },
+                Backend::Aur => {
+                    let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+                    let mut found = false;
+                    for suffix in suffixes {
+                        let alt_name = format!("{}{}", pkg.name, suffix);
+                        let alt_id = PackageId { name: alt_name.clone(), backend: Backend::Aur };
+                        if installed_snapshot.contains_key(&alt_id) {
+                            real_name = alt_name;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        if let Some((prefix, _)) = pkg.name.split_once('-') {
+                            let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
+                            if installed_snapshot.contains_key(&alt_id) {
+                                real_name = prefix.to_string();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. FRATRICIDE CHECK (Dynamic Runtime Check)
+            if protected_physical_names.contains(&real_name) {
+                // Ini yang akan menyelamatkan hyprland kamu!
+                println!("  ℹ Keeping physical package '{}' (claimed by active config)", real_name.dimmed());
+                continue;
+            }
+            
+            removes.entry(pkg.backend.clone()).or_default().push(real_name);
         }
 
         for (backend, pkgs) in removes {
@@ -239,20 +336,17 @@ pub fn run(options: SyncOptions) -> Result<()> {
             }
         }
     }
-
     // 8. Update State
-let mut to_upsert = tx.to_install.clone();
+    let mut to_upsert = tx.to_install.clone();
     to_upsert.extend(tx.to_adopt.clone());
     to_upsert.extend(tx.to_update_meta.clone());
 
     for pkg in to_upsert {
         let mut meta = installed_snapshot.get(&pkg);
         
-        // --- REVERSE LOOKUP (Agar key config stabil tapi version diambil dari system) ---
         if meta.is_none() {
-            match pkg.backend {
+             match pkg.backend {
                 Backend::Aur => {
-                    // Suffix Check
                     let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
                     for suffix in suffixes {
                         let alt_name = format!("{}{}", pkg.name, suffix);
@@ -262,7 +356,6 @@ let mut to_upsert = tx.to_install.clone();
                             break;
                         }
                     }
-                    // Prefix Check
                     if meta.is_none() {
                         if let Some((prefix, _)) = pkg.name.split_once('-') {
                             let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
@@ -273,7 +366,6 @@ let mut to_upsert = tx.to_install.clone();
                     }
                 },
                 Backend::Flatpak => {
-                    // Flatpak Fuzzy Lookup
                     let search = pkg.name.to_lowercase();
                     for (installed_id, m) in &installed_snapshot {
                         if installed_id.backend == Backend::Flatpak {
@@ -300,6 +392,8 @@ let mut to_upsert = tx.to_install.clone();
             version, 
         });
     }
+
+    // PRUNE FROM STATE
     if should_prune {
         for pkg in tx.to_prune {
             let key = format!("{}:{}", pkg.backend, pkg.name);
@@ -309,7 +403,6 @@ let mut to_upsert = tx.to_install.clone();
 
     state.meta.last_sync = Utc::now();
     
-    // RECORD LAST UPDATE
     if options.update {
         state.meta.last_update = Some(Utc::now());
     }

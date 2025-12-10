@@ -8,16 +8,18 @@
 
 packages {
     // Add packages here
-    sudo
+    // sudo
     ffmpeg
     rofi-wayland
     gdu
-    base-devel
+    // base-devel
     onefetch
     // gcc-libs
     lib32-gcc-libs
-    flatpak:md.obsidian.Obsidian
-    obsidian
+    // flatpak:md.obsidian.Obsidian
+    // flatpak:obsidian
+    // obsidian
+    hyprland
 }
 
 excludes {
