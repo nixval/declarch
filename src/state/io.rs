@@ -45,6 +45,26 @@ pub fn save_state(state: &State) -> Result<()> {
     let path = get_state_path()?;
     let dir = path.parent().unwrap();
     
+    // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
+    // Shift: .bak.2 -> .bak.3
+    // Shift: .bak.1 -> .bak.2
+    // Copy:  current -> .bak.1
+    
+    if path.exists() {
+        let max_backups = 3;
+        for i in (1..max_backups).rev() {
+            let old_bak = dir.join(format!("state.json.bak.{}", i));
+            let new_bak = dir.join(format!("state.json.bak.{}", i + 1));
+            if old_bak.exists() {
+                let _ = fs::rename(&old_bak, &new_bak);
+            }
+        }
+
+        let first_bak = dir.join("state.json.bak.1");
+        let _ = fs::copy(&path, &first_bak);
+    }
+    // ----------------------------------------------------
+
     let content = serde_json::to_string_pretty(state)?;
 
     let tmp_path = dir.join("state.tmp");
@@ -53,11 +73,6 @@ pub fn save_state(state: &State) -> Result<()> {
     
     tmp_file.write_all(content.as_bytes())?;
     tmp_file.sync_all()?;
-
-    if path.exists() {
-        let backup_path = dir.join("state.json.bak");
-        let _ = fs::copy(&path, &backup_path);
-    }
 
     fs::rename(&tmp_path, &path)
         .map_err(|e| DeclarchError::IoError { 

@@ -13,9 +13,11 @@ packages {
     rofi-wayland
     gdu
     base-devel
+    onefetch
     // gcc-libs
     lib32-gcc-libs
-    // flatpak:obsidian
+    flatpak:md.obsidian.Obsidian
+    obsidian
 }
 
 excludes {

@@ -10,6 +10,26 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
+// --- SAFETY NET EXPANDED (The Doomsday List) ---
+const CRITICAL_PACKAGES: &[&str] = &[
+    "linux", "linux-lts", "linux-zen", "linux-hardened", 
+    "linux-api-headers", "linux-firmware", 
+    "amd-ucode", "intel-ucode",
+    "grub", "systemd-boot", "efibootmgr", "os-prober",
+    "base", "base-devel", 
+    "systemd", "systemd-libs", "systemd-sysvcompat",
+    "glibc", "gcc-libs", "zlib", "openssl", "readline",
+    "bash", "zsh", "fish", "sh",
+    "sudo", "doas", "pam", "shadow", "util-linux", "coreutils",
+    "pacman", "pacman-contrib", "archlinux-keyring", 
+    "paru", "yay", "aura", "pikaur",
+    "flatpak", 
+    "declarch", "declarch-bin", "git", "curl", "wget", "tar",
+    "mesa", "nvidia", "nvidia-utils", "nvidia-dkms",
+    "networkmanager", "iwd", "wpa_supplicant",
+    "btrfs-progs", "e2fsprogs", "dosfstools", "ntfs-3g"
+];
+
 #[derive(Debug)]
 pub struct SyncOptions {
     pub dry_run: bool,
@@ -21,15 +41,6 @@ pub struct SyncOptions {
     pub target: Option<String>,
     pub noconfirm: bool,
 }
-
-// --- SAFETY NET ---
-const CRITICAL_PACKAGES: &[&str] = &[
-    "linux", "linux-zen", "linux-lts", "linux-hardened",
-    "linux-firmware", "intel-ucode", "amd-ucode",
-    "base", "base-devel", "systemd", "systemd-libs",
-    "glibc", "gcc-libs", "sudo", "openssl",
-    "pacman", "paru", "yay", "git", "declarch", "declarch-bin"
-];
 
 pub fn run(options: SyncOptions) -> Result<()> {
     output::header("Synchronizing Packages");
@@ -92,6 +103,35 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let mut state = state::io::load_state()?;
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
 
+    // --- SMART PARTIAL UPGRADE CHECK ---
+    // Only warn if:
+    // 1. We are installing new things
+    // 2. We are NOT updating in this run
+    // 3. Last update was > 24 hours ago (or never)
+    if !options.update && !tx.to_install.is_empty() {
+        let should_warn = match state.meta.last_update {
+            Some(last) => {
+                let hours = Utc::now().signed_duration_since(last).num_hours();
+                hours > 24 
+            },
+            None => true, // Warn if we have no record of update
+        };
+
+        if should_warn {
+            // Short, non-intrusive warning
+            let time_str = state.meta.last_update
+                .map(|t| format!("{}h ago", Utc::now().signed_duration_since(t).num_hours()))
+                .unwrap_or("unknown".to_string());
+            
+            output::separator();
+            println!("{} Last system update: {}. Use {} to refresh.", 
+                "⚠ Partial Upgrade Risk:".yellow().bold(),
+                time_str.white(),
+                "--update".bold()
+            );
+        }
+    }
+
     // 6. Display Plan
     output::separator();
     if !tx.to_install.is_empty() {
@@ -137,6 +177,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     if tx.to_install.is_empty() && tx.to_adopt.is_empty() && tx.to_update_meta.is_empty() && (!should_prune || tx.to_prune.is_empty()) {
         output::success("System is in sync.");
+        // Even if nothing to do, if user requested update, we should record it.
+        if options.update {
+            state.meta.last_update = Some(Utc::now());
+            state::io::save_state(&state)?;
+        }
         return Ok(());
     }
 
@@ -179,9 +224,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
         let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
         
         for pkg in tx.to_prune.iter() {
-            // SAFETY NET CHECK
             if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) {
-                // Skip adding to removal list, so we don't call pacman -R
                 continue;
             }
             removes.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
@@ -198,32 +241,49 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // 8. Update State
-    let mut to_upsert = tx.to_install.clone();
+let mut to_upsert = tx.to_install.clone();
     to_upsert.extend(tx.to_adopt.clone());
     to_upsert.extend(tx.to_update_meta.clone());
 
     for pkg in to_upsert {
         let mut meta = installed_snapshot.get(&pkg);
         
-        // Smart Matching Reverse Lookup for Key Stability
-        if meta.is_none() && pkg.backend == Backend::Aur {
-             // Suffix Check
-            let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
-             for suffix in suffixes {
-                let alt_name = format!("{}{}", pkg.name, suffix);
-                let alt_id = PackageId { name: alt_name, backend: Backend::Aur };
-                if let Some(m) = installed_snapshot.get(&alt_id) {
-                    meta = Some(m);
-                    break;
-                }
-            }
-            // Prefix Check
-            if meta.is_none() {
-                if let Some((prefix, _)) = pkg.name.split_once('-') {
-                     let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
-                     if let Some(m) = installed_snapshot.get(&alt_id) {
-                         meta = Some(m);
-                     }
+        // --- REVERSE LOOKUP (Agar key config stabil tapi version diambil dari system) ---
+        if meta.is_none() {
+            match pkg.backend {
+                Backend::Aur => {
+                    // Suffix Check
+                    let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+                    for suffix in suffixes {
+                        let alt_name = format!("{}{}", pkg.name, suffix);
+                        let alt_id = PackageId { name: alt_name, backend: Backend::Aur };
+                        if let Some(m) = installed_snapshot.get(&alt_id) {
+                            meta = Some(m);
+                            break;
+                        }
+                    }
+                    // Prefix Check
+                    if meta.is_none() {
+                        if let Some((prefix, _)) = pkg.name.split_once('-') {
+                            let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
+                            if let Some(m) = installed_snapshot.get(&alt_id) {
+                                meta = Some(m);
+                            }
+                        }
+                    }
+                },
+                Backend::Flatpak => {
+                    // Flatpak Fuzzy Lookup
+                    let search = pkg.name.to_lowercase();
+                    for (installed_id, m) in &installed_snapshot {
+                        if installed_id.backend == Backend::Flatpak {
+                            let installed_name = installed_id.name.to_lowercase();
+                            if installed_name.contains(&search) {
+                                meta = Some(m);
+                                break; 
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -240,10 +300,6 @@ pub fn run(options: SyncOptions) -> Result<()> {
             version, 
         });
     }
-
-    // PRUNE FROM STATE
-    // This logic runs for ALL items in to_prune, including Critical ones.
-    // This creates the "Ghost" behavior (Detached from state, but kept on system).
     if should_prune {
         for pkg in tx.to_prune {
             let key = format!("{}:{}", pkg.backend, pkg.name);
@@ -252,6 +308,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     state.meta.last_sync = Utc::now();
+    
+    // RECORD LAST UPDATE
+    if options.update {
+        state.meta.last_update = Some(Utc::now());
+    }
+
     state::io::save_state(&state)?;
     
     output::success("Sync complete!");

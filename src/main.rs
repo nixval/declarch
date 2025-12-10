@@ -55,3 +55,4 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         }
     }
 }
+
