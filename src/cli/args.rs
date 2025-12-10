@@ -41,7 +41,12 @@ pub struct GlobalFlags {
 pub enum Command {
     /// Initialize declarch configuration
     Init {
+        /// Create a module at this path (e.g. "modules/gaming")
+        #[arg(value_name = "MODULE_PATH")]
+        path: Option<String>,
+
         /// Hostname specific config
+        #[arg(long)]
         host: Option<String>,
     },
 

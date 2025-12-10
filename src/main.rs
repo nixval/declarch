@@ -4,13 +4,18 @@ use declarch::ui as output;
 use declarch::commands;
 use std::process::exit;
 
+// Removed unused 'Command as SysCommand' to fix warning
+// If you implement the root check later, add it back.
+
 fn main() {
+    // 1. Signal Handling
     ctrlc::set_handler(move || {
         println!();
         output::warning("Operation cancelled by user.");
         exit(130);
     }).expect("Error setting Ctrl-C handler");
 
+    // 2. Parse & Run
     let args = Cli::parse();
 
     if let Err(e) = run(&args) {
@@ -21,9 +26,11 @@ fn main() {
 
 fn run(args: &Cli) -> declarch::error::Result<()> {
     match &args.command {
-        Some(Command::Init { host }) => {
+        Some(Command::Init { host, path }) => {
             commands::init::run(commands::init::InitOptions {
                 host: host.clone(),
+                // Now 'path' is recognized because we updated args.rs
+                path: path.clone(), 
                 force: args.global.force,
             })
         }
@@ -55,4 +62,3 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         }
     }
 }
-

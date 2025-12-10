@@ -29,6 +29,7 @@ which = "8.0.0"
 ctrlc = "3.5.1"
 colored = "3.0.0"
 clap_complete = "4.5.61"
+regex = "1.12.2"
 
 
 [profile.release]

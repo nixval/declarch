@@ -1,0 +1,22 @@
+// Hyprland Desktop Environment
+// Maintainer: Declarch Community
+
+packages {
+    // Core
+    hyprland
+    hyprlock
+    hypridle
+    hyprpaper
+    xdg-desktop-portal-hyprland
+    
+    // UI/UX
+    waybar
+    rofi-wayland
+    dunst
+    kitty
+    
+    // Qt/GTK Theming
+    qt5-wayland
+    qt6-wayland
+    nwg-look
+}

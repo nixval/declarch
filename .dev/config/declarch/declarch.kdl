@@ -3,6 +3,7 @@
 
 // Import other module files (optional)
 // imports {
+    "modules/hyprland.kdl"
 //     "modules/common.kdl"
 // }
 

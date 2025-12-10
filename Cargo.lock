@@ -254,6 +254,7 @@ dependencies = [
  "hostname",
  "kdl",
  "predicates",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",
