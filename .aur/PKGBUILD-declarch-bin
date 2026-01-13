@@ -1,11 +1,11 @@
-# Maintainer: Nixval <nixval@users.noreply.github.com>
+# Maintainer: nixval <nicovaliantoku@gmail.com>
 pkgname=declarch-bin
 pkgver=0.4.0
 pkgrel=1
 pkgdesc="Declarative package manager for Arch Linux inspired by Nix workflow (precompiled binary)"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
-license=('MIT' 'Apache-2.0')
+license=('MIT')
 depends=('gcc-libs')
 optdepends=(
     'paru: AUR helper (recommended)'
@@ -14,12 +14,12 @@ optdepends=(
     'soar: Cross-distro static binary support'
 )
 provides=('declarch')
-conflicts=('declarch')
-source=("${pkgname%-bin}-${pkgver}.tar.gz::${url}/releases/download/v${pkgver}/declarch-${pkgver}-x86_64-unknown-linux-gnu.tar.gz")
-sha256sums=('SKIP')
+conflicts=('declarch' 'declarch-git')
+source=("declarch-${pkgver}::${url}/releases/download/v${pkgver}/declarch")
+sha256sums=('GENERATE_AFTER_RELEASE')  # Update after GitHub release
 
 package() {
-    install -Dm0755 -t "$pkgdir/usr/bin/" "declarch"
+    install -Dm0755 "declarch-${pkgver}" "$pkgdir/usr/bin/declarch"
 
     # Install shell completions
     install -Dm0644 -t "$pkgdir/usr/share/bash-completion/completions/" \
@@ -30,6 +30,21 @@ package() {
         <("$pkgdir/usr/bin/declarch" completions fish)
 
     # Install documentation
-    install -Dm0644 -t "$pkgdir/usr/share/doc/${pkgname}/" README.md
-    install -Dm0644 -t "$pkgdir/usr/share/licenses/${pkgname}/" LICENSE-MIT LICENSE-Apache2
+    cat <<EOF > "$pkgdir/usr/share/doc/${pkgname}/README.md"
+# declarch ${pkgver}
+
+Declarative package manager for Arch Linux.
+
+## Installation
+
+Installed from pre-built binary release.
+
+## Documentation
+
+Full documentation: https://github.com/nixval/declarch
+EOF
+
+    # Use system MIT license
+    install -Dm0644 "/usr/share/licenses/common/MIT/LICENSE" \
+        "$pkgdir/usr/share/licenses/${pkgname}/LICENSE"
 }

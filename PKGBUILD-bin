@@ -1,9 +1,9 @@
 # Maintainer: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch-bin
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
-pkgdesc="A declarative package manager for Arch Linux (Binary Release)"
+pkgdesc="A declarative package manager for Arch Linux (pre-built binary)"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')
@@ -16,13 +16,34 @@ optdepends=(
 )
 
 provides=('declarch')
-conflicts=('declarch')
+conflicts=('declarch' 'declarch-git')
 
-source=("declarch-v${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz::${url}/releases/download/v${pkgver}/declarch-v${pkgver}-${CARCH}-unknown-linux-gnu.tar.gz")
-sha256sums=('SKIP')
+# Binary release from GitHub
+source=("declarch-$pkgver::$url/releases/download/v$pkgver/declarch")
+sha256sums=('GENERATE_AFTER_RELEASE')  # Update after creating GitHub release
+
+prepare() {
+  # Make binary executable
+  chmod +x declarch-$pkgver
+}
 
 package() {
-  install -Dm755 "declarch" "$pkgdir/usr/bin/declarch"
-  install -Dm644 "README.md" "$pkgdir/usr/share/doc/declarch/README.md"
-  install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm755 "declarch-$pkgver" "$pkgdir/usr/bin/declarch"
+  install -Dm644 "/usr/share/licenses/common/MIT/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # Generate basic README (package users can find full docs online)
+  cat <<EOF > "$pkgdir/usr/share/doc/$pkgname/README.md"
+# declarch $pkgver
+
+Declarative package manager for Arch Linux.
+
+## Installation
+
+Installed from binary release.
+
+## Documentation
+
+Full documentation: https://github.com/nixval/declarch
+EOF
 }

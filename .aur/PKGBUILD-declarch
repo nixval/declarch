@@ -1,11 +1,11 @@
-# Maintainer: Nixval <nixval@users.noreply.github.com>
+# Maintainer: nixval <nicovaliantoku@gmail.com>
 pkgname=declarch
 pkgver=0.4.0
 pkgrel=1
 pkgdesc="Declarative package manager for Arch Linux inspired by Nix workflow"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
-license=('MIT' 'Apache-2.0')
+license=('MIT')
 depends=('gcc-libs' 'pacman')
 makedepends=('cargo')
 optdepends=(
@@ -15,7 +15,7 @@ optdepends=(
     'soar: Cross-distro static binary support'
 )
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('GENERATE_WITH_MAKEPKG')  # Run: makepkg -g >> PKGBUILD
 
 prepare() {
     cd "${pkgname}-${pkgver}"
@@ -49,5 +49,5 @@ package() {
 
     # Install documentation
     install -Dm0644 -t "$pkgdir/usr/share/doc/${pkgname}/" README.md
-    install -Dm0644 -t "$pkgdir/usr/share/licenses/${pkgname}/" LICENSE-MIT LICENSE-Apache2
+    install -Dm0644 -t "$pkgdir/usr/share/licenses/${pkgname}/" LICENSE
 }
