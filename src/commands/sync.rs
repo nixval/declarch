@@ -1,9 +1,10 @@
 use crate::utils::paths;
+use crate::utils::distro::DistroType;
 use crate::ui as output;
 use crate::state::{self, types::{Backend, PackageState, State}};
 use crate::config::loader;
 use crate::core::{resolver, types::{PackageId, PackageMetadata, SyncTarget}};
-use crate::packages::{PackageManager, aur::AurManager, flatpak::FlatpakManager};
+use crate::packages::{PackageManager, create_manager};
 use crate::error::{DeclarchError, Result};
 use colored::Colorize;
 use chrono::Utc;
@@ -81,21 +82,53 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
     let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
 
-    managers.insert(Backend::Aur, Box::new(AurManager::new(aur_helper, options.noconfirm)));
-    managers.insert(Backend::Flatpak, Box::new(FlatpakManager::new(options.noconfirm)));
+    // Detect distro and create available backends
+    let distro = DistroType::detect();
+    let global_config = crate::config::types::GlobalConfig::default();
 
-    for (backend, mgr) in &managers {
-        if !mgr.is_available() {
-            if matches!(sync_target, SyncTarget::Backend(ref b) if b == backend) {
-                 output::warning(&format!("Backend '{}' is not available on this system.", backend));
+    // Get backends from config (unique set)
+    let configured_backends: std::collections::HashSet<Backend> = config.packages.keys()
+        .map(|pkg_id| pkg_id.backend.clone())
+        .collect();
+
+    // Initialize managers for configured backends
+    for backend in configured_backends {
+        match create_manager(&backend, &global_config, options.noconfirm) {
+            Ok(manager) => {
+                let available = manager.is_available();
+
+                // Warn if targeting unavailable backend
+                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend) {
+                    output::warning(&format!("Backend '{}' is not available on this system.", backend));
+                }
+
+                if available {
+                    // List installed packages from this backend
+                    match manager.list_installed() {
+                        Ok(packages) => {
+                            for (name, meta) in packages {
+                                let id = PackageId { name, backend: backend.clone() };
+                                installed_snapshot.insert(id, meta);
+                            }
+                            managers.insert(backend.clone(), manager);
+                        },
+                        Err(e) => {
+                            output::warning(&format!("Failed to list packages from {}: {}", backend, e));
+                        }
+                    }
+                }
+            },
+            Err(e) => {
+                output::warning(&format!("Failed to initialize {} backend: {}", backend, e));
             }
-            continue; 
         }
-        
-        let packages = mgr.list_installed()?;
-        for (name, meta) in packages {
-            let id = PackageId { name, backend: backend.clone() };
-            installed_snapshot.insert(id, meta);
+    }
+
+    // On non-Arch systems, warn about AUR packages in config
+    if !distro.supports_aur() {
+        let has_aur_packages = config.packages.keys().any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
+        if has_aur_packages {
+            output::warning("AUR packages detected but system is not Arch-based. These will be skipped.");
         }
     }
 
@@ -272,6 +305,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
                             }
                         }
                     }
+                    Backend::Soar => {
+                        // Soar requires exact matching - no smart matching needed
+                        real_name = pkg.name.clone();
+                    }
                 }
             }
             protected_physical_names.push(real_name);
@@ -299,7 +336,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
                         if installed_id.backend == Backend::Flatpak {
                             if installed_id.name.to_lowercase().contains(&search) {
                                 real_name = installed_id.name.clone();
-                                break; 
+                                break;
                             }
                         }
                     }
@@ -324,6 +361,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
                             }
                         }
                     }
+                }
+                Backend::Soar => {
+                    // Soar requires exact matching
+                    real_name = pkg.name.clone();
                 }
             }
 

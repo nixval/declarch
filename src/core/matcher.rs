@@ -54,6 +54,10 @@ impl PackageMatcher {
         match target.backend {
             Backend::Aur => self.find_aur_package(target, installed_snapshot),
             Backend::Flatpak => self.find_flatpak_package(target, installed_snapshot),
+            Backend::Soar => {
+                // Soar packages require exact matching (no variants)
+                None
+            }
         }
     }
 
@@ -134,6 +138,10 @@ impl PackageMatcher {
                 let name1 = pkg1.name.to_lowercase();
                 let name2 = pkg2.name.to_lowercase();
                 name1.contains(&name2) || name2.contains(&name1)
+            }
+            Backend::Soar => {
+                // Soar packages require exact matching
+                false
             }
         }
     }

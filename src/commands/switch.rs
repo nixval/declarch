@@ -1,5 +1,5 @@
 use crate::core::types::Backend;
-use crate::packages::{PackageManager, aur::AurManager, flatpak::FlatpakManager};
+use crate::packages::{PackageManager, create_manager};
 use crate::state::{self, types::PackageState};
 use crate::ui as output;
 use crate::error::{DeclarchError, Result};
@@ -35,12 +35,9 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     // 3. Get package manager
     let global_config = GlobalConfig::default();
-    let aur_helper = global_config.aur_helper.to_string();
 
-    let manager: Box<dyn PackageManager> = match backend {
-        Backend::Aur => Box::new(AurManager::new(aur_helper, false)),
-        Backend::Flatpak => Box::new(FlatpakManager::new(false)),
-    };
+    let manager: Box<dyn PackageManager> = create_manager(&backend, &global_config, false)
+        .map_err(|e| DeclarchError::Other(format!("Failed to create package manager: {}", e)))?;
 
     // Check manager availability
     if !manager.is_available() {
@@ -207,16 +204,20 @@ fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<
         match backend_str.to_lowercase().as_str() {
             "aur" => Ok(Backend::Aur),
             "flatpak" => Ok(Backend::Flatpak),
+            "soar" => Ok(Backend::Soar),
             _ => Err(DeclarchError::Other(format!(
-                "Unknown backend: {}. Use 'aur' or 'flatpak'",
+                "Unknown backend: {}. Use 'aur', 'flatpak', or 'soar'",
                 backend_str
             ))),
         }
     } else {
-        // Auto-detect: assume AUR for everything that doesn't start with flatpak:
+        // Auto-detect based on prefix
         if package_name.starts_with("flatpak:") {
             Ok(Backend::Flatpak)
+        } else if package_name.starts_with("soar:") {
+            Ok(Backend::Soar)
         } else {
+            // Default to AUR
             Ok(Backend::Aur)
         }
     }

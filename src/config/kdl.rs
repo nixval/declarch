@@ -5,7 +5,15 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct RawConfig {
     pub imports: Vec<String>,
+    /// Packages from Soar registry (cross-distro static binaries)
+    /// Syntax: packages { ... }
     pub packages: Vec<String>,
+    /// Packages from AUR (Arch Linux specific)
+    /// Syntax: aur-packages { ... }
+    pub aur_packages: Vec<String>,
+    /// Flatpak packages
+    /// Syntax: flatpak-packages { ... }
+    pub flatpak_packages: Vec<String>,
     pub excludes: Vec<String>,
     /// Package aliases: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
@@ -18,6 +26,8 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     let mut config = RawConfig {
         imports: vec![],
         packages: vec![],
+        aur_packages: vec![],
+        flatpak_packages: vec![],
         excludes: vec![],
         aliases: HashMap::new(),
     };
@@ -28,7 +38,16 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 extract_strings(node, &mut config.imports);
             },
             "packages" | "package" => {
+                // Default: packages {} → Soar (cross-distro)
                 extract_mixed_values(node, &mut config.packages);
+            },
+            "aur-packages" | "aur-package" => {
+                // Arch Linux AUR packages
+                extract_mixed_values(node, &mut config.aur_packages);
+            },
+            "flatpak-packages" | "flatpak-package" => {
+                // Flatpak packages
+                extract_mixed_values(node, &mut config.flatpak_packages);
             },
             "exclude" | "excludes" => {
                 extract_mixed_values(node, &mut config.excludes);
@@ -183,5 +202,85 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert!(config.aliases.is_empty());
+    }
+
+    #[test]
+    fn test_parse_aur_packages() {
+        let kdl = r#"
+            aur-packages {
+                hyprland
+                waybar
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.aur_packages.len(), 2);
+        assert!(config.aur_packages.contains(&"hyprland".to_string()));
+        assert!(config.aur_packages.contains(&"waybar".to_string()));
+    }
+
+    #[test]
+    fn test_parse_soar_packages() {
+        let kdl = r#"
+            packages {
+                bat
+                exa
+                ripgrep
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.packages.len(), 3);
+        assert!(config.packages.contains(&"bat".to_string()));
+        assert!(config.packages.contains(&"exa".to_string()));
+        assert!(config.packages.contains(&"ripgrep".to_string()));
+    }
+
+    #[test]
+    fn test_parse_flatpak_packages() {
+        let kdl = r#"
+            flatpak-packages {
+                com.spotify.Client
+                org.mozilla.firefox
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.flatpak_packages.len(), 2);
+        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+        assert!(config.flatpak_packages.contains(&"org.mozilla.firefox".to_string()));
+    }
+
+    #[test]
+    fn test_parse_cross_distro_config() {
+        let kdl = r#"
+            // Cross-distro configuration example
+
+            // Soar packages (works everywhere)
+            packages {
+                bat
+                exa
+                fd
+                ripgrep
+            }
+
+            // AUR packages (Arch-only)
+            aur-packages {
+                hyprland
+                waybar
+                swww
+            }
+
+            // Flatpak packages (cross-distro)
+            flatpak-packages {
+                com.spotify.Client
+                org.telegram.desktop
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.packages.len(), 4);
+        assert_eq!(config.aur_packages.len(), 3);
+        assert_eq!(config.flatpak_packages.len(), 2);
     }
 }
