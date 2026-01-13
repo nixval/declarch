@@ -354,7 +354,7 @@ packages:aur {
 ```
 
 - ✅ Huge package selection
-- ⚠️ Arch Linux only
+- ⚠️ Available on Arch-based distros only
 - ⚠️ Requires AUR helper (paru/yay)
 
 ---
