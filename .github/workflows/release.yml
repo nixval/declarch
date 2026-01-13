@@ -37,6 +37,11 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build binary
+        env:
+          # Use correct linker for aarch64 cross-compilation
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -C link-arg=-lgcc
         run: |
           cargo build --release --target ${{ matrix.target }}
 
@@ -75,7 +80,7 @@ jobs:
           
           gh release create "${TAG}" \
             --title "Declarch ${VERSION}" \
-            --notes "See CHANGELOG.md for details." \
+            --notes-file RELEASE.md \
             artifacts/*/declarch-*.tar.gz
 
       - name: Publish info
