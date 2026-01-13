@@ -1,9 +1,11 @@
 use crate::utils::paths;
+use crate::utils::distro::DistroType;
+use crate::utils::install;
 use crate::ui as output;
-use crate::state::{self, types::{Backend as StateBackend, PackageState}};
+use crate::state::{self, types::{Backend, PackageState, State}};
 use crate::config::loader;
-use crate::core::{resolver, types::{Backend, PackageId, PackageMetadata, SyncTarget}};
-use crate::packages::{PackageManager, aur::AurManager, flatpak::FlatpakManager};
+use crate::core::{resolver, types::{PackageId, PackageMetadata, SyncTarget}};
+use crate::packages::{PackageManager, create_manager};
 use crate::error::{DeclarchError, Result};
 use colored::Colorize;
 use chrono::Utc;
@@ -40,6 +42,7 @@ pub struct SyncOptions {
     pub force: bool,
     pub target: Option<String>,
     pub noconfirm: bool,
+    pub skip_soar_install: bool,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
@@ -81,27 +84,135 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
     let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
 
-    managers.insert(Backend::Aur, Box::new(AurManager::new(aur_helper, options.noconfirm)));
-    managers.insert(Backend::Flatpak, Box::new(FlatpakManager::new(options.noconfirm)));
+    // Detect distro and create available backends
+    let distro = DistroType::detect();
+    let global_config = crate::config::types::GlobalConfig::default();
 
-    for (backend, mgr) in &managers {
-        if !mgr.is_available() {
-            if matches!(sync_target, SyncTarget::Backend(ref b) if b == backend) {
-                 output::warning(&format!("Backend '{}' is not available on this system.", backend));
+    // Get backends from config (unique set)
+    let configured_backends: std::collections::HashSet<Backend> = config.packages.keys()
+        .map(|pkg_id| pkg_id.backend.clone())
+        .collect();
+
+    // Initialize managers for configured backends
+    for backend in configured_backends {
+        match create_manager(&backend, &global_config, options.noconfirm) {
+            Ok(manager) => {
+                let mut available = manager.is_available();
+
+                // Special handling for Soar: try to install if missing
+                if matches!(backend, Backend::Soar) && !available && !options.skip_soar_install && !options.dry_run {
+                    output::warning(&format!("Soar is required but not installed"));
+
+                    // Try to install Soar
+                    if install::install_soar()? {
+                        output::success("Soar installed successfully!");
+                        available = true;
+                    } else {
+                        output::warning("Skipping Soar packages - automatic installation failed");
+                    }
+                }
+
+                // Warn if targeting unavailable backend
+                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend) {
+                    output::warning(&format!("Backend '{}' is not available on this system.", backend));
+                }
+
+                if available {
+                    // List installed packages from this backend
+                    match manager.list_installed() {
+                        Ok(packages) => {
+                            for (name, meta) in packages {
+                                let id = PackageId { name, backend: backend.clone() };
+                                installed_snapshot.insert(id, meta);
+                            }
+                            managers.insert(backend.clone(), manager);
+                        },
+                        Err(e) => {
+                            output::warning(&format!("Failed to list packages from {}: {}", backend, e));
+                        }
+                    }
+                }
+            },
+            Err(e) => {
+                output::warning(&format!("Failed to initialize {} backend: {}", backend, e));
             }
-            continue; 
         }
-        
-        let packages = mgr.list_installed()?;
-        for (name, meta) in packages {
-            let id = PackageId { name, backend: backend.clone() };
-            installed_snapshot.insert(id, meta);
+    }
+
+    // On non-Arch systems, warn about AUR packages in config
+    if !distro.supports_aur() {
+        let has_aur_packages = config.packages.keys().any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
+        if has_aur_packages {
+            output::warning("AUR packages detected but system is not Arch-based. These will be skipped.");
         }
     }
 
     // 5. Load State & Resolve
     let mut state = state::io::load_state()?;
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
+
+    // --- VARIANT TRANSITION DETECTION ---
+    // Check for variant mismatches and error early (strict approach)
+    let matcher = crate::core::matcher::PackageMatcher::new();
+    let mut variant_mismatches: Vec<(String, String)> = Vec::new();
+
+    // Only check for variant transitions in full sync or when targeting specific backends
+    if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
+        for pkg_id in config.packages.keys() {
+            // Skip if this package is already in transaction to install
+            if tx.to_install.iter().any(|p| p.name == pkg_id.name) {
+                continue;
+            }
+
+            // Check if there's a variant of this package installed
+            if let Some(matched_id) = matcher.find_package(pkg_id, &installed_snapshot) {
+                // If matched name is different from config name, it's a variant
+                if matched_id.name != pkg_id.name {
+                    // Check if this variant is NOT already tracked in state
+                    let state_key = resolver::make_state_key(pkg_id);
+                    let state_pkg = state.packages.get(&state_key);
+
+                    // Only report if not tracked (means user might have manually changed it)
+                    if state_pkg.is_none() || state_pkg.and_then(|s| s.aur_package_name.as_ref()).map(|n| n != &matched_id.name).unwrap_or(false) {
+                        variant_mismatches.push((pkg_id.name.clone(), matched_id.name));
+                    }
+                }
+            }
+        }
+    }
+
+    // If variant mismatches found, error with helpful message
+    if !variant_mismatches.is_empty() && !options.force {
+        output::separator();
+        output::error("Variant transition detected!");
+        println!("\nThe following packages have different variants installed:\n");
+
+        for (config_name, installed_name) in &variant_mismatches {
+            println!("  {}  →  {}",
+                config_name.cyan().bold(),
+                installed_name.yellow().bold()
+            );
+        }
+
+        println!("\n{}", "This requires explicit transition to avoid unintended changes.".dimmed());
+        println!("\n{}", "To resolve this:".bold());
+        println!("  1. For each package, run:");
+        for (config_name, installed_name) in &variant_mismatches {
+            println!("     {}",
+                format!("declarch switch {} {}",
+                    installed_name.yellow(),
+                    config_name.cyan()
+                ).bold()
+            );
+        }
+        println!("\n  2. Or, update your config to match the installed variant");
+        println!("\n  3. Use {} to bypass this check (not recommended)",
+            "--force".yellow().bold());
+
+        return Err(DeclarchError::Other(
+            "Variant transition required. Use 'declarch switch' or update your config.".to_string()
+        ));
+    }
 
     // --- WARNINGS ---
     if !options.update && !tx.to_install.is_empty() {
@@ -125,48 +236,16 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // 6. Display Plan
-    output::separator();
-    if !tx.to_install.is_empty() {
-        println!("{}", "To Install:".green().bold());
-        for pkg in &tx.to_install { println!("  + {}", pkg); }
-    }
-    
-    if !tx.to_update_meta.is_empty() && options.dry_run {
-        println!("{}", "State Updates (Drift detected):".blue().bold());
-        for pkg in &tx.to_update_meta { 
-             let v_display = installed_snapshot.get(pkg)
-                .map(|m| m.version.as_deref().unwrap_or("?"))
-                .unwrap_or("smart-match");
-            println!("  ~ {} (v{})", pkg, v_display); 
-        }
-    }
-
-    if !tx.to_adopt.is_empty() {
-        println!("{}", "To Adopt (Track in State):".yellow().bold());
-        for pkg in &tx.to_adopt { println!("  ~ {}", pkg); }
-    }
-    
     let allow_prune = matches!(sync_target, SyncTarget::All) || options.force;
     let should_prune = options.prune && allow_prune;
-    
-    if !tx.to_prune.is_empty() {
-        let header = if should_prune { "To Remove:".red().bold() } else { "To Remove (Skipped):".dimmed() };
-        println!("{}", header);
-        for pkg in &tx.to_prune {
-            let is_critical = CRITICAL_PACKAGES.contains(&pkg.name.as_str());
-            if should_prune { 
-                if is_critical {
-                     println!("  - {} {}", pkg.to_string().yellow(), "(Protected - Detaching from State)".italic());
-                } else {
-                     println!("  - {}", pkg); 
-                }
-            } else { 
-                println!("  - {}", pkg.to_string().dimmed()); 
-            }
-        }
-    }
 
-    if tx.to_install.is_empty() && tx.to_adopt.is_empty() && tx.to_update_meta.is_empty() && (!should_prune || tx.to_prune.is_empty()) {
+    display_transaction_plan(&tx, &installed_snapshot, should_prune);
+
+    if tx.to_install.is_empty()
+        && tx.to_adopt.is_empty()
+        && tx.to_update_meta.is_empty()
+        && (!should_prune || tx.to_prune.is_empty())
+    {
         output::success("System is in sync.");
         if options.update {
             state.meta.last_update = Some(Utc::now());
@@ -180,36 +259,15 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 7. Execution
     let skip_prompt = options.yes || options.noconfirm || options.force;
     if !skip_prompt {
-        if !output::prompt_yes_no("Proceed?") { return Err(DeclarchError::Interrupted); }
+        if !output::prompt_yes_no("Proceed?") {
+            return Err(DeclarchError::Interrupted);
+        }
     }
 
     // -- INSTALLATION --
-    let mut installs: HashMap<Backend, Vec<String>> = HashMap::new();
-    for pkg in tx.to_install.iter() {
-        installs.entry(pkg.backend.clone()).or_default().push(pkg.name.clone());
-    }
+    execute_installations(&tx, &managers, &mut installed_snapshot)?;
 
-    for (backend, pkgs) in installs {
-        if let Some(mgr) = managers.get(&backend) {
-            output::info(&format!("Installing {} packages...", backend.to_string()));
-            mgr.install(&pkgs)?;
-        }
-    }
-
-    // -- REFRESH SNAPSHOT --
-    if !tx.to_install.is_empty() {
-        output::info("Refreshing package state...");
-        for (backend, mgr) in &managers {
-            if !mgr.is_available() { continue; }
-            let packages = mgr.list_installed()?;
-            for (name, meta) in packages {
-                let id = PackageId { name, backend: backend.clone() };
-                installed_snapshot.insert(id, meta);
-            }
-        }
-    }
-
-// -- REMOVAL --
+    // -- REMOVAL --
     if should_prune {
         // A. BUILD PROTECTED LIST (Antidote for Aliasing Bug - FIXED)
         // Kumpulkan semua "Nama Asli" dari paket yang ADA DI CONFIG.
@@ -262,6 +320,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
                             }
                         }
                     }
+                    Backend::Soar => {
+                        // Soar requires exact matching - no smart matching needed
+                        real_name = pkg.name.clone();
+                    }
                 }
             }
             protected_physical_names.push(real_name);
@@ -289,7 +351,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
                         if installed_id.backend == Backend::Flatpak {
                             if installed_id.name.to_lowercase().contains(&search) {
                                 real_name = installed_id.name.clone();
-                                break; 
+                                break;
                             }
                         }
                     }
@@ -315,6 +377,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
                         }
                     }
                 }
+                Backend::Soar => {
+                    // Soar requires exact matching
+                    real_name = pkg.name.clone();
+                }
             }
 
             // 3. FRATRICIDE CHECK (Dynamic Runtime Check)
@@ -336,80 +402,184 @@ pub fn run(options: SyncOptions) -> Result<()> {
             }
         }
     }
+
     // 8. Update State
+    update_state_after_sync(&mut state, &tx, &installed_snapshot, &options)?;
+
+    output::success("Sync complete!");
+
+    Ok(())
+}
+
+// ============================================================================
+// HELPER FUNCTIONS - Break down the monolithic sync function
+// ============================================================================
+
+/// Display the transaction plan to the user
+fn display_transaction_plan(
+    tx: &resolver::Transaction,
+    installed_snapshot: &HashMap<PackageId, PackageMetadata>,
+    should_prune: bool,
+) {
+    output::separator();
+
+    if !tx.to_install.is_empty() {
+        println!("{}", "To Install:".green().bold());
+        for pkg in &tx.to_install {
+            println!("  + {}", pkg);
+        }
+    }
+
+    if !tx.to_update_meta.is_empty() {
+        println!("{}", "State Updates (Drift detected):".blue().bold());
+        for pkg in &tx.to_update_meta {
+            let v_display = installed_snapshot
+                .get(pkg)
+                .map(|m| m.version.as_deref().unwrap_or("?"))
+                .unwrap_or("smart-match");
+            println!("  ~ {} (v{})", pkg, v_display);
+        }
+    }
+
+    if !tx.to_adopt.is_empty() {
+        println!("{}", "To Adopt (Track in State):".yellow().bold());
+        for pkg in &tx.to_adopt {
+            println!("  ~ {}", pkg);
+        }
+    }
+
+    if !tx.to_prune.is_empty() {
+        let header = if should_prune {
+            "To Remove:".red().bold()
+        } else {
+            "To Remove (Skipped):".dimmed()
+        };
+        println!("{}", header);
+        for pkg in &tx.to_prune {
+            let is_critical = CRITICAL_PACKAGES.contains(&pkg.name.as_str());
+            if should_prune {
+                if is_critical {
+                    println!(
+                        "  - {} {}",
+                        pkg.to_string().yellow(),
+                        "(Protected - Detaching from State)".italic()
+                    );
+                } else {
+                    println!("  - {}", pkg);
+                }
+            } else {
+                println!("  - {}", pkg.to_string().dimmed());
+            }
+        }
+    }
+}
+
+/// Execute package installations
+fn execute_installations(
+    tx: &resolver::Transaction,
+    managers: &HashMap<Backend, Box<dyn PackageManager>>,
+    installed_snapshot: &mut HashMap<PackageId, PackageMetadata>,
+) -> Result<()> {
+    // Group packages by backend
+    let mut installs: HashMap<Backend, Vec<String>> = HashMap::new();
+    for pkg in tx.to_install.iter() {
+        installs
+            .entry(pkg.backend.clone())
+            .or_default()
+            .push(pkg.name.clone());
+    }
+
+    // Install packages
+    for (backend, pkgs) in installs {
+        if let Some(mgr) = managers.get(&backend) {
+            output::info(&format!("Installing {} packages...", backend.to_string()));
+            mgr.install(&pkgs)?;
+        }
+    }
+
+    // Refresh snapshot after installations
+    if !tx.to_install.is_empty() {
+        output::info("Refreshing package state...");
+        for (backend, mgr) in managers {
+            if !mgr.is_available() {
+                continue;
+            }
+            let packages = mgr.list_installed()?;
+            for (name, meta) in packages {
+                let id = PackageId {
+                    name,
+                    backend: backend.clone(),
+                };
+                installed_snapshot.insert(id, meta);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Find metadata for a package using smart matching
+fn find_package_metadata<'a>(
+    pkg: &PackageId,
+    installed_snapshot: &'a HashMap<PackageId, PackageMetadata>,
+) -> Option<&'a PackageMetadata> {
+    // Try exact match first
+    if let Some(meta) = installed_snapshot.get(pkg) {
+        return Some(meta);
+    }
+
+    // Use PackageMatcher for smart matching
+    let matcher = crate::core::matcher::PackageMatcher::new();
+    let matched_id = matcher.find_package(pkg, installed_snapshot)?;
+    installed_snapshot.get(&matched_id)
+}
+
+/// Update state file after sync
+fn update_state_after_sync(
+    state: &mut State,
+    tx: &resolver::Transaction,
+    installed_snapshot: &HashMap<PackageId, PackageMetadata>,
+    options: &SyncOptions,
+) -> Result<()> {
+    // Collect all packages to upsert
     let mut to_upsert = tx.to_install.clone();
     to_upsert.extend(tx.to_adopt.clone());
     to_upsert.extend(tx.to_update_meta.clone());
 
+    // Upsert packages into state
     for pkg in to_upsert {
-        let mut meta = installed_snapshot.get(&pkg);
-        
-        if meta.is_none() {
-             match pkg.backend {
-                Backend::Aur => {
-                    let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
-                    for suffix in suffixes {
-                        let alt_name = format!("{}{}", pkg.name, suffix);
-                        let alt_id = PackageId { name: alt_name, backend: Backend::Aur };
-                        if let Some(m) = installed_snapshot.get(&alt_id) {
-                            meta = Some(m);
-                            break;
-                        }
-                    }
-                    if meta.is_none() {
-                        if let Some((prefix, _)) = pkg.name.split_once('-') {
-                            let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
-                            if let Some(m) = installed_snapshot.get(&alt_id) {
-                                meta = Some(m);
-                            }
-                        }
-                    }
-                },
-                Backend::Flatpak => {
-                    let search = pkg.name.to_lowercase();
-                    for (installed_id, m) in &installed_snapshot {
-                        if installed_id.backend == Backend::Flatpak {
-                            let installed_name = installed_id.name.to_lowercase();
-                            if installed_name.contains(&search) {
-                                meta = Some(m);
-                                break; 
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        let meta = find_package_metadata(&pkg, installed_snapshot);
         let version = meta.and_then(|m| m.version.clone());
-        let key = format!("{}:{}", pkg.backend, pkg.name);
-        
-        state.packages.insert(key, PackageState { 
-            backend: match pkg.backend {
-                Backend::Aur => StateBackend::Aur,
-                Backend::Flatpak => StateBackend::Flatpak,
+        let key = resolver::make_state_key(&pkg);
+
+        state.packages.insert(
+            key,
+            PackageState {
+                backend: pkg.backend.clone(),
+                config_name: pkg.name.clone(),
+                provides_name: pkg.name.clone(),
+                aur_package_name: None, // TODO: Discover actual AUR package name
+                installed_at: Utc::now(),
+                version,
             },
-            installed_at: Utc::now(),
-            version, 
-        });
+        );
     }
 
-    // PRUNE FROM STATE
-    if should_prune {
-        for pkg in tx.to_prune {
-            let key = format!("{}:{}", pkg.backend, pkg.name);
+    // Prune from state if needed
+    if options.prune {
+        for pkg in &tx.to_prune {
+            let key = resolver::make_state_key(&pkg);
             state.packages.remove(&key);
         }
     }
 
+    // Update metadata
     state.meta.last_sync = Utc::now();
-    
     if options.update {
         state.meta.last_update = Some(Utc::now());
     }
 
     state::io::save_state(&state)?;
-    
-    output::success("Sync complete!");
 
     Ok(())
 }

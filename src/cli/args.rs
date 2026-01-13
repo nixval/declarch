@@ -40,14 +40,38 @@ pub struct GlobalFlags {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Initialize declarch configuration
+    ///
+    /// With no arguments: Creates root config (~/.config/declarch/declarch.kdl)
+    ///
+    /// With SOURCE: Fetches config from remote repository
+    ///   - user/repo              Fetch from GitHub (user/repo/main/declarch.kdl)
+    ///   - user/repo:variant      Fetch specific config variant (declarch-variant.kdl)
+    ///   - user/repo/branch       Fetch from specific branch
+    ///   - gitlab.com/user/repo   Fetch from GitLab
+    ///   - https://...            Direct URL to declarch.kdl
+    ///   - hyprland/niri-nico     Fetch from official registry
     Init {
-        /// Create a module at this path (e.g. "modules/gaming")
-        #[arg(value_name = "MODULE_PATH")]
+        /// Config source (GitHub/GitLab repo, URL, or registry module)
+        ///
+        /// Examples:
+        ///   exampleuser/hyprland1           GitHub: user/repo (fetches declarch.kdl)
+        ///   exampleuser/dotfiles:uwsm       GitHub: user/repo:variant (fetches declarch-uwsm.kdl)
+        ///   exampleuser/dotfiles:minimal    GitHub: user/repo:variant (fetches declarch-minimal.kdl)
+        ///   hyprwm/hyprland             GitHub: official project config
+        ///   exampleuser/hyprland1/develop   GitHub: user/repo/branch
+        ///   gitlab.com/user/repo         GitLab repository
+        ///   https://example.com/config.kdl  Direct URL
+        ///   hyprland/niri-nico           Official registry
+        #[arg(value_name = "SOURCE")]
         path: Option<String>,
 
         /// Hostname specific config
         #[arg(long)]
         host: Option<String>,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
     },
 
     /// Synchronize system state with configuration
@@ -69,7 +93,7 @@ pub enum Command {
         gc: bool,
 
         // --- Advanced Options Group ---
-        
+
         /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
@@ -77,6 +101,10 @@ pub enum Command {
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
     },
 
     /// Verify configuration syntax and imports
@@ -92,6 +120,34 @@ pub enum Command {
 
     /// Show system status and managed packages
     Info,
+
+    /// Switch package variant (e.g., hyprland -> hyprland-git)
+    Switch {
+        /// Old package name to remove
+        #[arg(value_name = "OLD_PACKAGE")]
+        old_package: String,
+
+        /// New package name to install
+        #[arg(value_name = "NEW_PACKAGE")]
+        new_package: String,
+
+        /// Backend (aur or flatpak)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Dry run - show what would happen
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Edit configuration files
+    Edit {
+        /// Module or config to edit (optional)
+        /// If not provided, edits root declarch.kdl
+        /// If provided, edits specific module (e.g., "hyprland/niri-nico")
+        #[arg(value_name = "TARGET")]
+        target: Option<String>,
+    },
 
     /// Generate shell completions
     Completions {

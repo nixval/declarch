@@ -3,14 +3,16 @@ use std::collections::HashMap;
 use crate::config::kdl::parse_kdl_content;
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
-use crate::core::types::PackageId;
+use crate::utils::distro::DistroType;
+use crate::core::types::{PackageId, Backend};
 
 
 #[derive(Debug, Default)]
 pub struct MergedConfig {
-
     pub packages: HashMap<PackageId, Vec<PathBuf>>,
     pub excludes: Vec<String>,
+    /// Package aliases: config_name -> actual_package_name
+    pub aliases: HashMap<String, String>,
 }
 
 impl MergedConfig {
@@ -60,24 +62,62 @@ fn recursive_load(
     visited.insert(canonical_path.clone());
 
     let content = std::fs::read_to_string(&canonical_path)?;
-    
+
     // Parsing KDL
     let raw = parse_kdl_content(&content)?;
 
-  
+    // Detect distro for conditional package processing
+    let distro = DistroType::detect();
+
+    // Process Soar packages (cross-distro)
     for pkg_str in raw.packages {
- 
-        let pkg_id: PackageId = pkg_str.parse().map_err(|e| DeclarchError::ConfigError(e))?;
-        
+        let pkg_id = PackageId {
+            name: pkg_str,
+            backend: Backend::Soar,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process AUR packages (Arch-only)
+    if distro.supports_aur() {
+        for pkg_str in raw.aur_packages {
+            let pkg_id = PackageId {
+                name: pkg_str,
+                backend: Backend::Aur,
+            };
+
+            merged.packages.entry(pkg_id)
+                .or_default()
+                .push(canonical_path.clone());
+        }
+    }
+
+    // Process Flatpak packages (cross-distro)
+    for pkg_str in raw.flatpak_packages {
+        let pkg_id = PackageId {
+            name: pkg_str,
+            backend: Backend::Flatpak,
+        };
+
         merged.packages.entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
 
     merged.excludes.extend(raw.excludes);
+    merged.aliases.extend(raw.aliases);
 
-    let parent_dir = canonical_path.parent().unwrap();
-    
+    // Get parent directory safely - canonicalized paths should always have a parent
+    // except for root paths, which is a case we should handle explicitly
+    let parent_dir = canonical_path
+        .parent()
+        .ok_or_else(|| DeclarchError::Other(
+            format!("Cannot determine parent directory for config file: {}", canonical_path.display())
+        ))?;
+
     for import_str in raw.imports {
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
             PathBuf::from(import_str)

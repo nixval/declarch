@@ -40,14 +40,21 @@ pub fn run() -> Result<()> {
             match pkg_state.backend {
                 crate::state::types::Backend::Aur => {
                     // Requested: Remove 'aur' prefix/tag for native packages
-                    println!("  {} {}", 
-                        "→".dimmed(), 
+                    println!("  {} {}",
+                        "→".dimmed(),
                         name
                     );
                 },
                 crate::state::types::Backend::Flatpak => {
-                    println!("  {} {} {}", 
+                    println!("  {} {} {}",
                         "flt".green(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Soar => {
+                    println!("  {} {} {}",
+                        "soar".blue(),
                         "→".dimmed(),
                         name
                     );

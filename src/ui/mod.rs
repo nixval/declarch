@@ -40,16 +40,29 @@ pub fn indent(msg: &str, level: usize) {
 
 pub fn prompt_yes_no(question: &str) -> bool {
     print!("{} {} [Y/n] ", "?".yellow().bold(), question);
-    io::stdout().flush().unwrap();
+
+    // Attempt to flush stdout, default to true if terminal is broken
+    if let Err(e) = io::stdout().flush() {
+        eprintln!("\nWarning: Failed to flush terminal: {}", e);
+        return true; // Default to true on terminal failure
+    }
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
 
-    let input = input.trim().to_lowercase();
-    
-    if input.is_empty() {
-        return true;
+    // Attempt to read line, default to true if stdin is broken
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => {
+            let input = input.trim().to_lowercase();
+
+            if input.is_empty() {
+                return true;
+            }
+
+            input == "y" || input == "yes"
+        }
+        Err(e) => {
+            eprintln!("\nWarning: Failed to read input: {}", e);
+            true // Default to true on read failure (fail-open for non-interactive)
+        }
     }
-    
-    input == "y" || input == "yes"
 }

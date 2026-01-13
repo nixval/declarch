@@ -1,6 +1,7 @@
 use crate::config::loader::MergedConfig;
 use crate::state::types::State;
-use crate::core::types::{Backend, PackageId, PackageMetadata, SyncTarget};
+use crate::core::types::{PackageId, PackageMetadata, SyncTarget};
+use crate::core::matcher::PackageMatcher;
 use crate::error::Result;
 use std::collections::{HashMap, HashSet};
 
@@ -12,8 +13,9 @@ pub struct Transaction {
     pub to_update_meta: Vec<PackageId>,
 }
 
-// Helper to generate consistent state keys
-fn make_state_key(pkg: &PackageId) -> String {
+/// Helper to generate consistent state keys
+/// Public function to use across modules for consistency
+pub fn make_state_key(pkg: &PackageId) -> String {
     format!("{}:{}", pkg.backend, pkg.name)
 }
 
@@ -31,59 +33,20 @@ pub fn resolve(
     };
 
     let target_packages = resolve_target_scope(config, target);
-    
-    // Suffixes for AUR smart matching
-    let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+
+    // Create smart matcher for package resolution
+    let matcher = PackageMatcher::new();
 
     for pkg_id in target_packages {
         if config.excludes.contains(&pkg_id.name) {
             continue;
         }
 
-        // 1. Try to find exact match in system
-        let mut found_meta = installed_snapshot.get(&pkg_id);
-        
-        // 2. Smart Matching Logic
-        if found_meta.is_none() {
-            match pkg_id.backend {
-                Backend::Aur => {
-                    // Strategy A: Check Suffixes
-                    for suffix in suffixes {
-                        let alt_name = format!("{}{}", pkg_id.name, suffix);
-                        let alt_id = PackageId { name: alt_name, backend: Backend::Aur };
-                        if let Some(meta) = installed_snapshot.get(&alt_id) {
-                            found_meta = Some(meta);
-                            break; 
-                        }
-                    }
-                    // Strategy B: Prefix Fallback
-                    if found_meta.is_none() {
-                        if let Some((prefix, _)) = pkg_id.name.split_once('-') {
-                            let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
-                            if let Some(meta) = installed_snapshot.get(&alt_id) {
-                                found_meta = Some(meta);
-                            }
-                        }
-                    }
-                },
-                Backend::Flatpak => {
-                    // Strategy C: Flatpak Fuzzy Match
-                    // Config: "spotify" -> System: "com.spotify.Client"
-                    let search = pkg_id.name.to_lowercase();
-                    
-                    // Iterate all installed flatpaks to find a partial match
-                    for (installed_id, meta) in installed_snapshot {
-                        if installed_id.backend == Backend::Flatpak {
-                            let installed_name = installed_id.name.to_lowercase();
-                            if installed_name.contains(&search) {
-                                found_meta = Some(meta);
-                                break; // Take first match
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Use PackageMatcher to find installed package (handles variants)
+        let matched_id = matcher.find_package(&pkg_id, installed_snapshot);
+        let found_meta = matched_id
+            .as_ref()
+            .and_then(|id| installed_snapshot.get(id));
 
         let state_key = make_state_key(&pkg_id);
         let state_pkg = state.packages.get(&state_key);
@@ -104,10 +67,8 @@ pub fn resolve(
     // Pruning Logic
     if *target == SyncTarget::All {
         for (key, state_pkg) in &state.packages {
-            let core_backend = match state_pkg.backend {
-                crate::state::types::Backend::Aur => Backend::Aur,
-                crate::state::types::Backend::Flatpak => Backend::Flatpak,
-            };
+            // Backend is now the same type from core::types
+            let core_backend = state_pkg.backend.clone();
 
             let name_part = key.split_once(':').map(|(_, n)| n).unwrap_or(&key).to_string();
             let pkg_id = PackageId {
@@ -158,9 +119,10 @@ fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::types::{PackageState, Backend as StateBackend};
+    use crate::state::types::PackageState;
+    use crate::core::types::Backend;
     use std::path::PathBuf;
-    use chrono::Utc; 
+    use chrono::Utc;
 
     // Helper: Mock Config
     fn mock_config(pkgs: Vec<(&str, Backend)>) -> MergedConfig {
@@ -172,20 +134,22 @@ mod tests {
         MergedConfig {
             packages: map,
             excludes: vec![],
+            aliases: std::collections::HashMap::new(),
         }
     }
 
     // Helper: Mock State (Updated to use new "backend:name" key format)
-    fn mock_state(pkgs: Vec<(&str, StateBackend, &str)>) -> State {
+    fn mock_state(pkgs: Vec<(&str, Backend, &str)>) -> State {
         let mut state = State::default();
         for (name, backend, version) in pkgs {
-            let key = match backend {
-                StateBackend::Aur => format!("aur:{}", name),
-                StateBackend::Flatpak => format!("flatpak:{}", name),
-            };
-            
+            let id = PackageId { name: name.to_string(), backend: backend.clone() };
+            let key = make_state_key(&id);
+
             state.packages.insert(key, PackageState {
-                backend,
+                backend: backend.clone(),
+                config_name: name.to_string(),
+                provides_name: name.to_string(),
+                aur_package_name: None,
                 installed_at: Utc::now(),
                 version: Some(version.to_string()),
             });
@@ -252,7 +216,7 @@ mod tests {
     fn test_prune_logic_standard() {
         // Case: Config empty, State has "htop" -> Prune htop
         let config = MergedConfig::default();
-        let state = mock_state(vec![("htop", StateBackend::Aur, "1.0")]);
+        let state = mock_state(vec![("htop", Backend::Aur, "1.0")]);
         let snapshot = mock_snapshot(vec![("htop", Backend::Aur, "1.0")]);
 
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();

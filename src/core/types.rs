@@ -10,14 +10,18 @@ pub struct PackageId {
     pub backend: Backend,
 }
 
-// Supported backends. 
-// To add a new package manager (e.g. Snap), add a variant here.
+// Supported backends.
+// To add a new package manager (e.g. Snap), add a variant here and update:
+// - Backend::display()
+// - Backend::from_str() (via PackageId::from_str())
+// - BackendRegistry::register_defaults()
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Backend {
-    Aur,     // Handles Pacman & AUR
-    Flatpak,
-    // Future: Snap, Cargo, Nix, etc.
+    Aur,      // Handles Pacman & AUR (Arch Linux)
+    Flatpak,  // Flatpak (Cross-distro)
+    Soar,     // Soar (Cross-distro static binaries)
+    // Future: Snap, Cargo, Nix, Nala, etc.
 }
 
 impl fmt::Display for Backend {
@@ -25,6 +29,7 @@ impl fmt::Display for Backend {
         match self {
             Self::Aur => write!(f, "aur"),
             Self::Flatpak => write!(f, "flatpak"),
+            Self::Soar => write!(f, "soar"),
         }
     }
 }
@@ -33,11 +38,12 @@ impl fmt::Display for PackageId {
         match self.backend {
             Backend::Aur => write!(f, "{}", self.name),
             Backend::Flatpak => write!(f, "flatpak:{}", self.name),
+            Backend::Soar => write!(f, "{}", self.name), // Soar packages displayed without prefix
         }
     }
 }
 // Parsing logic centralized here.
-// Handles "flatpak:name" vs "name"
+// Handles "flatpak:name" vs "soar:name" vs "name"
 impl FromStr for PackageId {
     type Err = String;
 
@@ -46,6 +52,12 @@ impl FromStr for PackageId {
             Ok(PackageId {
                 name: name.to_string(),
                 backend: Backend::Flatpak,
+            })
+        } else if let Some(name) = s.strip_prefix("soar:") {
+            // Explicit 'soar:' prefix support
+            Ok(PackageId {
+                name: name.to_string(),
+                backend: Backend::Soar,
             })
         } else if let Some(name) = s.strip_prefix("aur:") {
             // Explicit 'aur:' prefix support (optional but explicit)
