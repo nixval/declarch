@@ -80,13 +80,16 @@ impl PackageMatcher {
         }
 
         // Strategy B: Try prefix (strip suffix from target)
-        if let Some((prefix, _)) = target.name.split_once('-') {
-            let alt_id = PackageId {
-                name: prefix.to_string(),
-                backend: Backend::Aur,
-            };
-            if installed_snapshot.contains_key(&alt_id) {
-                return Some(alt_id);
+        // Only strip if the suffix is a known variant suffix
+        for suffix in AUR_SUFFIXES {
+            if let Some(base) = target.name.strip_suffix(suffix) {
+                let alt_id = PackageId {
+                    name: base.to_string(),
+                    backend: Backend::Aur,
+                };
+                if installed_snapshot.contains_key(&alt_id) {
+                    return Some(alt_id);
+                }
             }
         }
 
