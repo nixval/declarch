@@ -1,5 +1,6 @@
 use crate::utils::paths;
 use crate::utils::distro::DistroType;
+use crate::utils::install;
 use crate::ui as output;
 use crate::state::{self, types::{Backend, PackageState, State}};
 use crate::config::loader;
@@ -41,6 +42,7 @@ pub struct SyncOptions {
     pub force: bool,
     pub target: Option<String>,
     pub noconfirm: bool,
+    pub skip_soar_install: bool,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
@@ -95,7 +97,20 @@ pub fn run(options: SyncOptions) -> Result<()> {
     for backend in configured_backends {
         match create_manager(&backend, &global_config, options.noconfirm) {
             Ok(manager) => {
-                let available = manager.is_available();
+                let mut available = manager.is_available();
+
+                // Special handling for Soar: try to install if missing
+                if matches!(backend, Backend::Soar) && !available && !options.skip_soar_install && !options.dry_run {
+                    output::warning(&format!("Soar is required but not installed"));
+
+                    // Try to install Soar
+                    if install::install_soar()? {
+                        output::success("Soar installed successfully!");
+                        available = true;
+                    } else {
+                        output::warning("Skipping Soar packages - automatic installation failed");
+                    }
+                }
 
                 // Warn if targeting unavailable backend
                 if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend) {

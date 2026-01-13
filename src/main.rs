@@ -26,15 +26,16 @@ fn main() {
 
 fn run(args: &Cli) -> declarch::error::Result<()> {
     match &args.command {
-        Some(Command::Init { host, path }) => {
+        Some(Command::Init { host, path, skip_soar_install }) => {
             commands::init::run(commands::init::InitOptions {
                 host: host.clone(),
                 // Now 'path' is recognized because we updated args.rs
-                path: path.clone(), 
+                path: path.clone(),
                 force: args.global.force,
+                skip_soar_install: *skip_soar_install,
             })
         }
-        Some(Command::Sync { dry_run, prune, gc, update, target, noconfirm }) => {
+        Some(Command::Sync { dry_run, prune, gc, update, target, noconfirm, skip_soar_install }) => {
             commands::sync::run(commands::sync::SyncOptions {
                 dry_run: *dry_run,
                 prune: *prune,
@@ -44,6 +45,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 force: args.global.force,
                 target: target.clone(),
                 noconfirm: *noconfirm,
+                skip_soar_install: *skip_soar_install,
             })
         }
         Some(Command::Check { verbose, duplicates }) => {

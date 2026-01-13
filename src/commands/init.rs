@@ -1,4 +1,4 @@
-use crate::utils::{self, paths, remote};
+use crate::utils::{self, paths, remote, install};
 use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
@@ -12,6 +12,7 @@ pub struct InitOptions {
     pub path: Option<String>,
     pub host: Option<String>,
     pub force: bool,
+    pub skip_soar_install: bool,
 }
 
 pub fn run(options: InitOptions) -> Result<()> {
@@ -23,9 +24,26 @@ pub fn run(options: InitOptions) -> Result<()> {
     // CASE B: ROOT INITIALIZATION (Keep existing logic)
     output::header("Initializing declarch root");
 
+    // Check and install Soar if needed
+    if !options.skip_soar_install && !install::is_soar_installed() {
+        output::separator();
+        output::warning("Soar is not installed");
+        output::info("Soar is required for cross-distro package management");
+        output::info("Installing Soar automatically...");
+
+        if install::install_soar()? {
+            output::separator();
+        } else {
+            output::separator();
+            output::warning("Continuing without Soar - only AUR/Flatpak packages will work");
+        }
+    } else if install::is_soar_installed() {
+        output::success("Soar is installed and ready");
+    }
+
     let config_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
-    
+
     if config_file.exists() && !options.force {
         output::warning("Configuration already exists.");
         output::info(&format!("Location: {}", config_file.display()));

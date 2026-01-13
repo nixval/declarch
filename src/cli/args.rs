@@ -48,6 +48,10 @@ pub enum Command {
         /// Hostname specific config
         #[arg(long)]
         host: Option<String>,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
     },
 
     /// Synchronize system state with configuration
@@ -69,7 +73,7 @@ pub enum Command {
         gc: bool,
 
         // --- Advanced Options Group ---
-        
+
         /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
@@ -77,6 +81,10 @@ pub enum Command {
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
     },
 
     /// Verify configuration syntax and imports
