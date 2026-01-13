@@ -15,7 +15,7 @@ optdepends=(
     'soar: Cross-distro static binary support'
 )
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('GENERATE_WITH_MAKEPKG')  # Run: makepkg -g >> PKGBUILD
+sha256sums=('57cec80b165c200b27a1f04f4e6c9575586ea713f1caf104cdb3a662288900fe')
 
 prepare() {
     cd "${pkgname}-${pkgver}"
