@@ -73,27 +73,42 @@ pub fn run(options: InitOptions) -> Result<()> {
 }
 
 fn init_module(target_path: &str, force: bool) -> Result<()> {
-    output::header("Creating New Module");
+    output::header("Importing Module");
 
     let root_dir = paths::config_dir()?;
+
+    // Auto-initialize root if not exists
     if !root_dir.exists() {
-        return Err(DeclarchError::Other("Declarch not initialized. Run 'declarch init' first.".into()));
+        output::warning("Root config not found. Auto-initializing...");
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| "unknown".to_string());
+
+        // Create root directory
+        fs::create_dir_all(&root_dir)?;
+        output::success(&format!("Created config directory: {}", root_dir.display()));
+
+        // Create default config
+        let config_file = paths::config_file()?;
+        let template = utils::templates::default_host(&hostname);
+        fs::write(&config_file, template)?;
+        output::success(&format!("Created config file: {}", config_file.display()));
+
+        // Initialize state
+        let _state = state::io::init_state(hostname.clone())?;
+        output::success(&format!("Initialized state for host: {}", hostname.green()));
     }
 
-    // 1. Resolve Path
+    // 1. Resolve Path - preserve directory structure
     let mut path_buf = PathBuf::from(target_path);
     if path_buf.extension().is_none() {
         path_buf.set_extension("kdl");
     }
-    if path_buf.components().count() == 1 {
-        let modules_dir = root_dir.join("modules");
-        if modules_dir.exists() {
-            path_buf = PathBuf::from("modules").join(path_buf);
-        }
-    }
 
-    let full_path = root_dir.join(&path_buf);
-    
+    // Always prepend "modules/" to keep structure
+    let modules_path = PathBuf::from("modules").join(&path_buf);
+    let full_path = root_dir.join(&modules_path);
+
     // 2. Check Existence
     if full_path.exists() && !force {
         output::warning(&format!("Module already exists: {}", full_path.display()));
@@ -101,12 +116,14 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
         return Ok(());
     }
 
+    // Create parent directories
     if let Some(parent) = full_path.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    // 3. Select Template
- let slug = full_path.file_stem()
+    // 3. Select Template - use full target_path for remote fetch
+    let slug = path_buf
+        .file_stem()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
@@ -117,11 +134,12 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     let content = if let Some(local_tmpl) = utils::templates::get_template_by_name(&slug) {
         output::success("Using built-in template.");
         local_tmpl
-    } 
+    }
     // STRATEGY B: Remote Registry (The "Marketplace")
     else {
         output::info("Fetching from community registry...");
-        match remote::fetch_module_content(&slug) {
+        // Use the full target_path (e.g., "hyprland/niri-nico") for remote fetch
+        match remote::fetch_module_content(target_path) {
             Ok(remote_content) => {
                 output::success("Module downloaded successfully.");
                 remote_content
@@ -138,12 +156,10 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     fs::write(&full_path, &content)?;
     output::success(&format!("Created module: {}", full_path.display()));
 
-    // 5. AUTO INJECT IMPORT 
+    // 5. AUTO INJECT IMPORT
     let root_config_path = paths::config_file()?;
-    if root_config_path.exists() {
-        let import_path = path_buf.to_string_lossy().replace("\\", "/");
-        inject_import_to_root(&root_config_path, &import_path)?;
-    }
+    let import_path = modules_path.to_string_lossy().replace("\\", "/");
+    inject_import_to_root(&root_config_path, &import_path)?;
 
     Ok(())
 }

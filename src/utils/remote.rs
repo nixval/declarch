@@ -6,14 +6,15 @@ const REPO_BASE_URL: &str = "https://raw.githubusercontent.com/nixval/declarch-p
 
 /// Fetch module content from remote registry
 ///
-/// Supports two module path formats:
-/// 1. Flat: "hyprland" → modules/hyprland.kdl
-/// 2. Nested: "wm/hyprland" → modules/wm/hyprland.kdl
+/// Supports contributor-based structure:
+/// - "hyprland/niri-nico" → modules/hyprland/niri-nico.kdl
+/// - "gaming/steam-setup" → modules/gaming/steam-setup.kdl
+///
+/// Each category (hyprland, gaming, etc.) can have multiple contributor configs.
 pub fn fetch_module_content(module_path: &str) -> Result<String> {
     let client = Client::new();
 
-    // Normalize path: replace "hyprland" with "hyprland.kdl"
-    // and "wm/hyprland" with "wm/hyprland.kdl"
+    // Normalize path: hyprland/niri-nico → modules/hyprland/niri-nico.kdl
     let url_path = if module_path.contains('/') {
         // Nested path: wm/hyprland → modules/wm/hyprland.kdl
         if module_path.ends_with(".kdl") {
