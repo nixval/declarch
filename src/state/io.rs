@@ -43,8 +43,13 @@ pub fn load_state() -> Result<State> {
 
 pub fn save_state(state: &State) -> Result<()> {
     let path = get_state_path()?;
-    let dir = path.parent().unwrap();
-    
+
+    // Get parent directory - state paths should always have a parent
+    let dir = path.parent()
+        .ok_or_else(|| DeclarchError::Other(
+            format!("Invalid state path (no parent directory): {}", path.display())
+        ))?;
+
     // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
     // Shift: .bak.2 -> .bak.3
     // Shift: .bak.1 -> .bak.2

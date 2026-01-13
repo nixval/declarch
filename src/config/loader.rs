@@ -8,9 +8,10 @@ use crate::core::types::PackageId;
 
 #[derive(Debug, Default)]
 pub struct MergedConfig {
-
     pub packages: HashMap<PackageId, Vec<PathBuf>>,
     pub excludes: Vec<String>,
+    /// Package aliases: config_name -> actual_package_name
+    pub aliases: HashMap<String, String>,
 }
 
 impl MergedConfig {
@@ -75,9 +76,16 @@ fn recursive_load(
     }
 
     merged.excludes.extend(raw.excludes);
+    merged.aliases.extend(raw.aliases);
 
-    let parent_dir = canonical_path.parent().unwrap();
-    
+    // Get parent directory safely - canonicalized paths should always have a parent
+    // except for root paths, which is a case we should handle explicitly
+    let parent_dir = canonical_path
+        .parent()
+        .ok_or_else(|| DeclarchError::Other(
+            format!("Cannot determine parent directory for config file: {}", canonical_path.display())
+        ))?;
+
     for import_str in raw.imports {
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
             PathBuf::from(import_str)

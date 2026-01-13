@@ -1,8 +1,8 @@
 use crate::utils::paths;
 use crate::ui as output;
-use crate::state::{self, types::{Backend as StateBackend, PackageState}};
+use crate::state::{self, types::{Backend, PackageState}};
 use crate::config::loader;
-use crate::core::{resolver, types::{Backend, PackageId, PackageMetadata, SyncTarget}};
+use crate::core::{resolver, types::{PackageId, PackageMetadata, SyncTarget}};
 use crate::packages::{PackageManager, aur::AurManager, flatpak::FlatpakManager};
 use crate::error::{DeclarchError, Result};
 use colored::Colorize;
@@ -381,22 +381,22 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
 
         let version = meta.and_then(|m| m.version.clone());
-        let key = format!("{}:{}", pkg.backend, pkg.name);
-        
-        state.packages.insert(key, PackageState { 
-            backend: match pkg.backend {
-                Backend::Aur => StateBackend::Aur,
-                Backend::Flatpak => StateBackend::Flatpak,
-            },
+        let key = resolver::make_state_key(&pkg);
+
+        state.packages.insert(key, PackageState {
+            backend: pkg.backend.clone(),
+            config_name: pkg.name.clone(),
+            provides_name: pkg.name.clone(),
+            aur_package_name: None, // TODO: Discover actual AUR package name
             installed_at: Utc::now(),
-            version, 
+            version,
         });
     }
 
     // PRUNE FROM STATE
     if should_prune {
         for pkg in tx.to_prune {
-            let key = format!("{}:{}", pkg.backend, pkg.name);
+            let key = resolver::make_state_key(&pkg);
             state.packages.remove(&key);
         }
     }

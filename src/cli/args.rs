@@ -93,6 +93,25 @@ pub enum Command {
     /// Show system status and managed packages
     Info,
 
+    /// Switch package variant (e.g., hyprland -> hyprland-git)
+    Switch {
+        /// Old package name to remove
+        #[arg(value_name = "OLD_PACKAGE")]
+        old_package: String,
+
+        /// New package name to install
+        #[arg(value_name = "NEW_PACKAGE")]
+        new_package: String,
+
+        /// Backend (aur or flatpak)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Dry run - show what would happen
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Generate shell completions
     Completions {
         /// The shell to generate completions for

@@ -148,7 +148,8 @@ fn inject_import_to_root(config_path: &Path, import_path: &str) -> Result<()> {
 
     // 2. Regex Magic
     // Find: imports { (with flexible whitespace)
-    let re = Regex::new(r#"(?m)^(.*imports\s*\{)"#).unwrap();
+    let re = Regex::new(r#"(?m)^(.*imports\s*\{)"#)
+        .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
 
     let new_content = if re.is_match(&content) {
         // INJECT: Insert right after the opening brace

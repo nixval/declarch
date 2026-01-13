@@ -53,6 +53,16 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         Some(Command::Info) => {
             commands::info::run()
         }
+        Some(Command::Switch { old_package, new_package, backend, dry_run }) => {
+            commands::switch::run(commands::switch::SwitchOptions {
+                old_package: old_package.clone(),
+                new_package: new_package.clone(),
+                backend: backend.clone(),
+                dry_run: *dry_run,
+                yes: args.global.yes,
+                force: args.global.force,
+            })
+        }
         Some(Command::Completions { shell }) => {
             commands::completions::run(*shell)
         }

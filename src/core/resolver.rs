@@ -12,8 +12,9 @@ pub struct Transaction {
     pub to_update_meta: Vec<PackageId>,
 }
 
-// Helper to generate consistent state keys
-fn make_state_key(pkg: &PackageId) -> String {
+/// Helper to generate consistent state keys
+/// Public function to use across modules for consistency
+pub fn make_state_key(pkg: &PackageId) -> String {
     format!("{}:{}", pkg.backend, pkg.name)
 }
 
@@ -104,10 +105,8 @@ pub fn resolve(
     // Pruning Logic
     if *target == SyncTarget::All {
         for (key, state_pkg) in &state.packages {
-            let core_backend = match state_pkg.backend {
-                crate::state::types::Backend::Aur => Backend::Aur,
-                crate::state::types::Backend::Flatpak => Backend::Flatpak,
-            };
+            // Backend is now the same type from core::types
+            let core_backend = state_pkg.backend.clone();
 
             let name_part = key.split_once(':').map(|(_, n)| n).unwrap_or(&key).to_string();
             let pkg_id = PackageId {
@@ -158,9 +157,9 @@ fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::types::{PackageState, Backend as StateBackend};
+    use crate::state::types::PackageState;
     use std::path::PathBuf;
-    use chrono::Utc; 
+    use chrono::Utc;
 
     // Helper: Mock Config
     fn mock_config(pkgs: Vec<(&str, Backend)>) -> MergedConfig {
@@ -172,20 +171,22 @@ mod tests {
         MergedConfig {
             packages: map,
             excludes: vec![],
+            aliases: std::collections::HashMap::new(),
         }
     }
 
     // Helper: Mock State (Updated to use new "backend:name" key format)
-    fn mock_state(pkgs: Vec<(&str, StateBackend, &str)>) -> State {
+    fn mock_state(pkgs: Vec<(&str, Backend, &str)>) -> State {
         let mut state = State::default();
         for (name, backend, version) in pkgs {
-            let key = match backend {
-                StateBackend::Aur => format!("aur:{}", name),
-                StateBackend::Flatpak => format!("flatpak:{}", name),
-            };
-            
+            let id = PackageId { name: name.to_string(), backend: backend.clone() };
+            let key = make_state_key(&id);
+
             state.packages.insert(key, PackageState {
-                backend,
+                backend: backend.clone(),
+                config_name: name.to_string(),
+                provides_name: name.to_string(),
+                aur_package_name: None,
                 installed_at: Utc::now(),
                 version: Some(version.to_string()),
             });
@@ -252,7 +253,7 @@ mod tests {
     fn test_prune_logic_standard() {
         // Case: Config empty, State has "htop" -> Prune htop
         let config = MergedConfig::default();
-        let state = mock_state(vec![("htop", StateBackend::Aur, "1.0")]);
+        let state = mock_state(vec![("htop", Backend::Aur, "1.0")]);
         let snapshot = mock_snapshot(vec![("htop", Backend::Aur, "1.0")]);
 
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();
