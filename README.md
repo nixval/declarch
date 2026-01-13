@@ -378,4 +378,3 @@ Pull requests are welcome! This project is written in **Rust**.
 
 -----
 
-**Made with ❤️ for Arch Linux users**
