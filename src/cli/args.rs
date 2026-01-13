@@ -40,9 +40,25 @@ pub struct GlobalFlags {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Initialize declarch configuration
+    ///
+    /// With no arguments: Creates root config (~/.config/declarch/declarch.kdl)
+    ///
+    /// With MODULE_PATH: Fetches config from remote repository
+    ///   - user/repo          Fetch from GitHub (user/repo/main/declarch.kdl)
+    ///   - user/repo/branch   Fetch from specific branch
+    ///   - gitlab.com/user/repo  Fetch from GitLab
+    ///   - https://...        Direct URL to declarch.kdl
+    ///   - hyprland/niri-nico  Fetch from official registry
     Init {
-        /// Create a module at this path (e.g. "modules/gaming")
-        #[arg(value_name = "MODULE_PATH")]
+        /// Config source (GitHub/GitLab repo, URL, or registry module)
+        ///
+        /// Examples:
+        ///   jakoolit/hyprland1     GitHub: user/repo
+        ///   hyprwm/hyprland       GitHub: official project config
+        ///   gitlab.com/user/repo   GitLab repository
+        ///   https://example.com/config.kdl  Direct URL
+        ///   hyprland/niri-nico     Official registry
+        #[arg(value_name = "SOURCE")]
         path: Option<String>,
 
         /// Hostname specific config
