@@ -1,0 +1,53 @@
+# Maintainer: Nixval <nixval@users.noreply.github.com>
+pkgname=declarch
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="Declarative package manager for Arch Linux inspired by Nix workflow"
+arch=('x86_64')
+url="https://github.com/nixval/declarch"
+license=('MIT' 'Apache-2.0')
+depends=('gcc-libs' 'pacman')
+makedepends=('cargo')
+optdepends=(
+    'paru: AUR helper (recommended)'
+    'yay: AUR helper alternative'
+    'flatpak: Flatpak support'
+    'soar: Cross-distro static binary support'
+)
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+    cd "${pkgname}-${pkgver}"
+    cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release --all-features
+}
+
+check() {
+    cd "${pkgname}-${pkgver}"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo test --frozen --all-features
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/declarch"
+
+    # Install shell completions
+    install -Dm0644 -t "$pkgdir/usr/share/bash-completion/completions/" \
+        <("$pkgdir/usr/bin/declarch" completions bash)
+    install -Dm0644 -t "$pkgdir/usr/share/zsh/site-functions/" \
+        <("$pkgdir/usr/bin/declarch" completions zsh)
+    install -Dm0644 -t "$pkgdir/usr/share/fish/vendor_completions.d/" \
+        <("$pkgdir/usr/bin/declarch" completions fish)
+
+    # Install documentation
+    install -Dm0644 -t "$pkgdir/usr/share/doc/${pkgname}/" README.md
+    install -Dm0644 -t "$pkgdir/usr/share/licenses/${pkgname}/" LICENSE-MIT LICENSE-Apache2
+}

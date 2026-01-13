@@ -3,46 +3,82 @@ name: Release
 on:
   push:
     tags:
-      - "v*" 
+      - 'v*.*.*'
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build and Release
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            arch: x86_64
+          - target: aarch64-unknown-linux-gnu
+            arch: aarch64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.arch == 'aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build binary
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare archive
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../declarch-${{ matrix.target }}.tar.gz declarch
+          cd ../..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: declarch-${{ matrix.target }}
+          path: target/declarch-${{ matrix.target }}.tar.gz
+
+  release:
+    name: Create Release
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      
-      - name: Build Binary
-        run: cargo build --release --locked --verbose
-
-     
-      - name: Strip Binary
-        run: strip target/release/declarch
-
-      - name: Package
-        shell: bash
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          ARCHIVE_NAME="declarch-$VERSION-x86_64-unknown-linux-gnu.tar.gz"
-          
-          cd target/release
-          tar -czf "../../$ARCHIVE_NAME" declarch
-          
-          cd ../..
-          echo "ASSET_PATH=$ARCHIVE_NAME" >> $GITHUB_ENV
-
-      - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          files: ${{ env.ASSET_PATH }}
-          generate_release_notes: true 
+          path: artifacts
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ github.ref_name }}
+          VERSION=${TAG#v}
+          
+          gh release create "${TAG}" \
+            --title "Declarch ${VERSION}" \
+            --notes "See CHANGELOG.md for details." \
+            artifacts/*/declarch-*.tar.gz
+
+      - name: Publish info
+        run: |
+          echo "Release created!"
+          echo "Publish to AUR with: ./.aur/publish.sh"
