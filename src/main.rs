@@ -65,6 +65,11 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 force: args.global.force,
             })
         }
+        Some(Command::Edit { target }) => {
+            commands::edit::run(commands::edit::EditOptions {
+                target: target.clone(),
+            })
+        }
         Some(Command::Completions { shell }) => {
             commands::completions::run(*shell)
         }

@@ -7,6 +7,10 @@ pub struct GlobalConfig {
     #[serde(default = "default_aur_helper")]
     pub aur_helper: AurHelper,
 
+    /// Default editor for editing configs
+    #[serde(default = "default_editor")]
+    pub editor: String,
+
     /// Other settings (future)
     #[serde(default)]
     pub other: std::collections::HashMap<String, String>,
@@ -14,6 +18,21 @@ pub struct GlobalConfig {
 
 fn default_aur_helper() -> AurHelper {
     AurHelper::Paru
+}
+
+fn default_editor() -> String {
+    // Try to detect preferred editor, fallback to nano
+    if let Ok(ed) = std::env::var("EDITOR") {
+        if !ed.is_empty() {
+            return ed;
+        }
+    }
+    if let Ok(ed) = std::env::var("VISUAL") {
+        if !ed.is_empty() {
+            return ed;
+        }
+    }
+    "nano".to_string() // Default fallback
 }
 
 /// AUR helper choice
@@ -37,6 +56,7 @@ impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
             aur_helper: AurHelper::Paru,
+            editor: default_editor(),
             other: std::collections::HashMap::new(),
         }
     }

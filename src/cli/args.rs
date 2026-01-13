@@ -120,6 +120,15 @@ pub enum Command {
         dry_run: bool,
     },
 
+    /// Edit configuration files
+    Edit {
+        /// Module or config to edit (optional)
+        /// If not provided, edits root declarch.kdl
+        /// If provided, edits specific module (e.g., "hyprland/niri-nico")
+        #[arg(value_name = "TARGET")]
+        target: Option<String>,
+    },
+
     /// Generate shell completions
     Completions {
         /// The shell to generate completions for
