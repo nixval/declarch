@@ -18,6 +18,9 @@ pub struct RawConfig {
     /// Package aliases: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
     pub aliases: HashMap<String, String>,
+    /// Editor to use for edit command
+    /// Syntax: editor "nvim" or editor nvim
+    pub editor: Option<String>,
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
@@ -30,6 +33,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         flatpak_packages: vec![],
         excludes: vec![],
         aliases: HashMap::new(),
+        editor: None,
     };
 
     for node in doc.nodes() {
@@ -44,6 +48,17 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             },
             "aliases-pkg" | "alias-pkg" => {
                 extract_aliases(node, &mut config.aliases);
+            },
+            "editor" => {
+                // Extract editor from first string argument
+                if let Some(entry) = node.entries().first() {
+                    if let Some(val) = entry.value().as_string() {
+                        config.editor = Some(val.to_string());
+                    }
+                }
+            },
+            "description" => {
+                // No-op, just ignore description nodes
             },
             // Parse packages with new flexible syntax
             name if name.starts_with("packages") => {

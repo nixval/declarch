@@ -75,7 +75,10 @@ fn build_urls(target: &str) -> Vec<String> {
     // Strip .kdl extension if present (for cleaner URL building)
     let clean_target = target.strip_suffix(".kdl").unwrap_or(target);
 
-    // 2. Config variant syntax: user/repo:variant (e.g., jakoolit/dotfiles:uwsm)
+    // 2. Config variant syntax: user/repo:variant or user/repo/branch:variant
+    // Examples:
+    //   - jakoolit/dotfiles:uwsm       → main branch, uwsm variant
+    //   - jakoolit/dotfiles/develop:uwsm → develop branch, uwsm variant
     if clean_target.contains(':') && !clean_target.starts_with("gitlab.com/") {
         let parts: Vec<&str> = clean_target.split(':').collect();
 
@@ -83,9 +86,10 @@ fn build_urls(target: &str) -> Vec<String> {
             let (repo_part, variant) = (parts[0], parts[1]);
 
             if repo_part.contains('/') {
-                // It's user/repo:variant
                 let repo_parts: Vec<&str> = repo_part.split('/').collect();
-                if repo_parts.len() >= 2 {
+
+                if repo_parts.len() == 2 {
+                    // user/repo:variant pattern
                     let (owner, repo_name) = (repo_parts[0], repo_parts[1]);
 
                     // Try: user/repo:variant → user/repo/main/declarch-variant.kdl
@@ -96,6 +100,27 @@ fn build_urls(target: &str) -> Vec<String> {
 
                     // Also try branches (main, master)
                     if variant != "main" && variant != "master" {
+                        for b in ["main", "master"] {
+                            urls.push(format!(
+                                "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
+                                owner, repo_name, b, variant
+                            ));
+                        }
+                    }
+
+                    return urls;
+                } else if repo_parts.len() >= 3 {
+                    // user/repo/branch:variant pattern
+                    let (owner, repo_name, branch) = (repo_parts[0], repo_parts[1], repo_parts[2]);
+
+                    // Try: user/repo/branch:variant → user/repo/branch/declarch-variant.kdl
+                    urls.push(format!(
+                        "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
+                        owner, repo_name, branch, variant
+                    ));
+
+                    // Also try main/master as fallback
+                    if branch != "main" && branch != "master" {
                         for b in ["main", "master"] {
                             urls.push(format!(
                                 "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
@@ -303,5 +328,17 @@ mod tests {
         assert!(urls.iter().any(|u| u.contains("declarch-packages/main/modules/gaming/steam-setup.kdl")));
         // Should also try GitHub as fallback
         assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/gaming/steam-setup/main/declarch.kdl")));
+    }
+
+    #[test]
+    fn test_build_urls_branch_with_variant() {
+        let urls = build_urls("jakoolit/dotfiles/develop:uwsm");
+
+        // Should build URLs with develop branch and uwsm variant
+        assert!(urls.iter().any(|u| u.contains("declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/dotfiles/develop/declarch-uwsm.kdl")));
+        // Should also fallback to main/master
+        assert!(urls.iter().any(|u| u.contains("/main/declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| u.contains("/master/declarch-uwsm.kdl")));
     }
 }

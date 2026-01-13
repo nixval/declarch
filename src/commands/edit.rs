@@ -1,5 +1,5 @@
 use crate::utils::paths;
-use crate::config::types::GlobalConfig;
+use crate::config::kdl::parse_kdl_content;
 use crate::ui as output;
 use crate::error::{DeclarchError, Result};
 use std::path::{Path, PathBuf};
@@ -39,9 +39,8 @@ pub fn run(options: EditOptions) -> Result<()> {
         )));
     }
 
-    // Get editor
-    let global_config = GlobalConfig::default();
-    let editor = get_editor(&global_config);
+    // Get editor from config file or environment
+    let editor = get_editor_from_config()?;
 
     // Show info
     output::header("Editing Configuration");
@@ -161,32 +160,41 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
     Ok(full_path)
 }
 
-/// Get editor to use
+/// Get editor to use from config file or environment
 ///
 /// Priority:
-/// 1. --editor flag (not implemented yet, but could add)
-/// 2. config file setting
-/// 3. $EDITOR environment variable
-/// 4. $VISUAL environment variable
-/// 5. "nano" (default fallback)
-fn get_editor(config: &GlobalConfig) -> String {
-    // Check if editor is set in config
-    if !config.editor.is_empty() && config.editor != "nano" {
-        return config.editor.clone();
+/// 1. editor "nvim" in declarch.kdl
+/// 2. $EDITOR environment variable
+/// 3. $VISUAL environment variable
+/// 4. "nano" (default fallback)
+fn get_editor_from_config() -> Result<String> {
+    // Try to load and parse the root config file
+    let config_file = paths::config_file()?;
+
+    if config_file.exists() {
+        if let Ok(content) = std::fs::read_to_string(&config_file) {
+            if let Ok(config) = parse_kdl_content(&content) {
+                if let Some(editor) = config.editor {
+                    if !editor.is_empty() {
+                        return Ok(editor);
+                    }
+                }
+            }
+        }
     }
 
     // Check environment variables
     if let Ok(ed) = std::env::var("EDITOR") {
         if !ed.is_empty() {
-            return ed;
+            return Ok(ed);
         }
     }
     if let Ok(ed) = std::env::var("VISUAL") {
         if !ed.is_empty() {
-            return ed;
+            return Ok(ed);
         }
     }
 
-    // Fallback to config setting or nano
-    config.editor.clone()
+    // Fallback to nano
+    Ok("nano".to_string())
 }
