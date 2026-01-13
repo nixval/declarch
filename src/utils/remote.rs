@@ -66,15 +66,53 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
 fn build_urls(target: &str) -> Vec<String> {
     let mut urls = Vec::new();
 
-    // 1. Direct URL (starts with http:// or https://)
+    // 1. Direct URL (starts with http:// or https://) - pass through as-is
     if target.starts_with("http://") || target.starts_with("https://") {
         urls.push(target.to_string());
         return urls;
     }
 
-    // 2. GitLab URL (gitlab.com/user/repo or gitlab.com/user/repo/branch)
-    if target.starts_with("gitlab.com/") {
-        let path = target.strip_prefix("gitlab.com/").unwrap();
+    // Strip .kdl extension if present (for cleaner URL building)
+    let clean_target = target.strip_suffix(".kdl").unwrap_or(target);
+
+    // 2. Config variant syntax: user/repo:variant (e.g., jakoolit/dotfiles:uwsm)
+    if clean_target.contains(':') && !clean_target.starts_with("gitlab.com/") {
+        let parts: Vec<&str> = clean_target.split(':').collect();
+
+        if parts.len() == 2 {
+            let (repo_part, variant) = (parts[0], parts[1]);
+
+            if repo_part.contains('/') {
+                // It's user/repo:variant
+                let repo_parts: Vec<&str> = repo_part.split('/').collect();
+                if repo_parts.len() >= 2 {
+                    let (owner, repo_name) = (repo_parts[0], repo_parts[1]);
+
+                    // Try: user/repo:variant → user/repo/main/declarch-variant.kdl
+                    urls.push(format!(
+                        "https://raw.githubusercontent.com/{}/{}/main/declarch-{}.kdl",
+                        owner, repo_name, variant
+                    ));
+
+                    // Also try branches (main, master)
+                    if variant != "main" && variant != "master" {
+                        for b in ["main", "master"] {
+                            urls.push(format!(
+                                "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
+                                owner, repo_name, b, variant
+                            ));
+                        }
+                    }
+
+                    return urls;
+                }
+            }
+        }
+    }
+
+    // 3. GitLab URL (gitlab.com/user/repo or gitlab.com/user/repo/branch)
+    if clean_target.starts_with("gitlab.com/") {
+        let path = clean_target.strip_prefix("gitlab.com/").unwrap();
         let parts: Vec<&str> = path.split('/').collect();
 
         if parts.len() >= 2 {
@@ -95,9 +133,31 @@ fn build_urls(target: &str) -> Vec<String> {
         return urls;
     }
 
-    // 3. GitHub-style URLs (owner/repo or owner/repo/branch)
-    if target.contains('/') {
-        let parts: Vec<&str> = target.split('/').collect();
+    // 4. Registry module path (has .kdl extension, like "gaming/steam-setup.kdl")
+    // This takes priority over GitHub user/repo to avoid ambiguity
+    if target.contains('/') && target.ends_with(".kdl") {
+        // It's a registry module path with extension
+        urls.push(format!(
+            "{}/modules/{}",
+            DEFAULT_REGISTRY, target  // Keep .kdl extension
+        ));
+
+        // Also try GitHub as fallback
+        let parts: Vec<&str> = clean_target.split('/').collect();
+        if parts.len() >= 2 {
+            let (owner, repo) = (parts[0], parts[1]);
+            urls.push(format!(
+                "https://raw.githubusercontent.com/{}/{}/main/declarch.kdl",
+                owner, repo
+            ));
+        }
+
+        return urls;
+    }
+
+    // 5. GitHub-style URLs (owner/repo or owner/repo/branch)
+    if clean_target.contains('/') {
+        let parts: Vec<&str> = clean_target.split('/').collect();
 
         if parts.len() >= 2 {
             // Try with explicit branch
@@ -121,18 +181,18 @@ fn build_urls(target: &str) -> Vec<String> {
                 ));
             }
 
-            // Also try modules/ path for default registry
+            // Also try modules/ path for default registry (without .kdl)
             urls.push(format!(
                 "{}/modules/{}.kdl",
-                DEFAULT_REGISTRY, target
+                DEFAULT_REGISTRY, clean_target
             ));
         }
 
         return urls;
     }
 
-    // 4. Flat name → try default registry
-    urls.push(format!("{}/modules/{}.kdl", DEFAULT_REGISTRY, target));
+    // 6. Flat name → try default registry
+    urls.push(format!("{}/modules/{}.kdl", DEFAULT_REGISTRY, clean_target));
 
     urls
 }
@@ -205,5 +265,43 @@ mod tests {
         // Should try both GitHub and default registry
         assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com")));
         assert!(urls.iter().any(|u| u.contains("declarch-packages/main/modules")));
+    }
+
+    #[test]
+    fn test_build_urls_colon_suffix() {
+        let urls = build_urls("jakoolit/dotfiles:uwsm");
+
+        // Should build URLs with declarch-uwsm.kdl
+        assert!(urls.iter().any(|u| u.contains("declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/dotfiles/main/declarch-uwsm.kdl")));
+    }
+
+    #[test]
+    fn test_build_urls_colon_suffix_with_branch() {
+        let urls = build_urls("jakoolit/dotfiles:develop");
+
+        // Should try both develop and main/master branches
+        assert!(urls.iter().any(|u| u.contains("declarch-develop.kdl")));
+        assert!(urls.iter().any(|u| u.contains("/main/declarch-develop.kdl")));
+        assert!(urls.iter().any(|u| u.contains("/master/declarch-develop.kdl")));
+    }
+
+    #[test]
+    fn test_build_urls_colon_suffix_main_variant() {
+        let urls = build_urls("jakoolit/dotfiles:main");
+
+        // Should not duplicate - "main" is the default branch
+        assert!(urls.iter().any(|u| u.contains("declarch-main.kdl")));
+        assert_eq!(urls.len(), 1); // Only one URL since main is default
+    }
+
+    #[test]
+    fn test_build_urls_registry_with_kdl_extension() {
+        let urls = build_urls("gaming/steam-setup.kdl");
+
+        // Registry paths with .kdl should keep the extension
+        assert!(urls.iter().any(|u| u.contains("declarch-packages/main/modules/gaming/steam-setup.kdl")));
+        // Should also try GitHub as fallback
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/gaming/steam-setup/main/declarch.kdl")));
     }
 }

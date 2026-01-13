@@ -43,21 +43,25 @@ pub enum Command {
     ///
     /// With no arguments: Creates root config (~/.config/declarch/declarch.kdl)
     ///
-    /// With MODULE_PATH: Fetches config from remote repository
-    ///   - user/repo          Fetch from GitHub (user/repo/main/declarch.kdl)
-    ///   - user/repo/branch   Fetch from specific branch
-    ///   - gitlab.com/user/repo  Fetch from GitLab
-    ///   - https://...        Direct URL to declarch.kdl
-    ///   - hyprland/niri-nico  Fetch from official registry
+    /// With SOURCE: Fetches config from remote repository
+    ///   - user/repo              Fetch from GitHub (user/repo/main/declarch.kdl)
+    ///   - user/repo:variant      Fetch specific config variant (declarch-variant.kdl)
+    ///   - user/repo/branch       Fetch from specific branch
+    ///   - gitlab.com/user/repo   Fetch from GitLab
+    ///   - https://...            Direct URL to declarch.kdl
+    ///   - hyprland/niri-nico     Fetch from official registry
     Init {
         /// Config source (GitHub/GitLab repo, URL, or registry module)
         ///
         /// Examples:
-        ///   jakoolit/hyprland1     GitHub: user/repo
-        ///   hyprwm/hyprland       GitHub: official project config
-        ///   gitlab.com/user/repo   GitLab repository
+        ///   jakoolit/hyprland1           GitHub: user/repo (fetches declarch.kdl)
+        ///   jakoolit/dotfiles:uwsm       GitHub: user/repo:variant (fetches declarch-uwsm.kdl)
+        ///   jakoolit/dotfiles:minimal    GitHub: user/repo:variant (fetches declarch-minimal.kdl)
+        ///   hyprwm/hyprland             GitHub: official project config
+        ///   jakoolit/hyprland1/develop   GitHub: user/repo/branch
+        ///   gitlab.com/user/repo         GitLab repository
         ///   https://example.com/config.kdl  Direct URL
-        ///   hyprland/niri-nico     Official registry
+        ///   hyprland/niri-nico           Official registry
         #[arg(value_name = "SOURCE")]
         path: Option<String>,
 
