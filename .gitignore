@@ -7,6 +7,10 @@
 .DS_Store
 .dev/
 
+# Generated files
+_declarch
+.claude/
+
 config.decl
 state.json
 package.sh
