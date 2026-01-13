@@ -11,6 +11,9 @@
 _declarch
 .claude/
 
+# Release documentation (personal reference)
+RELEASE_GUIDE.md
+
 config.decl
 state.json
 package.sh
