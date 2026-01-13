@@ -363,7 +363,7 @@ declarch check
 
 ### Example 1: Minimal Config
 
-**Repository:** `jakoolit/minimal-config`
+**Repository:** `username/minimal-config`
 
 **declarch.kdl:**
 ```kdl
@@ -379,7 +379,7 @@ packages:soar {
 
 **Usage:**
 ```bash
-declarch init jakoolit/minimal-config
+declarch init username/minimal-config
 ```
 
 ---

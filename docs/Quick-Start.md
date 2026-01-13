@@ -222,7 +222,7 @@ Fetch a pre-made configuration:
 
 ```bash
 # From GitHub user repository
-declarch init jakoolit/dotfiles
+declarch init myuser/dotfiles
 
 # From official project
 declarch init hyprwm/hyprland
@@ -234,10 +234,10 @@ declarch init hyprland/niri-nico
 declarch init gitlab.com/user/repo
 
 # With specific variant
-declarch init jakoolit/dotfiles:uwsm
+declarch init myuser/dotfiles:uwsm
 
 # From specific branch
-declarch init jakoolit/dotfiles/develop:uwsm
+declarch init myuser/dotfiles/develop:uwsm
 ```
 
 See [Remote Init Guide](Remote-Init-Guide.md) for details.

@@ -26,14 +26,14 @@ https://raw.githubusercontent.com/nixval/declarch-packages/main/modules/hyprland
 
 ```bash
 # Fetch from user's GitHub repo
-declarch init jakoolit/hyprland1
+declarch init myuser/hyprland1
 declarch init hyprwm/hyprland
 declarch init username/dotfiles
 ```
 
 **Fetches from:**
 ```
-https://raw.githubusercontent.com/jakoolit/hyprland1/main/declarch.kdl
+https://raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl
 https://raw.githubusercontent.com/hyprwm/hyprland/main/declarch.kdl
 https://raw.githubusercontent.com/username/dotfiles/main/declarch.kdl
 ```
@@ -174,13 +174,13 @@ declarch init hyprwm/hyprland
 Declarch tries multiple URL patterns in order:
 
 ```bash
-declarch init jakoolit/hyprland1
+declarch init myuser/hyprland1
 ```
 
 **Tries in order:**
-1. `https://raw.githubusercontent.com/jakoolit/hyprland1/main/declarch.kdl`
-2. `https://raw.githubusercontent.com/jakoolit/hyprland1/master/declarch.kdl`
-3. `https://raw.githubusercontent.com/nixval/declarch-packages/main/modules/jakoolit/hyprland1.kdl`
+1. `https://raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl`
+2. `https://raw.githubusercontent.com/myuser/hyprland1/master/declarch.kdl`
+3. `https://raw.githubusercontent.com/nixval/declarch-packages/main/modules/myuser/hyprland1.kdl`
 
 **Stops at first successful fetch.**
 
@@ -226,14 +226,14 @@ my-config/
 ## Installation with Declarch
 
 ```bash
-declarch init jakoolit/my-dotfiles
+declarch init myuser/my-dotfiles
 declarch sync
 ```
 
 ## Manual Installation
 
 ```bash
-git clone https://github.com/jakoolit/my-dotfiles.git
+git clone https://github.com/myuser/my-dotfiles.git
 cd my-dotfiles
 # ... manual setup
 ```
@@ -319,7 +319,7 @@ declarch init hyprland/niri-nico
 
 ```bash
 # From your own repo
-declarch init jakoolit/hyprland1
+declarch init myuser/hyprland1
 
 # From official project repo
 declarch init hyprwm/hyprland
@@ -336,29 +336,29 @@ declarch init https://example.com/config.kdl
 
 **Problem:**
 ```bash
-declarch init jakoolit/hyprland1
-# Error: Failed to fetch from: jakoolit/hyprland1
+declarch init myuser/hyprland1
+# Error: Failed to fetch from: myuser/hyprland1
 ```
 
 **Solutions:**
 1. **Check repository exists:**
    ```bash
-   curl -I https://github.com/jakoolit/hyprland1
+   curl -I https://github.com/myuser/hyprland1
    ```
 
 2. **Check file exists:**
    ```bash
-   curl -I https://raw.githubusercontent.com/jakoolit/hyprland1/main/declarch.kdl
+   curl -I https://raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl
    ```
 
 3. **Try with explicit branch:**
    ```bash
-   declarch init jakoolit/hyprland1/master
+   declarch init myuser/hyprland1/master
    ```
 
 4. **Use direct URL:**
    ```bash
-   declarch init https://raw.githubusercontent.com/jakoolit/hyprland1/develop/declarch.kdl
+   declarch init https://raw.githubusercontent.com/myuser/hyprland1/develop/declarch.kdl
    ```
 
 ### Wrong Config Fetched
@@ -369,7 +369,7 @@ declarch init jakoolit/hyprland1
 ```kdl
 // In your root declarch.kdl
 imports {
-    jakoolit/my-config/modules/hyprland
+    myuser/my-config/modules/hyprland
 }
 ```
 
@@ -400,7 +400,7 @@ packages:aur {
 
 // Import from GitHub user's config
 imports {
-    jakoolit/hyprland1
+    myuser/hyprland1
     gamer123/steam-setup
 }
 
@@ -420,9 +420,9 @@ Always verify the repository before initializing:
 
 ```bash
 # Check the repository first
-gh repo view jakoolit/hyprland1
+gh repo view myuser/hyprland1
 # or
-xdg-open https://github.com/jakoolit/hyprland1
+xdg-open https://github.com/myuser/hyprland1
 ```
 
 ### 2. Review Config
@@ -430,7 +430,7 @@ xdg-open https://github.com/jakoolit/hyprland1
 Declarch shows the fetched content:
 
 ```bash
-declarch init jakoolit/hyprland1
+declarch init myuser/hyprland1
 # Output:
 # ℹ Fetching from: https://raw.githubusercontent.com/...
 # ✓ Fetched 45 lines

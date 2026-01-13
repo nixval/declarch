@@ -16,8 +16,8 @@ const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarc
 ///
 /// 2. **Arbitrary GitHub repo** (Go-style):
 ///    ```bash
-///    declarch init jakoolit/hyprland1
-///    # → https://raw.githubusercontent.com/jakoolit/hyprland1/main/declarch.kdl
+///    declarch init myuser/hyprland1
+///    # → https://raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl
 ///    declarch init hyprwm/hyprland
 ///    # → https://raw.githubusercontent.com/hyprwm/hyprland/main/declarch.kdl
 ///    ```
@@ -77,8 +77,8 @@ fn build_urls(target: &str) -> Vec<String> {
 
     // 2. Config variant syntax: user/repo:variant or user/repo/branch:variant
     // Examples:
-    //   - jakoolit/dotfiles:uwsm       → main branch, uwsm variant
-    //   - jakoolit/dotfiles/develop:uwsm → develop branch, uwsm variant
+    //   - myuser/dotfiles:uwsm       → main branch, uwsm variant
+    //   - myuser/dotfiles/develop:uwsm → develop branch, uwsm variant
     if clean_target.contains(':') && !clean_target.starts_with("gitlab.com/") {
         let parts: Vec<&str> = clean_target.split(':').collect();
 
@@ -241,17 +241,17 @@ mod tests {
 
     #[test]
     fn test_build_urls_github_default() {
-        let urls = build_urls("jakoolit/hyprland1");
+        let urls = build_urls("myuser/hyprland1");
 
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/hyprland1/main/declarch.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl")));
     }
 
     #[test]
     fn test_build_urls_github_with_branch() {
-        let urls = build_urls("jakoolit/hyprland1/develop");
+        let urls = build_urls("myuser/hyprland1/develop");
 
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/hyprland1/develop/declarch.kdl")));
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/hyprland1/main/declarch.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/hyprland1/develop/declarch.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl")));
     }
 
     #[test]
@@ -294,16 +294,16 @@ mod tests {
 
     #[test]
     fn test_build_urls_colon_suffix() {
-        let urls = build_urls("jakoolit/dotfiles:uwsm");
+        let urls = build_urls("myuser/dotfiles:uwsm");
 
         // Should build URLs with declarch-uwsm.kdl
         assert!(urls.iter().any(|u| u.contains("declarch-uwsm.kdl")));
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/dotfiles/main/declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/dotfiles/main/declarch-uwsm.kdl")));
     }
 
     #[test]
     fn test_build_urls_colon_suffix_with_branch() {
-        let urls = build_urls("jakoolit/dotfiles:develop");
+        let urls = build_urls("myuser/dotfiles:develop");
 
         // Should try both develop and main/master branches
         assert!(urls.iter().any(|u| u.contains("declarch-develop.kdl")));
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_build_urls_colon_suffix_main_variant() {
-        let urls = build_urls("jakoolit/dotfiles:main");
+        let urls = build_urls("myuser/dotfiles:main");
 
         // Should not duplicate - "main" is the default branch
         assert!(urls.iter().any(|u| u.contains("declarch-main.kdl")));
@@ -332,11 +332,11 @@ mod tests {
 
     #[test]
     fn test_build_urls_branch_with_variant() {
-        let urls = build_urls("jakoolit/dotfiles/develop:uwsm");
+        let urls = build_urls("myuser/dotfiles/develop:uwsm");
 
         // Should build URLs with develop branch and uwsm variant
         assert!(urls.iter().any(|u| u.contains("declarch-uwsm.kdl")));
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/jakoolit/dotfiles/develop/declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/dotfiles/develop/declarch-uwsm.kdl")));
         // Should also fallback to main/master
         assert!(urls.iter().any(|u| u.contains("/main/declarch-uwsm.kdl")));
         assert!(urls.iter().any(|u| u.contains("/master/declarch-uwsm.kdl")));

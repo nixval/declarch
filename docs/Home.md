@@ -84,7 +84,7 @@ curl -fsSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | s
 declarch init
 
 # Or fetch from remote
-declarch init jakoolit/dotfiles
+declarch init myuser/dotfiles
 ```
 
 ### 2. Edit Configuration

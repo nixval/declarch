@@ -54,11 +54,11 @@ pub enum Command {
         /// Config source (GitHub/GitLab repo, URL, or registry module)
         ///
         /// Examples:
-        ///   jakoolit/hyprland1           GitHub: user/repo (fetches declarch.kdl)
-        ///   jakoolit/dotfiles:uwsm       GitHub: user/repo:variant (fetches declarch-uwsm.kdl)
-        ///   jakoolit/dotfiles:minimal    GitHub: user/repo:variant (fetches declarch-minimal.kdl)
+        ///   exampleuser/hyprland1           GitHub: user/repo (fetches declarch.kdl)
+        ///   exampleuser/dotfiles:uwsm       GitHub: user/repo:variant (fetches declarch-uwsm.kdl)
+        ///   exampleuser/dotfiles:minimal    GitHub: user/repo:variant (fetches declarch-minimal.kdl)
         ///   hyprwm/hyprland             GitHub: official project config
-        ///   jakoolit/hyprland1/develop   GitHub: user/repo/branch
+        ///   exampleuser/hyprland1/develop   GitHub: user/repo/branch
         ///   gitlab.com/user/repo         GitLab repository
         ///   https://example.com/config.kdl  Direct URL
         ///   hyprland/niri-nico           Official registry
