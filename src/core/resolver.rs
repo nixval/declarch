@@ -120,6 +120,7 @@ fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<P
 mod tests {
     use super::*;
     use crate::state::types::PackageState;
+    use crate::core::types::Backend;
     use std::path::PathBuf;
     use chrono::Utc;
 
