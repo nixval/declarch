@@ -2,14 +2,14 @@
 # 🌱 **declarch**
 
 <p align="center">
-<strong>A declarative package manager for Arch Linux — powered by Rust.\</strong\><br>
+<strong>A declarative package manager for Arch Linux — powered by Rust.</strong><br>
 Inspired by Nix workflow, built for the chaotic reality of Arch.
 </p>
 
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="Build" src="https://img.shields.io/badge/status-alpha-orange">
+  <img alt="Build" src="https://img.shields.io/badge/status-v0.4.0-orange">
   <img alt="Arch" src="https://img.shields.io/badge/arch-linux-blue">
   <img alt="Rust" src="https://img.shields.io/badge/built_with-rust-orange">
 </p>
@@ -21,28 +21,36 @@ Inspired by Nix workflow, built for the chaotic reality of Arch.
 Arch Linux is fantastic, but its package management is **imperative**. You run `pacman -S git`, and then you forget about it. Over time, your system becomes a "museum" of forgotten packages, orphans, and drift.
 
 ```kdl
-// ~/.config/hypr/hyprland.decl
+// ~/.config/declarch/declarch.kdl
+
+packages:aur {
+    hyprland
+    waybar
+}
 
 packages {
-  hyprland 
-  hyprlock
-  hypridle 
-  quickshell
-  noctalia-shell
-  //till bunch of other required and optional packages tracked
+    bat
+    exa
+    ripgrep
+}
+
+packages:flatpak {
+    com.spotify.Client
 }
 ```
-then just simply
+
+Then simply:
 
 ```bash
 declarch sync
 ```
-then just share it with your own dotfiles to anyone that using arch base distro
+
+Share your config with anyone using Arch-based distros.
 
 **declarch** imposes a **Declarative Layer** on top of Pacman/AUR without replacing them.
 
 1.  **Intent vs. State:** You declare *what* you want in a `.kdl` file. `declarch` ensures your system matches that state.
-2.  **Adoption, Not Reinstallation:** If you declare `vim` and it's already installed manually, `declarch` simply "adopts" it into its state file.
+2.  **Adoption, Not Reinstallation:** If you declare `vim` and it's already installed, `declarch` simply "adopts" it.
 3.  **Performance:** Uses smart batching to check hundreds of packages instantly.
 4.  **Safe Pruning:** Only removes packages that it *knows* it manages.
 
@@ -50,142 +58,285 @@ then just share it with your own dotfiles to anyone that using arch base distro
 
 ## ✨ Key Features
 
-  * **Declarative Config:** Uses the clean, readable **KDL** syntax (`.kdl`).
-  * **Recursive Imports:** Structure your config cleanly (e.g., `import "modules/gaming"`).
-  * **Multi-Backend:** Supports **Repo (Pacman)**, **AUR (Paru/Yay)**, and **Flatpak**.
-  * **Partial Sync:** Sync only specific modules or packages with `--target`.
-  * **Smart Sync:**
-      * **Install:** Missing packages.
-      * **Adopt:** Existing packages (zero-cost).
-      * **Prune:** Packages removed from config (optional strict mode).
-  * **Drift Detection:** Detects if package versions in system differ from state.
+  * **Declarative Config:** Uses the clean, readable **KDL** syntax.
+  * **Remote Init:** Fetch configs from GitHub/GitLab repositories.
+  * **Multi-Backend:** Supports **AUR**, **Flatpak**, and **Soar** (static binaries).
+  * **Flexible Syntax:** Write packages your way — simple, nested, or mixed.
+  * **Modular:** Import and organize configs into reusable modules.
+  * **Smart Sync:** Auto-installs missing packages, adopts existing ones.
 
 -----
 
 ## 🚀 Installation
-### Option 1: Install from AUR
+
+### From AUR (Recommended)
+
+```bash
+paru -S declarch
+```
+
+Or install pre-built binary:
 
 ```bash
 paru -S declarch-bin
 ```
 
-or compile manually
-
-```bash 
-paru -S declarch
-```
-
-### Option 2: Install Script
+### Install Script
 
 Downloads the latest binary and sets up the environment.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
-### Option 2: Build from Source
-
-Requirements: `cargo`, `git`, `pacman`.
+### Build from Source
 
 ```bash
 git clone https://github.com/nixval/declarch.git
 cd declarch
-cargo install --path .
+cargo build --release
+sudo install target/release/declarch /usr/local/bin/
 ```
 
 -----
 
 ## 📁 Getting Started
 
-Initialize your configuration directory. This respects XDG standards (`~/.config/declarch`).
+### Initialize Config
 
 ```bash
 declarch init
 ```
 
-This creates a default `declarch.decl` entry point.
+This creates `~/.config/declarch/declarch.kdl`.
+
+### Fetch from Remote
+
+```bash
+# From GitHub user repository
+declarch init myuser/dotfiles
+
+# From official project config
+declarch init hyprwm/hyprland
+
+# From community registry
+declarch init hyprland/niri-nico
+
+# From GitLab
+declarch init gitlab.com/user/repo
+
+# Direct URL
+declarch init https://example.com/config.kdl
+```
 
 ### Anatomy of `declarch.kdl`
 
-The syntax uses **KDL**. Quotes are optional for simple names.
+**KDL Syntax** — clean, flexible, and readable.
 
 ```kdl
 // ~/.config/declarch/declarch.kdl
 
-// 1. Imports: Load other declarative files
-imports {
-    "modules/core.kdl"
-    "modules/dev.kdl"
+// Set your editor
+editor "nvim"
+
+// AUR packages (Arch Linux only)
+packages:aur {
+    hyprland
+    waybar
 }
 
-// 2. Packages: Define what you want installed
+// Cross-distro static binaries (works everywhere)
 packages {
-    // Native / AUR packages (auto-detected)
-    git
-    neovim
-    zsh
-    
-    // Flatpak packages (use prefix) **make sure no space type**
-    flatpak:com.obsproject.Studio
-    flatpak:spotify
+    bat
+    exa
+    ripgrep
 }
 
-// 3. Excludes: Block specific packages even if imported by modules
-excludes {
-    nano
-    vi
+// Flatpak apps (works on any Linux)
+packages:flatpak {
+    com.spotify.Client
+    org.mozilla.firefox
+}
+
+// Import other modules
+imports {
+    modules/gaming
+    modules/development
 }
 ```
+
+**Alternative: Embedded Syntax**
+
+```kdl
+packages {
+    // Default to Soar
+    bat
+    exa
+
+    // Nested backend-specific
+    aur {
+        hyprland
+    }
+
+    flatpak {
+        com.spotify.Client
+    }
+}
+```
+
 -----
 
-## 🛠️ Usage Workflow
+## 🛠️ Usage
 
-The workflow is simple: **Edit** -\> **Sync**.
+### The Magic Command
 
-### 1\. The Magic Command
-Update system, sync packages, and remove unlisted ones:
+Sync your system to match your config:
+
+```bash
+declarch sync
+```
+
+With system update and pruning:
+
 ```bash
 declarch sync -u --prune
 ```
 
-### 2\. Targeted Sync (Partial)
-Only sync packages related to "gaming" (matches module filename or package name):
-```bash
-declarch sync --target gaming
-```
-*Note: Pruning is automatically disabled in targeted mode for safety.*
+### Common Commands
 
-### 3\. CI/CD / Automation
-Run without confirmation prompts:
-```bash
-declarch sync --noconfirm
-```
-
-### 4\. Command Reference
 | Command | Description |
 | :--- | :--- |
-| `declarch init` | Create initial configuration. |
-| `declarch check` | Validate syntax and check for duplicates. |
-| `declarch info` | Show managed packages and stats. |
-| `declarch sync` | The main workhorse. See flags below. |
+| `declarch init` | Create or fetch configuration. |
+| `declarch edit` | Edit config in your editor. |
+| `declarch check` | Validate syntax and show packages. |
+| `declarch info` | Show system status and managed packages. |
+| `declarch sync` | Install/remove packages to match config. |
+| `declarch switch` | Replace one package with another. |
 
-### Sync Flags
+### Useful Flags
+
 | Flag | Description |
 | :--- | :--- |
 | `-u` / `--update` | Run `paru -Syu` before syncing. |
-| `--dry-run` | Preview changes without doing anything. |
-| `--prune` | **Strict Mode.** Remove managed packages not in config. |
-| `--target <NAME>` | Sync only specific package or module scope. |
+| `--dry-run` | Preview changes without executing. |
+| `--prune` | Remove managed packages not in config. |
+| `--target <NAME>` | Sync only specific package or module. |
 | `--noconfirm` | Skip package manager prompts (CI/CD). |
-| `-f` / `--force` | Force operations (bypass safety checks). |
+
+### Edit Configuration
+
+Opens your config file in your editor:
+
+```bash
+declarch edit
+```
+
+Editor priority (first found wins):
+1. `editor "nvim"` in your `declarch.kdl`
+2. `$EDITOR` environment variable
+3. `$VISUAL` environment variable
+4. `nano` (default fallback)
+
+-----
+
+## 🌍 Remote Init
+
+**Go-style package importing for configs.**
+
+Fetch configurations from any Git repository without PRing to a central registry.
+
+### Examples
+
+```bash
+# User's GitHub repository
+declarch init myuser/hyprland-setup
+
+# Official project config
+declarch init hyprwm/hyprland
+
+# Community registry
+declarch init gaming/steam-setup
+
+# Config variant (multiple configs in one repo)
+declarch init myuser/dotfiles:uwsm
+
+# Specific branch
+declarch init myuser/dotfiles/develop:uwsm
+```
+
+### How It Works
+
+1. **GitHub**: `user/repo` → fetches `declarch.kdl` from repository root
+2. **GitLab**: `gitlab.com/user/repo` → fetches from GitLab
+3. **Direct URL**: Full URL to any `.kdl` file
+4. **Community**: Fetch from official [declarch-packages](https://github.com/nixval/declarch-packages) registry
+
+**Repository Requirements:**
+- File named `declarch.kdl` at repository root
+- Valid KDL syntax
+- Public access (or authentication)
+
+See [Remote Init Guide](https://github.com/nixval/declarch/wiki/Remote-Init-Guide) for details.
+
+-----
+
+## 📦 Package Backends
+
+### AUR (Arch User Repository)
+
+Arch Linux packages from the community.
+
+```kdl
+packages:aur {
+    hyprland
+    waybar
+}
+```
+
+**Requires:** AUR helper (`paru` or `yay`)
+
+---
+
+### Flatpak
+
+Universal packages — works on any Linux distribution.
+
+```kdl
+packages:flatpak {
+    com.spotify.Client
+    org.mozilla.firefox
+}
+```
+
+**Requires:** `flatpak` installed
+
+---
+
+### Soar (Cross-Distro Static Binaries)
+
+Pre-built static binaries that work on any Linux.
+
+```kdl
+packages {
+    bat
+    exa
+    ripgrep
+    fd
+}
+```
+
+**Requires:** Nothing (auto-installs Soar if needed)
+
+-----
 
 ## 💡 Why KDL?
 
 We chose [KDL](https://kdl.dev/) because it's designed for configuration, not data serialization.
 
-  * **VS JSON:** Comments are supported\! `// like this`.
-  * **VS YAML:** No whitespace/indentation anxiety.
-  * **VS TOML:** Better support for nested hierarchies (blocks).
+  * **VS JSON:** Comments are supported! `// like this`
+  * **VS YAML:** No whitespace/indentation anxiety
+  * **VS TOML:** Better support for nested hierarchies (blocks)
+  * **Human-Readable:** Clean, minimal syntax
 
 -----
 
@@ -198,17 +349,33 @@ We chose [KDL](https://kdl.dev/) because it's designed for configuration, not da
 
 -----
 
-## 🤝 Contributing
+## 📚 Documentation
 
-Pull requests are welcome\! This project is written in **Rust**.
-Check the `src/` folder for the codebase. The core logic resides in `src/core/resolver.rs`.
-
-1.  Fork it
-2.  Create your feature branch (`git checkout -b feature/amazing-feature`)
-3.  Commit your changes (`git commit -m 'Add some amazing feature'`)
-4.  Push to the branch (`git push origin feature/amazing-feature`)
-5.  Open a Pull Request
+- [Home](https://github.com/nixval/declarch/wiki/Home) - Overview
+- [Installation Guide](https://github.com/nixval/declarch/wiki/Installation) - Detailed installation
+- [Quick Start](https://github.com/nixval/declarch/wiki/Quick-Start) - First steps
+- [KDL Syntax Reference](https://github.com/nixval/declarch/wiki/KDL-Syntax-Reference) - Complete syntax
+- [Remote Init Guide](https://github.com/nixval/declarch/wiki/Remote-Init-Guide) - Fetch from GitHub/GitLab
+- [Examples](https://github.com/nixval/declarch/wiki/Examples) - Real-world configs
 
 -----
 
-**License:** MIT
+## 🤝 Contributing
+
+Pull requests are welcome! This project is written in **Rust**.
+
+1. Fork it
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+-----
+
+## 📜 License
+
+**MIT**
+
+-----
+
+**Made with ❤️ for Arch Linux users**
