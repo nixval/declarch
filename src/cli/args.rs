@@ -4,9 +4,9 @@ use clap_complete::Shell;
 #[derive(Parser, Debug)]
 #[command(
     name = "declarch",
-    about = "Declarative Arch packages manager",
-    long_about = "A declarative package manager for Arch Linux, inspired by Nix workflow",
-    version, 
+    about = "Declarative package manager for Linux",
+    long_about = "A declarative package manager for Linux, inspired by Nix workflow. Supports AUR, Flatpak, and Soar.",
+    version,
     next_line_help = false,
     term_width = 80
 )]

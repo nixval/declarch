@@ -2,7 +2,7 @@
 pkgname=declarch-bin
 pkgver=0.4.0
 pkgrel=1
-pkgdesc="Declarative package manager for Arch Linux inspired by Nix workflow (precompiled binary)"
+pkgdesc="Declarative package manager for Linux (supports AUR, Flatpak, Soar, precompiled binary)"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')

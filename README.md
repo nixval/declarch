@@ -2,8 +2,8 @@
 # 🌱 **declarch**
 
 <p align="center">
-<strong>A declarative package manager for Arch Linux — powered by Rust.</strong><br>
-Inspired by Nix workflow, built for the chaotic reality of Arch.
+<strong>A declarative package manager for Linux — powered by Rust.</strong><br>
+Inspired by Nix workflow, supporting AUR, Flatpak, and Soar.
 </p>
 
 
@@ -18,7 +18,7 @@ Inspired by Nix workflow, built for the chaotic reality of Arch.
 
 ## 🧠 The Philosophy
 
-Arch Linux is fantastic, but its package management is **imperative**. You run `pacman -S git`, and then you forget about it. Over time, your system becomes a "museum" of forgotten packages, orphans, and drift.
+Linux package management is often **imperative**. You run `pacman -S git`, `apt install git`, or `dnf install git`, and then you forget about it. Over time, your system becomes a "museum" of forgotten packages, orphans, and drift.
 
 ```kdl
 // ~/.config/declarch/declarch.kdl
@@ -45,9 +45,9 @@ Then simply:
 declarch sync
 ```
 
-Share your config with anyone using Arch-based distros.
+Share your config across different Linux distributions.
 
-**declarch** imposes a **Declarative Layer** on top of Pacman/AUR without replacing them.
+**declarch** imposes a **Declarative Layer** on top of existing package managers.
 
 1.  **Intent vs. State:** You declare *what* you want in a `.kdl` file. `declarch` ensures your system matches that state.
 2.  **Adoption, Not Reinstallation:** If you declare `vim` and it's already installed, `declarch` simply "adopts" it.

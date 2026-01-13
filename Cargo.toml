@@ -2,6 +2,10 @@
 name = "declarch"
 version = "0.4.0"
 edition = "2024"
+description = "A declarative package manager for Linux, inspired by Nix workflow"
+license = "MIT"
+repository = "https://github.com/nixval/declarch"
+homepage = "https://github.com/nixval/declarch"
 
 [dependencies]
 # CLI parsing

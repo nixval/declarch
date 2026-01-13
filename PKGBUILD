@@ -3,7 +3,7 @@
 pkgname=declarch
 pkgver=0.4.0
 pkgrel=1
-pkgdesc="A declarative package manager for Arch Linux, inspired by Nix workflow"
+pkgdesc="A declarative package manager for Linux (supports AUR, Flatpak, Soar)"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')

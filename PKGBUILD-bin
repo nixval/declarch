@@ -3,7 +3,7 @@
 pkgname=declarch-bin
 pkgver=0.4.0
 pkgrel=1
-pkgdesc="A declarative package manager for Arch Linux (pre-built binary)"
+pkgdesc="A declarative package manager for Linux (pre-built binary, supports AUR, Flatpak, Soar)"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')

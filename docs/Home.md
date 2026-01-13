@@ -1,16 +1,16 @@
 # Declarch
 
-**Declarative Arch Linux Package Manager**
+**Declarative Package Manager for Linux**
 
-A declarative package manager for Arch Linux, inspired by Nix workflow. Declarch allows you to define your desired system state in a simple KDL configuration file and automatically install/remove packages to match that state.
+A declarative package manager for Linux, inspired by Nix workflow. Declarch allows you to define your desired system state in a simple KDL configuration file and automatically install/remove packages to match that state.
 
 ---
 
 ## Features
 
 - 🎯 **Declarative Configuration** - Define what you want, not how to install it
-- 📦 **Multi-Backend Support** - AUR, Flatpak, Soar (static binaries)
-- 🔧 **Cross-Distro** - Works on any Linux with Soar and Flatpak
+- 📦 **Multi-Backend Support** - AUR (Arch), Flatpak (universal), Soar (cross-distro)
+- 🔧 **Cross-Distro** - Works on any Linux distribution
 - 📝 **Simple Syntax** - Human-readable KDL format
 - 🌍 **Remote Init** - Fetch configs from GitHub/GitLab repositories
 - 🧩 **Modular** - Organize configs into reusable modules

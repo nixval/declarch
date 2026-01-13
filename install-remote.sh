@@ -90,7 +90,7 @@ main() {
     echo -e "${BLUE}"
     echo "╔═══════════════════════════════════════════════════════╗"
     echo "║          declarch Installer                          ║"
-    echo "║   Declarative Package Manager for Arch Linux         ║"
+    echo "║   Declarative Package Manager for Linux              ║"
     echo "╚═══════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
