@@ -14,7 +14,7 @@ fn test_help_command() {
     cmd.arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("A declarative package manager for Arch Linux"));
+        .stdout(predicate::str::contains("A declarative package manager for Linux"));
 }
 
 #[test]
