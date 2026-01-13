@@ -103,6 +103,69 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let mut state = state::io::load_state()?;
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
 
+    // --- VARIANT TRANSITION DETECTION ---
+    // Check for variant mismatches and error early (strict approach)
+    let matcher = crate::core::matcher::PackageMatcher::new();
+    let mut variant_mismatches: Vec<(String, String)> = Vec::new();
+
+    // Only check for variant transitions in full sync or when targeting specific backends
+    if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
+        for pkg_id in config.packages.keys() {
+            // Skip if this package is already in transaction to install
+            if tx.to_install.iter().any(|p| p.name == pkg_id.name) {
+                continue;
+            }
+
+            // Check if there's a variant of this package installed
+            if let Some(matched_id) = matcher.find_package(pkg_id, &installed_snapshot) {
+                // If matched name is different from config name, it's a variant
+                if matched_id.name != pkg_id.name {
+                    // Check if this variant is NOT already tracked in state
+                    let state_key = resolver::make_state_key(pkg_id);
+                    let state_pkg = state.packages.get(&state_key);
+
+                    // Only report if not tracked (means user might have manually changed it)
+                    if state_pkg.is_none() || state_pkg.and_then(|s| s.aur_package_name.as_ref()).map(|n| n != &matched_id.name).unwrap_or(false) {
+                        variant_mismatches.push((pkg_id.name.clone(), matched_id.name));
+                    }
+                }
+            }
+        }
+    }
+
+    // If variant mismatches found, error with helpful message
+    if !variant_mismatches.is_empty() && !options.force {
+        output::separator();
+        output::error("Variant transition detected!");
+        println!("\nThe following packages have different variants installed:\n");
+
+        for (config_name, installed_name) in &variant_mismatches {
+            println!("  {}  →  {}",
+                config_name.cyan().bold(),
+                installed_name.yellow().bold()
+            );
+        }
+
+        println!("\n{}", "This requires explicit transition to avoid unintended changes.".dimmed());
+        println!("\n{}", "To resolve this:".bold());
+        println!("  1. For each package, run:");
+        for (config_name, installed_name) in &variant_mismatches {
+            println!("     {}",
+                format!("declarch switch {} {}",
+                    installed_name.yellow(),
+                    config_name.cyan()
+                ).bold()
+            );
+        }
+        println!("\n  2. Or, update your config to match the installed variant");
+        println!("\n  3. Use {} to bypass this check (not recommended)",
+            "--force".yellow().bold());
+
+        return Err(DeclarchError::Other(
+            "Variant transition required. Use 'declarch switch' or update your config.".to_string()
+        ));
+    }
+
     // --- WARNINGS ---
     if !options.update && !tx.to_install.is_empty() {
         let should_warn = match state.meta.last_update {

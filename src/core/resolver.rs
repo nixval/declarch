@@ -1,6 +1,7 @@
 use crate::config::loader::MergedConfig;
 use crate::state::types::State;
-use crate::core::types::{Backend, PackageId, PackageMetadata, SyncTarget};
+use crate::core::types::{PackageId, PackageMetadata, SyncTarget};
+use crate::core::matcher::PackageMatcher;
 use crate::error::Result;
 use std::collections::{HashMap, HashSet};
 
@@ -32,59 +33,20 @@ pub fn resolve(
     };
 
     let target_packages = resolve_target_scope(config, target);
-    
-    // Suffixes for AUR smart matching
-    let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+
+    // Create smart matcher for package resolution
+    let matcher = PackageMatcher::new();
 
     for pkg_id in target_packages {
         if config.excludes.contains(&pkg_id.name) {
             continue;
         }
 
-        // 1. Try to find exact match in system
-        let mut found_meta = installed_snapshot.get(&pkg_id);
-        
-        // 2. Smart Matching Logic
-        if found_meta.is_none() {
-            match pkg_id.backend {
-                Backend::Aur => {
-                    // Strategy A: Check Suffixes
-                    for suffix in suffixes {
-                        let alt_name = format!("{}{}", pkg_id.name, suffix);
-                        let alt_id = PackageId { name: alt_name, backend: Backend::Aur };
-                        if let Some(meta) = installed_snapshot.get(&alt_id) {
-                            found_meta = Some(meta);
-                            break; 
-                        }
-                    }
-                    // Strategy B: Prefix Fallback
-                    if found_meta.is_none() {
-                        if let Some((prefix, _)) = pkg_id.name.split_once('-') {
-                            let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
-                            if let Some(meta) = installed_snapshot.get(&alt_id) {
-                                found_meta = Some(meta);
-                            }
-                        }
-                    }
-                },
-                Backend::Flatpak => {
-                    // Strategy C: Flatpak Fuzzy Match
-                    // Config: "spotify" -> System: "com.spotify.Client"
-                    let search = pkg_id.name.to_lowercase();
-                    
-                    // Iterate all installed flatpaks to find a partial match
-                    for (installed_id, meta) in installed_snapshot {
-                        if installed_id.backend == Backend::Flatpak {
-                            let installed_name = installed_id.name.to_lowercase();
-                            if installed_name.contains(&search) {
-                                found_meta = Some(meta);
-                                break; // Take first match
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Use PackageMatcher to find installed package (handles variants)
+        let matched_id = matcher.find_package(&pkg_id, installed_snapshot);
+        let found_meta = matched_id
+            .as_ref()
+            .and_then(|id| installed_snapshot.get(id));
 
         let state_key = make_state_key(&pkg_id);
         let state_pkg = state.packages.get(&state_key);
