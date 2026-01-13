@@ -126,7 +126,7 @@ curl -fsSL https://raw.githubusercontent.com/nixval/declarch/main/install-remote
 
 **Source Tarball:**
 ```
-57cec80b165c200b27a1f04f4e6c9575586ea713f1caf104cdb3a662288900fe  declarch-0.4.0.tar.gz
+a63fe4e2f6d18179c9e2c22a345c062da9af12fdbd7d4d1b560702d2c5fb40a5  declarch-0.4.0.tar.gz
 ```
 
 ### Contributors
