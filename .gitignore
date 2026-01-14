@@ -15,6 +15,9 @@ _declarch
 RELEASE_GUIDE.md
 ENDEAVOUROS_SETUP.md
 
+# AUR publish scripts (personal reference)
+.aur/publish*.sh
+
 config.decl
 state.json
 package.sh
