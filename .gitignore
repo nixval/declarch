@@ -31,3 +31,7 @@ package.sh
 deploy-aur.sh
 release-wizard.sh
 repomix-output.xml
+
+# AUR release automation
+.aur/work/
+.aur/scripts/
