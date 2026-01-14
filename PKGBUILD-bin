@@ -8,7 +8,7 @@ arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')
 
-depends=('pacman' 'git')
+depends=('gcc-libs')
 optdepends=(
   'paru: Recommended AUR helper'
   'yay: Alternative AUR helper'
@@ -18,32 +18,23 @@ optdepends=(
 provides=('declarch')
 conflicts=('declarch' 'declarch-git')
 
-# Binary release from GitHub
-source=("declarch-$pkgver::$url/releases/download/v$pkgver/declarch")
-sha256sums=('GENERATE_AFTER_RELEASE')  # Update after creating GitHub release
+# Binary release tarball from GitHub Actions
+# Tarball contains 'declarch' binary at root level
+source=("declarch-$pkgver.tar.gz::$url/releases/download/v$pkgver/declarch-x86_64-unknown-linux-gnu.tar.gz")
+sha256sums=('1d55cbed195369c247b96d550ee3332c2cd6cc12a0d87feecff51e7ec16b91d4')
 
 prepare() {
+  # Extract tarball (contains 'declarch' binary at root)
+  tar -xzf "declarch-$pkgver.tar.gz"
+
   # Make binary executable
-  chmod +x declarch-$pkgver
+  chmod +x declarch
 }
 
 package() {
-  install -Dm755 "declarch-$pkgver" "$pkgdir/usr/bin/declarch"
-  install -Dm644 "/usr/share/licenses/common/MIT/LICENSE" \
-    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  # Install binary
+  install -Dm755 declarch "$pkgdir/usr/bin/declarch"
 
-  # Generate basic README (package users can find full docs online)
-  cat <<EOF > "$pkgdir/usr/share/doc/$pkgname/README.md"
-# declarch $pkgver
-
-Declarative package manager for Arch Linux.
-
-## Installation
-
-Installed from binary release.
-
-## Documentation
-
-Full documentation: https://github.com/nixval/declarch
-EOF
+  # Note: Shell completions not included in binary release
+  # Users can use the source package or generate them manually
 }
