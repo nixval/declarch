@@ -1,0 +1,40 @@
+# Maintainer: nixval <nicovaliantoku@gmail.com>
+
+pkgname=declarch-bin
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="A declarative package manager for Linux (pre-built binary, supports AUR, Flatpak, Soar)"
+arch=('x86_64')
+url="https://github.com/nixval/declarch"
+license=('MIT')
+
+depends=('gcc-libs')
+optdepends=(
+  'paru: Recommended AUR helper'
+  'yay: Alternative AUR helper'
+  'flatpak: For managing Flatpak applications'
+)
+
+provides=('declarch')
+conflicts=('declarch' 'declarch-git')
+
+# Binary release tarball from GitHub Actions
+# Tarball contains 'declarch' binary at root level
+source=("declarch-\${pkgver}.tar.gz::\${url}/releases/download/v\${pkgver}/declarch-x86_64-unknown-linux-gnu.tar.gz")
+sha256sums=('GENERATED_DURING_RELEASE')
+
+prepare() {
+  # Extract tarball (contains 'declarch' binary at root)
+  tar -xzf "declarch-\${pkgver}.tar.gz"
+
+  # Make binary executable
+  chmod +x declarch
+}
+
+package() {
+  # Install binary
+  install -Dm755 declarch "\${pkgdir}/usr/bin/declarch"
+
+  # Note: Shell completions not included in binary release
+  # Users can use the source package or generate them manually
+}
