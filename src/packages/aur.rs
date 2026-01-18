@@ -41,7 +41,10 @@ impl PackageManager for AurManager {
             ));
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout = String::from_utf8(output.stdout)
+            .map_err(|_| DeclarchError::PackageManagerError(
+                "Pacman output contained invalid UTF-8".into()
+            ))?;
         let mut installed = HashMap::new();
 
         for line in stdout.lines() {
