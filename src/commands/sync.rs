@@ -12,25 +12,26 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
-// --- SAFETY NET (Static Doomsday List) ---
-const CRITICAL_PACKAGES: &[&str] = &[
-    "linux", "linux-lts", "linux-zen", "linux-hardened", 
-    "linux-api-headers", "linux-firmware", 
-    "amd-ucode", "intel-ucode",
-    "grub", "systemd-boot", "efibootmgr", "os-prober",
-    "base", "base-devel", 
-    "systemd", "systemd-libs", "systemd-sysvcompat",
-    "glibc", "gcc-libs", "zlib", "openssl", "readline",
-    "bash", "zsh", "fish", "sh",
-    "sudo", "doas", "pam", "shadow", "util-linux", "coreutils",
-    "pacman", "pacman-contrib", "archlinux-keyring", 
-    "paru", "yay", "aura", "pikaur",
-    "flatpak", 
-    "declarch", "declarch-bin", "git", "curl", "wget", "tar",
-    "mesa", "nvidia", "nvidia-utils", "nvidia-dkms",
-    "networkmanager", "iwd", "wpa_supplicant",
-    "btrfs-progs", "e2fsprogs", "dosfstools", "ntfs-3g"
-];
+mod critical {
+    pub const PACKAGES: &[&str] = &[
+        "linux", "linux-lts", "linux-zen", "linux-hardened",
+        "linux-api-headers", "linux-firmware",
+        "amd-ucode", "intel-ucode",
+        "grub", "systemd-boot", "efibootmgr", "os-prober",
+        "base", "base-devel",
+        "systemd", "systemd-libs", "systemd-sysvcompat",
+        "glibc", "gcc-libs", "zlib", "openssl", "readline",
+        "bash", "zsh", "fish", "sh",
+        "sudo", "doas", "pam", "shadow", "util-linux", "coreutils",
+        "pacman", "pacman-contrib", "archlinux-keyring",
+        "paru", "yay", "aura", "pikaur",
+        "flatpak",
+        "declarch", "declarch-bin", "git", "curl", "wget", "tar",
+        "mesa", "nvidia", "nvidia-utils", "nvidia-dkms",
+        "networkmanager", "iwd", "wpa_supplicant",
+        "btrfs-progs", "e2fsprogs", "dosfstools", "ntfs-3g"
+    ];
+}
 
 #[derive(Debug)]
 pub struct SyncOptions {
@@ -337,7 +338,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
             // ... (Copy paste dari file lamamu mulai dari sini ke bawah) ...
             
             // 1. GHOST MODE (Static Check)
-            if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) {
+            if critical::PACKAGES.contains(&pkg.name.as_str()) {
                 continue;
             }
 
@@ -456,7 +457,7 @@ fn display_transaction_plan(
         };
         println!("{}", header);
         for pkg in &tx.to_prune {
-            let is_critical = CRITICAL_PACKAGES.contains(&pkg.name.as_str());
+            let is_critical = critical::PACKAGES.contains(&pkg.name.as_str());
             if should_prune {
                 if is_critical {
                     println!(
