@@ -166,12 +166,6 @@ impl Spinner {
         );
         io::stdout().flush().unwrap_or(());
     }
-
-    /// Advance to the next frame
-    fn advance(&mut self) {
-        self.current_frame += 1;
-        self.draw();
-    }
 }
 
 impl Drop for Spinner {
