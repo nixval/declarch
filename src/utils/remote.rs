@@ -240,7 +240,8 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
         .map_err(|e| DeclarchError::Other(format!("Network error: {}", e)))?;
 
     if resp.status().is_success() {
-        Ok(resp.text().unwrap_or_default())
+        resp.text()
+            .map_err(|e| DeclarchError::Other(format!("Failed to read response: {}", e)))
     } else {
         Err(DeclarchError::Other(format!("HTTP {}", resp.status())))
     }
