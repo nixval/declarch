@@ -25,20 +25,62 @@ pub fn get_state_path() -> Result<PathBuf> {
 
 pub fn load_state() -> Result<State> {
     let path = get_state_path()?;
-    
+
     if !path.exists() {
         return Ok(State::default());
     }
 
-    let content = fs::read_to_string(&path)
-        .map_err(|e| DeclarchError::IoError { 
-            path: path.clone(), 
-            source: e 
-        })?;
-
-    let state: State = serde_json::from_str(&content)?;
+    // Try to load the main state file
+    let content = fs::read_to_string(&path);
+    let state = match content {
+        Ok(content) => {
+            match serde_json::from_str::<State>(&content) {
+                Ok(state) => return Ok(state),
+                Err(_) => {
+                    // Main state file is corrupted, try to restore from backup
+                    restore_from_backup(&path)?
+                }
+            }
+        },
+        Err(_) => {
+            // Failed to read state file, try to restore from backup
+            restore_from_backup(&path)?
+        }
+    };
 
     Ok(state)
+}
+
+/// Attempt to restore state from the most recent backup
+fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
+    let dir = state_path.parent()
+        .ok_or_else(|| DeclarchError::Other(
+            format!("Invalid state path (no parent directory): {}", state_path.display())
+        ))?;
+
+    // Try backups in reverse order (most recent first)
+    for i in 1..=3 {
+        let backup_path = dir.join(format!("state.json.bak.{}", i));
+        if backup_path.exists() {
+            let content = fs::read_to_string(&backup_path)
+                .map_err(|e| DeclarchError::IoError {
+                    path: backup_path.clone(),
+                    source: e
+                })?;
+
+            match serde_json::from_str::<State>(&content) {
+                Ok(state) => {
+                    // Successfully restored from backup, restore the main file
+                    let _ = fs::copy(&backup_path, state_path);
+                    return Ok(state);
+                },
+                Err(_) => continue,
+            }
+        }
+    }
+
+    // All backups failed or don't exist, return default state
+    Ok(State::default())
 }
 
 pub fn save_state(state: &State) -> Result<()> {
