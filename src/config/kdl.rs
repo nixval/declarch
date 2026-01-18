@@ -24,7 +24,21 @@ pub struct RawConfig {
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
-    let doc: KdlDocument = content.parse()?;
+    let doc: KdlDocument = content.parse().map_err(|e: kdl::KdlError| {
+        // Provide more helpful error messages for common KDL syntax issues
+        let err_msg = e.to_string();
+        let hint = if err_msg.contains("unexpected token") {
+            "\nHint: Check for missing quotes, unmatched brackets, or invalid characters."
+        } else if err_msg.contains("unexpected end of file") {
+            "\nHint: You might be missing a closing brace '}' or parenthesis."
+        } else if err_msg.contains("expected") {
+            "\nHint: Check that your KDL syntax follows the format: node-name \"value\" { ... }"
+        } else {
+            ""
+        };
+
+        crate::error::DeclarchError::ConfigError(format!("KDL parsing error: {}{}", err_msg, hint))
+    })?;
 
     let mut config = RawConfig {
         imports: vec![],
