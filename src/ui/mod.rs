@@ -1,6 +1,8 @@
 use colored::Colorize;
 use std::io::{self, Write};
 
+pub mod progress;
+
 pub fn header(title: &str) {
     println!("\n{}", title.bold().underline());
 }
