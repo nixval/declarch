@@ -26,7 +26,8 @@ prepare() {
 build() {
   cd "$pkgname-$pkgver"
   export RUSTUP_TOOLCHAIN=stable
-  cargo build --release --frozen
+  # Enable LTO for better optimization (configured in Cargo.toml)
+  CARGO_PROFILE_RELEASE_LTO=thin cargo build --release --frozen
 }
 
 check() {
@@ -49,5 +50,4 @@ package() {
   install -Dm644 <(target/release/$pkgname completions zsh) \
     "$pkgdir/usr/share/zsh/site-functions/_$pkgname"
 }
-sha256sums=('a9bfc9c3d8e8184a11b1e61ee6fee3d6a5e631a783206db021c13993ccf19882')
 sha256sums=('a9bfc9c3d8e8184a11b1e61ee6fee3d6a5e631a783206db021c13993ccf19882')

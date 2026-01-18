@@ -39,10 +39,10 @@ reqwest = { version = "0.12.25", default-features = false, features = ["blocking
 
 
 [profile.release]
-lto = false
-codegen-units = 16
-opt-level = "s"
-strip = true
+lto = "thin"        # Link-time optimization: "thin" balances speed and compile time
+codegen-units = 1   # Maximize optimization at cost of parallelism
+opt-level = "s"     # Optimize for size
+strip = true        # Remove debug symbols
 
 # Development dependencies (only for testing/benchmarking)
 [dev-dependencies]

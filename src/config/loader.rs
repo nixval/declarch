@@ -69,21 +69,9 @@ fn recursive_load(
     // Detect distro for conditional package processing
     let distro = DistroType::detect();
 
-    // Process Soar packages (cross-distro)
-    for pkg_str in raw.packages {
-        let pkg_id = PackageId {
-            name: pkg_str,
-            backend: Backend::Soar,
-        };
-
-        merged.packages.entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process AUR packages (Arch-only)
+    // Process AUR packages (default, Arch-only)
     if distro.supports_aur() {
-        for pkg_str in raw.aur_packages {
+        for pkg_str in raw.packages {
             let pkg_id = PackageId {
                 name: pkg_str,
                 backend: Backend::Aur,
@@ -93,6 +81,18 @@ fn recursive_load(
                 .or_default()
                 .push(canonical_path.clone());
         }
+    }
+
+    // Process Soar packages (cross-distro static binaries)
+    for pkg_str in raw.soar_packages {
+        let pkg_id = PackageId {
+            name: pkg_str,
+            backend: Backend::Soar,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
     }
 
     // Process Flatpak packages (cross-distro)

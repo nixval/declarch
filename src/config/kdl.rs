@@ -5,12 +5,12 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct RawConfig {
     pub imports: Vec<String>,
-    /// Packages from Soar registry (cross-distro static binaries)
-    /// Syntax: packages { ... }
-    pub packages: Vec<String>,
     /// Packages from AUR (Arch Linux specific)
-    /// Syntax: packages:aur { ... } or aur-packages { ... }
-    pub aur_packages: Vec<String>,
+    /// Syntax: packages { ... } or packages:aur { ... }
+    pub packages: Vec<String>,
+    /// Packages from Soar registry (cross-distro static binaries)
+    /// Syntax: packages:soar { ... }
+    pub soar_packages: Vec<String>,
     /// Flatpak packages
     /// Syntax: packages:flatpak { ... } or flatpak-packages { ... }
     pub flatpak_packages: Vec<String>,
@@ -29,7 +29,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     let mut config = RawConfig {
         imports: vec![],
         packages: vec![],
-        aur_packages: vec![],
+        soar_packages: vec![],
         flatpak_packages: vec![],
         excludes: vec![],
         aliases: HashMap::new(),
@@ -66,7 +66,10 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             },
             // Legacy syntax support (with deprecation warning in the future)
             "aur-packages" | "aur-package" => {
-                extract_mixed_values(node, &mut config.aur_packages);
+                extract_mixed_values(node, &mut config.packages);
+            },
+            "soar-packages" | "soar-package" => {
+                extract_mixed_values(node, &mut config.soar_packages);
             },
             "flatpak-packages" | "flatpak-package" => {
                 extract_mixed_values(node, &mut config.flatpak_packages);
@@ -81,21 +84,22 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
 /// Parse packages node with flexible syntax
 ///
 /// Supported syntaxes:
-/// 1. packages { bat exa }  → Soar packages
-/// 2. packages:aur { hyprland }  → AUR packages
-/// 3. packages:flatpak { com.spotify.Client }  → Flatpak packages
-/// 4. packages { bat aur { hyprland } flatpak { com.spotify.Client } }  → Mixed
+/// 1. packages { hyprland waybar }  → AUR packages (default)
+/// 2. packages:aur { hyprland }  → AUR packages (explicit)
+/// 3. packages:soar { bat exa }  → Soar packages
+/// 4. packages:flatpak { com.spotify.Client }  → Flatpak packages
+/// 5. packages { bat aur { hyprland } flatpak { com.spotify.Client } }  → Mixed
 fn parse_packages_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
     let node_name = node.name().value();
 
-    // Check for colon syntax: packages:aur, packages:flatpak
+    // Check for colon syntax: packages:soar, packages:flatpak, packages:aur
     if let Some((_, backend)) = node_name.split_once(':') {
         let target = match backend {
-            "aur" => &mut config.aur_packages,
+            "aur" => &mut config.packages,
             "flatpak" => &mut config.flatpak_packages,
-            "soar" | "app" => &mut config.packages,
+            "soar" | "app" => &mut config.soar_packages,
             _ => {
-                // Unknown backend, treat as default (Soar)
+                // Unknown backend, treat as default (AUR)
                 &mut config.packages
             }
         };
@@ -110,15 +114,15 @@ fn parse_packages_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
 
             match child_name {
                 "aur" => {
-                    extract_mixed_values(child, &mut config.aur_packages);
+                    extract_mixed_values(child, &mut config.packages);
                 },
                 "flatpak" => {
                     extract_mixed_values(child, &mut config.flatpak_packages);
                 },
                 "soar" | "app" => {
-                    extract_mixed_values(child, &mut config.packages);
+                    extract_mixed_values(child, &mut config.soar_packages);
                 },
-                // Unknown child name - treat as package name (Soar)
+                // Unknown child name - treat as package name (AUR, the default)
                 _ => {
                     config.packages.push(child_name.to_string());
                     // Also check for string arguments
@@ -132,7 +136,7 @@ fn parse_packages_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
         }
     }
 
-    // Also extract direct string arguments (default to Soar)
+    // Also extract direct string arguments (default to AUR)
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
             config.packages.push(val.to_string());
@@ -294,15 +298,32 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.aur_packages.len(), 2);
-        assert!(config.aur_packages.contains(&"hyprland".to_string()));
-        assert!(config.aur_packages.contains(&"waybar".to_string()));
+        assert_eq!(config.packages.len(), 2);
+        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.contains(&"waybar".to_string()));
+    }
+
+    #[test]
+    fn test_parse_default_packages() {
+        let kdl = r#"
+            packages {
+                hyprland
+                waybar
+                swww
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.packages.len(), 3);
+        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.contains(&"waybar".to_string()));
+        assert!(config.packages.contains(&"swww".to_string()));
     }
 
     #[test]
     fn test_parse_soar_packages() {
         let kdl = r#"
-            packages {
+            soar-packages {
                 bat
                 exa
                 ripgrep
@@ -310,10 +331,10 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 3);
-        assert!(config.packages.contains(&"bat".to_string()));
-        assert!(config.packages.contains(&"exa".to_string()));
-        assert!(config.packages.contains(&"ripgrep".to_string()));
+        assert_eq!(config.soar_packages.len(), 3);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.contains(&"ripgrep".to_string()));
     }
 
     #[test]
@@ -336,19 +357,19 @@ mod tests {
         let kdl = r#"
             // Cross-distro configuration example
 
-            // Soar packages (works everywhere)
+            // AUR packages (default, Arch-only)
             packages {
+                hyprland
+                waybar
+                swww
+            }
+
+            // Soar packages (cross-distro static binaries)
+            soar-packages {
                 bat
                 exa
                 fd
                 ripgrep
-            }
-
-            // AUR packages (Arch-only)
-            aur-packages {
-                hyprland
-                waybar
-                swww
             }
 
             // Flatpak packages (cross-distro)
@@ -359,12 +380,27 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 4);
-        assert_eq!(config.aur_packages.len(), 3);
+        assert_eq!(config.packages.len(), 3);
+        assert_eq!(config.soar_packages.len(), 4);
         assert_eq!(config.flatpak_packages.len(), 2);
     }
 
     // New syntax tests
+
+    #[test]
+    fn test_parse_colon_syntax_soar() {
+        let kdl = r#"
+            packages:soar {
+                bat
+                exa
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.soar_packages.len(), 2);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
+    }
 
     #[test]
     fn test_parse_colon_syntax_aur() {
@@ -376,9 +412,9 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.aur_packages.len(), 2);
-        assert!(config.aur_packages.contains(&"hyprland".to_string()));
-        assert!(config.aur_packages.contains(&"waybar".to_string()));
+        assert_eq!(config.packages.len(), 2);
+        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.contains(&"waybar".to_string()));
     }
 
     #[test]
@@ -400,11 +436,11 @@ mod tests {
     fn test_parse_embedded_syntax() {
         let kdl = r#"
             packages {
-                bat
-                exa
-                aur {
-                    hyprland
-                    waybar
+                hyprland
+                waybar
+                soar {
+                    bat
+                    exa
                 }
                 flatpak {
                     com.spotify.Client
@@ -415,12 +451,12 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.contains(&"bat".to_string()));
-        assert!(config.packages.contains(&"exa".to_string()));
+        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.contains(&"waybar".to_string()));
 
-        assert_eq!(config.aur_packages.len(), 2);
-        assert!(config.aur_packages.contains(&"hyprland".to_string()));
-        assert!(config.aur_packages.contains(&"waybar".to_string()));
+        assert_eq!(config.soar_packages.len(), 2);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
 
         assert_eq!(config.flatpak_packages.len(), 2);
         assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
@@ -430,15 +466,15 @@ mod tests {
     #[test]
     fn test_parse_mixed_syntax_styles() {
         let kdl = r#"
-            // Default packages (Soar)
+            // Default packages (AUR)
             packages {
-                ripgrep
-                fd
+                hyprland
+                waybar
             }
 
-            // Colon syntax for AUR
-            packages:aur {
-                hyprland
+            // Colon syntax for Soar
+            packages:soar {
+                bat
             }
 
             // Colon syntax for Flatpak
@@ -449,7 +485,7 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.aur_packages.len(), 1);
+        assert_eq!(config.soar_packages.len(), 1);
         assert_eq!(config.flatpak_packages.len(), 1);
     }
 
@@ -461,18 +497,18 @@ mod tests {
                     bat
                     exa
                 }
-                aur {
-                    hyprland
+                flatpak {
+                    com.spotify.Client
                 }
             }
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.contains(&"bat".to_string()));
-        assert!(config.packages.contains(&"exa".to_string()));
+        assert_eq!(config.soar_packages.len(), 2);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
 
-        assert_eq!(config.aur_packages.len(), 1);
-        assert!(config.aur_packages.contains(&"hyprland".to_string()));
+        assert_eq!(config.flatpak_packages.len(), 1);
+        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
     }
 }
