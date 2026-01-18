@@ -6,6 +6,9 @@ use std::time::Duration;
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Allowed URL schemes for security (prevent SSRF)
+const ALLOWED_SCHEMES: &[&str] = &["http", "https"];
+
 /// Fetch module content from remote repository
 ///
 /// Supports multiple sources:
@@ -228,6 +231,9 @@ fn build_urls(target: &str) -> Vec<String> {
 }
 
 fn fetch_url(client: &Client, url: &str) -> Result<String> {
+    // Validate URL scheme before making request
+    validate_url(url)?;
+
     let resp = client.get(url)
         .header("User-Agent", "declarch-cli")
         .send()
@@ -238,6 +244,60 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
     } else {
         Err(DeclarchError::Other(format!("HTTP {}", resp.status())))
     }
+}
+
+/// Validate URL to prevent SSRF attacks
+fn validate_url(url_str: &str) -> Result<()> {
+    // Parse URL to validate scheme
+    let parsed = reqwest::Url::parse(url_str)
+        .map_err(|_| DeclarchError::Other(format!("Invalid URL: {}", url_str)))?;
+
+    // Check scheme is allowed
+    let scheme = parsed.scheme();
+    if !ALLOWED_SCHEMES.contains(&scheme) {
+        return Err(DeclarchError::Other(format!(
+            "URL scheme '{}' not allowed. Only HTTP and HTTPS are permitted.",
+            scheme
+        )));
+    }
+
+    // Prevent access to localhost/private networks (basic check)
+    let host = parsed.host_str().unwrap_or("");
+    if is_private_address(host) {
+        return Err(DeclarchError::Other(format!(
+            "Access to private addresses is not allowed: {}",
+            host
+        )));
+    }
+
+    Ok(())
+}
+
+/// Check if hostname is a private/local address
+fn is_private_address(host: &str) -> bool {
+    // Check for localhost variants
+    if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" {
+        return true;
+    }
+
+    // Check for private IP ranges (basic check for common patterns)
+    if host.starts_with("127.") || host.starts_with("10.") || host.starts_with("192.168.") {
+        return true;
+    }
+
+    // Check for 172.16.0.0/12 (172.16.x.x to 172.31.x.x)
+    if host.starts_with("172.") {
+        let parts: Vec<&str> = host.split('.').collect();
+        if parts.len() >= 2 {
+            if let Ok(second_octet) = parts[1].parse::<u8>() {
+                if (16..=32).contains(&second_octet) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
 }
 
 #[cfg(test)]
