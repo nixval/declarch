@@ -271,62 +271,17 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // -- REMOVAL --
     if should_prune {
         // A. BUILD PROTECTED LIST (Antidote for Aliasing Bug - FIXED)
-        // Kumpulkan semua "Nama Asli" dari paket yang ADA DI CONFIG.
-        // Tidak peduli apakah dia baru (Adopt) atau lama (Stable), fisiknya harus dilindungi.
+        // Collect all actual installed package names from config to protect them
         let mut protected_physical_names: Vec<String> = Vec::new();
-        
-        // ITERASI CONFIG LANGSUNG (Bukan Transaction)
+
+        // Iterate directly through config packages
         for pkg in config.packages.keys() {
-            // Skip jika user mengecualikan paket ini
+            // Skip if user excluded this package
             if config.excludes.contains(&pkg.name) {
                 continue;
             }
 
-            let mut real_name = pkg.name.clone();
-
-            // Try Exact Match
-            if installed_snapshot.contains_key(pkg) {
-                real_name = pkg.name.clone();
-            } else {
-                // Try Smart Match Resolution
-                match pkg.backend {
-                    Backend::Aur => {
-                        let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
-                        for suffix in suffixes {
-                            let alt_name = format!("{}{}", pkg.name, suffix);
-                            let alt_id = PackageId { name: alt_name.clone(), backend: Backend::Aur };
-                            if installed_snapshot.contains_key(&alt_id) {
-                                real_name = alt_name;
-                                break;
-                            }
-                        }
-                         // Prefix
-                        if real_name == pkg.name {
-                             if let Some((prefix, _)) = pkg.name.split_once('-') {
-                                let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
-                                if installed_snapshot.contains_key(&alt_id) {
-                                    real_name = prefix.to_string();
-                                }
-                            }
-                        }
-                    },
-                    Backend::Flatpak => {
-                        let search = pkg.name.to_lowercase();
-                        for (installed_id, _) in &installed_snapshot {
-                            if installed_id.backend == Backend::Flatpak {
-                                if installed_id.name.to_lowercase().contains(&search) {
-                                    real_name = installed_id.name.clone();
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    Backend::Soar => {
-                        // Soar requires exact matching - no smart matching needed
-                        real_name = pkg.name.clone();
-                    }
-                }
-            }
+            let real_name = resolve_installed_package_name(pkg, &installed_snapshot);
             protected_physical_names.push(real_name);
         }
 
@@ -334,63 +289,20 @@ pub fn run(options: SyncOptions) -> Result<()> {
         let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
         
         for pkg in tx.to_prune.iter() {
-            // ... (kode di bawah ini SAMA PERSIS dengan sebelumnya) ...
-            // ... (Copy paste dari file lamamu mulai dari sini ke bawah) ...
-            
             // 1. GHOST MODE (Static Check)
             if critical::PACKAGES.contains(&pkg.name.as_str()) {
                 continue;
             }
 
-            // 2. REAL ID RESOLUTION
-            let mut real_name = pkg.name.clone();
-
-            match pkg.backend {
-                 Backend::Flatpak => {
-                    let search = pkg.name.to_lowercase();
-                    for (installed_id, _) in &installed_snapshot {
-                        if installed_id.backend == Backend::Flatpak {
-                            if installed_id.name.to_lowercase().contains(&search) {
-                                real_name = installed_id.name.clone();
-                                break;
-                            }
-                        }
-                    }
-                },
-                Backend::Aur => {
-                    let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
-                    let mut found = false;
-                    for suffix in suffixes {
-                        let alt_name = format!("{}{}", pkg.name, suffix);
-                        let alt_id = PackageId { name: alt_name.clone(), backend: Backend::Aur };
-                        if installed_snapshot.contains_key(&alt_id) {
-                            real_name = alt_name;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found {
-                        if let Some((prefix, _)) = pkg.name.split_once('-') {
-                            let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
-                            if installed_snapshot.contains_key(&alt_id) {
-                                real_name = prefix.to_string();
-                            }
-                        }
-                    }
-                }
-                Backend::Soar => {
-                    // Soar requires exact matching
-                    real_name = pkg.name.clone();
-                }
-            }
+            // 2. REAL ID RESOLUTION (using helper function)
+            let real_name = resolve_installed_package_name(pkg, &installed_snapshot);
 
             // 3. FRATRICIDE CHECK (Dynamic Runtime Check)
             if protected_physical_names.contains(&real_name) {
-                // Ini yang akan menyelamatkan hyprland kamu!
                 println!("  ℹ Keeping physical package '{}' (claimed by active config)", real_name.dimmed());
                 continue;
             }
-            
+
             removes.entry(pkg.backend.clone()).or_default().push(real_name);
         }
 
@@ -415,6 +327,59 @@ pub fn run(options: SyncOptions) -> Result<()> {
 // ============================================================================
 // HELPER FUNCTIONS - Break down the monolithic sync function
 // ============================================================================
+
+/// Smart matching: Find the actual installed package name for a config package
+/// This handles variant matching (e.g., "hyprland" → "hyprland-git")
+fn resolve_installed_package_name(
+    pkg: &PackageId,
+    installed_snapshot: &HashMap<PackageId, PackageMetadata>,
+) -> String {
+    let mut real_name = pkg.name.clone();
+
+    // Try exact match first
+    if installed_snapshot.contains_key(pkg) {
+        return real_name;
+    }
+
+    // Try smart match based on backend
+    match pkg.backend {
+        Backend::Aur => {
+            let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+            for suffix in suffixes {
+                let alt_name = format!("{}{}", pkg.name, suffix);
+                let alt_id = PackageId { name: alt_name.clone(), backend: Backend::Aur };
+                if installed_snapshot.contains_key(&alt_id) {
+                    real_name = alt_name;
+                    return real_name;
+                }
+            }
+            // Try prefix match
+            if let Some((prefix, _)) = pkg.name.split_once('-') {
+                let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
+                if installed_snapshot.contains_key(&alt_id) {
+                    real_name = prefix.to_string();
+                }
+            }
+        },
+        Backend::Flatpak => {
+            let search = pkg.name.to_lowercase();
+            for (installed_id, _) in installed_snapshot {
+                if installed_id.backend == Backend::Flatpak {
+                    if installed_id.name.to_lowercase().contains(&search) {
+                        real_name = installed_id.name.clone();
+                        return real_name;
+                    }
+                }
+            }
+        }
+        Backend::Soar => {
+            // Soar requires exact matching - no smart matching needed
+            real_name = pkg.name.clone();
+        }
+    }
+
+    real_name
+}
 
 /// Display the transaction plan to the user
 fn display_transaction_plan(
