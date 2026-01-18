@@ -1,8 +1,10 @@
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use reqwest::blocking::Client;
+use std::time::Duration;
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Fetch module content from remote repository
 ///
@@ -33,7 +35,10 @@ const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarc
 ///    declarch init https://example.com/config.kdl
 ///    ```
 pub fn fetch_module_content(target_path: &str) -> Result<String> {
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .build()
+        .map_err(|e| DeclarchError::Other(format!("Failed to create HTTP client: {}", e)))?;
 
     // Try different URL patterns
     let urls = build_urls(target_path);
