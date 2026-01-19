@@ -14,15 +14,22 @@ pub type BackendFactory = Box<dyn Fn(&GlobalConfig, bool) -> Result<Box<dyn Pack
 /// making it easy to add new package managers (nala, nix, etc.) without
 /// modifying core logic.
 ///
-/// # Example
-/// ```ignore
-/// // To add a new backend (e.g., Nix):
+/// # Adding a New Backend
+///
+/// To add a new backend (e.g., Nix):
 /// 1. Create NixManager implementing PackageManager
-/// 2. Add Backend::Nix to core::types::Backend
+/// 2. Add Backend::Nix to core::types::Backend enum
 /// 3. Register in BackendRegistry::register_defaults():
-///    self.register(Backend::Nix, |config, noconfirm| {
-///        Ok(Box::new(NixManager::new(noconfirm)))
-///    });
+///
+/// ```no_run
+/// # use declarch::packages::registry::{BackendRegistry, BackendFactory};
+/// # use declarch::core::types::Backend;
+/// # use declarch::config::types::GlobalConfig;
+/// # let mut registry = BackendRegistry::new();
+/// // This is example code showing the pattern:
+/// // self.register(Backend::Nix, |config, noconfirm| {
+/// //     Ok(Box::new(NixManager::new(noconfirm)))
+/// // });
 /// ```
 pub struct BackendRegistry {
     factories: HashMap<Backend, BackendFactory>,
