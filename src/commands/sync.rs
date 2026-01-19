@@ -481,6 +481,40 @@ fn execute_installations(
     Ok(())
 }
 
+/// Discover the actual AUR package name for a given package
+/// This handles cases where the config name differs from the actual AUR package name
+/// (e.g., config says "hyprland" but AUR package is "hyprland-git")
+fn discover_aur_package_name(package_name: &str) -> Option<String> {
+    // Query pacman -Qi to get package info
+    let output = Command::new("pacman")
+        .args(["-Qi", package_name])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8(output.stdout).ok()?;
+
+    // Parse the "Name" field to get the actual package name
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.starts_with("Name") {
+            if let Some(name) = line.split(':').nth(1) {
+                let actual_name = name.trim();
+                // Return the actual name only if it differs from config name
+                if actual_name != package_name {
+                    return Some(actual_name.to_string());
+                }
+            }
+            break;
+        }
+    }
+
+    None
+}
+
 /// Find metadata for a package using smart matching
 fn find_package_metadata<'a>(
     pkg: &PackageId,
@@ -515,13 +549,20 @@ fn update_state_after_sync(
         let version = meta.and_then(|m| m.version.clone());
         let key = resolver::make_state_key(&pkg);
 
+        // Discover actual AUR package name if applicable
+        let aur_package_name = if pkg.backend == Backend::Aur {
+            discover_aur_package_name(&pkg.name)
+        } else {
+            None
+        };
+
         state.packages.insert(
             key,
             PackageState {
                 backend: pkg.backend.clone(),
                 config_name: pkg.name.clone(),
                 provides_name: pkg.name.clone(),
-                aur_package_name: None, // TODO: Discover actual AUR package name
+                aur_package_name,
                 installed_at: Utc::now(),
                 version,
             },
