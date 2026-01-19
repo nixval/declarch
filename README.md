@@ -536,6 +536,9 @@ We chose [KDL](https://kdl.dev/) because it's designed for configuration, not da
 - [KDL Syntax Reference](https://github.com/nixval/declarch/wiki/KDL-Syntax-Reference) - Complete syntax
 - [Remote Init Guide](https://github.com/nixval/declarch/wiki/Remote-Init-Guide) - Fetch from GitHub/GitLab
 - [Examples](https://github.com/nixval/declarch/wiki/Examples) - Real-world configs
+- [Backend System](docs/Backend-System.md) - Generic backend architecture
+- [Testing Guide](TESTING.md) - Test the new backend system
+- [Quick Test](QUICK-TEST.md) - Ready-to-use test configs
 
 -----
 
