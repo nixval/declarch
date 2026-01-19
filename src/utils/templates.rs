@@ -36,6 +36,10 @@ packages {{
     // aur:waybar
     // soar:bat
     // flatpak:org.mozilla.firefox
+
+    // With package attributes:
+    // waybar enable=true
+    // docker enable=true post-install="systemctl enable docker"
 }}
 
 // === CONFLICTS ===
@@ -64,16 +68,15 @@ packages {{
 //         linux
 //         systemd
 //     }}
-//     orphans "keep"
+//     orphans "ask"
 // }}
 
 // === HOOKS ===
-// hooks {{
-//     post-sync {{
-//         run "notify-send 'Packages updated'"
-//         sudo-needed "systemctl restart gdm"
-//     }}
-// }}
+// Note: Hooks are disabled by default for security.
+// Use --hooks flag to enable: dc sync --hooks
+//
+// on-sync "notify-send 'Packages updated'"
+// on-sync-sudo "systemctl restart gdm"
 
 excludes {{
     // Add packages to exclude
@@ -112,25 +115,28 @@ pub fn get_template_by_name(name: &str) -> Option<String> {
 // Maintainer: nixval
 // Description: Essential packages for any Linux system
 
-meta {{
+meta {
     description "Base system packages"
     author "nixval"
     version "1.0.0"
     tags "base" "essential"
-}}
+}
 
-packages {{
-    // Cross-distro essentials (Soar)
-    bat         // Better cat with syntax highlighting
-    exa         // Better ls with colors
-    fd          // Better find command
-    ripgrep     // Faster grep alternative
-    zoxide      // Smart cd command
+// Example AUR package (Arch Linux only)
+// Uncomment to install:
+packages:aur {
+    // bat         // Better cat with syntax highlighting
+}
 
-    // AUR packages (Arch Linux only)
-    // zsh
-    // fastfetch
-}}
+// Soar packages (cross-distro static binaries)
+// These work on any Linux distribution - uncomment if you use Soar:
+// packages:soar {
+//     bat         // Better cat with syntax highlighting
+//     exa         // Better ls with colors
+//     fd          // Better find command
+//     ripgrep     // Faster grep alternative
+//     zoxide      // Smart cd command
+// }
 
 // Environment variables for this module
 // env EDITOR="nvim"
@@ -139,14 +145,14 @@ packages {{
         "dev" => Some(r#"// Developer Tools
 // Maintainer: Declarch Community
 
-meta {{
+meta {
     description "Development tools and IDEs"
     author "nixval"
-}}
+}
 
-packages {{
+packages {
     mise
-}}
+}
 "#.to_string()),
 
         _ => None, // Not found, will use generic default_module()

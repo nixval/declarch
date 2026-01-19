@@ -411,6 +411,31 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "hooks" => {
                 parse_hooks(node, &mut config.hooks)?;
             },
+            // NEW: Simplified flat hooks
+            "on-sync" => {
+                if let Some(val) = get_first_string(node) {
+                    config.hooks.post_sync.push(HookEntry {
+                        command: val,
+                        hook_type: HookType::Run,
+                    });
+                }
+            },
+            "on-sync-sudo" => {
+                if let Some(val) = get_first_string(node) {
+                    config.hooks.post_sync.push(HookEntry {
+                        command: val,
+                        hook_type: HookType::SudoNeeded,
+                    });
+                }
+            },
+            "on-pre-sync" => {
+                if let Some(val) = get_first_string(node) {
+                    config.hooks.pre_sync.push(HookEntry {
+                        command: val,
+                        hook_type: HookType::Run,
+                    });
+                }
+            },
             // Parse packages with flexible syntax using the registry
             name if name.starts_with("packages") => {
                 registry.parse_packages_node(node, &mut config)?;
@@ -1613,5 +1638,52 @@ mod tests {
 
         // Check hooks
         assert_eq!(config.hooks.post_sync.len(), 1);
+    }
+
+    // NEW: Flat hooks syntax test
+
+    #[test]
+    fn test_parse_flat_hooks() {
+        let kdl = r#"
+            on-sync "notify-send 'Packages updated'"
+            on-sync-sudo "systemctl restart gdm"
+            on-pre-sync "echo 'Starting sync...'"
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        // Check pre-sync hooks
+        assert_eq!(config.hooks.pre_sync.len(), 1);
+        assert_eq!(config.hooks.pre_sync[0].command, "echo 'Starting sync...'");
+        assert_eq!(config.hooks.pre_sync[0].hook_type, HookType::Run);
+
+        // Check post-sync hooks
+        assert_eq!(config.hooks.post_sync.len(), 2);
+        assert_eq!(config.hooks.post_sync[0].command, "notify-send 'Packages updated'");
+        assert_eq!(config.hooks.post_sync[0].hook_type, HookType::Run);
+        assert_eq!(config.hooks.post_sync[1].command, "systemctl restart gdm");
+        assert_eq!(config.hooks.post_sync[1].hook_type, HookType::SudoNeeded);
+    }
+
+    // NEW: Mixed hooks (old nested + new flat)
+
+    #[test]
+    fn test_parse_mixed_hooks() {
+        let kdl = r#"
+            on-sync "notify-send 'Flat hook'"
+
+            hooks {
+                post-sync {
+                    run "notify-send 'Nested hook'"
+                }
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        // Should have both flat and nested hooks
+        assert_eq!(config.hooks.post_sync.len(), 2);
+        assert!(config.hooks.post_sync.iter().any(|h| h.command == "notify-send 'Flat hook'"));
+        assert!(config.hooks.post_sync.iter().any(|h| h.command == "notify-send 'Nested hook'"));
     }
 }
