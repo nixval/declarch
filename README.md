@@ -270,18 +270,37 @@ policy {
 
 // === HOOKS ===
 // Run commands before/after sync
-hooks {
-    pre-sync {
-        run "notify-send 'Starting package sync...'"
-    }
-
-    post-sync {
-        run "notify-send 'Packages updated'"
-        sudo-needed "systemctl restart gdm"
-        script "~/.config/declarch/post-sync.sh"
-    }
-}
+//
+// Flat syntax (recommended):
+on-pre-sync "notify-send 'Starting sync...'"
+on-sync "notify-send 'Packages updated'"
+on-sync-sudo "systemctl restart gdm"
+//
+// Or nested syntax (still supported):
+// hooks {
+//     pre-sync {
+//         run "notify-send 'Starting package sync...'"
+//     }
+//     post-sync {
+//         run "notify-send 'Packages updated'"
+//         sudo-needed "systemctl restart gdm"
+//     }
+// }
 ```
+
+**⚠️ Hooks Security:**
+
+Hooks are disabled by default for security. Enable with `--hooks` flag:
+
+```bash
+# Preview hooks (always safe - shows what would run)
+declarch sync --dry-run
+
+# Execute hooks (after reviewing config)
+declarch sync --hooks
+```
+
+**Why?** Remote configs may contain arbitrary commands. Always review before enabling.
 
 **Module Configurations**
 
@@ -309,11 +328,8 @@ policy {
     }
 }
 
-hooks {
-    post-sync {
-        run "notify-send 'Dev tools updated'"
-    }
-}
+// Flat syntax for hooks
+on-sync "notify-send 'Dev tools updated'"
 ```
 
 **Module Merging Behavior:**

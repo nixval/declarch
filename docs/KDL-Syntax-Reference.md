@@ -595,7 +595,10 @@ packages {
 | `env:*` | `env:aur MAKEFLAGS="-j4"` | Backend-specific env vars |
 | `repos:*` | `repos:aur { ... }` | Custom repositories |
 | `policy` | `policy { ... }` | Package lifecycle policies |
-| `hooks` | `hooks { ... }` | Pre/post-sync hooks |
+| `hooks` | `hooks { ... }` | Pre/post-sync hooks (nested) |
+| `on-sync` | `on-sync "command"` | Post-sync hooks (flat, recommended) |
+| `on-sync-sudo` | `on-sync-sudo "command"` | Post-sync hooks with sudo (flat) |
+| `on-pre-sync` | `on-pre-sync "command"` | Pre-sync hooks (flat) |
 
 ### Advanced Syntax Features
 
@@ -650,7 +653,16 @@ policy {
 }
 ```
 
-#### Hooks
+#### Hooks (Flat Syntax - Recommended)
+
+**Simple hooks:**
+```kdl
+on-pre-sync "echo 'Starting sync...'"
+on-sync "notify-send 'Packages updated'"
+on-sync-sudo "systemctl restart gdm"
+```
+
+**Nested syntax (still supported):**
 ```kdl
 hooks {
     pre-sync {
@@ -662,6 +674,17 @@ hooks {
     }
 }
 ```
+
+**Security Note:** Hooks are disabled by default for security. Use `--hooks` flag to enable:
+```bash
+dc sync --hooks      # Execute hooks
+dc sync --dry-run    # Show hooks without executing
+```
+
+**When to use hooks:**
+- `on-pre-sync`: Commands to run BEFORE package sync (backup, checks)
+- `on-sync`: Commands to run AFTER package sync (notifications, services)
+- `on-sync-sudo`: Commands requiring sudo AFTER sync (systemd services, daemons)
 
 ### Module Config Support
 

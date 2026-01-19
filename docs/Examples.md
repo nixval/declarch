@@ -806,6 +806,94 @@ packages:aur {
 
 ---
 
+## Automation with Hooks
+
+**For:** Running commands before/after sync operations.
+
+### Basic Notifications
+
+```kdl
+// Notify when packages are updated
+on-sync "notify-send 'Declarch' 'Packages synchronized successfully'"
+```
+
+### Backup Before Sync
+
+```kdl
+// Backup package list before sync
+on-pre-sync "pacman -Qqe > ~/.config/pacman/pkglist.before.txt"
+
+// Update state after sync
+on-sync "pacman -Qqe > ~/.config/pacman/pkglist.txt"
+```
+
+### Restart Services
+
+```kdl
+// Restart display manager after GPU driver updates
+on-sync-sudo "systemctl restart gdm"
+
+// Restart PipeWire after audio updates
+on-sync-sudo "systemctl --user restart wireplumber pipewire pipewire-pulse"
+```
+
+### Clear Caches
+
+```kdl
+// Clean package cache after sync
+on-sync "paccache -rk3"  // Keep last 3 versions
+
+// Clean thumbnail cache
+on-sync "rm -rf ~/.cache/thumbnails/*"
+```
+
+### Development Environment Hooks
+
+```kdl
+// Update Rust after sync
+on-sync "rustup update"
+
+// Update Python packages
+on-sync "pipx upgrade-all"
+
+// Update global npm packages
+on-sync "npm update -g"
+```
+
+### Multiple Hooks
+
+```kdl
+// Pre-sync: Backup and notify
+on-pre-sync "echo '[$(date)] Starting sync...' >> ~/.declarch.log"
+on-pre-sync "notify-send 'Declarch' 'Starting package synchronization'"
+
+// Post-sync: Notify and clean up
+on-sync "notify-send 'Declarch' 'Packages updated successfully'"
+on-sync "rm -rf ~/.cache/thumbnails/*"
+
+// Post-sync with sudo: Restart services
+on-sync-sudo "systemctl restart NetworkManager"
+```
+
+### Hook Security
+
+**Important:** Hooks are disabled by default for security. Enable with `--hooks`:
+
+```bash
+# Preview hooks (always safe)
+declarch sync --dry-run
+
+# Execute hooks (after reviewing config)
+declarch sync --hooks
+```
+
+**Why?**
+- Remote configs may contain arbitrary commands
+- Always review configs before enabling hooks
+- Dry-run shows what will be executed
+
+---
+
 ## Tips for Your Own Config
 
 ### 1. Start Simple

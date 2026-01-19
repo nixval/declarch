@@ -107,6 +107,32 @@ declarch sync
 
 ---
 
+## Advanced Features
+
+### Hooks (Automation)
+
+Run commands before/after sync:
+
+```kdl
+on-pre-sync "echo 'Starting sync...'"
+on-sync "notify-send 'Packages updated'"
+on-sync-sudo "systemctl restart gdm"
+```
+
+**Security**: Hooks are disabled by default. Enable with `--hooks` flag:
+
+```bash
+declarch sync --hooks      # Execute hooks
+declarch sync --dry-run    # Preview changes (shows hooks)
+```
+
+**Why disabled by default?**
+- Remote configs may contain arbitrary commands
+- Review the config before enabling hooks
+- Dry-run always shows what would be executed
+
+---
+
 ## Documentation
 
 - [Installation Guide](Installation.md) - Detailed installation instructions
