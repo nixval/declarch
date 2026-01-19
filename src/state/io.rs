@@ -23,6 +23,45 @@ pub fn get_state_path() -> Result<PathBuf> {
     Ok(state_dir.join("state.json"))
 }
 
+/// Migrate state to fix duplicate keys and format issues
+/// Returns true if migration was performed
+fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
+    use crate::core::resolver;
+    use std::collections::HashMap;
+
+    let mut migrated = false;
+    let mut new_packages: HashMap<String, crate::state::types::PackageState> = HashMap::new();
+
+    // Track package signatures we've seen to detect duplicates
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (_key, pkg_state) in &state.packages {
+        // Build the canonical key using current format
+        let canonical_id = crate::core::types::PackageId {
+            name: pkg_state.config_name.clone(),
+            backend: pkg_state.backend.clone(),
+        };
+        let canonical_key = resolver::make_state_key(&canonical_id);
+
+        // Check if we've already seen this package
+        let signature = format!("{}:{}", pkg_state.backend, pkg_state.config_name);
+        if seen.contains(&signature) {
+            // Duplicate found - skip it
+            migrated = true;
+            continue;
+        }
+
+        seen.insert(signature);
+        new_packages.insert(canonical_key, pkg_state.clone());
+    }
+
+    if migrated {
+        state.packages = new_packages;
+    }
+
+    Ok(migrated)
+}
+
 pub fn load_state() -> Result<State> {
     let path = get_state_path()?;
 
@@ -35,7 +74,14 @@ pub fn load_state() -> Result<State> {
     let state = match content {
         Ok(content) => {
             match serde_json::from_str::<State>(&content) {
-                Ok(state) => return Ok(state),
+                Ok(mut state) => {
+                    // Migrate state to fix duplicate keys from old format
+                    if migrate_state(&mut state)? {
+                        // Save migrated state
+                        let _ = save_state(&state);
+                    }
+                    return Ok(state);
+                },
                 Err(_) => {
                     // Main state file is corrupted, try to restore from backup
                     restore_from_backup(&path)?

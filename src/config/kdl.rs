@@ -804,7 +804,12 @@ fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
                     name: child_name.to_string(),
                 });
             } else {
-                // Has string arguments - use them as packages
+                // Has string arguments - push node name AND all arguments
+                // First, push the node name
+                target.push(PackageEntry {
+                    name: child_name.to_string(),
+                });
+                // Then, push all arguments as separate packages
                 for arg in child_entries {
                     target.push(PackageEntry {
                         name: arg.to_string(),
