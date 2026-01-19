@@ -23,19 +23,40 @@ Linux package management is often **imperative**. You run `pacman -S git`, `apt 
 ```kdl
 // ~/.config/declarch/declarch.kdl
 
+// AUR packages (Arch Linux)
 packages:aur {
     hyprland
     waybar
 }
 
+// Static binaries (Soar)
 packages {
     bat
     exa
     ripgrep
 }
 
+// Flatpak applications
 packages:flatpak {
     com.spotify.Client
+}
+
+// Node.js global packages
+packages:npm {
+    typescript
+    prettier
+}
+
+// Python packages
+packages:pip {
+    ruff
+    black
+}
+
+// Rust crates
+packages:cargo {
+    ripgrep
+    fd-find
 }
 ```
 
@@ -61,7 +82,8 @@ Share your config across different Linux distributions.
   * **Declarative Config:** Uses the clean, readable **KDL** syntax.
   * **Dual Command:** Use `declarch` or shorter `dc` alias.
   * **Remote Init:** Fetch configs from GitHub/GitLab repositories.
-  * **Multi-Backend:** Supports **AUR**, **Flatpak**, and **Soar** (static binaries).
+  * **Universal Backend:** Supports **AUR**, **Flatpak**, **Soar**, **npm**, **pip**, **cargo**, **brew**, **yarn**, **pnpm**, **bun**.
+  * **Generic System:** Easy to add new package managers via configuration.
   * **Flexible Syntax:** Write packages your way — simple, nested, or mixed.
   * **Modular:** Import and organize configs into reusable modules.
   * **Smart Sync:** Auto-installs missing packages, adopts existing ones.
