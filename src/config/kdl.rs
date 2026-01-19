@@ -55,11 +55,10 @@ pub struct RawConfig {
     pub hooks: HookConfig,
 }
 
-/// Package entry with optional version constraint
+/// Package entry (version constraints skipped for now)
 #[derive(Debug, Clone)]
 pub struct PackageEntry {
     pub name: String,
-    pub version: Option<String>,  // e.g., ">=0.40.0", "=0.10.0"
 }
 
 /// Configuration metadata
@@ -216,11 +215,8 @@ impl BackendParserRegistry {
     fn parse_inline_prefix(&self, package_str: &str, config: &mut RawConfig) -> Result<()> {
         if let Some((backend, package)) = package_str.split_once(':') {
             if self.find_parser(backend).is_some() {
-                // Check for version constraint: package">=1.0.0"
-                let (pkg_name, version) = extract_version_constraint(package);
                 let entry = PackageEntry {
-                    name: pkg_name.to_string(),
-                    version,
+                    name: package.to_string(),
                 };
 
                 // Directly add to the appropriate config vector based on backend
@@ -234,16 +230,12 @@ impl BackendParserRegistry {
                 // Unknown backend - treat the whole string as package name with default backend
                 config.packages.push(PackageEntry {
                     name: package_str.to_string(),
-                    version: None,
                 });
             }
         } else {
-            // Check for version constraint: package">=1.0.0"
-            let (pkg_name, version) = extract_version_constraint(package_str);
             // No prefix - use default backend (AUR)
             config.packages.push(PackageEntry {
-                name: pkg_name.to_string(),
-                version,
+                name: package_str.to_string(),
             });
         }
         Ok(())
@@ -284,10 +276,8 @@ impl BackendParserRegistry {
                         self.parse_inline_prefix(child_name, config)?;
                     } else {
                         // No backend prefix - use default backend
-                        let (pkg_name, version) = extract_version_constraint(child_name);
                         config.packages.push(PackageEntry {
-                            name: pkg_name.to_string(),
-                            version,
+                            name: child_name.to_string(),
                         });
                     }
 
@@ -297,10 +287,8 @@ impl BackendParserRegistry {
                             if val.contains(':') {
                                 self.parse_inline_prefix(val, config)?;
                             } else {
-                                let (pkg_name, version) = extract_version_constraint(val);
                                 config.packages.push(PackageEntry {
-                                    name: pkg_name.to_string(),
-                                    version,
+                                    name: val.to_string(),
                                 });
                             }
                         }
@@ -315,10 +303,8 @@ impl BackendParserRegistry {
                 if val.contains(':') {
                     self.parse_inline_prefix(val, config)?;
                 } else {
-                    let (pkg_name, version) = extract_version_constraint(val);
                     config.packages.push(PackageEntry {
-                        name: pkg_name.to_string(),
-                        version,
+                        name: val.to_string(),
                     });
                 }
             }
@@ -332,25 +318,6 @@ impl Default for BackendParserRegistry {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Extract version constraint from package string
-/// Returns (package_name, version_constraint)
-/// Examples:
-/// - "hyprland" → ("hyprland", None)
-/// - "hyprland\">=0.40.0\"" → ("hyprland", Some(">=0.40.0"))
-fn extract_version_constraint(input: &str) -> (&str, Option<String>) {
-    // Check if input looks like a version constraint
-    // Version constraints start with operators like: >=, <=, =, ~, <, >, !
-    let version_operators = [">=", "<=", "=", "~=", "~", "<", ">", "!=", "!="];
-
-    for op in &version_operators {
-        if input.starts_with(op) {
-            return ("", Some(input.to_string()));
-        }
-    }
-
-    (input, None)
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
@@ -453,21 +420,18 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 let packages = extract_mixed_values_return(node);
                 config.packages.extend(packages.into_iter().map(|p| PackageEntry {
                     name: p,
-                    version: None,
                 }));
             },
             "soar-packages" | "soar-package" => {
                 let packages = extract_mixed_values_return(node);
                 config.soar_packages.extend(packages.into_iter().map(|p| PackageEntry {
                     name: p,
-                    version: None,
                 }));
             },
             "flatpak-packages" | "flatpak-package" => {
                 let packages = extract_mixed_values_return(node);
                 config.flatpak_packages.extend(packages.into_iter().map(|p| PackageEntry {
                     name: p,
-                    version: None,
                 }));
             },
             _ => {}
@@ -539,6 +503,12 @@ fn parse_conflicts(node: &KdlNode, conflicts: &mut Vec<ConflictEntry>) -> Result
     if let Some(children) = node.children() {
         for child in children.nodes() {
             packages.push(child.name().value().to_string());
+            // Also check for string arguments in child entries
+            for entry in child.entries() {
+                if let Some(val) = entry.value().as_string() {
+                    packages.push(val.to_string());
+                }
+            }
         }
     }
 
@@ -608,10 +578,23 @@ fn parse_env_vars(node: &KdlNode, env: &mut HashMap<String, Vec<String>>, backen
 
     let mut vars = Vec::new();
 
-    // Extract from string arguments
+    // Extract from string arguments (format: "EDITOR=nvim")
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
             vars.push(val.to_string());
+        }
+    }
+
+    // Extract from named arguments (format: EDITOR="nvim")
+    for entry in node.entries() {
+        if let Some(name) = entry.name() {
+            let key = name.value();
+            if let Some(val) = entry.value().as_string() {
+                // Only format as key=value if not already in key=value format
+                if !key.is_empty() && !key.contains('(') && !vars.contains(&format!("{}={}", key, val)) {
+                    vars.push(format!("{}={}", key, val));
+                }
+            }
         }
     }
 
@@ -771,16 +754,13 @@ fn get_first_string(node: &KdlNode) -> Option<String> {
 /// Handles:
 /// - String arguments: `packages "bat" "exa"`
 /// - Children node names: `packages { bat exa }`
-/// - Version constraints: `packages { hyprland ">=0.40.0" }`
 /// - Mixed: `packages "bat" { exa }`
 fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
     // Extract from string arguments of this node
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
-            let (name, version) = extract_version_constraint(val);
             target.push(PackageEntry {
-                name: if name.is_empty() { val.to_string() } else { name.to_string() },
-                version,
+                name: val.to_string(),
             });
         }
     }
@@ -795,54 +775,19 @@ fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
 
             if child_entries.is_empty() {
                 // No string arguments, just the node name
-                let (name, version) = extract_version_constraint(child_name);
                 target.push(PackageEntry {
-                    name: if name.is_empty() { child_name.to_string() } else { name.to_string() },
-                    version,
+                    name: child_name.to_string(),
                 });
             } else {
-                // Has string arguments - check if first is a version constraint
-                let first_arg = child_entries[0];
-                let (first_name, first_version) = extract_version_constraint(first_arg);
-
-                if first_version.is_some() {
-                    // First argument is a version constraint - use node name as package name
+                // Has string arguments - use them as packages
+                for arg in child_entries {
                     target.push(PackageEntry {
-                        name: child_name.to_string(),
-                        version: first_version,
+                        name: arg.to_string(),
                     });
-
-                    // Add remaining arguments as separate packages
-                    for arg in child_entries.iter().skip(1) {
-                        target.push(PackageEntry {
-                            name: arg.to_string(),
-                            version: None,
-                        });
-                    }
-                } else {
-                    // First argument is a package name, or node is the package
-                    // Use the first entry as the value
-                    target.push(PackageEntry {
-                        name: first_arg.to_string(),
-                        version: None,
-                    });
-
-                    // Add remaining arguments as separate packages
-                    for arg in child_entries.iter().skip(1) {
-                        target.push(PackageEntry {
-                            name: arg.to_string(),
-                            version: None,
-                        });
-                    }
                 }
             }
         }
     }
-}
-
-/// Extract a single package string and add it to a target vector
-fn extract_package_to(package: &str, target: &mut Vec<String>) {
-    target.push(package.to_string());
 }
 
 fn extract_mixed_values(node: &KdlNode, target: &mut Vec<String>) {
@@ -1429,36 +1374,6 @@ mod tests {
         assert_eq!(config.flatpak_packages.len(), 2);
     }
 
-    // NEW: Version constraint tests
-
-    #[test]
-    fn test_parse_version_constraints() {
-        let kdl = r#"
-            packages {
-                hyprland ">=0.40.0"
-                neovim "=0.10.0"
-                waybar
-            }
-        "#;
-
-        let config = parse_kdl_content(kdl).unwrap();
-        // Should have 3 packages total
-        for p in &config.packages {
-            eprintln!("Package: {} version: {:?}", p.name, p.version);
-        }
-        assert_eq!(config.packages.len(), 3, "Expected 3 packages but got {}", config.packages.len());
-
-        // Find packages by name since order might vary
-        let hyprland = config.packages.iter().find(|p| p.name == "hyprland").unwrap();
-        assert_eq!(hyprland.version, Some(">=0.40.0".to_string()));
-
-        let neovim = config.packages.iter().find(|p| p.name == "neovim").unwrap();
-        assert_eq!(neovim.version, Some("=0.10.0".to_string()));
-
-        let waybar = config.packages.iter().find(|p| p.name == "waybar").unwrap();
-        assert_eq!(waybar.version, None);
-    }
-
     // NEW: Meta block tests
 
     #[test]
@@ -1484,7 +1399,7 @@ mod tests {
         let kdl = r#"
             meta {
                 description "Workstation setup"
-                tags ["workstation" "hyprland" "development"]
+                tags "workstation" "hyprland" "development"
             }
         "#;
 
@@ -1533,14 +1448,9 @@ mod tests {
     #[test]
     fn test_parse_env_vars() {
         let kdl = r#"
-            env {
-                "EDITOR=nvim"
-                "VISUAL=nvim"
-            }
+            env EDITOR="nvim" VISUAL="nvim"
 
-            env:aur {
-                "MAKEFLAGS=-j4"
-            }
+            env:aur MAKEFLAGS="-j4"
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
@@ -1638,7 +1548,7 @@ mod tests {
             }
 
             packages {
-                hyprland">=0.40.0"
+                hyprland
                 neovim
                 waybar
             }
@@ -1657,9 +1567,7 @@ mod tests {
                 noconfirm
             }
 
-            env {
-                "EDITOR=nvim"
-            }
+            env EDITOR="nvim"
 
             policy {
                 protected {
@@ -1685,11 +1593,13 @@ mod tests {
 
         // Check packages
         assert_eq!(config.packages.len(), 3);
-        assert!(config.packages[0].name == "hyprland");
-        assert!(config.packages[0].version == Some(">=0.40.0".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "neovim"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
 
-        // Check conflicts
-        assert_eq!(config.conflicts.len(), 2);
+        // Check conflicts (1 conflict entry with 4 packages all mutually exclusive)
+        assert_eq!(config.conflicts.len(), 1);
+        assert_eq!(config.conflicts[0].packages.len(), 4);
 
         // Check options
         assert!(config.backend_options.contains_key("aur"));
