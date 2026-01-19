@@ -6,6 +6,7 @@ use crate::error::{DeclarchError, Result};
 use crate::config::types::GlobalConfig;
 use colored::Colorize;
 use chrono::Utc;
+use std::process::Command;
 
 #[derive(Debug)]
 pub struct SwitchOptions {
@@ -160,11 +161,19 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
             // Add new package to state
             let new_state_key = format!("{}:{}", backend, options.new_package);
+
+            // Discover actual AUR package name if applicable
+            let aur_package_name = if backend == Backend::Aur {
+                discover_aur_package_name(&options.new_package)
+            } else {
+                None
+            };
+
             let new_pkg_state = PackageState {
                 backend: backend.clone(),
                 config_name: options.new_package.clone(),
                 provides_name: options.new_package.clone(),
-                aur_package_name: None, // TODO: Discover actual package name
+                aur_package_name,
                 installed_at: Utc::now(),
                 version: installed.get(&options.new_package).and_then(|m| m.version.clone()),
             };
@@ -223,6 +232,40 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             )))
         }
     }
+}
+
+/// Discover the actual AUR package name for a given package
+/// This handles cases where the config name differs from the actual AUR package name
+/// (e.g., config says "hyprland" but AUR package is "hyprland-git")
+fn discover_aur_package_name(package_name: &str) -> Option<String> {
+    // Query pacman -Qi to get package info
+    let output = Command::new("pacman")
+        .args(["-Qi", package_name])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8(output.stdout).ok()?;
+
+    // Parse the "Name" field to get the actual package name
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.starts_with("Name") {
+            if let Some(name) = line.split(':').nth(1) {
+                let actual_name = name.trim();
+                // Return the actual name only if it differs from config name
+                if actual_name != package_name {
+                    return Some(actual_name.to_string());
+                }
+            }
+            break;
+        }
+    }
+
+    None
 }
 
 fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<Backend> {
