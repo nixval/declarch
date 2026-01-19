@@ -123,6 +123,90 @@ fn recursive_load(
             .push(canonical_path.clone());
     }
 
+    // Process npm packages (Node.js)
+    for pkg_entry in raw.npm_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Npm,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Yarn packages
+    for pkg_entry in raw.yarn_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Yarn,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process pnpm packages
+    for pkg_entry in raw.pnpm_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Pnpm,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Bun packages
+    for pkg_entry in raw.bun_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Bun,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process pip packages (Python)
+    for pkg_entry in raw.pip_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Pip,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Cargo packages (Rust)
+    for pkg_entry in raw.cargo_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Cargo,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Homebrew packages
+    for pkg_entry in raw.brew_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Brew,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
     merged.excludes.extend(raw.excludes);
     merged.aliases.extend(raw.aliases);
 

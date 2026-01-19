@@ -15,6 +15,30 @@ pub struct RawConfig {
     /// Flatpak packages
     /// Syntax: packages:flatpak { ... } or flatpak:package in packages block
     pub flatpak_packages: Vec<PackageEntry>,
+
+    // === New language ecosystem backends ===
+    /// npm packages (Node.js global packages)
+    /// Syntax: packages:npm { ... } or npm:package in packages block
+    pub npm_packages: Vec<PackageEntry>,
+    /// Yarn packages
+    /// Syntax: packages:yarn { ... }
+    pub yarn_packages: Vec<PackageEntry>,
+    /// pnpm packages
+    /// Syntax: packages:pnpm { ... }
+    pub pnpm_packages: Vec<PackageEntry>,
+    /// Bun packages
+    /// Syntax: packages:bun { ... }
+    pub bun_packages: Vec<PackageEntry>,
+    /// pip packages (Python)
+    /// Syntax: packages:pip { ... }
+    pub pip_packages: Vec<PackageEntry>,
+    /// Cargo packages (Rust)
+    /// Syntax: packages:cargo { ... }
+    pub cargo_packages: Vec<PackageEntry>,
+    /// Homebrew packages
+    /// Syntax: packages:brew { ... }
+    pub brew_packages: Vec<PackageEntry>,
+
     pub excludes: Vec<String>,
     /// Package aliases: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
@@ -181,6 +205,104 @@ impl BackendParser for FlatpakParser {
     }
 }
 
+/// npm backend parser
+struct NpmParser;
+
+impl BackendParser for NpmParser {
+    fn name(&self) -> &'static str {
+        "npm"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.npm_packages);
+        Ok(())
+    }
+}
+
+/// Yarn backend parser
+struct YarnParser;
+
+impl BackendParser for YarnParser {
+    fn name(&self) -> &'static str {
+        "yarn"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.yarn_packages);
+        Ok(())
+    }
+}
+
+/// pnpm backend parser
+struct PnpmParser;
+
+impl BackendParser for PnpmParser {
+    fn name(&self) -> &'static str {
+        "pnpm"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.pnpm_packages);
+        Ok(())
+    }
+}
+
+/// Bun backend parser
+struct BunParser;
+
+impl BackendParser for BunParser {
+    fn name(&self) -> &'static str {
+        "bun"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.bun_packages);
+        Ok(())
+    }
+}
+
+/// pip backend parser
+struct PipParser;
+
+impl BackendParser for PipParser {
+    fn name(&self) -> &'static str {
+        "pip"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.pip_packages);
+        Ok(())
+    }
+}
+
+/// Cargo backend parser
+struct CargoParser;
+
+impl BackendParser for CargoParser {
+    fn name(&self) -> &'static str {
+        "cargo"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.cargo_packages);
+        Ok(())
+    }
+}
+
+/// Homebrew backend parser
+struct BrewParser;
+
+impl BackendParser for BrewParser {
+    fn name(&self) -> &'static str {
+        "brew"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.brew_packages);
+        Ok(())
+    }
+}
+
 /// Registry for backend parsers
 ///
 /// This registry manages all available backend parsers and provides
@@ -199,6 +321,13 @@ impl BackendParserRegistry {
                 Box::new(AurParser),
                 Box::new(SoarParser),
                 Box::new(FlatpakParser),
+                Box::new(NpmParser),
+                Box::new(YarnParser),
+                Box::new(PnpmParser),
+                Box::new(BunParser),
+                Box::new(PipParser),
+                Box::new(CargoParser),
+                Box::new(BrewParser),
             ],
             default_backend: "aur",  // Default to AUR for Arch Linux
         }
@@ -224,6 +353,13 @@ impl BackendParserRegistry {
                     "aur" => config.packages.push(entry),
                     "soar" | "app" => config.soar_packages.push(entry),
                     "flatpak" => config.flatpak_packages.push(entry),
+                    "npm" => config.npm_packages.push(entry),
+                    "yarn" => config.yarn_packages.push(entry),
+                    "pnpm" => config.pnpm_packages.push(entry),
+                    "bun" => config.bun_packages.push(entry),
+                    "pip" => config.pip_packages.push(entry),
+                    "cargo" => config.cargo_packages.push(entry),
+                    "brew" => config.brew_packages.push(entry),
                     _ => config.packages.push(entry),
                 }
             } else {
@@ -342,6 +478,13 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         packages: vec![],
         soar_packages: vec![],
         flatpak_packages: vec![],
+        npm_packages: vec![],
+        yarn_packages: vec![],
+        pnpm_packages: vec![],
+        bun_packages: vec![],
+        pip_packages: vec![],
+        cargo_packages: vec![],
+        brew_packages: vec![],
         excludes: vec![],
         aliases: HashMap::new(),
         editor: None,
