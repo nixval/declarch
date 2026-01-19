@@ -9,10 +9,10 @@ pub struct RawConfig {
     /// Syntax: packages { ... } or packages:aur { ... }
     pub packages: Vec<String>,
     /// Packages from Soar registry (cross-distro static binaries)
-    /// Syntax: packages:soar { ... }
+    /// Syntax: packages:soar { ... } or soar:package in packages block
     pub soar_packages: Vec<String>,
     /// Flatpak packages
-    /// Syntax: packages:flatpak { ... } or flatpak-packages { ... }
+    /// Syntax: packages:flatpak { ... } or flatpak:package in packages block
     pub flatpak_packages: Vec<String>,
     pub excludes: Vec<String>,
     /// Package aliases: config_name -> actual_package_name
@@ -21,6 +21,199 @@ pub struct RawConfig {
     /// Editor to use for edit command
     /// Syntax: editor "nvim" or editor nvim
     pub editor: Option<String>,
+}
+
+/// Trait for backend-specific package parsing
+///
+/// Each backend (AUR, Soar, Flatpak) implements this trait
+/// to define how it parses packages from KDL nodes.
+pub trait BackendParser: Send + Sync {
+    /// Backend identifier (e.g., "aur", "soar", "flatpak")
+    fn name(&self) -> &'static str;
+
+    /// Aliases for this backend (e.g., "app" is an alias for "soar")
+    fn aliases(&self) -> &[&'static str] {
+        &[]
+    }
+
+    /// Parse packages from a KDL node and add them to the config
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()>;
+
+    /// Check if a backend name matches this parser (including aliases)
+    fn matches(&self, backend: &str) -> bool {
+        self.name() == backend || self.aliases().contains(&backend)
+    }
+}
+
+/// AUR (Arch User Repository) backend parser
+struct AurParser;
+
+impl BackendParser for AurParser {
+    fn name(&self) -> &'static str {
+        "aur"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.packages);
+        Ok(())
+    }
+}
+
+/// Soar (static binaries) backend parser
+struct SoarParser;
+
+impl BackendParser for SoarParser {
+    fn name(&self) -> &'static str {
+        "soar"
+    }
+
+    fn aliases(&self) -> &[&'static str] {
+        &["app"]  // "app" is an alias for "soar"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.soar_packages);
+        Ok(())
+    }
+}
+
+/// Flatpak backend parser
+struct FlatpakParser;
+
+impl BackendParser for FlatpakParser {
+    fn name(&self) -> &'static str {
+        "flatpak"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.flatpak_packages);
+        Ok(())
+    }
+}
+
+/// Registry for backend parsers
+///
+/// This registry manages all available backend parsers and provides
+/// a unified interface for parsing packages from KDL nodes.
+struct BackendParserRegistry {
+    parsers: Vec<Box<dyn BackendParser>>,
+    #[allow(dead_code)]
+    default_backend: &'static str,  // Reserved for future use
+}
+
+impl BackendParserRegistry {
+    /// Create a new registry with default parsers
+    fn new() -> Self {
+        Self {
+            parsers: vec![
+                Box::new(AurParser),
+                Box::new(SoarParser),
+                Box::new(FlatpakParser),
+            ],
+            default_backend: "aur",  // Default to AUR for Arch Linux
+        }
+    }
+
+    /// Find a parser by backend name (including aliases)
+    fn find_parser(&self, backend: &str) -> Option<&dyn BackendParser> {
+        self.parsers.iter().find(|p| p.matches(backend)).map(|p| p.as_ref())
+    }
+
+    /// Parse packages with inline prefix syntax
+    ///
+    /// Handles syntax like: `packages { aur:hyprland soar:bat }`
+    fn parse_inline_prefix(&self, package_str: &str, config: &mut RawConfig) -> Result<()> {
+        if let Some((backend, package)) = package_str.split_once(':') {
+            if self.find_parser(backend).is_some() {
+                // Directly add to the appropriate config vector based on backend
+                match backend {
+                    "aur" => config.packages.push(package.to_string()),
+                    "soar" | "app" => config.soar_packages.push(package.to_string()),
+                    "flatpak" => config.flatpak_packages.push(package.to_string()),
+                    _ => config.packages.push(package.to_string()),
+                }
+            } else {
+                // Unknown backend - treat the whole string as package name with default backend
+                config.packages.push(package_str.to_string());
+            }
+        } else {
+            // No prefix - use default backend (AUR)
+            extract_package_to(package_str, &mut config.packages);
+        }
+        Ok(())
+    }
+
+    /// Parse a packages node with flexible syntax
+    ///
+    /// Supported syntaxes:
+    /// 1. `packages { hyprland waybar }` → AUR packages (default)
+    /// 2. `packages:aur { hyprland }` → AUR packages (explicit)
+    /// 3. `packages:soar { bat exa }` → Soar packages
+    /// 4. `packages:flatpak { com.spotify.Client }` → Flatpak packages
+    /// 5. `packages { bat aur:hyprland flatpak:app.id }` → Mixed with inline prefix
+    /// 6. `packages { soar { bat } flatpak { app.id } }` → Nested blocks
+    fn parse_packages_node(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        let node_name = node.name().value();
+
+        // Case 1: Colon syntax: packages:backend
+        if let Some((_, backend)) = node_name.split_once(':') {
+            if let Some(parser) = self.find_parser(backend) {
+                return parser.parse(node, config);
+            }
+            // Unknown backend - fall through to default parsing
+        }
+
+        // Case 2: Check for nested children (backend blocks)
+        if let Some(children) = node.children() {
+            for child in children.nodes() {
+                let child_name = child.name().value();
+
+                // Check if child name is a backend identifier
+                if let Some(parser) = self.find_parser(child_name) {
+                    // Parse as backend block: `packages { aur { ... } }`
+                    parser.parse(child, config)?;
+                } else {
+                    // Check for inline prefix syntax: `aur:hyprland`
+                    if child_name.contains(':') {
+                        self.parse_inline_prefix(child_name, config)?;
+                    } else {
+                        // No backend prefix - use default backend
+                        extract_package_to(child_name, &mut config.packages);
+                    }
+
+                    // Also check for string arguments in the child node
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            if val.contains(':') {
+                                self.parse_inline_prefix(val, config)?;
+                            } else {
+                                extract_package_to(val, &mut config.packages);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Case 3: Extract direct string arguments (default to AUR)
+        for entry in node.entries() {
+            if let Some(val) = entry.value().as_string() {
+                if val.contains(':') {
+                    self.parse_inline_prefix(val, config)?;
+                } else {
+                    extract_package_to(val, &mut config.packages);
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Default for BackendParserRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
@@ -50,6 +243,8 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         editor: None,
     };
 
+    let registry = BackendParserRegistry::new();
+
     for node in doc.nodes() {
         let node_name = node.name().value();
 
@@ -73,9 +268,9 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "description" => {
                 // No-op, just ignore description nodes
             },
-            // Parse packages with new flexible syntax
+            // Parse packages with flexible syntax using the registry
             name if name.starts_with("packages") => {
-                parse_packages_node(node, &mut config)?;
+                registry.parse_packages_node(node, &mut config)?;
             },
             // Legacy syntax support (with deprecation warning in the future)
             "aur-packages" | "aur-package" => {
@@ -94,69 +289,38 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     Ok(config)
 }
 
-/// Parse packages node with flexible syntax
+/// Extract packages from a node and add them to a target vector
 ///
-/// Supported syntaxes:
-/// 1. packages { hyprland waybar }  → AUR packages (default)
-/// 2. packages:aur { hyprland }  → AUR packages (explicit)
-/// 3. packages:soar { bat exa }  → Soar packages
-/// 4. packages:flatpak { com.spotify.Client }  → Flatpak packages
-/// 5. packages { bat aur { hyprland } flatpak { com.spotify.Client } }  → Mixed
-fn parse_packages_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-    let node_name = node.name().value();
-
-    // Check for colon syntax: packages:soar, packages:flatpak, packages:aur
-    if let Some((_, backend)) = node_name.split_once(':') {
-        let target = match backend {
-            "aur" => &mut config.packages,
-            "flatpak" => &mut config.flatpak_packages,
-            "soar" | "app" => &mut config.soar_packages,
-            _ => {
-                // Unknown backend, treat as default (AUR)
-                &mut config.packages
-            }
-        };
-        extract_mixed_values(node, target);
-        return Ok(());
+/// Handles:
+/// - String arguments: `packages "bat" "exa"`
+/// - Children node names: `packages { bat exa }`
+/// - Mixed: `packages "bat" { exa }`
+fn extract_packages_to(node: &KdlNode, target: &mut Vec<String>) {
+    // Extract from string arguments
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            target.push(val.to_string());
+        }
     }
 
-    // No colon syntax - check for embedded children
+    // Extract from children node names
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            let child_name = child.name().value();
+            target.push(child.name().value().to_string());
 
-            match child_name {
-                "aur" => {
-                    extract_mixed_values(child, &mut config.packages);
-                },
-                "flatpak" => {
-                    extract_mixed_values(child, &mut config.flatpak_packages);
-                },
-                "soar" | "app" => {
-                    extract_mixed_values(child, &mut config.soar_packages);
-                },
-                // Unknown child name - treat as package name (AUR, the default)
-                _ => {
-                    config.packages.push(child_name.to_string());
-                    // Also check for string arguments
-                    for entry in child.entries() {
-                        if let Some(val) = entry.value().as_string() {
-                            config.packages.push(val.to_string());
-                        }
-                    }
+            // Also check for string arguments in child nodes
+            for entry in child.entries() {
+                if let Some(val) = entry.value().as_string() {
+                    target.push(val.to_string());
                 }
             }
         }
     }
+}
 
-    // Also extract direct string arguments (default to AUR)
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            config.packages.push(val.to_string());
-        }
-    }
-
-    Ok(())
+/// Extract a single package string and add it to a target vector
+fn extract_package_to(package: &str, target: &mut Vec<String>) {
+    target.push(package.to_string());
 }
 
 fn extract_mixed_values(node: &KdlNode, target: &mut Vec<String>) {
@@ -242,6 +406,8 @@ fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Existing tests (unchanged for backward compatibility)
 
     #[test]
     fn test_parse_aliases_inline() {
@@ -523,5 +689,200 @@ mod tests {
 
         assert_eq!(config.flatpak_packages.len(), 1);
         assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+    }
+
+    // NEW TESTS: Inline prefix syntax
+
+    #[test]
+    fn test_parse_inline_prefix_single() {
+        let kdl = r#"
+            packages {
+                soar:bat
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.soar_packages.len(), 1);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+    }
+
+    #[test]
+    fn test_parse_inline_prefix_multiple() {
+        let kdl = r#"
+            packages {
+                hyprland
+                aur:waybar
+                soar:bat
+                soar:exa
+                flatpak:com.spotify.Client
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        // Default (hyprland) + aur:waybar
+        assert_eq!(config.packages.len(), 2);
+        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.contains(&"waybar".to_string()));
+
+        assert_eq!(config.soar_packages.len(), 2);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
+
+        assert_eq!(config.flatpak_packages.len(), 1);
+        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+    }
+
+    #[test]
+    fn test_parse_inline_prefix_with_nested_blocks() {
+        let kdl = r#"
+            packages {
+                hyprland
+                aur:waybar
+                soar {
+                    bat
+                }
+                flatpak:com.spotify.Client
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.packages.len(), 2);  // hyprland + waybar
+        assert_eq!(config.soar_packages.len(), 1);  // bat
+        assert_eq!(config.flatpak_packages.len(), 1);  // com.spotify.Client
+    }
+
+    #[test]
+    fn test_parse_inline_prefix_with_app_alias() {
+        let kdl = r#"
+            packages {
+                app:bat
+                app:exa
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.soar_packages.len(), 2);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
+    }
+
+    #[test]
+    fn test_parse_inline_prefix_string_arguments() {
+        let kdl = r#"
+            packages "soar:bat" "aur:hyprland" "flatpak:app.id"
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.soar_packages.len(), 1);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+
+        assert_eq!(config.packages.len(), 1);
+        assert!(config.packages.contains(&"hyprland".to_string()));
+
+        assert_eq!(config.flatpak_packages.len(), 1);
+        assert!(config.flatpak_packages.contains(&"app.id".to_string()));
+    }
+
+    #[test]
+    fn test_parse_unknown_backend_with_inline_prefix() {
+        let kdl = r#"
+            packages {
+                unknown:package
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        // Unknown backend should be treated as package name with default backend
+        assert!(config.packages.contains(&"unknown:package".to_string()));
+    }
+
+    #[test]
+    fn test_parse_complex_mixed_syntax() {
+        let kdl = r#"
+            packages {
+                // Default packages (AUR)
+                hyprland
+                waybar
+
+                // Inline prefix syntax
+                soar:bat
+                flatpak:com.spotify.Client
+
+                // Nested blocks
+                aur {
+                    swww
+                }
+
+                // Mixed inline and nested
+                soar {
+                    exa
+                }
+                aur:rofi
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        // AUR packages: hyprland, waybar, swww, rofi
+        assert_eq!(config.packages.len(), 4);
+        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.contains(&"waybar".to_string()));
+        assert!(config.packages.contains(&"swww".to_string()));
+        assert!(config.packages.contains(&"rofi".to_string()));
+
+        // Soar packages: bat, exa
+        assert_eq!(config.soar_packages.len(), 2);
+        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.contains(&"exa".to_string()));
+
+        // Flatpak packages: com.spotify.Client
+        assert_eq!(config.flatpak_packages.len(), 1);
+        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+    }
+
+    #[test]
+    fn test_backend_parser_registry() {
+        let registry = BackendParserRegistry::new();
+
+        // Test finding parsers by name
+        assert!(registry.find_parser("aur").is_some());
+        assert!(registry.find_parser("soar").is_some());
+        assert!(registry.find_parser("flatpak").is_some());
+        assert!(registry.find_parser("unknown").is_none());
+
+        // Test aliases
+        assert!(registry.find_parser("app").is_some());  // alias for soar
+    }
+
+    #[test]
+    fn test_backward_compatibility() {
+        // Ensure all old syntax still works
+        let kdl = r#"
+            packages {
+                hyprland
+                waybar
+            }
+
+            packages:soar {
+                bat
+            }
+
+            packages:flatpak {
+                com.spotify.Client
+            }
+
+            soar-packages {
+                exa
+            }
+
+            flatpak-packages {
+                org.mozilla.firefox
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.packages.len(), 2);
+        assert_eq!(config.soar_packages.len(), 2);  // bat + exa
+        assert_eq!(config.flatpak_packages.len(), 2);
     }
 }

@@ -184,6 +184,24 @@ packages {
 }
 ```
 
+**NEW: Inline Prefix Syntax** (Most Flexible)
+
+```kdl
+packages {
+    // Mix different backends in one block
+    hyprland           // Default (AUR)
+    aur:waybar         // Explicit AUR
+    soar:bat           // Soar (also works with "app:bat")
+    soar:exa           // Soar
+    flatpak:com.spotify.Client
+
+    // Can also combine with nested blocks
+    aur {
+        swww
+    }
+}
+```
+
 -----
 
 ## 🛠️ Usage
