@@ -6,6 +6,7 @@ description = "A declarative package manager for Linux, inspired by Nix workflow
 license = "MIT"
 repository = "https://github.com/nixval/declarch"
 homepage = "https://github.com/nixval/declarch"
+default-run = "declarch"
 
 [dependencies]
 # CLI parsing
