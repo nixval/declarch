@@ -33,30 +33,45 @@ pub fn parse_json(
         }
     };
 
-    let packages_array: Vec<&Value> = match packages {
-        Some(Value::Array(arr)) => arr.iter().collect(),
-        Some(Value::Object(obj)) => {
-            // Handle case where root is object with package entries
-            obj.values().collect()
-        },
-        _ => {
-            return Ok(installed); // Empty or unexpected format
-        }
-    };
+    // Handle both Array and Object structures for packages
+    if let Some(packages) = packages {
+        match packages {
+            Value::Array(arr) => {
+                // Array format: [{"name": "pkg", "version": "1.0"}, ...]
+                for pkg in arr.iter() {
+                    if let Some(obj) = pkg.as_object() {
+                        if let Some(Value::String(name)) = obj.get(name_key) {
+                            let version = obj.get(version_key)
+                                .and_then(|v: &Value| v.as_str())
+                                .map(|v| v.to_string());
 
-    for pkg in packages_array {
-        if let Some(obj) = pkg.as_object() {
-            if let Some(Value::String(name)) = obj.get(name_key) {
-                let version = obj.get(version_key)
-                    .and_then(|v: &Value| v.as_str())
-                    .map(|v| v.to_string());
+                            installed.insert(name.to_string(), PackageMetadata {
+                                version,
+                                installed_at: Utc::now(),
+                                source_file: None,
+                            });
+                        }
+                    }
+                }
+            },
+            Value::Object(obj) => {
+                // Object format: {"pkg-name": {"version": "1.0"}, ...}
+                // Key is package name, value contains metadata
+                for (name, metadata) in obj.iter() {
+                    if let Some(metadata_obj) = metadata.as_object() {
+                        let version = metadata_obj.get(version_key)
+                            .and_then(|v: &Value| v.as_str())
+                            .map(|v| v.to_string());
 
-                installed.insert(name.to_string(), PackageMetadata {
-                    version,
-                    installed_at: Utc::now(),
-                    source_file: None,
-                });
-            }
+                        installed.insert(name.to_string(), PackageMetadata {
+                            version,
+                            installed_at: Utc::now(),
+                            source_file: None,
+                        });
+                    }
+                }
+            },
+            _ => {} // Empty or unexpected format
         }
     }
 
@@ -148,5 +163,36 @@ mod tests {
         let result = parse_json(output, &config).unwrap();
 
         assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_npm_object_format() {
+        // npm list -g --depth=0 --json output format
+        // Key is package name, value contains metadata (no "name" field in object!)
+        let output = r#"{
+            "dependencies": {
+                "npm-stat": {
+                    "version": "0.1.0",
+                    "overridden": false
+                },
+                "npms": {
+                    "version": "0.3.2",
+                    "overridden": false
+                }
+            }
+        }"#;
+
+        let config = BackendConfig {
+            list_json_path: Some("dependencies".to_string()),
+            list_name_key: Some("name".to_string()),  // Not used for Object format
+            list_version_key: Some("version".to_string()),
+            ..Default::default()
+        };
+
+        let result = parse_json(output, &config).unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result.get("npm-stat").unwrap().version.as_deref(), Some("0.1.0"));
+        assert_eq!(result.get("npms").unwrap().version.as_deref(), Some("0.3.2"));
     }
 }

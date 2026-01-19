@@ -124,14 +124,13 @@ impl PackageManager for SoarManager {
         }
 
         let mut cmd = self.build_command();
-        cmd.arg("apply");
+        cmd.arg("install");  // Fixed: was "apply", should be "install"
 
         if self.noconfirm {
-            cmd.arg("--yes");
+            cmd.arg("-y");  // Soar uses -y for yes, not --yes
         }
 
         // Pass packages as arguments
-        // Soar apply accepts package names
         let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
@@ -139,7 +138,7 @@ impl PackageManager for SoarManager {
             .stderr(Stdio::inherit())
             .status()
             .map_err(|e| DeclarchError::SystemCommandFailed {
-                command: "soar apply".into(),
+                command: "soar install".into(),
                 reason: e.to_string(),
             })?;
 

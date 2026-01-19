@@ -124,13 +124,13 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
     backends.insert("cargo".to_string(), BackendConfig {
         name: "cargo".to_string(),
         binary: BinarySpecifier::Single("cargo".to_string()),
-        list_cmd: "cargo install-list --installed 2>/dev/null || echo ''".to_string(),
+        list_cmd: "cargo install --list 2>/dev/null || echo ''".to_string(),
         install_cmd: "cargo install {packages}".to_string(),
         remove_cmd: "cargo uninstall {packages}".to_string(),
         query_cmd: None,
-        list_format: crate::backends::config::OutputFormat::Custom, // Use Rust fallback for now
-        list_name_col: None,
-        list_version_col: None,
+        list_format: crate::backends::config::OutputFormat::SplitWhitespace,
+        list_name_col: Some(0),  // First column: package name
+        list_version_col: Some(1),  // Second column: version
         list_json_path: None,
         list_name_key: None,
         list_version_key: None,
@@ -140,7 +140,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
         noconfirm_flag: None,
         needs_sudo: false,
         preinstall_env: None,
-        use_rust_fallback: true, // Needs custom Rust implementation
+        use_rust_fallback: false,  // Now uses generic parser
     });
 
     // === Homebrew Backend ===
