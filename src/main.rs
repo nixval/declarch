@@ -49,9 +49,9 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 skip_soar_install: *skip_soar_install,
             })
         }
-        Some(Command::Check { verbose, duplicates }) => {
+        Some(Command::Check { verbose, duplicates, conflicts }) => {
             let is_verbose = *verbose || args.global.verbose;
-            commands::check::run(is_verbose, *duplicates)
+            commands::check::run(is_verbose, *duplicates, *conflicts)
         }
         Some(Command::Info) => {
             commands::info::run()

@@ -1,10 +1,10 @@
-use crate::utils::paths; 
+use crate::utils::paths;
 use crate::config::loader;
-use crate::ui as output; 
+use crate::ui as output;
 use crate::error::Result;
 use colored::Colorize;
 
-pub fn run(verbose: bool, check_duplicates: bool) -> Result<()> {
+pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool) -> Result<()> {
     output::header("Configuration Check");
 
     let config_path = paths::config_file()?;
@@ -16,20 +16,20 @@ pub fn run(verbose: bool, check_duplicates: bool) -> Result<()> {
 
     let config = loader::load_root_config(&config_path)?;
     output::success("Syntax & Imports: OK");
-    
+
     output::keyval("Unique Packages", &config.packages.len().to_string());
-    output::keyval("Excludes", &config.excludes.len().to_string());  
+    output::keyval("Excludes", &config.excludes.len().to_string());
     if verbose {
         output::separator();
         println!("{}", "Resolved Packages:".bold());
-        
+
         let mut sorted_pkgs: Vec<_> = config.packages.keys().collect();
         sorted_pkgs.sort_by_key(|p| &p.name);
 
         for pkg in sorted_pkgs {
             output::indent(&pkg.to_string(), 2);
         }
-        
+
         if !config.excludes.is_empty() {
             println!("\n{}", "Active Excludes:".bold());
             for ex in &config.excludes {
@@ -37,17 +37,17 @@ pub fn run(verbose: bool, check_duplicates: bool) -> Result<()> {
             }
         }
     }
-if check_duplicates {
+    if check_duplicates {
         output::separator();
         output::info("Checking for duplicates...");
-        
+
         let duplicates = config.get_duplicates();
-        
+
         if duplicates.is_empty() {
             output::success("No duplicate declarations found.");
         } else {
             output::warning(&format!("Found {} duplicate package declarations:", duplicates.len()));
-            
+
             for (pkg, sources) in duplicates {
                 println!("  📦 {}", pkg.to_string().yellow().bold());
                 for src in sources {
@@ -56,6 +56,37 @@ if check_duplicates {
                 }
             }
             println!("\n{}", "Note: Duplicates are automatically deduplicated during sync.".italic());
+        }
+    }
+
+    if check_conflicts {
+        output::separator();
+        output::info("Checking for cross-backend conflicts...");
+
+        let conflicts = config.get_cross_backend_conflicts();
+
+        if conflicts.is_empty() {
+            output::success("No cross-backend package name conflicts found.");
+        } else {
+            output::warning(&format!("Found {} package name conflicts across backends:", conflicts.len()));
+            println!("\n{}", "These packages have the same name but different backends:".bold());
+            println!("{}", "They will be installed separately by each backend.".italic());
+            println!("{}", "Watch out for PATH conflicts!\n".dimmed());
+
+            for (pkg_name, backends) in conflicts {
+                println!("  ⚠️  {}", pkg_name.cyan().bold());
+                for backend in &backends {
+                    println!("     └─ {}", backend.to_string().yellow());
+                }
+            }
+
+            println!("\n{}", "Example:".bold());
+            println!("  If 'claude-cli' exists in both AUR and npm:");
+            println!("    • AUR installs to: {}", "/usr/bin/claude-cli".dimmed());
+            println!("    • npm installs to:  {}", "~/.npm-global/bin/claude-cli".dimmed());
+            println!("  The one that runs depends on your {}", "PATH".bold());
+            println!("\n  Use {}", "declarch info".bold().cyan());
+            println!("  to see which backends have installed which packages.");
         }
     }
 

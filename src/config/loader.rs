@@ -43,6 +43,28 @@ impl MergedConfig {
             .filter(|(_, sources)| sources.len() > 1)
             .collect()
     }
+
+    /// Find packages with the same name across different backends
+    /// Returns: Vec of (package_name, Vec of backends)
+    pub fn get_cross_backend_conflicts(&self) -> Vec<(String, Vec<Backend>)> {
+        use std::collections::HashMap;
+
+        let mut name_to_backends: HashMap<String, Vec<Backend>> = HashMap::new();
+
+        // Group packages by name
+        for pkg_id in self.packages.keys() {
+            name_to_backends
+                .entry(pkg_id.name.clone())
+                .or_insert_with(Vec::new)
+                .push(pkg_id.backend.clone());
+        }
+
+        // Filter to only names with multiple backends
+        name_to_backends
+            .into_iter()
+            .filter(|(_, backends)| backends.len() > 1)
+            .collect()
+    }
 }
 
 pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
