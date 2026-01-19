@@ -35,7 +35,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 skip_soar_install: *skip_soar_install,
             })
         }
-        Some(Command::Sync { dry_run, prune, gc, update, target, noconfirm, skip_soar_install }) => {
+        Some(Command::Sync { dry_run, prune, gc, update, target, noconfirm, hooks, skip_soar_install }) => {
             commands::sync::run(commands::sync::SyncOptions {
                 dry_run: *dry_run,
                 prune: *prune,
@@ -45,6 +45,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 force: args.global.force,
                 target: target.clone(),
                 noconfirm: *noconfirm,
+                hooks: *hooks,
                 skip_soar_install: *skip_soar_install,
             })
         }

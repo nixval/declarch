@@ -3,7 +3,7 @@ use crate::utils::distro::DistroType;
 use crate::utils::install;
 use crate::ui as output;
 use crate::state::{self, types::{Backend, PackageState, State}};
-use crate::config::loader;
+use crate::config::{loader, kdl::{HookConfig, HookType}};
 use crate::core::{resolver, types::{PackageId, PackageMetadata, SyncTarget}};
 use crate::packages::{PackageManager, create_manager};
 use crate::error::{DeclarchError, Result};
@@ -43,6 +43,7 @@ pub struct SyncOptions {
     pub force: bool,
     pub target: Option<String>,
     pub noconfirm: bool,
+    pub hooks: bool,
     pub skip_soar_install: bool,
 }
 
@@ -63,7 +64,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 2. Load Config
     let config_path = paths::config_file()?;
     let config = loader::load_root_config(&config_path)?;
-    
+
+    // Execute pre-sync hooks
+    execute_pre_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
+
     // 3. System Update
     let global_config = crate::config::types::GlobalConfig::default(); 
     let aur_helper = global_config.aur_helper.to_string();
@@ -252,6 +256,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
             state.meta.last_update = Some(Utc::now());
             state::io::save_state(&state)?;
         }
+        // Execute post-sync hooks even when system is in sync
+        execute_post_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
         return Ok(());
     }
 
@@ -316,6 +322,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 8. Update State
     update_state_after_sync(&mut state, &tx, &installed_snapshot, &options)?;
+
+    // Execute post-sync hooks
+    execute_post_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
 
     output::success("Sync complete!");
 
@@ -584,6 +593,178 @@ fn update_state_after_sync(
     }
 
     state::io::save_state(state)?;
+
+    Ok(())
+}
+
+/// Execute pre-sync hooks with security check
+///
+/// Security: Only executes hooks if --hooks flag is provided
+/// Dry-run: Always shows hooks even without --hooks flag
+fn execute_pre_sync_hooks(
+    hooks: &Option<HookConfig>,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    let hooks = match hooks.as_ref() {
+        Some(h) => h,
+        None => return Ok(()), // No hooks configured
+    };
+
+    if hooks.pre_sync.is_empty() {
+        return Ok(());
+    }
+
+    // Always show hooks in dry-run or when displaying info
+    output::separator();
+    if !hooks_enabled && !dry_run {
+        output::warning("Pre-sync hooks detected but not executed (--hooks not provided)");
+        println!("\n{}:", "Pre-sync Hooks".yellow().bold());
+        for hook in &hooks.pre_sync {
+            let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
+            println!("  {} {}",
+                if sudo_marker { "🔒" } else { "→" },
+                hook.command.cyan()
+            );
+        }
+        println!("\n{}", "To enable hooks, use the --hooks flag:".dimmed());
+        println!("  {}", "dc sync --hooks".bold());
+        println!("\n{}", "Security: Hooks from remote configs may contain arbitrary commands.".yellow());
+        println!("{}", "Review the config before enabling hooks.".yellow());
+        return Ok(());
+    }
+
+    // Display hooks
+    println!("\n{}:", "Executing Pre-sync Hooks".cyan().bold());
+    for hook in &hooks.pre_sync {
+        let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
+        println!("  {} {}",
+            if sudo_marker { "🔒" } else { "→" },
+            hook.command.cyan()
+        );
+    }
+
+    if dry_run {
+        output::info("Dry-run: Hooks not executed");
+        return Ok(());
+    }
+
+    // Execute hooks
+    for hook in &hooks.pre_sync {
+        let use_sudo = matches!(hook.hook_type, HookType::SudoNeeded);
+
+        let mut cmd = if use_sudo {
+            output::info(&format!("Executing hook with sudo: {}", hook.command));
+            let mut c = Command::new("sudo");
+            c.arg(hook.command.as_str());
+            c
+        } else {
+            output::info(&format!("Executing hook: {}", hook.command));
+            // For simple commands, use sh -c
+            let mut c = Command::new("sh");
+            c.arg("-c");
+            c.arg(hook.command.as_str());
+            c
+        };
+
+        cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+        match cmd.status() {
+            Ok(status) if status.success() => {},
+            Ok(status) => {
+                output::warning(&format!("Hook exited with status: {}", status));
+            },
+            Err(e) => {
+                output::warning(&format!("Failed to execute hook: {}", e));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Execute post-sync hooks with security check
+///
+/// Security: Only executes hooks if --hooks flag is provided
+/// Dry-run: Always shows hooks even without --hooks flag
+fn execute_post_sync_hooks(
+    hooks: &Option<HookConfig>,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    let hooks = match hooks.as_ref() {
+        Some(h) => h,
+        None => return Ok(()), // No hooks configured
+    };
+
+    if hooks.post_sync.is_empty() {
+        return Ok(());
+    }
+
+    // Always show hooks in dry-run or when displaying info
+    output::separator();
+    if !hooks_enabled && !dry_run {
+        output::warning("Post-sync hooks detected but not executed (--hooks not provided)");
+        println!("\n{}:", "Post-sync Hooks".yellow().bold());
+        for hook in &hooks.post_sync {
+            let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
+            println!("  {} {}",
+                if sudo_marker { "🔒" } else { "→" },
+                hook.command.cyan()
+            );
+        }
+        println!("\n{}", "To enable hooks, use the --hooks flag:".dimmed());
+        println!("  {}", "dc sync --hooks".bold());
+        println!("\n{}", "Security: Hooks from remote configs may contain arbitrary commands.".yellow());
+        println!("{}", "Review the config before enabling hooks.".yellow());
+        return Ok(());
+    }
+
+    // Display hooks
+    println!("\n{}:", "Executing Post-sync Hooks".cyan().bold());
+    for hook in &hooks.post_sync {
+        let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
+        println!("  {} {}",
+            if sudo_marker { "🔒" } else { "→" },
+            hook.command.cyan()
+        );
+    }
+
+    if dry_run {
+        output::info("Dry-run: Hooks not executed");
+        return Ok(());
+    }
+
+    // Execute hooks
+    for hook in &hooks.post_sync {
+        let use_sudo = matches!(hook.hook_type, HookType::SudoNeeded);
+
+        let mut cmd = if use_sudo {
+            output::info(&format!("Executing hook with sudo: {}", hook.command));
+            let mut c = Command::new("sudo");
+            c.arg(hook.command.as_str());
+            c
+        } else {
+            output::info(&format!("Executing hook: {}", hook.command));
+            // For simple commands, use sh -c
+            let mut c = Command::new("sh");
+            c.arg("-c");
+            c.arg(hook.command.as_str());
+            c
+        };
+
+        cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+        match cmd.status() {
+            Ok(status) if status.success() => {},
+            Ok(status) => {
+                output::warning(&format!("Hook exited with status: {}", status));
+            },
+            Err(e) => {
+                output::warning(&format!("Failed to execute hook: {}", e));
+            }
+        }
+    }
 
     Ok(())
 }

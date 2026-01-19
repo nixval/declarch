@@ -102,6 +102,10 @@ pub enum Command {
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
 
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
         skip_soar_install: bool,
