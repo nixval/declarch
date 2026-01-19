@@ -59,6 +59,55 @@ pub fn run() -> Result<()> {
                         name
                     );
                 },
+                crate::state::types::Backend::Npm => {
+                    println!("  {} {} {}",
+                        "npm".cyan(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Yarn => {
+                    println!("  {} {} {}",
+                        "yarn".cyan(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Pnpm => {
+                    println!("  {} {} {}",
+                        "pnpm".cyan(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Bun => {
+                    println!("  {} {} {}",
+                        "bun".cyan(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Pip => {
+                    println!("  {} {} {}",
+                        "pip".blue(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Cargo => {
+                    println!("  {} {} {}",
+                        "cargo".red(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Brew => {
+                    println!("  {} {} {}",
+                        "brew".purple(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
             };
         }
     }

@@ -378,8 +378,9 @@ fn resolve_installed_package_name(
                     }
             }
         }
-        Backend::Soar => {
-            // Soar requires exact matching - no smart matching needed
+        Backend::Soar | Backend::Npm | Backend::Yarn | Backend::Pnpm | Backend::Bun
+        | Backend::Pip | Backend::Cargo | Backend::Brew => {
+            // These backends require exact matching - no smart matching needed
             real_name = pkg.name.clone();
         }
     }

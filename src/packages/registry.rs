@@ -2,6 +2,7 @@ use crate::core::types::Backend;
 use crate::packages::PackageManager;
 use crate::utils::distro::DistroType;
 use crate::config::types::GlobalConfig;
+use crate::backends::{get_builtin_backends, GenericManager};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -79,7 +80,7 @@ impl BackendRegistry {
     /// This method registers all built-in backends. New backends should
     /// be added here following the existing pattern.
     pub fn register_defaults(&mut self) {
-        // AUR Backend (Arch Linux)
+        // AUR Backend (Arch Linux) - Uses Rust implementation
         self.register(Backend::Aur, |config, noconfirm| {
             Ok(Box::new(crate::packages::aur::AurManager::new(
                 config.aur_helper.to_string(),
@@ -87,23 +88,103 @@ impl BackendRegistry {
             )))
         });
 
-        // Flatpak Backend (Cross-distro)
+        // Flatpak Backend (Cross-distro) - Uses Rust implementation
         self.register(Backend::Flatpak, |_config, noconfirm| {
             Ok(Box::new(crate::packages::flatpak::FlatpakManager::new(noconfirm)))
         });
 
-        // Soar Backend (Cross-distro)
+        // Soar Backend (Cross-distro) - Uses Rust implementation
         self.register(Backend::Soar, |_config, noconfirm| {
             Ok(Box::new(crate::packages::soar::SoarManager::new(noconfirm)))
         });
 
-        // Future backends can be added here:
-        // self.register(Backend::Nix, |config, noconfirm| {
-        //     Ok(Box::new(crate::packages::nix::NixManager::new(noconfirm)))
-        // });
-        // self.register(Backend::Nala, |config, noconfirm| {
-        //     Ok(Box::new(crate::packages::nala::NalaManager::new(noconfirm)))
-        // });
+        // === New Generic Backends ===
+        // Get built-in backend configurations
+        let builtin_backends = get_builtin_backends();
+
+        // Register npm backend
+        if let Some(npm_config) = builtin_backends.get("npm") {
+            let config = npm_config.clone();
+            self.register(Backend::Npm, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Npm,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register yarn backend
+        if let Some(yarn_config) = builtin_backends.get("yarn") {
+            let config = yarn_config.clone();
+            self.register(Backend::Yarn, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Yarn,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register pnpm backend
+        if let Some(pnpm_config) = builtin_backends.get("pnpm") {
+            let config = pnpm_config.clone();
+            self.register(Backend::Pnpm, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Pnpm,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register bun backend
+        if let Some(bun_config) = builtin_backends.get("bun") {
+            let config = bun_config.clone();
+            self.register(Backend::Bun, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Bun,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register pip backend
+        if let Some(pip_config) = builtin_backends.get("pip") {
+            let config = pip_config.clone();
+            self.register(Backend::Pip, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Pip,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register cargo backend
+        if let Some(cargo_config) = builtin_backends.get("cargo") {
+            let config = cargo_config.clone();
+            self.register(Backend::Cargo, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Cargo,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register brew backend
+        if let Some(brew_config) = builtin_backends.get("brew") {
+            let config = brew_config.clone();
+            self.register(Backend::Brew, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Brew,
+                    noconfirm,
+                )))
+            });
+        }
     }
 
     /// Get available backends for the current distro
@@ -121,7 +202,8 @@ impl BackendRegistry {
                         backends.push(backend);
                     }
                 }
-                Backend::Soar | Backend::Flatpak => {
+                Backend::Soar | Backend::Flatpak | Backend::Npm | Backend::Yarn
+                | Backend::Pnpm | Backend::Bun | Backend::Pip | Backend::Cargo | Backend::Brew => {
                     // These work on all distros
                     backends.push(backend);
                 }
