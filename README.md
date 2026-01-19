@@ -560,3 +560,49 @@ Pull requests are welcome! This project is written in **Rust**.
 
 -----
 
+
+---
+
+## ⚠️ Package Name Conflicts
+
+Declarch tracks packages separately for each backend, which means you can have the same package name installed from different backends:
+
+```kdl
+packages {
+    claude-cli       // AUR (default)
+    npm:claude-cli   // npm
+    bun:claude-cli   // Bun
+}
+```
+
+**This works**, but be aware:
+- Each backend installs to different locations
+- AUR → `/usr/bin/claude-cli`
+- npm → `~/.npm-global/bin/claude-cli`
+- bun → `~/.local/bin/claude-cli`
+- **Your PATH ordering determines which one runs!**
+
+### Checking for Conflicts
+
+Use `--conflicts` flag to detect potential conflicts:
+
+```bash
+declarch check --conflicts
+```
+
+Example output:
+```
+⚠ Found 1 package name conflicts across backends:
+
+These packages have the same name but different backends:
+They will be installed separately by each backend.
+Watch out for PATH conflicts!
+
+  ⚠️  claude-cli
+     └─ npm
+     └─ bun
+     └─ aur
+```
+
+Use `declarch info` to see which backends have installed which packages.
+
