@@ -47,6 +47,7 @@ pub fn parse_json(
 
                             installed.insert(name.to_string(), PackageMetadata {
                                 version,
+                                variant: None,
                                 installed_at: Utc::now(),
                                 source_file: None,
                             });
@@ -65,6 +66,7 @@ pub fn parse_json(
 
                         installed.insert(name.to_string(), PackageMetadata {
                             version,
+                            variant: None,
                             installed_at: Utc::now(),
                             source_file: None,
                         });

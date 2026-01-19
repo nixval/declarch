@@ -105,6 +105,7 @@ impl FromStr for PackageId {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageMetadata {
     pub version: Option<String>,
+    pub variant: Option<String>, // Package variant (e.g., "git", "bin", or full Soar variant)
     pub installed_at: DateTime<Utc>,
     pub source_file: Option<String>, // Tracks which .kdl file defined this
 }

@@ -196,6 +196,7 @@ mod tests {
     fn mock_metadata() -> PackageMetadata {
         PackageMetadata {
             version: Some("1.0.0".to_string()),
+            variant: None,
             installed_at: Utc::now(),
             source_file: None,
         }

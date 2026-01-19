@@ -28,6 +28,7 @@ pub fn parse_regex(
                 .map(|m| m.as_str().to_string());
 
             installed.insert(name, PackageMetadata {
+                variant: None,
                 version,
                 installed_at: Utc::now(),
                 source_file: None,
