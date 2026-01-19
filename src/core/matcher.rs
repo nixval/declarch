@@ -106,7 +106,7 @@ impl PackageMatcher {
         // Config: "spotify" -> System: "com.spotify.Client"
         let search = target.name.to_lowercase();
 
-        for (installed_id, _) in installed_snapshot {
+        for installed_id in installed_snapshot.keys() {
             if installed_id.backend == Backend::Flatpak {
                 let installed_name = installed_id.name.to_lowercase();
                 if installed_name.contains(&search) {

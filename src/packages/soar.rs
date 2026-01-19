@@ -104,7 +104,7 @@ impl PackageManager for SoarManager {
         // Expected format: "package-name version"
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if let Some(name) = parts.get(0) {
+            if let Some(name) = parts.first() {
                 let version = parts.get(1).map(|&v| v.to_string());
 
                 installed.insert(name.to_string(), PackageMetadata {

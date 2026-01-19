@@ -55,7 +55,7 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
                 let mut final_content = String::new();
                 final_content.push_str(&format!("// Source: {}\n", target_path));
                 final_content.push_str(&format!("// URL: {}\n", url));
-                final_content.push_str("\n");
+                final_content.push('\n');
                 final_content.push_str(&content);
 
                 return Ok(final_content);
@@ -289,13 +289,11 @@ fn is_private_address(host: &str) -> bool {
     // Check for 172.16.0.0/12 (172.16.x.x to 172.31.x.x)
     if host.starts_with("172.") {
         let parts: Vec<&str> = host.split('.').collect();
-        if parts.len() >= 2 {
-            if let Ok(second_octet) = parts[1].parse::<u8>() {
-                if (16..=32).contains(&second_octet) {
+        if parts.len() >= 2
+            && let Ok(second_octet) = parts[1].parse::<u8>()
+                && (16..=32).contains(&second_octet) {
                     return true;
                 }
-            }
-        }
     }
 
     false

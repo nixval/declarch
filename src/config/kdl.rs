@@ -65,11 +65,10 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             },
             "editor" => {
                 // Extract editor from first string argument
-                if let Some(entry) = node.entries().first() {
-                    if let Some(val) = entry.value().as_string() {
+                if let Some(entry) = node.entries().first()
+                    && let Some(val) = entry.value().as_string() {
                         config.editor = Some(val.to_string());
                     }
-                }
             },
             "description" => {
                 // No-op, just ignore description nodes

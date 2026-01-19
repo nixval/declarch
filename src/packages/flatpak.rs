@@ -22,7 +22,7 @@ impl PackageManager for FlatpakManager {
 
     fn list_installed(&self) -> Result<HashMap<String, PackageMetadata>> {
         let output = Command::new("flatpak")
-            .args(&["list", "--app", "--columns=application,version"])
+            .args(["list", "--app", "--columns=application,version"])
             .output()
             .map_err(|e| DeclarchError::SystemCommandFailed { 
                 command: "flatpak list".into(), 
@@ -40,7 +40,7 @@ impl PackageManager for FlatpakManager {
 
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split('\t').collect();
-            if let Some(name) = parts.get(0) {
+            if let Some(name) = parts.first() {
                 let version = parts.get(1).map(|&v| v.to_string());
                 
                 installed.insert(name.to_string(), PackageMetadata {

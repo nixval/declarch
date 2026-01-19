@@ -102,7 +102,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
                 // Special handling for Soar: try to install if missing
                 if matches!(backend, Backend::Soar) && !available && !options.skip_soar_install && !options.dry_run {
-                    output::warning(&format!("Soar is required but not installed"));
+                    output::warning("Soar is required but not installed");
 
                     // Try to install Soar
                     if install::install_soar()? {
@@ -259,11 +259,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 7. Execution
     let skip_prompt = options.yes || options.noconfirm || options.force;
-    if !skip_prompt {
-        if !output::prompt_yes_no("Proceed?") {
+    if !skip_prompt
+        && !output::prompt_yes_no("Proceed?") {
             return Err(DeclarchError::Interrupted);
         }
-    }
 
     // -- INSTALLATION --
     execute_installations(&tx, &managers, &mut installed_snapshot)?;
@@ -307,12 +306,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
 
         for (backend, pkgs) in removes {
-            if !pkgs.is_empty() {
-                 if let Some(mgr) = managers.get(&backend) {
-                    output::info(&format!("Removing {} packages...", backend.to_string()));
+            if !pkgs.is_empty()
+                 && let Some(mgr) = managers.get(&backend) {
+                    output::info(&format!("Removing {} packages...", backend));
                     mgr.remove(&pkgs)?;
                 }
-            }
         }
     }
 
@@ -363,13 +361,12 @@ fn resolve_installed_package_name(
         },
         Backend::Flatpak => {
             let search = pkg.name.to_lowercase();
-            for (installed_id, _) in installed_snapshot {
-                if installed_id.backend == Backend::Flatpak {
-                    if installed_id.name.to_lowercase().contains(&search) {
+            for installed_id in installed_snapshot.keys() {
+                if installed_id.backend == Backend::Flatpak
+                    && installed_id.name.to_lowercase().contains(&search) {
                         real_name = installed_id.name.clone();
                         return real_name;
                     }
-                }
             }
         }
         Backend::Soar => {
@@ -458,7 +455,7 @@ fn execute_installations(
     // Install packages
     for (backend, pkgs) in installs {
         if let Some(mgr) = managers.get(&backend) {
-            output::info(&format!("Installing {} packages...", backend.to_string()));
+            output::info(&format!("Installing {} packages...", backend));
             mgr.install(&pkgs)?;
         }
     }
@@ -534,7 +531,7 @@ fn update_state_after_sync(
     // Prune from state if needed
     if options.prune {
         for pkg in &tx.to_prune {
-            let key = resolver::make_state_key(&pkg);
+            let key = resolver::make_state_key(pkg);
             state.packages.remove(&key);
         }
     }
@@ -545,7 +542,7 @@ fn update_state_after_sync(
         state.meta.last_update = Some(Utc::now());
     }
 
-    state::io::save_state(&state)?;
+    state::io::save_state(state)?;
 
     Ok(())
 }

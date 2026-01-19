@@ -24,7 +24,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     // PHASE 1: VALIDATION & DISCOVERY
     // ==========================================
 
-    output::info(&format!("Analyzing package transition..."));
+    output::info("Analyzing package transition...");
     output::separator();
 
     // 1. Load current state
@@ -90,18 +90,17 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     // ==========================================
 
     output::separator();
-    output::info(&format!("Transition plan:"));
+    output::info("Transition plan:");
     output::indent(&format!("{} {}", "Remove:".red().bold(), options.old_package), 1);
     output::indent(&format!("{} {}", "Install:".green().bold(), options.new_package), 1);
     output::indent(&format!("Backend: {}", backend), 1);
     output::separator();
 
-    if !options.yes && !options.dry_run {
-        if !output::prompt_yes_no("Proceed with transition?") {
+    if !options.yes && !options.dry_run
+        && !output::prompt_yes_no("Proceed with transition?") {
             output::warning("Transition cancelled by user");
             return Ok(());
         }
-    }
 
     if options.dry_run {
         output::info("Dry run completed - no changes made");
@@ -181,7 +180,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             // Attempt to restore old package if it was removed
             if installed.keys().all(|name| name != &options.old_package) {
                 output::warning(&format!("Attempting to restore {}...", options.old_package));
-                if let Err(e2) = manager.install(&[options.old_package.clone()]) {
+                if let Err(e2) = manager.install(std::slice::from_ref(&options.old_package)) {
                     output::error(&format!("Failed to restore: {}", e2));
                     output::warning("Manual intervention may be required!");
                     return Err(DeclarchError::Other(format!(

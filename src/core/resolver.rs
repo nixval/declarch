@@ -70,7 +70,7 @@ pub fn resolve(
             // Backend is now the same type from core::types
             let core_backend = state_pkg.backend.clone();
 
-            let name_part = key.split_once(':').map(|(_, n)| n).unwrap_or(&key).to_string();
+            let name_part = key.split_once(':').map(|(_, n)| n).unwrap_or(key).to_string();
             let pkg_id = PackageId {
                 name: name_part.clone(),
                 backend: core_backend,
@@ -104,11 +104,10 @@ fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<P
                 }
                 
                 for source in sources {
-                    if let Some(stem) = source.file_stem() {
-                        if stem.to_string_lossy().to_lowercase() == query_lower {
+                    if let Some(stem) = source.file_stem()
+                        && stem.to_string_lossy().to_lowercase() == query_lower {
                             matched.insert(pkg_id.clone());
                         }
-                    }
                 }
             }
             matched

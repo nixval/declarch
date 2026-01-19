@@ -85,10 +85,11 @@ impl ProgressBar {
 
         // Use carriage return to overwrite the line
         print!(
-            "\r{} {} {} {}/{} {}% ETA: {}",
+            "\r{} {} [{}{}] {}/{} {}% ETA: {}",
             "▸".dimmed(),
             self.message.cyan(),
-            format!("[{}{}]", bar.green(), empty.dimmed()),
+            bar.green(),
+            empty.dimmed(),
             self.current.to_string().bold(),
             self.total.to_string().dimmed(),
             percent.to_string().bold(),
@@ -159,10 +160,9 @@ impl Spinner {
 
         let frame = self.frames[self.current_frame % self.frames.len()];
         print!(
-            "\r{} {} {}",
+            "\r{} {} ...",
             frame.cyan().bold(),
-            self.message,
-            "..."
+            self.message
         );
         io::stdout().flush().unwrap_or(());
     }

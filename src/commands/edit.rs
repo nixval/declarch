@@ -107,12 +107,12 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
         // Try with category prefix (e.g., "niri-nico" → "hyprland/niri-nico")
         // Search through all categories
         let modules_dir = config_dir.join("modules");
-        if modules_dir.exists() {
-            if let Ok(entries) = std::fs::read_dir(&modules_dir) {
+        if modules_dir.exists()
+            && let Ok(entries) = std::fs::read_dir(&modules_dir) {
                 for category_entry in entries {
-                    if let Ok(category_entry) = category_entry {
-                        if let Ok(file_type) = category_entry.file_type() {
-                            if file_type.is_dir() {
+                    if let Ok(category_entry) = category_entry
+                        && let Ok(file_type) = category_entry.file_type()
+                            && file_type.is_dir() {
                                 let category_name = category_entry.file_name();
                                 let nested_path = config_dir.join("modules")
                                     .join(&category_name)
@@ -132,11 +132,8 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
                                     return Ok(nested_path);
                                 }
                             }
-                        }
-                    }
                 }
             }
-        }
 
         // Not found
         return Err(DeclarchError::Other(format!(
@@ -171,29 +168,23 @@ fn get_editor_from_config() -> Result<String> {
     // Try to load and parse the root config file
     let config_file = paths::config_file()?;
 
-    if config_file.exists() {
-        if let Ok(content) = std::fs::read_to_string(&config_file) {
-            if let Ok(config) = parse_kdl_content(&content) {
-                if let Some(editor) = config.editor {
-                    if !editor.is_empty() {
+    if config_file.exists()
+        && let Ok(content) = std::fs::read_to_string(&config_file)
+            && let Ok(config) = parse_kdl_content(&content)
+                && let Some(editor) = config.editor
+                    && !editor.is_empty() {
                         return Ok(editor);
                     }
-                }
-            }
-        }
-    }
 
     // Check environment variables
-    if let Ok(ed) = std::env::var("EDITOR") {
-        if !ed.is_empty() {
+    if let Ok(ed) = std::env::var("EDITOR")
+        && !ed.is_empty() {
             return Ok(ed);
         }
-    }
-    if let Ok(ed) = std::env::var("VISUAL") {
-        if !ed.is_empty() {
+    if let Ok(ed) = std::env::var("VISUAL")
+        && !ed.is_empty() {
             return Ok(ed);
         }
-    }
 
     // Fallback to nano
     Ok("nano".to_string())
