@@ -1,19 +1,20 @@
 use kdl::{KdlDocument, KdlNode};
 use crate::error::Result;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct RawConfig {
+    // === Existing fields ===
     pub imports: Vec<String>,
     /// Packages from AUR (Arch Linux specific)
     /// Syntax: packages { ... } or packages:aur { ... }
-    pub packages: Vec<String>,
+    pub packages: Vec<PackageEntry>,
     /// Packages from Soar registry (cross-distro static binaries)
     /// Syntax: packages:soar { ... } or soar:package in packages block
-    pub soar_packages: Vec<String>,
+    pub soar_packages: Vec<PackageEntry>,
     /// Flatpak packages
     /// Syntax: packages:flatpak { ... } or flatpak:package in packages block
-    pub flatpak_packages: Vec<String>,
+    pub flatpak_packages: Vec<PackageEntry>,
     pub excludes: Vec<String>,
     /// Package aliases: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
@@ -21,6 +22,96 @@ pub struct RawConfig {
     /// Editor to use for edit command
     /// Syntax: editor "nvim" or editor nvim
     pub editor: Option<String>,
+
+    // === NEW: Meta block ===
+    /// Configuration metadata
+    pub meta: ConfigMeta,
+
+    // === NEW: Conflicts ===
+    /// Mutually exclusive packages
+    pub conflicts: Vec<ConflictEntry>,
+
+    // === NEW: Backend options ===
+    /// Backend-specific configuration options
+    /// Syntax: options:aur { noconfirm true }
+    pub backend_options: HashMap<String, HashMap<String, String>>,
+
+    // === NEW: Environment variables ===
+    /// Environment variables for package operations
+    /// Syntax: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
+    pub env: HashMap<String, Vec<String>>,
+
+    // === NEW: Package repositories ===
+    /// Custom package repositories
+    /// Syntax: repos:aur { "https://..." }
+    pub repositories: HashMap<String, Vec<String>>,
+
+    // === NEW: Policy control ===
+    /// Package lifecycle policies
+    pub policy: PolicyConfig,
+
+    // === NEW: Hooks ===
+    /// Pre/post sync hooks
+    pub hooks: HookConfig,
+}
+
+/// Package entry with optional version constraint
+#[derive(Debug, Clone)]
+pub struct PackageEntry {
+    pub name: String,
+    pub version: Option<String>,  // e.g., ">=0.40.0", "=0.10.0"
+}
+
+/// Configuration metadata
+#[derive(Debug, Clone, Default)]
+pub struct ConfigMeta {
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub version: Option<String>,
+    pub tags: Vec<String>,
+    pub url: Option<String>,
+}
+
+/// Conflict entry - mutually exclusive packages
+#[derive(Debug, Clone)]
+pub struct ConflictEntry {
+    pub packages: Vec<String>,
+    pub condition: Option<String>,  // Future: for conditional conflicts
+}
+
+/// Package lifecycle policies
+#[derive(Debug, Clone, Default)]
+pub struct PolicyConfig {
+    /// Protected packages that won't be removed even with --prune
+    pub protected: HashSet<String>,
+    /// Strategy for handling orphans: "keep", "remove", "ask"
+    pub orphans: Option<String>,
+}
+
+/// Hook configuration
+#[derive(Debug, Clone, Default)]
+pub struct HookConfig {
+    /// Pre-sync hooks
+    pub pre_sync: Vec<HookEntry>,
+    /// Post-sync hooks
+    pub post_sync: Vec<HookEntry>,
+}
+
+/// Hook entry
+#[derive(Debug, Clone)]
+pub struct HookEntry {
+    pub command: String,
+    pub hook_type: HookType,
+}
+
+/// Hook type
+#[derive(Debug, Clone, PartialEq)]
+pub enum HookType {
+    Run,        // Run without sudo
+    SudoNeeded, // Explicitly needs sudo
+    Script,     // Run a script file
+    Backup,     // Backup a file
+    Notify,     // Send notification
 }
 
 /// Trait for backend-specific package parsing
@@ -125,20 +216,35 @@ impl BackendParserRegistry {
     fn parse_inline_prefix(&self, package_str: &str, config: &mut RawConfig) -> Result<()> {
         if let Some((backend, package)) = package_str.split_once(':') {
             if self.find_parser(backend).is_some() {
+                // Check for version constraint: package">=1.0.0"
+                let (pkg_name, version) = extract_version_constraint(package);
+                let entry = PackageEntry {
+                    name: pkg_name.to_string(),
+                    version,
+                };
+
                 // Directly add to the appropriate config vector based on backend
                 match backend {
-                    "aur" => config.packages.push(package.to_string()),
-                    "soar" | "app" => config.soar_packages.push(package.to_string()),
-                    "flatpak" => config.flatpak_packages.push(package.to_string()),
-                    _ => config.packages.push(package.to_string()),
+                    "aur" => config.packages.push(entry),
+                    "soar" | "app" => config.soar_packages.push(entry),
+                    "flatpak" => config.flatpak_packages.push(entry),
+                    _ => config.packages.push(entry),
                 }
             } else {
                 // Unknown backend - treat the whole string as package name with default backend
-                config.packages.push(package_str.to_string());
+                config.packages.push(PackageEntry {
+                    name: package_str.to_string(),
+                    version: None,
+                });
             }
         } else {
+            // Check for version constraint: package">=1.0.0"
+            let (pkg_name, version) = extract_version_constraint(package_str);
             // No prefix - use default backend (AUR)
-            extract_package_to(package_str, &mut config.packages);
+            config.packages.push(PackageEntry {
+                name: pkg_name.to_string(),
+                version,
+            });
         }
         Ok(())
     }
@@ -178,7 +284,11 @@ impl BackendParserRegistry {
                         self.parse_inline_prefix(child_name, config)?;
                     } else {
                         // No backend prefix - use default backend
-                        extract_package_to(child_name, &mut config.packages);
+                        let (pkg_name, version) = extract_version_constraint(child_name);
+                        config.packages.push(PackageEntry {
+                            name: pkg_name.to_string(),
+                            version,
+                        });
                     }
 
                     // Also check for string arguments in the child node
@@ -187,7 +297,11 @@ impl BackendParserRegistry {
                             if val.contains(':') {
                                 self.parse_inline_prefix(val, config)?;
                             } else {
-                                extract_package_to(val, &mut config.packages);
+                                let (pkg_name, version) = extract_version_constraint(val);
+                                config.packages.push(PackageEntry {
+                                    name: pkg_name.to_string(),
+                                    version,
+                                });
                             }
                         }
                     }
@@ -201,7 +315,11 @@ impl BackendParserRegistry {
                 if val.contains(':') {
                     self.parse_inline_prefix(val, config)?;
                 } else {
-                    extract_package_to(val, &mut config.packages);
+                    let (pkg_name, version) = extract_version_constraint(val);
+                    config.packages.push(PackageEntry {
+                        name: pkg_name.to_string(),
+                        version,
+                    });
                 }
             }
         }
@@ -214,6 +332,25 @@ impl Default for BackendParserRegistry {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Extract version constraint from package string
+/// Returns (package_name, version_constraint)
+/// Examples:
+/// - "hyprland" → ("hyprland", None)
+/// - "hyprland\">=0.40.0\"" → ("hyprland", Some(">=0.40.0"))
+fn extract_version_constraint(input: &str) -> (&str, Option<String>) {
+    // Check if input looks like a version constraint
+    // Version constraints start with operators like: >=, <=, =, ~, <, >, !
+    let version_operators = [">=", "<=", "=", "~=", "~", "<", ">", "!=", "!="];
+
+    for op in &version_operators {
+        if input.starts_with(op) {
+            return ("", Some(input.to_string()));
+        }
+    }
+
+    (input, None)
 }
 
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
@@ -241,6 +378,13 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         excludes: vec![],
         aliases: HashMap::new(),
         editor: None,
+        meta: ConfigMeta::default(),
+        conflicts: vec![],
+        backend_options: HashMap::new(),
+        env: HashMap::new(),
+        repositories: HashMap::new(),
+        policy: PolicyConfig::default(),
+        hooks: HookConfig::default(),
     };
 
     let registry = BackendParserRegistry::new();
@@ -266,7 +410,39 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                     }
             },
             "description" => {
-                // No-op, just ignore description nodes
+                // Parse description into meta
+                if let Some(entry) = node.entries().first()
+                    && let Some(val) = entry.value().as_string() {
+                    config.meta.description = Some(val.to_string());
+                }
+            },
+            // NEW: Meta block
+            "meta" => {
+                parse_meta_block(node, &mut config.meta)?;
+            },
+            // NEW: Conflicts
+            "conflicts" | "conflict" => {
+                parse_conflicts(node, &mut config.conflicts)?;
+            },
+            // NEW: Backend options
+            name if name.starts_with("options") => {
+                parse_backend_options(node, &mut config.backend_options)?;
+            },
+            // NEW: Environment variables
+            name if name.starts_with("env") => {
+                parse_env_vars(node, &mut config.env, None)?;
+            },
+            // NEW: Package repositories
+            name if name.starts_with("repos") || name.starts_with("repositories") => {
+                parse_repositories(node, &mut config.repositories)?;
+            },
+            // NEW: Policy
+            "policy" => {
+                parse_policy(node, &mut config.policy)?;
+            },
+            // NEW: Hooks
+            "hooks" => {
+                parse_hooks(node, &mut config.hooks)?;
             },
             // Parse packages with flexible syntax using the registry
             name if name.starts_with("packages") => {
@@ -274,13 +450,25 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             },
             // Legacy syntax support (with deprecation warning in the future)
             "aur-packages" | "aur-package" => {
-                extract_mixed_values(node, &mut config.packages);
+                let packages = extract_mixed_values_return(node);
+                config.packages.extend(packages.into_iter().map(|p| PackageEntry {
+                    name: p,
+                    version: None,
+                }));
             },
             "soar-packages" | "soar-package" => {
-                extract_mixed_values(node, &mut config.soar_packages);
+                let packages = extract_mixed_values_return(node);
+                config.soar_packages.extend(packages.into_iter().map(|p| PackageEntry {
+                    name: p,
+                    version: None,
+                }));
             },
             "flatpak-packages" | "flatpak-package" => {
-                extract_mixed_values(node, &mut config.flatpak_packages);
+                let packages = extract_mixed_values_return(node);
+                config.flatpak_packages.extend(packages.into_iter().map(|p| PackageEntry {
+                    name: p,
+                    version: None,
+                }));
             },
             _ => {}
         }
@@ -289,29 +477,363 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     Ok(config)
 }
 
+/// Parse meta block: meta { description "..." author "..." version "..." }
+fn parse_meta_block(node: &KdlNode, meta: &mut ConfigMeta) -> Result<()> {
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+
+            match child_name {
+                "description" => {
+                    if let Some(val) = get_first_string(child) {
+                        meta.description = Some(val);
+                    }
+                }
+                "author" => {
+                    if let Some(val) = get_first_string(child) {
+                        meta.author = Some(val);
+                    }
+                }
+                "version" => {
+                    if let Some(val) = get_first_string(child) {
+                        meta.version = Some(val);
+                    }
+                }
+                "tags" => {
+                    // tags can be multiple: tags ["workstation" "gaming"]
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            meta.tags.push(val.to_string());
+                        }
+                    }
+                    if let Some(children) = child.children() {
+                        for tag_child in children.nodes() {
+                            meta.tags.push(tag_child.name().value().to_string());
+                        }
+                    }
+                }
+                "url" => {
+                    if let Some(val) = get_first_string(child) {
+                        meta.url = Some(val);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Parse conflicts block: conflicts { vim neovim }
+fn parse_conflicts(node: &KdlNode, conflicts: &mut Vec<ConflictEntry>) -> Result<()> {
+    let mut packages = Vec::new();
+
+    // Extract from string arguments
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            packages.push(val.to_string());
+        }
+    }
+
+    // Extract from children
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            packages.push(child.name().value().to_string());
+        }
+    }
+
+    if !packages.is_empty() {
+        conflicts.push(ConflictEntry {
+            packages,
+            condition: None,
+        });
+    }
+
+    Ok(())
+}
+
+/// Parse backend options: options:aur { noconfirm true }
+fn parse_backend_options(node: &KdlNode, options: &mut HashMap<String, HashMap<String, String>>) -> Result<()> {
+    // Check for colon syntax: options:aur
+    let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
+        backend.to_string()
+    } else {
+        // No backend specified, apply to all? Or skip?
+        // For now, skip if no backend specified
+        return Ok(());
+    };
+
+    let mut opts = HashMap::new();
+
+    // Extract from children
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let key = child.name().value();
+            if let Some(val) = get_first_string(child) {
+                opts.insert(key.to_string(), val);
+            } else if let Some(val) = child.entries().first()
+                && let Some(val) = val.value().as_string() {
+                opts.insert(key.to_string(), val.to_string());
+            } else {
+                // Boolean flag without value
+                opts.insert(key.to_string(), "true".to_string());
+            }
+        }
+    }
+
+    // Extract from string arguments (key=value format)
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            if let Some((key, v)) = val.split_once('=') {
+                opts.insert(key.to_string(), v.to_string());
+            }
+        }
+    }
+
+    if !opts.is_empty() {
+        options.insert(backend_name, opts);
+    }
+
+    Ok(())
+}
+
+/// Parse environment variables: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
+fn parse_env_vars(node: &KdlNode, env: &mut HashMap<String, Vec<String>>, backend: Option<&str>) -> Result<()> {
+    // Check for colon syntax: env:aur
+    let backend_name = if let Some((_, b)) = node.name().value().split_once(':') {
+        b.to_string()
+    } else {
+        backend.unwrap_or("global").to_string()
+    };
+
+    let mut vars = Vec::new();
+
+    // Extract from string arguments
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            vars.push(val.to_string());
+        }
+    }
+
+    // Extract from children
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            // Child name could be the key, value in arguments
+            let key = child.name().value();
+            if let Some(val) = get_first_string(child) {
+                vars.push(format!("{}={}", key, val));
+            } else if let Some(val) = child.entries().first()
+                && let Some(val) = val.value().as_string() {
+                vars.push(format!("{}={}", key, val));
+            }
+        }
+    }
+
+    if !vars.is_empty() {
+        env.insert(backend_name, vars);
+    }
+
+    Ok(())
+}
+
+/// Parse repositories: repos:aur { "https://..." }
+fn parse_repositories(node: &KdlNode, repos: &mut HashMap<String, Vec<String>>) -> Result<()> {
+    // Check for colon syntax: repos:aur
+    let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
+        backend.to_string()
+    } else {
+        // No backend specified - skip
+        return Ok(());
+    };
+
+    let mut repo_urls = Vec::new();
+
+    // Extract from string arguments
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            repo_urls.push(val.to_string());
+        }
+    }
+
+    // Extract from children
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            repo_urls.push(child.name().value().to_string());
+            for entry in child.entries() {
+                if let Some(val) = entry.value().as_string() {
+                    repo_urls.push(val.to_string());
+                }
+            }
+        }
+    }
+
+    if !repo_urls.is_empty() {
+        repos.insert(backend_name, repo_urls);
+    }
+
+    Ok(())
+}
+
+/// Parse policy block: policy { protected { linux systemd } orphans "keep" }
+fn parse_policy(node: &KdlNode, policy: &mut PolicyConfig) -> Result<()> {
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "protected" => {
+                    // Extract protected packages
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            policy.protected.insert(val.to_string());
+                        }
+                    }
+                    if let Some(grandchildren) = child.children() {
+                        for gc in grandchildren.nodes() {
+                            policy.protected.insert(gc.name().value().to_string());
+                        }
+                    }
+                }
+                "orphans" => {
+                    // Extract orphans strategy
+                    if let Some(val) = get_first_string(child) {
+                        policy.orphans = Some(val);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Parse hooks block: hooks { post-sync { sudo-needed "systemctl restart gdm" } }
+fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            match child.name().value() {
+                "pre-sync" => {
+                    parse_hook_entries(child, &mut hooks.pre_sync)?;
+                }
+                "post-sync" => {
+                    parse_hook_entries(child, &mut hooks.post_sync)?;
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Parse individual hook entries
+fn parse_hook_entries(node: &KdlNode, entries: &mut Vec<HookEntry>) -> Result<()> {
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+
+            let hook_type = match child_name {
+                "run" => HookType::Run,
+                "sudo-needed" => HookType::SudoNeeded,
+                "script" => HookType::Script,
+                "backup" => HookType::Backup,
+                "notify" => HookType::Notify,
+                _ => HookType::Run, // Default to Run
+            };
+
+            if let Some(command) = get_first_string(child) {
+                entries.push(HookEntry {
+                    command: command.to_string(),
+                    hook_type,
+                });
+            } else if let Some(entry) = child.entries().first()
+                && let Some(val) = entry.value().as_string() {
+                entries.push(HookEntry {
+                    command: val.to_string(),
+                    hook_type,
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Get first string value from a KDL node
+fn get_first_string(node: &KdlNode) -> Option<String> {
+    if let Some(entry) = node.entries().first() {
+        if let Some(val) = entry.value().as_string() {
+            return Some(val.to_string());
+        }
+    }
+    None
+}
+
 /// Extract packages from a node and add them to a target vector
 ///
 /// Handles:
 /// - String arguments: `packages "bat" "exa"`
 /// - Children node names: `packages { bat exa }`
+/// - Version constraints: `packages { hyprland ">=0.40.0" }`
 /// - Mixed: `packages "bat" { exa }`
-fn extract_packages_to(node: &KdlNode, target: &mut Vec<String>) {
-    // Extract from string arguments
+fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
+    // Extract from string arguments of this node
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
-            target.push(val.to_string());
+            let (name, version) = extract_version_constraint(val);
+            target.push(PackageEntry {
+                name: if name.is_empty() { val.to_string() } else { name.to_string() },
+                version,
+            });
         }
     }
 
     // Extract from children node names
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            target.push(child.name().value().to_string());
+            let child_name = child.name().value();
+            let child_entries: Vec<_> = child.entries().iter()
+                .filter_map(|e| e.value().as_string())
+                .collect();
 
-            // Also check for string arguments in child nodes
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    target.push(val.to_string());
+            if child_entries.is_empty() {
+                // No string arguments, just the node name
+                let (name, version) = extract_version_constraint(child_name);
+                target.push(PackageEntry {
+                    name: if name.is_empty() { child_name.to_string() } else { name.to_string() },
+                    version,
+                });
+            } else {
+                // Has string arguments - check if first is a version constraint
+                let first_arg = child_entries[0];
+                let (first_name, first_version) = extract_version_constraint(first_arg);
+
+                if first_version.is_some() {
+                    // First argument is a version constraint - use node name as package name
+                    target.push(PackageEntry {
+                        name: child_name.to_string(),
+                        version: first_version,
+                    });
+
+                    // Add remaining arguments as separate packages
+                    for arg in child_entries.iter().skip(1) {
+                        target.push(PackageEntry {
+                            name: arg.to_string(),
+                            version: None,
+                        });
+                    }
+                } else {
+                    // First argument is a package name, or node is the package
+                    // Use the first entry as the value
+                    target.push(PackageEntry {
+                        name: first_arg.to_string(),
+                        version: None,
+                    });
+
+                    // Add remaining arguments as separate packages
+                    for arg in child_entries.iter().skip(1) {
+                        target.push(PackageEntry {
+                            name: arg.to_string(),
+                            version: None,
+                        });
+                    }
                 }
             }
         }
@@ -342,6 +864,27 @@ fn extract_mixed_values(node: &KdlNode, target: &mut Vec<String>) {
             }
         }
     }
+}
+
+fn extract_mixed_values_return(node: &KdlNode) -> Vec<String> {
+    let mut result = Vec::new();
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            result.push(val.to_string());
+        }
+    }
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            result.push(child.name().value().to_string());
+            for entry in child.entries() {
+                 if let Some(val) = entry.value().as_string() {
+                    result.push(val.to_string());
+                }
+            }
+        }
+    }
+    result
 }
 
 fn extract_strings(node: &KdlNode, target: &mut Vec<String>) {
@@ -478,8 +1021,8 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.contains(&"hyprland".to_string()));
-        assert!(config.packages.contains(&"waybar".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
     }
 
     #[test]
@@ -494,9 +1037,9 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 3);
-        assert!(config.packages.contains(&"hyprland".to_string()));
-        assert!(config.packages.contains(&"waybar".to_string()));
-        assert!(config.packages.contains(&"swww".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
+        assert!(config.packages.iter().any(|p| p.name == "swww"));
     }
 
     #[test]
@@ -511,9 +1054,9 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.soar_packages.len(), 3);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
-        assert!(config.soar_packages.contains(&"ripgrep".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "ripgrep"));
     }
 
     #[test]
@@ -527,8 +1070,8 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
-        assert!(config.flatpak_packages.contains(&"org.mozilla.firefox".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
     }
 
     #[test]
@@ -577,8 +1120,8 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
     }
 
     #[test]
@@ -592,8 +1135,8 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.contains(&"hyprland".to_string()));
-        assert!(config.packages.contains(&"waybar".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
     }
 
     #[test]
@@ -607,8 +1150,8 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
-        assert!(config.flatpak_packages.contains(&"org.mozilla.firefox".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
     }
 
     #[test]
@@ -630,16 +1173,16 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.contains(&"hyprland".to_string()));
-        assert!(config.packages.contains(&"waybar".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
 
         assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
-        assert!(config.flatpak_packages.contains(&"org.mozilla.firefox".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
     }
 
     #[test]
@@ -684,11 +1227,11 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
     }
 
     // NEW TESTS: Inline prefix syntax
@@ -703,7 +1246,7 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.soar_packages.len(), 1);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
     }
 
     #[test]
@@ -721,15 +1264,15 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
         // Default (hyprland) + aur:waybar
         assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.contains(&"hyprland".to_string()));
-        assert!(config.packages.contains(&"waybar".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
 
         assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
     }
 
     #[test]
@@ -762,8 +1305,8 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
     }
 
     #[test]
@@ -774,13 +1317,13 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.soar_packages.len(), 1);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
 
         assert_eq!(config.packages.len(), 1);
-        assert!(config.packages.contains(&"hyprland".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
 
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.contains(&"app.id".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "app.id"));
     }
 
     #[test]
@@ -793,7 +1336,7 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         // Unknown backend should be treated as package name with default backend
-        assert!(config.packages.contains(&"unknown:package".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "unknown:package"));
     }
 
     #[test]
@@ -825,19 +1368,19 @@ mod tests {
 
         // AUR packages: hyprland, waybar, swww, rofi
         assert_eq!(config.packages.len(), 4);
-        assert!(config.packages.contains(&"hyprland".to_string()));
-        assert!(config.packages.contains(&"waybar".to_string()));
-        assert!(config.packages.contains(&"swww".to_string()));
-        assert!(config.packages.contains(&"rofi".to_string()));
+        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert!(config.packages.iter().any(|p| p.name == "waybar"));
+        assert!(config.packages.iter().any(|p| p.name == "swww"));
+        assert!(config.packages.iter().any(|p| p.name == "rofi"));
 
         // Soar packages: bat, exa
         assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.contains(&"bat".to_string()));
-        assert!(config.soar_packages.contains(&"exa".to_string()));
+        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         // Flatpak packages: com.spotify.Client
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.contains(&"com.spotify.Client".to_string()));
+        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
     }
 
     #[test]
@@ -884,5 +1427,281 @@ mod tests {
         assert_eq!(config.packages.len(), 2);
         assert_eq!(config.soar_packages.len(), 2);  // bat + exa
         assert_eq!(config.flatpak_packages.len(), 2);
+    }
+
+    // NEW: Version constraint tests
+
+    #[test]
+    fn test_parse_version_constraints() {
+        let kdl = r#"
+            packages {
+                hyprland ">=0.40.0"
+                neovim "=0.10.0"
+                waybar
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        // Should have 3 packages total
+        for p in &config.packages {
+            eprintln!("Package: {} version: {:?}", p.name, p.version);
+        }
+        assert_eq!(config.packages.len(), 3, "Expected 3 packages but got {}", config.packages.len());
+
+        // Find packages by name since order might vary
+        let hyprland = config.packages.iter().find(|p| p.name == "hyprland").unwrap();
+        assert_eq!(hyprland.version, Some(">=0.40.0".to_string()));
+
+        let neovim = config.packages.iter().find(|p| p.name == "neovim").unwrap();
+        assert_eq!(neovim.version, Some("=0.10.0".to_string()));
+
+        let waybar = config.packages.iter().find(|p| p.name == "waybar").unwrap();
+        assert_eq!(waybar.version, None);
+    }
+
+    // NEW: Meta block tests
+
+    #[test]
+    fn test_parse_meta_block() {
+        let kdl = r#"
+            meta {
+                description "My Hyprland Setup"
+                author "nixval"
+                version "1.0.0"
+                url "https://github.com/nixval/dotfiles"
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.meta.description, Some("My Hyprland Setup".to_string()));
+        assert_eq!(config.meta.author, Some("nixval".to_string()));
+        assert_eq!(config.meta.version, Some("1.0.0".to_string()));
+        assert_eq!(config.meta.url, Some("https://github.com/nixval/dotfiles".to_string()));
+    }
+
+    #[test]
+    fn test_parse_meta_with_tags() {
+        let kdl = r#"
+            meta {
+                description "Workstation setup"
+                tags ["workstation" "hyprland" "development"]
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.meta.tags.len(), 3);
+        assert!(config.meta.tags.contains(&"workstation".to_string()));
+        assert!(config.meta.tags.contains(&"hyprland".to_string()));
+        assert!(config.meta.tags.contains(&"development".to_string()));
+    }
+
+    // NEW: Conflicts tests
+
+    #[test]
+    fn test_parse_conflicts() {
+        let kdl = r#"
+            conflicts vim neovim
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.conflicts.len(), 1);
+        assert_eq!(config.conflicts[0].packages.len(), 2);
+        assert!(config.conflicts[0].packages.contains(&"vim".to_string()));
+        assert!(config.conflicts[0].packages.contains(&"neovim".to_string()));
+    }
+
+    // NEW: Backend options tests
+
+    #[test]
+    fn test_parse_backend_options() {
+        let kdl = r#"
+            options:aur {
+                noconfirm
+                helper "paru"
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert!(config.backend_options.contains_key("aur"));
+        let aur_opts = &config.backend_options["aur"];
+        assert_eq!(aur_opts.get("noconfirm"), Some(&"true".to_string()));
+        assert_eq!(aur_opts.get("helper"), Some(&"paru".to_string()));
+    }
+
+    // NEW: Environment variables tests
+
+    #[test]
+    fn test_parse_env_vars() {
+        let kdl = r#"
+            env {
+                "EDITOR=nvim"
+                "VISUAL=nvim"
+            }
+
+            env:aur {
+                "MAKEFLAGS=-j4"
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert!(config.env.contains_key("global"));
+        assert!(config.env.contains_key("aur"));
+
+        let global_env = &config.env["global"];
+        assert!(global_env.contains(&"EDITOR=nvim".to_string()));
+        assert!(global_env.contains(&"VISUAL=nvim".to_string()));
+
+        let aur_env = &config.env["aur"];
+        assert!(aur_env.contains(&"MAKEFLAGS=-j4".to_string()));
+    }
+
+    // NEW: Repositories tests
+
+    #[test]
+    fn test_parse_repositories() {
+        let kdl = r#"
+            repos:aur {
+                "https://aur.archlinux.org"
+            }
+
+            repos:flatpak {
+                "https://flathub.org/repo/flathub.flatpakrepo"
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert!(config.repositories.contains_key("aur"));
+        assert!(config.repositories.contains_key("flatpak"));
+
+        assert!(config.repositories["aur"].contains(&"https://aur.archlinux.org".to_string()));
+        assert!(config.repositories["flatpak"].contains(&"https://flathub.org/repo/flathub.flatpakrepo".to_string()));
+    }
+
+    // NEW: Policy tests
+
+    #[test]
+    fn test_parse_policy() {
+        let kdl = r#"
+            policy {
+                protected {
+                    linux
+                    systemd
+                    base-devel
+                }
+                orphans "ask"
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert!(config.policy.protected.contains("linux"));
+        assert!(config.policy.protected.contains("systemd"));
+        assert!(config.policy.protected.contains("base-devel"));
+        assert_eq!(config.policy.orphans, Some("ask".to_string()));
+    }
+
+    // NEW: Hooks tests
+
+    #[test]
+    fn test_parse_hooks() {
+        let kdl = r#"
+            hooks {
+                post-sync {
+                    run "notify-send 'Packages updated'"
+                    sudo-needed "systemctl restart gdm"
+                    script "~/.config/declarch/post-sync.sh"
+                }
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert_eq!(config.hooks.post_sync.len(), 3);
+
+        assert_eq!(config.hooks.post_sync[0].command, "notify-send 'Packages updated'");
+        assert_eq!(config.hooks.post_sync[0].hook_type, HookType::Run);
+
+        assert_eq!(config.hooks.post_sync[1].command, "systemctl restart gdm");
+        assert_eq!(config.hooks.post_sync[1].hook_type, HookType::SudoNeeded);
+
+        assert_eq!(config.hooks.post_sync[2].command, "~/.config/declarch/post-sync.sh");
+        assert_eq!(config.hooks.post_sync[2].hook_type, HookType::Script);
+    }
+
+    // NEW: Comprehensive integration test
+
+    #[test]
+    fn test_parse_full_config() {
+        let kdl = r#"
+            meta {
+                description "Full workstation setup"
+                author "nixval"
+                version "2.0.0"
+            }
+
+            packages {
+                hyprland">=0.40.0"
+                neovim
+                waybar
+            }
+
+            packages:soar {
+                bat
+                exa
+            }
+
+            conflicts {
+                vim neovim
+                pipewire pulseaudio
+            }
+
+            options:aur {
+                noconfirm
+            }
+
+            env {
+                "EDITOR=nvim"
+            }
+
+            policy {
+                protected {
+                    linux
+                    systemd
+                }
+                orphans "keep"
+            }
+
+            hooks {
+                post-sync {
+                    run "notify-send 'Sync complete'"
+                }
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        // Check meta
+        assert_eq!(config.meta.description, Some("Full workstation setup".to_string()));
+        assert_eq!(config.meta.author, Some("nixval".to_string()));
+        assert_eq!(config.meta.version, Some("2.0.0".to_string()));
+
+        // Check packages
+        assert_eq!(config.packages.len(), 3);
+        assert!(config.packages[0].name == "hyprland");
+        assert!(config.packages[0].version == Some(">=0.40.0".to_string()));
+
+        // Check conflicts
+        assert_eq!(config.conflicts.len(), 2);
+
+        // Check options
+        assert!(config.backend_options.contains_key("aur"));
+
+        // Check env
+        assert!(config.env.contains_key("global"));
+
+        // Check policy
+        assert!(config.policy.protected.contains("linux"));
+        assert_eq!(config.policy.orphans, Some("keep".to_string()));
+
+        // Check hooks
+        assert_eq!(config.hooks.post_sync.len(), 1);
     }
 }

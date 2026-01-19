@@ -71,9 +71,9 @@ fn recursive_load(
 
     // Process AUR packages (default, Arch-only)
     if distro.supports_aur() {
-        for pkg_str in raw.packages {
+        for pkg_entry in raw.packages {
             let pkg_id = PackageId {
-                name: pkg_str,
+                name: pkg_entry.name,
                 backend: Backend::Aur,
             };
 
@@ -84,9 +84,9 @@ fn recursive_load(
     }
 
     // Process Soar packages (cross-distro static binaries)
-    for pkg_str in raw.soar_packages {
+    for pkg_entry in raw.soar_packages {
         let pkg_id = PackageId {
-            name: pkg_str,
+            name: pkg_entry.name,
             backend: Backend::Soar,
         };
 
@@ -96,9 +96,9 @@ fn recursive_load(
     }
 
     // Process Flatpak packages (cross-distro)
-    for pkg_str in raw.flatpak_packages {
+    for pkg_entry in raw.flatpak_packages {
         let pkg_id = PackageId {
-            name: pkg_str,
+            name: pkg_entry.name,
             backend: Backend::Flatpak,
         };
 
