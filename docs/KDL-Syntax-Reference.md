@@ -580,14 +580,101 @@ packages {
 
 | Node | Syntax | Purpose |
 |------|--------|---------|
+| `meta` | `meta { ... }` | Configuration metadata |
 | `packages` | `packages { ... }` | Soar packages (default) |
 | `packages:aur` | `packages:aur { ... }` | AUR packages |
+| `packages:soar` | `packages:soar { ... }` | Soar packages (explicit) |
 | `packages:flatpak` | `packages:flatpak { ... }` | Flatpak packages |
 | `imports` | `imports { ... }` | Import modules |
 | `excludes` | `excludes { ... }` | Exclude packages |
 | `aliases-pkg` | `aliases-pkg { ... }` | Package aliases |
 | `editor` | `editor "nvim"` | Set editor |
-| `description` | `description { ... }` | Documentation (no-op) |
+| `conflicts` | `conflicts { ... }` | Mutually exclusive packages |
+| `options:*` | `options:aur { ... }` | Backend configuration |
+| `env` | `env EDITOR="nvim"` | Environment variables |
+| `env:*` | `env:aur MAKEFLAGS="-j4"` | Backend-specific env vars |
+| `repos:*` | `repos:aur { ... }` | Custom repositories |
+| `policy` | `policy { ... }` | Package lifecycle policies |
+| `hooks` | `hooks { ... }` | Pre/post-sync hooks |
+
+### Advanced Syntax Features
+
+#### Meta Information
+```kdl
+meta {
+    description "My Workstation"
+    author "nixval"
+    version "1.0.0"
+    tags "workstation" "hyprland"
+    url "https://github.com/nixval/dotfiles"
+}
+```
+
+#### Conflicts
+```kdl
+conflicts {
+    vim neovim           // Can't have both
+    pipewire pulseaudio  // Mutually exclusive
+}
+```
+
+#### Backend Options
+```kdl
+options:aur {
+    noconfirm            // Skip prompts
+    helper "paru"        // AUR helper choice
+}
+```
+
+#### Environment Variables
+```kdl
+env EDITOR="nvim" VISUAL="nvim"
+env:aur MAKEFLAGS="-j4"
+```
+
+#### Repositories
+```kdl
+repos:aur {
+    "https://aur.archlinux.org"
+}
+```
+
+#### Policy Control
+```kdl
+policy {
+    protected {
+        linux        // Never remove
+        systemd
+    }
+    orphans "keep"   // "keep" | "remove" | "ask"
+}
+```
+
+#### Hooks
+```kdl
+hooks {
+    pre-sync {
+        run "notify-send 'Starting sync...'"
+    }
+    post-sync {
+        run "notify-send 'Done'"
+        sudo-needed "systemctl restart gdm"
+    }
+}
+```
+
+### Module Config Support
+
+All advanced syntax features work in module files (`modules/*.kdl`):
+
+**Merging Behavior:**
+- **Meta**: First config wins (usually from root)
+- **Conflicts**: Accumulated from all configs
+- **Backend Options**: Later configs override earlier ones
+- **Environment Variables**: Later configs extend earlier ones
+- **Repositories**: Later configs extend earlier ones
+- **Policy**: Last one wins
+- **Hooks**: Later configs extend earlier ones
 
 ### Legacy Syntax (Still Supported)
 
@@ -595,6 +682,7 @@ packages {
 |-----------|-----------|--------|
 | `aur-packages { ... }` | `packages:aur { ... }` | Deprecated but works |
 | `flatpak-packages { ... }` | `packages:flatpak { ... }` | Deprecated but works |
+| `soar-packages { ... }` | `packages:soar { ... }` | Deprecated but works |
 | `import ...` | `imports ...` | Deprecated but works |
 
 ---

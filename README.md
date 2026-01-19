@@ -59,11 +59,13 @@ Share your config across different Linux distributions.
 ## ✨ Key Features
 
   * **Declarative Config:** Uses the clean, readable **KDL** syntax.
+  * **Dual Command:** Use `declarch` or shorter `dc` alias.
   * **Remote Init:** Fetch configs from GitHub/GitLab repositories.
   * **Multi-Backend:** Supports **AUR**, **Flatpak**, and **Soar** (static binaries).
   * **Flexible Syntax:** Write packages your way — simple, nested, or mixed.
   * **Modular:** Import and organize configs into reusable modules.
   * **Smart Sync:** Auto-installs missing packages, adopts existing ones.
+  * **Advanced Config:** Meta info, conflicts, env vars, hooks, policy control.
 
 -----
 
@@ -105,10 +107,18 @@ sudo install target/release/declarch /usr/local/bin/
 ### Initialize Config
 
 ```bash
+# Using declarch
 declarch init
+
+# Or use the shorter alias
+dc init
 ```
 
-This creates `~/.config/declarch/declarch.kdl`.
+This creates:
+- `~/.config/declarch/declarch.kdl` - Main configuration
+- `~/.config/declarch/modules/base.kdl` - Base system packages
+
+The default config includes all advanced syntax features (commented out) for easy discovery.
 
 ### Fetch from Remote
 
@@ -201,6 +211,119 @@ packages {
     }
 }
 ```
+
+**Advanced KDL Syntax**
+
+declarch supports powerful configuration features beyond package declarations:
+
+```kdl
+// === META INFORMATION ===
+meta {
+    description "My Hyprland Workstation"
+    author "nixval"
+    version "1.0.0"
+    tags "workstation" "hyprland" "development"
+    url "https://github.com/nixval/dotfiles"
+}
+
+// === CONFLICTS ===
+// Define mutually exclusive packages
+conflicts {
+    vim neovim           // Can't have both installed
+    pipewire pulseaudio  // Audio system choice
+}
+
+// === BACKEND OPTIONS ===
+// Configure package manager behavior
+options:aur {
+    noconfirm            // Skip confirmation prompts
+    helper "paru"        // Use paru instead of yay
+}
+
+// === ENVIRONMENT VARIABLES ===
+// Set environment variables for package operations
+env EDITOR="nvim" VISUAL="nvim"
+
+// Backend-specific environment variables
+env:aur MAKEFLAGS="-j4"  // Parallel AUR builds
+
+// === REPOSITORIES ===
+// Add custom package repositories
+repos:aur {
+    "https://aur.archlinux.org"
+}
+
+repos:flatpak {
+    "https://flathub.org/repo/flathub.flatpakrepo"
+}
+
+// === POLICY CONTROL ===
+// Define package lifecycle policies
+policy {
+    protected {
+        linux        // Never remove these packages
+        systemd
+        base-devel
+    }
+    orphans "keep"   // Strategy: "keep", "remove", or "ask"
+}
+
+// === HOOKS ===
+// Run commands before/after sync
+hooks {
+    pre-sync {
+        run "notify-send 'Starting package sync...'"
+    }
+
+    post-sync {
+        run "notify-send 'Packages updated'"
+        sudo-needed "systemctl restart gdm"
+        script "~/.config/declarch/post-sync.sh"
+    }
+}
+```
+
+**Module Configurations**
+
+All advanced syntax features work in module files too! Modules can define their own meta, conflicts, env, etc., which are merged with the root config:
+
+```kdl
+// ~/.config/declarch/modules/development.kdl
+
+meta {
+    description "Development tools and IDEs"
+    author "nixval"
+    tags "development"
+}
+
+env EDITOR="nvim"
+
+packages {
+    aur:neovim
+    soar:ripgrep
+}
+
+policy {
+    protected {
+        neovim
+    }
+}
+
+hooks {
+    post-sync {
+        run "notify-send 'Dev tools updated'"
+    }
+}
+```
+
+**Module Merging Behavior:**
+- **Meta**: First config wins (usually from root)
+- **Conflicts**: Accumulated from all configs
+- **Backend Options**: Later configs override earlier ones
+- **Environment Variables**: Later configs extend earlier ones
+- **Repositories**: Later configs extend earlier ones
+- **Policy**: Last one wins
+- **Hooks**: Later configs extend earlier ones
 
 -----
 

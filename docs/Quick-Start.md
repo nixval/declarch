@@ -17,10 +17,15 @@ Get started with declarch in 5 minutes.
 ### Step 1: Initialize Configuration
 
 ```bash
+# Use full command or shorter alias
 declarch init
+# or
+dc init
 ```
 
-This creates `~/.config/declarch/declarch.kdl`
+This creates:
+- `~/.config/declarch/declarch.kdl` - Main configuration
+- `~/.config/declarch/modules/base.kdl` - Essential packages (auto-created)
 
 ---
 
