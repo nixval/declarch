@@ -66,6 +66,21 @@ pub fn run(options: InitOptions) -> Result<()> {
     fs::write(&config_file, template)?;
     output::success(&format!("Created config file: {}", config_file.display()));
 
+    // Create modules/base.kdl with default template
+    let modules_dir = config_dir.join("modules");
+    if !modules_dir.exists() {
+        fs::create_dir_all(&modules_dir)?;
+        output::success(&format!("Created modules directory: {}", modules_dir.display()));
+    }
+
+    let base_module_path = modules_dir.join("base.kdl");
+    if !base_module_path.exists() {
+        let base_template = utils::templates::get_template_by_name("base")
+            .unwrap_or_else(|| utils::templates::default_module("base"));
+        fs::write(&base_module_path, base_template)?;
+        output::success(&format!("Created base module: {}", base_module_path.display()));
+    }
+
     let _state = state::io::init_state(hostname.clone())?;
     output::success(&format!("Initialized state for host: {}", hostname.green()));
 

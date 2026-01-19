@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use crate::config::kdl::parse_kdl_content;
+use crate::config::kdl::{parse_kdl_content, ConfigMeta, ConflictEntry, PolicyConfig, HookConfig};
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
 use crate::utils::distro::DistroType;
@@ -13,6 +13,22 @@ pub struct MergedConfig {
     pub excludes: Vec<String>,
     /// Package aliases: config_name -> actual_package_name
     pub aliases: HashMap<String, String>,
+
+    // === NEW: Additional config fields ===
+    /// Configuration metadata (merged from first config with meta)
+    pub meta: Option<ConfigMeta>,
+    /// Mutually exclusive packages (accumulated from all configs)
+    pub conflicts: Vec<ConflictEntry>,
+    /// Backend-specific configuration options (merged)
+    pub backend_options: HashMap<String, HashMap<String, String>>,
+    /// Environment variables for package operations (merged)
+    pub env: HashMap<String, Vec<String>>,
+    /// Custom package repositories (merged)
+    pub repositories: HashMap<String, Vec<String>>,
+    /// Package lifecycle policies (merged from last config)
+    pub policy: Option<PolicyConfig>,
+    /// Pre/post sync hooks (accumulated from all configs)
+    pub hooks: Option<HookConfig>,
 }
 
 impl MergedConfig {
@@ -109,6 +125,56 @@ fn recursive_load(
 
     merged.excludes.extend(raw.excludes);
     merged.aliases.extend(raw.aliases);
+
+    // === NEW: Merge additional config fields ===
+
+    // Meta: Only keep the first one (usually from root config)
+    if merged.meta.is_none() && !raw.meta.description.is_none()
+        && !raw.meta.author.is_none() && !raw.meta.version.is_none() {
+        merged.meta = Some(raw.meta);
+    }
+
+    // Conflicts: Accumulate from all configs
+    merged.conflicts.extend(raw.conflicts);
+
+    // Backend options: Merge (later configs override earlier ones)
+    for (backend, opts) in raw.backend_options {
+        merged.backend_options.entry(backend)
+            .or_insert_with(HashMap::new)
+            .extend(opts);
+    }
+
+    // Environment variables: Merge (later configs extend earlier ones)
+    for (scope, vars) in raw.env {
+        merged.env.entry(scope)
+            .or_insert_with(Vec::new)
+            .extend(vars);
+    }
+
+    // Repositories: Merge (later configs extend earlier ones)
+    for (backend, repos) in raw.repositories {
+        merged.repositories.entry(backend)
+            .or_insert_with(Vec::new)
+            .extend(repos);
+    }
+
+    // Policy: Last one wins
+    if raw.policy.protected.iter().any(|p| !p.is_empty())
+        || raw.policy.orphans.is_some() {
+        merged.policy = Some(raw.policy);
+    }
+
+    // Hooks: Merge (later configs extend earlier ones)
+    if merged.hooks.is_none() && (!raw.hooks.pre_sync.is_empty() || !raw.hooks.post_sync.is_empty()) {
+        merged.hooks = Some(raw.hooks);
+    } else if let Some(ref mut merged_hooks) = merged.hooks {
+        if !raw.hooks.pre_sync.is_empty() {
+            merged_hooks.pre_sync.extend(raw.hooks.pre_sync);
+        }
+        if !raw.hooks.post_sync.is_empty() {
+            merged_hooks.post_sync.extend(raw.hooks.post_sync);
+        }
+    }
 
     // Get parent directory safely - canonicalized paths should always have a parent
     // except for root paths, which is a case we should handle explicitly

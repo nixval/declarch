@@ -134,6 +134,13 @@ mod tests {
             packages: map,
             excludes: vec![],
             aliases: std::collections::HashMap::new(),
+            meta: None,
+            conflicts: vec![],
+            backend_options: std::collections::HashMap::new(),
+            env: std::collections::HashMap::new(),
+            repositories: std::collections::HashMap::new(),
+            policy: None,
+            hooks: None,
         }
     }
 
