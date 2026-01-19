@@ -183,6 +183,12 @@ impl PackageManager for SoarManager {
 
         Ok(())
     }
+
+    fn get_required_by(&self, _package: &str) -> Result<Vec<String>> {
+        // Soar is a standalone binary manager and doesn't track reverse dependencies
+        // Packages are installed independently without tracking what depends on them
+        Ok(Vec::new())
+    }
 }
 
 #[cfg(test)]

@@ -111,4 +111,50 @@ impl PackageManager for AurManager {
     fn is_available(&self) -> bool {
         which::which(&self.helper_cmd).is_ok()
     }
+
+    fn get_required_by(&self, package: &str) -> Result<Vec<String>> {
+        // Use pacman -Qi to get the "Required By" field
+        let output = Command::new("pacman")
+            .arg("-Qi")
+            .arg(package)
+            .output()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: format!("pacman -Qi {}", package),
+                reason: e.to_string(),
+            })?;
+
+        if !output.status.success() {
+            // Package not found or error, return empty list
+            return Ok(Vec::new());
+        }
+
+        let stdout = String::from_utf8(output.stdout)
+            .map_err(|_| DeclarchError::PackageManagerError(
+                "Pacman output contained invalid UTF-8".into()
+            ))?;
+
+        // Parse the "Required By" field
+        for line in stdout.lines() {
+            let line = line.trim();
+            if line.starts_with("Required By") {
+                // Format: "Required By  : pkg1 pkg2" or "Required By  : None"
+                if let Some(deps) = line.split(':').nth(1) {
+                    let deps = deps.trim();
+                    if deps.is_empty() || deps == "None" {
+                        return Ok(Vec::new());
+                    }
+                    // Split by whitespace and filter empty
+                    let required_by: Vec<String> = deps
+                        .split_whitespace()
+                        .filter(|s| !s.is_empty())
+                        .map(String::from)
+                        .collect();
+                    return Ok(required_by);
+                }
+            }
+        }
+
+        // No "Required By" field found
+        Ok(Vec::new())
+    }
 }

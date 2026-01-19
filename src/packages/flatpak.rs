@@ -101,4 +101,10 @@ impl PackageManager for FlatpakManager {
     fn is_available(&self) -> bool {
         which::which("flatpak").is_ok()
     }
+
+    fn get_required_by(&self, _package: &str) -> Result<Vec<String>> {
+        // Flatpak apps are self-contained and don't have traditional reverse dependencies
+        // Runtime dependencies exist but are tracked differently by flatpak itself
+        Ok(Vec::new())
+    }
 }

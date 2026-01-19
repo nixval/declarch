@@ -79,11 +79,38 @@ pub fn run(options: SwitchOptions) -> Result<()> {
         )));
     }
 
-    // 7. Check reverse dependencies (simplified)
+    // 7. Check reverse dependencies
     output::info("Checking for dependencies...");
-    // TODO: Implement actual reverse dependency checking
-    // For now, we'll skip this and warn the user
-    output::warning("Dependency checking not yet implemented - proceed with caution");
+    match manager.get_required_by(&options.old_package) {
+        Ok(required_by) if !required_by.is_empty() => {
+            output::warning(&format!(
+                "The following package(s) depend on '{}': {}",
+                options.old_package,
+                required_by.join(", ")
+            ));
+            output::warning("Removing or replacing this package may break these dependencies.");
+            output::indent("Ensure the new package provides the same functionality.", 1);
+
+            if !options.yes && !options.force {
+                if !output::prompt_yes_no("Continue despite dependency warnings?") {
+                    output::warning("Transition cancelled by user");
+                    return Ok(());
+                }
+            }
+        }
+        Ok(_) => {
+            // No reverse dependencies found
+            output::success("No reverse dependencies found");
+        }
+        Err(e) => {
+            // Error checking dependencies, warn but continue
+            output::warning(&format!(
+                "Could not check reverse dependencies: {}",
+                e
+            ));
+            output::warning("Proceed with caution");
+        }
+    }
 
     // ==========================================
     // PHASE 2: TRANSACTION PLANNING

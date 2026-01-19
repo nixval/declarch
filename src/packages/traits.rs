@@ -8,4 +8,7 @@ pub trait PackageManager: Send + Sync {
     fn install(&self, packages: &[String]) -> Result<()>;
     fn remove(&self, packages: &[String]) -> Result<()>;
     fn is_available(&self) -> bool;
+
+    /// Get list of packages that depend on the given package (reverse dependencies)
+    fn get_required_by(&self, package: &str) -> Result<Vec<String>>;
 }
