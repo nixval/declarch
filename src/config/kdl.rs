@@ -39,6 +39,11 @@ pub struct RawConfig {
     /// Syntax: packages:brew { ... }
     pub brew_packages: Vec<PackageEntry>,
 
+    /// Custom backend packages (user-defined)
+    /// Syntax: packages:nala { ... } where nala is defined in backends.kdl
+    /// Stored as HashMap: backend_name -> Vec<PackageEntry>
+    pub custom_packages: HashMap<String, Vec<PackageEntry>>,
+
     pub excludes: Vec<String>,
     /// Package aliases: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
@@ -394,7 +399,8 @@ impl BackendParserRegistry {
             if let Some(parser) = self.find_parser(backend) {
                 return parser.parse(node, config);
             }
-            // Unknown backend - fall through to default parsing
+            // Custom backend - parse and store in custom_packages HashMap
+            return self.parse_custom_backend(backend, node, config);
         }
 
         // Case 2: Check for nested children (backend blocks)
@@ -448,6 +454,44 @@ impl BackendParserRegistry {
 
         Ok(())
     }
+
+    /// Parse packages for a custom (user-defined) backend
+    fn parse_custom_backend(&self, backend_name: &str, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        let mut packages = Vec::new();
+
+        // Extract packages from children
+        if let Some(children) = node.children() {
+            for child in children.nodes() {
+                let child_name = child.name().value();
+                packages.push(PackageEntry {
+                    name: child_name.to_string(),
+                });
+
+                // Also check for string arguments
+                for entry in child.entries() {
+                    if let Some(val) = entry.value().as_string() {
+                        packages.push(PackageEntry {
+                            name: val.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Extract packages from direct arguments
+        for entry in node.entries() {
+            if let Some(val) = entry.value().as_string() {
+                packages.push(PackageEntry {
+                    name: val.to_string(),
+                });
+            }
+        }
+
+        // Store in custom_packages HashMap
+        config.custom_packages.insert(backend_name.to_string(), packages);
+
+        Ok(())
+    }
 }
 
 impl Default for BackendParserRegistry {
@@ -485,6 +529,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         pip_packages: vec![],
         cargo_packages: vec![],
         brew_packages: vec![],
+        custom_packages: HashMap::new(),
         excludes: vec![],
         aliases: HashMap::new(),
         editor: None,

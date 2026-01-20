@@ -229,6 +229,20 @@ fn recursive_load(
             .push(canonical_path.clone());
     }
 
+    // Process custom backend packages (user-defined)
+    for (backend_name, packages) in raw.custom_packages {
+        for pkg_entry in packages {
+            let pkg_id = PackageId {
+                name: pkg_entry.name,
+                backend: Backend::Custom(backend_name.clone()),
+            };
+
+            merged.packages.entry(pkg_id)
+                .or_default()
+                .push(canonical_path.clone());
+        }
+    }
+
     merged.excludes.extend(raw.excludes);
     merged.aliases.extend(raw.aliases);
 

@@ -59,10 +59,29 @@ impl BackendRegistry {
         config: &GlobalConfig,
         noconfirm: bool,
     ) -> Result<Box<dyn PackageManager>, String> {
-        let factory = self.factories.get(backend)
-            .ok_or_else(|| format!("No factory registered for backend: {}", backend))?;
+        // First try to get factory from registry
+        if let Some(factory) = self.factories.get(backend) {
+            return factory(config, noconfirm);
+        }
 
-        factory(config, noconfirm)
+        // If not found, check if it's a Custom backend and load dynamically
+        match backend {
+            Backend::Custom(backend_name) => {
+                // Load user-defined backends and create GenericManager
+                let all_backends = crate::backends::load_all_backends()
+                    .map_err(|e| format!("Failed to load backends: {}", e))?;
+
+                let backend_config = all_backends.get(backend_name)
+                    .ok_or_else(|| format!("Custom backend '{}' not found in backends.kdl", backend_name))?;
+
+                Ok(Box::new(GenericManager::from_config(
+                    backend_config.clone(),
+                    backend.clone(),
+                    noconfirm,
+                )))
+            }
+            _ => Err(format!("No factory registered for backend: {}", backend)),
+        }
     }
 
     /// Get all registered backends
@@ -203,7 +222,8 @@ impl BackendRegistry {
                     }
                 }
                 Backend::Soar | Backend::Flatpak | Backend::Npm | Backend::Yarn
-                | Backend::Pnpm | Backend::Bun | Backend::Pip | Backend::Cargo | Backend::Brew => {
+                | Backend::Pnpm | Backend::Bun | Backend::Pip | Backend::Cargo | Backend::Brew
+                | Backend::Custom(_) => {
                     // These work on all distros
                     backends.push(backend);
                 }

@@ -412,7 +412,7 @@ fn resolve_installed_package_name(
             }
         }
         Backend::Soar | Backend::Npm | Backend::Yarn | Backend::Pnpm | Backend::Bun
-        | Backend::Pip | Backend::Cargo | Backend::Brew => {
+        | Backend::Pip | Backend::Cargo | Backend::Brew | Backend::Custom(_) => {
             // These backends require exact matching - no smart matching needed
             real_name = pkg.name.clone();
         }
