@@ -49,3 +49,7 @@ pub fn host_file(name: &str) -> Result<PathBuf> {
 pub fn module_file(name: &str) -> Result<PathBuf> {
     Ok(modules_dir()?.join(format!("{}.kdl", name)))
 }
+
+pub fn backend_config() -> Result<PathBuf> {
+    Ok(config_dir()?.join("backends.kdl"))
+}

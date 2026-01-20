@@ -1,5 +1,29 @@
 use crate::backends::config::{BackendConfig, BinarySpecifier};
+use crate::backends::user_parser;
+use crate::utils::paths;
 use std::collections::HashMap;
+
+/// Get all backend configurations (built-in + user-defined)
+///
+/// User-defined backends from ~/.config/declarch/backends.kdl
+/// can override built-in backends.
+pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig>> {
+    let mut all_backends = get_builtin_backends();
+
+    // Load user-defined backends
+    let backends_path = paths::backend_config()?;
+
+    if backends_path.exists() {
+        let user_backends = user_parser::load_user_backends(&backends_path)?;
+
+        // User backends override built-ins
+        for config in user_backends {
+            all_backends.insert(config.name.clone(), config);
+        }
+    }
+
+    Ok(all_backends)
+}
 
 /// Get built-in backend configurations
 pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
@@ -177,6 +201,17 @@ mod tests {
     fn test_get_builtin_backends() {
         let backends = get_builtin_backends();
 
+        assert!(backends.contains_key("npm"));
+        assert!(backends.contains_key("pip"));
+        assert!(backends.contains_key("cargo"));
+        assert!(backends.contains_key("brew"));
+    }
+
+    #[test]
+    fn test_load_all_backends() {
+        let backends = load_all_backends().unwrap();
+
+        // Should contain all built-in backends
         assert!(backends.contains_key("npm"));
         assert!(backends.contains_key("pip"));
         assert!(backends.contains_key("cargo"));

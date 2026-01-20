@@ -2,6 +2,7 @@ pub mod config;
 pub mod generic;
 pub mod parsers;
 pub mod registry;
+pub mod user_parser;
 
 #[cfg(test)]
 mod integration_tests;
