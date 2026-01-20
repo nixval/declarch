@@ -13,6 +13,7 @@ fn create_snapshot(packages: Vec<(&str, Backend, &str)>) -> HashMap<PackageId, P
         };
         let meta = PackageMetadata {
             version: Some(version.to_string()),
+            variant: None,
             installed_at: Utc::now(),
             source_file: None,
         };
