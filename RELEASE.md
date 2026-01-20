@@ -1,5 +1,158 @@
 # Release Notes
 
+## [0.4.1] - 2025-01-20
+
+### Major Features
+
+**🎨 User-Defined Backends - Extensible Package Manager Support**
+- Define custom package managers via KDL configuration
+- No code changes required to add new backends
+- Support for any package manager with text/JSON output
+- Configuration location: `~/.config/declarch/backends.kdl`
+
+**🔧 Multiple Output Format Parsers**
+- JSON parser with nested path support (e.g., nala, dnf5, npm)
+- TSV parser for tab-separated output (e.g., zypper, flatpak)
+- Whitespace parser for space-separated output (e.g., pacman, cargo)
+- Regex parser for complex patterns (e.g., apt)
+
+**🔍 Backend Filtering in Check Command**
+- New `--backend` flag for `declarch check`
+- Filter packages by specific backend: `declarch check --backend nala --verbose`
+- Supports both built-in and user-defined backends
+
+### Production-Ready Backend Examples
+
+**NALA (Debian/Ubuntu)** - JSON format
+```kdl
+backend "nala" {
+    binary "nala"
+    list "nala list --installed --json" {
+        format json
+        json_path "packages"
+        name_key "name"
+        version_key "version"
+    }
+    install "nala install -y {packages}"
+    remove "nala remove -y {packages}"
+    noconfirm "-y"
+    needs_sudo true
+}
+```
+
+**Zypper (openSUSE)** - TSV format
+```kdl
+backend "zypper" {
+    binary "zypper"
+    list "zypper search --installed-only --type package --details" {
+        format tsv
+        name_col 2
+        version_col 3
+    }
+    install "zypper install --no-confirm {packages}"
+    remove "zypper remove --no-confirm {packages}"
+    noconfirm "--no-confirm"
+    needs_sudo true
+}
+```
+
+**DNF5 (Fedora)** - JSON format
+```kdl
+backend "dnf5" {
+    binary ["dnf5", "dnf"]
+    list "dnf5 list installed --json" {
+        format json
+        json_path "packages"
+        name_key "name"
+        version_key "version"
+    }
+    install "dnf5 install -y {packages}"
+    remove "dnf5 remove -y {packages}"
+    noconfirm "-y"
+    needs_sudo true
+}
+```
+
+**APT (Debian/Ubuntu)** - Regex format
+```kdl
+backend "apt" {
+    binary "apt"
+    list "apt list --installed" {
+        format regex
+        regex "^([^/]+)\\s+([^\\s]+)\\s+"
+        name_group 1
+        version_group 2
+    }
+    install "apt install --yes {packages}"
+    remove "apt remove --yes {packages}"
+    noconfirm "--yes"
+    needs_sudo true
+}
+```
+
+**Pacman (Arch)** - Whitespace format
+```kdl
+backend "pacman" {
+    binary "pacman"
+    list "pacman -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    install "pacman -S --noconfirm {packages}"
+    remove "pacman -R --noconfirm {packages}"
+    noconfirm "--noconfirm"
+    needs_sudo true
+}
+```
+
+### Code Quality Improvements
+
+**✅ Clippy Compliance**
+- All 26 clippy warnings resolved
+- Passes strict CI: `cargo clippy --all-targets -- -D warnings`
+- Idiomatic Rust 2024 patterns:
+  - Let-chains for nested conditionals
+  - Struct initialization instead of default+assign
+  - `or_default()` instead of `or_insert_with(Vec::new)`
+  - `.values()` instead of `for (_key, val)`
+  - `is_some()` instead of `!is_none()`
+
+**✅ Test Coverage**
+- 141 tests passing (including new backend parser tests)
+- Integration tests for JSON, TSV, and whitespace parsers
+- All edge cases covered
+
+### Backend System Enhancements
+
+- **Custom Backend Support**: New `Backend::Custom(String)` variant
+- **Dynamic Backend Loading**: Load from `~/.config/declarch/backends.kdl`
+- **Fallback Binaries**: Support multiple binary alternatives (e.g., `["dnf5", "dnf"]`)
+- **Environment Variables**: Set per-backend environment variables
+- **Flexible Parsing**: 4 output formats with extensible configuration
+
+### Documentation
+
+- **User-Defined Backends Guide**: Comprehensive documentation with tested examples
+- **Troubleshooting Section**: Common issues and solutions
+- **Best Practices**: Testing checklist and validation guide
+- **Advanced Template**: For creating custom backends
+
+### Breaking Changes
+
+None. This is a feature release that maintains backward compatibility.
+
+### Migration from 0.4.0
+
+No migration needed. User-defined backends are opt-in via KDL configuration.
+
+### Contributors
+
+- Code by: Claude Sonnet 4.5
+- Directed by: nixval
+
+---
+
 ## [0.4.0] - 2025-01-13
 
 ### Major Features

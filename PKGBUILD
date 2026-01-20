@@ -1,9 +1,9 @@
 # Maintainer: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch
-pkgver=0.4.0
+pkgver=0.4.1
 pkgrel=1
-pkgdesc="A declarative package manager for Linux (supports AUR, Flatpak, Soar)"
+pkgdesc="A declarative package manager for Linux with user-defined backend support"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')
@@ -15,7 +15,8 @@ optdepends=(
 )
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('a9bfc9c3d8e8184a11b1e61ee6fee3d6a5e631a783206db021c13993ccf19882')
+# sha256sums generated after release: makepkg -g
+sha256sums=('SKIP')  # Update after creating release tarball
 
 prepare() {
   cd "$pkgname-$pkgver"

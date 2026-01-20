@@ -1,6 +1,6 @@
 [package]
 name = "declarch"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 description = "A declarative package manager for Linux, inspired by Nix workflow"
 license = "MIT"
