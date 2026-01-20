@@ -43,6 +43,28 @@ impl MergedConfig {
             .filter(|(_, sources)| sources.len() > 1)
             .collect()
     }
+
+    /// Find packages with the same name across different backends
+    /// Returns: Vec of (package_name, Vec of backends)
+    pub fn get_cross_backend_conflicts(&self) -> Vec<(String, Vec<Backend>)> {
+        use std::collections::HashMap;
+
+        let mut name_to_backends: HashMap<String, Vec<Backend>> = HashMap::new();
+
+        // Group packages by name
+        for pkg_id in self.packages.keys() {
+            name_to_backends
+                .entry(pkg_id.name.clone())
+                .or_insert_with(Vec::new)
+                .push(pkg_id.backend.clone());
+        }
+
+        // Filter to only names with multiple backends
+        name_to_backends
+            .into_iter()
+            .filter(|(_, backends)| backends.len() > 1)
+            .collect()
+    }
 }
 
 pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
@@ -116,6 +138,90 @@ fn recursive_load(
         let pkg_id = PackageId {
             name: pkg_entry.name,
             backend: Backend::Flatpak,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process npm packages (Node.js)
+    for pkg_entry in raw.npm_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Npm,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Yarn packages
+    for pkg_entry in raw.yarn_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Yarn,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process pnpm packages
+    for pkg_entry in raw.pnpm_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Pnpm,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Bun packages
+    for pkg_entry in raw.bun_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Bun,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process pip packages (Python)
+    for pkg_entry in raw.pip_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Pip,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Cargo packages (Rust)
+    for pkg_entry in raw.cargo_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Cargo,
+        };
+
+        merged.packages.entry(pkg_id)
+            .or_default()
+            .push(canonical_path.clone());
+    }
+
+    // Process Homebrew packages
+    for pkg_entry in raw.brew_packages {
+        let pkg_id = PackageId {
+            name: pkg_entry.name,
+            backend: Backend::Brew,
         };
 
         merged.packages.entry(pkg_id)

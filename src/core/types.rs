@@ -21,7 +21,14 @@ pub enum Backend {
     Aur,      // Handles Pacman & AUR (Arch Linux)
     Flatpak,  // Flatpak (Cross-distro)
     Soar,     // Soar (Cross-distro static binaries)
-    // Future: Snap, Cargo, Nix, Nala, etc.
+    Npm,      // npm (Node.js global packages)
+    Yarn,     // Yarn global packages
+    Pnpm,     // pnpm global packages
+    Bun,      // Bun global packages
+    Pip,      // pip (Python packages)
+    Cargo,    // Cargo (Rust packages)
+    Brew,     // Homebrew (macOS/Linux)
+    // Future: Snap, Nix, Nala, AppImage, etc.
 }
 
 impl fmt::Display for Backend {
@@ -30,6 +37,13 @@ impl fmt::Display for Backend {
             Self::Aur => write!(f, "aur"),
             Self::Flatpak => write!(f, "flatpak"),
             Self::Soar => write!(f, "soar"),
+            Self::Npm => write!(f, "npm"),
+            Self::Yarn => write!(f, "yarn"),
+            Self::Pnpm => write!(f, "pnpm"),
+            Self::Bun => write!(f, "bun"),
+            Self::Pip => write!(f, "pip"),
+            Self::Cargo => write!(f, "cargo"),
+            Self::Brew => write!(f, "brew"),
         }
     }
 }
@@ -39,39 +53,50 @@ impl fmt::Display for PackageId {
             Backend::Aur => write!(f, "{}", self.name),
             Backend::Flatpak => write!(f, "flatpak:{}", self.name),
             Backend::Soar => write!(f, "{}", self.name), // Soar packages displayed without prefix
+            Backend::Npm => write!(f, "npm:{}", self.name),
+            Backend::Yarn => write!(f, "yarn:{}", self.name),
+            Backend::Pnpm => write!(f, "pnpm:{}", self.name),
+            Backend::Bun => write!(f, "bun:{}", self.name),
+            Backend::Pip => write!(f, "pip:{}", self.name),
+            Backend::Cargo => write!(f, "cargo:{}", self.name),
+            Backend::Brew => write!(f, "brew:{}", self.name),
         }
     }
 }
 // Parsing logic centralized here.
-// Handles "flatpak:name" vs "soar:name" vs "name"
+// Handles "flatpak:name" vs "npm:name" vs "name"
 impl FromStr for PackageId {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some(name) = s.strip_prefix("flatpak:") {
-            Ok(PackageId {
-                name: name.to_string(),
-                backend: Backend::Flatpak,
-            })
-        } else if let Some(name) = s.strip_prefix("soar:") {
-            // Explicit 'soar:' prefix support
-            Ok(PackageId {
-                name: name.to_string(),
-                backend: Backend::Soar,
-            })
-        } else if let Some(name) = s.strip_prefix("aur:") {
-            // Explicit 'aur:' prefix support (optional but explicit)
-            Ok(PackageId {
-                name: name.to_string(),
-                backend: Backend::Aur,
-            })
-        } else {
-            // Default to AUR/Native if no prefix provided
-            Ok(PackageId {
-                name: s.to_string(),
-                backend: Backend::Aur,
-            })
+        // Check for backend prefixes
+        let prefixes = [
+            ("flatpak:", Backend::Flatpak),
+            ("soar:", Backend::Soar),
+            ("npm:", Backend::Npm),
+            ("yarn:", Backend::Yarn),
+            ("pnpm:", Backend::Pnpm),
+            ("bun:", Backend::Bun),
+            ("pip:", Backend::Pip),
+            ("cargo:", Backend::Cargo),
+            ("brew:", Backend::Brew),
+            ("aur:", Backend::Aur),
+        ];
+
+        for (prefix, backend) in prefixes {
+            if let Some(name) = s.strip_prefix(prefix) {
+                return Ok(PackageId {
+                    name: name.to_string(),
+                    backend,
+                });
+            }
         }
+
+        // Default to AUR/Native if no prefix provided
+        Ok(PackageId {
+            name: s.to_string(),
+            backend: Backend::Aur,
+        })
     }
 }
 
@@ -80,6 +105,7 @@ impl FromStr for PackageId {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageMetadata {
     pub version: Option<String>,
+    pub variant: Option<String>, // Package variant (e.g., "git", "bin", or full Soar variant)
     pub installed_at: DateTime<Utc>,
     pub source_file: Option<String>, // Tracks which .kdl file defined this
 }

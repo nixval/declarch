@@ -6,6 +6,30 @@ use std::process::{Command, Stdio};
 use std::path::Path;
 use chrono::Utc;
 
+/// Strip ANSI escape codes from a string
+fn strip_ansi_codes(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars();
+
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            // Start of ANSI escape sequence
+            if chars.next() == Some('[') {
+                // Skip until we hit the terminating character
+                while let Some(next) = chars.next() {
+                    if next.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
 pub struct SoarManager {
     pub noconfirm: bool,
     pub config_dir: Option<String>,
@@ -101,18 +125,53 @@ impl PackageManager for SoarManager {
         let mut installed = HashMap::new();
 
         // Parse soar list output
-        // Expected format: "package-name version"
+        // Format with ANSI codes: "[○] package#variant:cache | version | type"
+        // Format stripped: "[○] gimp#github.com.pkgforge-dev.GIMP-AppImage:pkgcache | 3.0.2-3 | static"
         for line in stdout.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if let Some(name) = parts.first() {
-                let version = parts.get(1).map(|&v| v.to_string());
+            // Strip ANSI escape codes
+            let clean_line = strip_ansi_codes(line);
 
-                installed.insert(name.to_string(), PackageMetadata {
-                    version,
-                    installed_at: Utc::now(),
-                    source_file: None,
-                });
+            // Skip empty lines
+            if clean_line.trim().is_empty() {
+                continue;
             }
+
+            // Parse format: [○] name#variant:cache | version | type
+            // Extract columns by splitting " | "
+            let columns: Vec<&str> = clean_line.split(" | ").collect();
+            if columns.len() < 2 {
+                continue;
+            }
+
+            // First column: "[○] package#variant:cache"
+            let first_col = columns[0].trim();
+
+            // Remove status indicator "[○] " prefix
+            let package_info = first_col.strip_prefix("[○] ")
+                .or_else(|| first_col.strip_prefix("[●] "))  // installed indicator
+                .or_else(|| first_col.strip_prefix("[×] "))  // error indicator
+                .unwrap_or(first_col);
+
+            // Split package#variant:cache
+            // Example: "gimp#github.com.pkgforge-dev.GIMP-AppImage:pkgcache"
+            let (base_name, variant) = if let Some(hash_pos) = package_info.find('#') {
+                let base = &package_info[..hash_pos];
+                let full_variant = &package_info[hash_pos + 1..];
+                (base.to_string(), Some(full_variant.to_string()))
+            } else {
+                // No variant, use whole name as base
+                (package_info.to_string(), None)
+            };
+
+            // Second column: version
+            let version = Some(columns[1].trim().to_string());
+
+            installed.insert(base_name, PackageMetadata {
+                version,
+                variant,
+                installed_at: Utc::now(),
+                source_file: None,
+            });
         }
 
         Ok(installed)
@@ -124,14 +183,13 @@ impl PackageManager for SoarManager {
         }
 
         let mut cmd = self.build_command();
-        cmd.arg("apply");
+        cmd.arg("install");  // Fixed: was "apply", should be "install"
 
         if self.noconfirm {
-            cmd.arg("--yes");
+            cmd.arg("-y");  // Soar uses -y for yes, not --yes
         }
 
         // Pass packages as arguments
-        // Soar apply accepts package names
         let status = cmd
             .args(packages)
             .stdin(Stdio::inherit())
@@ -139,7 +197,7 @@ impl PackageManager for SoarManager {
             .stderr(Stdio::inherit())
             .status()
             .map_err(|e| DeclarchError::SystemCommandFailed {
-                command: "soar apply".into(),
+                command: "soar install".into(),
                 reason: e.to_string(),
             })?;
 

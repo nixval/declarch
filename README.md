@@ -23,19 +23,40 @@ Linux package management is often **imperative**. You run `pacman -S git`, `apt 
 ```kdl
 // ~/.config/declarch/declarch.kdl
 
+// AUR packages (Arch Linux)
 packages:aur {
     hyprland
     waybar
 }
 
+// Static binaries (Soar)
 packages {
     bat
     exa
     ripgrep
 }
 
+// Flatpak applications
 packages:flatpak {
     com.spotify.Client
+}
+
+// Node.js global packages
+packages:npm {
+    typescript
+    prettier
+}
+
+// Python packages
+packages:pip {
+    ruff
+    black
+}
+
+// Rust crates
+packages:cargo {
+    ripgrep
+    fd-find
 }
 ```
 
@@ -61,7 +82,8 @@ Share your config across different Linux distributions.
   * **Declarative Config:** Uses the clean, readable **KDL** syntax.
   * **Dual Command:** Use `declarch` or shorter `dc` alias.
   * **Remote Init:** Fetch configs from GitHub/GitLab repositories.
-  * **Multi-Backend:** Supports **AUR**, **Flatpak**, and **Soar** (static binaries).
+  * **Universal Backend:** Supports **AUR**, **Flatpak**, **Soar**, **npm**, **pip**, **cargo**, **brew**, **yarn**, **pnpm**, **bun**.
+  * **Generic System:** Easy to add new package managers via configuration.
   * **Flexible Syntax:** Write packages your way — simple, nested, or mixed.
   * **Modular:** Import and organize configs into reusable modules.
   * **Smart Sync:** Auto-installs missing packages, adopts existing ones.
@@ -514,6 +536,9 @@ We chose [KDL](https://kdl.dev/) because it's designed for configuration, not da
 - [KDL Syntax Reference](https://github.com/nixval/declarch/wiki/KDL-Syntax-Reference) - Complete syntax
 - [Remote Init Guide](https://github.com/nixval/declarch/wiki/Remote-Init-Guide) - Fetch from GitHub/GitLab
 - [Examples](https://github.com/nixval/declarch/wiki/Examples) - Real-world configs
+- [Backend System](docs/Backend-System.md) - Generic backend architecture
+- [Testing Guide](TESTING.md) - Test the new backend system
+- [Quick Test](QUICK-TEST.md) - Ready-to-use test configs
 
 -----
 
@@ -534,4 +559,50 @@ Pull requests are welcome! This project is written in **Rust**.
 **MIT**
 
 -----
+
+
+---
+
+## ⚠️ Package Name Conflicts
+
+Declarch tracks packages separately for each backend, which means you can have the same package name installed from different backends:
+
+```kdl
+packages {
+    claude-cli       // AUR (default)
+    npm:claude-cli   // npm
+    bun:claude-cli   // Bun
+}
+```
+
+**This works**, but be aware:
+- Each backend installs to different locations
+- AUR → `/usr/bin/claude-cli`
+- npm → `~/.npm-global/bin/claude-cli`
+- bun → `~/.local/bin/claude-cli`
+- **Your PATH ordering determines which one runs!**
+
+### Checking for Conflicts
+
+Use `--conflicts` flag to detect potential conflicts:
+
+```bash
+declarch check --conflicts
+```
+
+Example output:
+```
+⚠ Found 1 package name conflicts across backends:
+
+These packages have the same name but different backends:
+They will be installed separately by each backend.
+Watch out for PATH conflicts!
+
+  ⚠️  claude-cli
+     └─ npm
+     └─ bun
+     └─ aur
+```
+
+Use `declarch info` to see which backends have installed which packages.
 

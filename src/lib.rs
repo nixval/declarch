@@ -1,3 +1,4 @@
+pub mod backends;
 pub mod cli;
 pub mod commands;
 pub mod config;

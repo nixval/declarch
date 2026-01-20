@@ -63,7 +63,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 2. Load Config
     let config_path = paths::config_file()?;
-    let config = loader::load_root_config(&config_path)?;
+    let mut config = loader::load_root_config(&config_path)?;
 
     // Execute pre-sync hooks
     execute_pre_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
@@ -154,7 +154,38 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 5. Load State & Resolve
     let mut state = state::io::load_state()?;
+
+    // Filter packages to only include available backends
+    let available_backends: std::collections::HashSet<Backend> = managers.keys().cloned().collect();
+    let total_packages = config.packages.len();
+
+    // Create filtered packages map
+    let filtered_packages: std::collections::HashMap<_, _> = config.packages.iter()
+        .filter(|(pkg_id, _)| available_backends.contains(&pkg_id.backend))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+
+    // Warn about packages from unavailable backends
+    let skipped_count = total_packages - filtered_packages.len();
+    if skipped_count > 0 {
+        output::warning(&format!("Skipping {} package(s) from unavailable backends.", skipped_count));
+
+        // Show which packages were skipped
+        for (pkg_id, _) in config.packages.iter() {
+            if !available_backends.contains(&pkg_id.backend) {
+                output::info(&format!("  Skipping {} (backend '{}' not available)",
+                    pkg_id.name, pkg_id.backend));
+            }
+        }
+    }
+
+    // Temporarily replace packages in config with filtered version for resolver
+    let original_packages = std::mem::replace(&mut config.packages, filtered_packages);
+
     let tx = resolver::resolve(&config, &state, &installed_snapshot, &sync_target)?;
+
+    // Restore original packages after resolve
+    config.packages = original_packages;
 
     // --- VARIANT TRANSITION DETECTION ---
     // Check for variant mismatches and error early (strict approach)
@@ -163,7 +194,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // Only check for variant transitions in full sync or when targeting specific backends
     if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
-        for pkg_id in config.packages.keys() {
+        // Re-filter packages for variant checking (since we restored original packages)
+        let available_backends: std::collections::HashSet<Backend> = managers.keys().cloned().collect();
+        for pkg_id in config.packages.keys().filter(|pkg_id| available_backends.contains(&pkg_id.backend)) {
             // Skip if this package is already in transaction to install
             if tx.to_install.iter().any(|p| p.name == pkg_id.name) {
                 continue;
@@ -378,8 +411,9 @@ fn resolve_installed_package_name(
                     }
             }
         }
-        Backend::Soar => {
-            // Soar requires exact matching - no smart matching needed
+        Backend::Soar | Backend::Npm | Backend::Yarn | Backend::Pnpm | Backend::Bun
+        | Backend::Pip | Backend::Cargo | Backend::Brew => {
+            // These backends require exact matching - no smart matching needed
             real_name = pkg.name.clone();
         }
     }

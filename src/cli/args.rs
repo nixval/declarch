@@ -116,10 +116,14 @@ pub enum Command {
         /// Verbose output (list resolved packages)
         #[arg(long)]
         verbose: bool,
-        
+
         /// Check for duplicate package declarations
         #[arg(long)]
         duplicates: bool,
+
+        /// Check for cross-backend package name conflicts
+        #[arg(long)]
+        conflicts: bool,
     },
 
     /// Show system status and managed packages
@@ -135,7 +139,7 @@ pub enum Command {
         #[arg(value_name = "NEW_PACKAGE")]
         new_package: String,
 
-        /// Backend (aur or flatpak)
+        /// Backend (aur, flatpak, or soar)
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 

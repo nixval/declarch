@@ -170,6 +170,7 @@ mod tests {
             let id = PackageId { name: name.to_string(), backend };
             map.insert(id, PackageMetadata {
                 version: Some(version.to_string()),
+                variant: None,
                 installed_at: Utc::now(),
                 source_file: None,
             });
