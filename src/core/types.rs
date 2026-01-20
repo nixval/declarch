@@ -28,7 +28,7 @@ pub enum Backend {
     Pip,      // pip (Python packages)
     Cargo,    // Cargo (Rust packages)
     Brew,     // Homebrew (macOS/Linux)
-    // Future: Snap, Nix, Nala, AppImage, etc.
+    Custom(String),  // User-defined backends (nala, zypper, dnf5, etc.)
 }
 
 impl fmt::Display for Backend {
@@ -44,12 +44,13 @@ impl fmt::Display for Backend {
             Self::Pip => write!(f, "pip"),
             Self::Cargo => write!(f, "cargo"),
             Self::Brew => write!(f, "brew"),
+            Self::Custom(name) => write!(f, "{}", name),
         }
     }
 }
 impl fmt::Display for PackageId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.backend {
+        match &self.backend {
             Backend::Aur => write!(f, "{}", self.name),
             Backend::Flatpak => write!(f, "flatpak:{}", self.name),
             Backend::Soar => write!(f, "{}", self.name), // Soar packages displayed without prefix
@@ -60,11 +61,12 @@ impl fmt::Display for PackageId {
             Backend::Pip => write!(f, "pip:{}", self.name),
             Backend::Cargo => write!(f, "cargo:{}", self.name),
             Backend::Brew => write!(f, "brew:{}", self.name),
+            Backend::Custom(name) => write!(f, "{}:{}", name, self.name),
         }
     }
 }
 // Parsing logic centralized here.
-// Handles "flatpak:name" vs "npm:name" vs "name"
+// Handles "flatpak:name" vs "npm:name" vs "custom-backend:name" vs "name"
 impl FromStr for PackageId {
     type Err = String;
 
@@ -88,6 +90,22 @@ impl FromStr for PackageId {
                 return Ok(PackageId {
                     name: name.to_string(),
                     backend,
+                });
+            }
+        }
+
+        // Check for custom backend format "backend-name:package"
+        // This handles any unknown backend prefix (e.g., "nala:vim", "zypper:firefox")
+        if let Some(colon_pos) = s.find(':') {
+            let backend_name = &s[..colon_pos];
+            let package_name = &s[colon_pos + 1..];
+
+            // Only treat as custom backend if it looks like a valid backend name
+            // (alphanumeric, hyphens, underscores)
+            if backend_name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                return Ok(PackageId {
+                    name: package_name.to_string(),
+                    backend: Backend::Custom(backend_name.to_string()),
                 });
             }
         }

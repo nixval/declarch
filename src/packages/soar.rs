@@ -16,7 +16,7 @@ fn strip_ansi_codes(input: &str) -> String {
             // Start of ANSI escape sequence
             if chars.next() == Some('[') {
                 // Skip until we hit the terminating character
-                while let Some(next) = chars.next() {
+                for next in chars.by_ref() {
                     if next.is_ascii_alphabetic() {
                         break;
                     }
@@ -271,9 +271,9 @@ mod tests {
         let config_dir = SoarManager::get_config_dir();
         // We can't test the exact value since it depends on the system,
         // but we can verify it returns a valid format or None
-        match config_dir {
-            Some(dir) => assert!(dir.contains("soar") || dir.contains(".config")),
-            None => {}, // Valid if config dir doesn't exist
+        if let Some(dir) = config_dir {
+            assert!(dir.contains("soar") || dir.contains(".config"))
         }
+        // Valid if config dir doesn't exist
     }
 }

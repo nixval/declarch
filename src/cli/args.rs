@@ -124,6 +124,10 @@ pub enum Command {
         /// Check for cross-backend package name conflicts
         #[arg(long)]
         conflicts: bool,
+
+        /// Validate specific backend only (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
     },
 
     /// Show system status and managed packages

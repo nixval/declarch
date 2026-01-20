@@ -55,7 +55,7 @@ impl PackageMatcher {
             Backend::Aur => self.find_aur_package(target, installed_snapshot),
             Backend::Flatpak => self.find_flatpak_package(target, installed_snapshot),
             Backend::Soar | Backend::Npm | Backend::Yarn | Backend::Pnpm | Backend::Bun
-            | Backend::Pip | Backend::Cargo | Backend::Brew => {
+            | Backend::Pip | Backend::Cargo | Backend::Brew | Backend::Custom(_) => {
                 // These backends require exact matching (no variants)
                 None
             }
@@ -144,7 +144,7 @@ impl PackageMatcher {
                 name1.contains(&name2) || name2.contains(&name1)
             }
             Backend::Soar | Backend::Npm | Backend::Yarn | Backend::Pnpm | Backend::Bun
-            | Backend::Pip | Backend::Cargo | Backend::Brew => {
+            | Backend::Pip | Backend::Cargo | Backend::Brew | Backend::Custom(_) => {
                 // These backends require exact matching
                 false
             }

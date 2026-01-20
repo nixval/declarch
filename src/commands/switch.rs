@@ -92,11 +92,11 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             output::warning("Removing or replacing this package may break these dependencies.");
             output::indent("Ensure the new package provides the same functionality.", 1);
 
-            if !options.yes && !options.force {
-                if !output::prompt_yes_no("Continue despite dependency warnings?") {
-                    output::warning("Transition cancelled by user");
-                    return Ok(());
-                }
+            if !options.yes && !options.force
+                && !output::prompt_yes_no("Continue despite dependency warnings?")
+            {
+                output::warning("Transition cancelled by user");
+                return Ok(());
             }
         }
         Ok(_) => {

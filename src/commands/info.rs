@@ -37,7 +37,7 @@ pub fn run() -> Result<()> {
             // Extract pure name for display
             let name = key.split_once(':').map(|(_,n)| n).unwrap_or(key);
 
-            match pkg_state.backend {
+            match &pkg_state.backend {
                 crate::state::types::Backend::Aur => {
                     // Requested: Remove 'aur' prefix/tag for native packages
                     println!("  {} {}",
@@ -104,6 +104,13 @@ pub fn run() -> Result<()> {
                 crate::state::types::Backend::Brew => {
                     println!("  {} {} {}",
                         "brew".purple(),
+                        "→".dimmed(),
+                        name
+                    );
+                },
+                crate::state::types::Backend::Custom(backend_name) => {
+                    println!("  {} {} {}",
+                        backend_name.white().dimmed(),
                         "→".dimmed(),
                         name
                     );

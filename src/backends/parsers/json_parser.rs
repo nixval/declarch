@@ -39,19 +39,19 @@ pub fn parse_json(
             Value::Array(arr) => {
                 // Array format: [{"name": "pkg", "version": "1.0"}, ...]
                 for pkg in arr.iter() {
-                    if let Some(obj) = pkg.as_object() {
-                        if let Some(Value::String(name)) = obj.get(name_key) {
-                            let version = obj.get(version_key)
-                                .and_then(|v: &Value| v.as_str())
-                                .map(|v| v.to_string());
+                    if let Some(obj) = pkg.as_object()
+                        && let Some(Value::String(name)) = obj.get(name_key)
+                    {
+                        let version = obj.get(version_key)
+                            .and_then(|v: &Value| v.as_str())
+                            .map(|v| v.to_string());
 
-                            installed.insert(name.to_string(), PackageMetadata {
-                                version,
-                                variant: None,
-                                installed_at: Utc::now(),
-                                source_file: None,
-                            });
-                        }
+                        installed.insert(name.to_string(), PackageMetadata {
+                            version,
+                            variant: None,
+                            installed_at: Utc::now(),
+                            source_file: None,
+                        });
                     }
                 }
             },
