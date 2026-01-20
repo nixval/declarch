@@ -103,11 +103,11 @@ impl PackageManager for GenericManager {
         let mut cmd_str = cmd_template.replace("{packages}", &package_list);
 
         // Append noconfirm flag if configured and enabled
-        if self.noconfirm {
-            if let Some(flag) = &self.config.noconfirm_flag {
-                cmd_str.push(' ');
-                cmd_str.push_str(flag);
-            }
+        if self.noconfirm
+            && let Some(flag) = &self.config.noconfirm_flag
+        {
+            cmd_str.push(' ');
+            cmd_str.push_str(flag);
         }
 
         let mut cmd = self.build_command(&cmd_str)?;
@@ -149,11 +149,11 @@ impl PackageManager for GenericManager {
         let mut cmd_str = cmd_template.replace("{packages}", &package_list);
 
         // Append noconfirm flag if configured and enabled
-        if self.noconfirm {
-            if let Some(flag) = &self.config.noconfirm_flag {
-                cmd_str.push(' ');
-                cmd_str.push_str(flag);
-            }
+        if self.noconfirm
+            && let Some(flag) = &self.config.noconfirm_flag
+        {
+            cmd_str.push(' ');
+            cmd_str.push_str(flag);
         }
 
         let mut cmd = self.build_command(&cmd_str)?;

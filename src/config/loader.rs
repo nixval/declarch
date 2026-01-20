@@ -55,7 +55,7 @@ impl MergedConfig {
         for pkg_id in self.packages.keys() {
             name_to_backends
                 .entry(pkg_id.name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(pkg_id.backend.clone());
         }
 
@@ -249,8 +249,8 @@ fn recursive_load(
     // === NEW: Merge additional config fields ===
 
     // Meta: Only keep the first one (usually from root config)
-    if merged.meta.is_none() && !raw.meta.description.is_none()
-        && !raw.meta.author.is_none() && !raw.meta.version.is_none() {
+    if merged.meta.is_none() && raw.meta.description.is_some()
+        && raw.meta.author.is_some() && raw.meta.version.is_some() {
         merged.meta = Some(raw.meta);
     }
 
@@ -260,21 +260,21 @@ fn recursive_load(
     // Backend options: Merge (later configs override earlier ones)
     for (backend, opts) in raw.backend_options {
         merged.backend_options.entry(backend)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .extend(opts);
     }
 
     // Environment variables: Merge (later configs extend earlier ones)
     for (scope, vars) in raw.env {
         merged.env.entry(scope)
-            .or_insert_with(Vec::new)
+            .or_default()
             .extend(vars);
     }
 
     // Repositories: Merge (later configs extend earlier ones)
     for (backend, repos) in raw.repositories {
         merged.repositories.entry(backend)
-            .or_insert_with(Vec::new)
+            .or_default()
             .extend(repos);
     }
 

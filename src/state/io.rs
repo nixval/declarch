@@ -35,7 +35,7 @@ fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
     // Track package signatures we've seen to detect duplicates
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-    for (_key, pkg_state) in &state.packages {
+    for pkg_state in state.packages.values() {
         // Build the canonical key using current format
         let canonical_id = crate::core::types::PackageId {
             name: pkg_state.config_name.clone(),

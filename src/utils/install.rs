@@ -123,10 +123,7 @@ mod tests {
         let result = try_install_with_curl();
         // We expect this to fail in most test environments
         // unless Soar and curl are actually available
-        match result {
-            Ok(_) => {},
-            Err(_) => {}, // Expected
-        }
+        let _ = result;
     }
 
     #[test]
@@ -134,9 +131,6 @@ mod tests {
         // Verify wget check doesn't panic
         let result = try_install_with_wget();
         // We expect this to fail in most test environments
-        match result {
-            Ok(_) => {},
-            Err(_) => {}, // Expected
-        }
+        let _ = result;
     }
 }

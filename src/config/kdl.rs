@@ -766,10 +766,10 @@ fn parse_backend_options(node: &KdlNode, options: &mut HashMap<String, HashMap<S
 
     // Extract from string arguments (key=value format)
     for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            if let Some((key, v)) = val.split_once('=') {
-                opts.insert(key.to_string(), v.to_string());
-            }
+        if let Some(val) = entry.value().as_string()
+            && let Some((key, v)) = val.split_once('=')
+        {
+            opts.insert(key.to_string(), v.to_string());
         }
     }
 
@@ -954,10 +954,10 @@ fn parse_hook_entries(node: &KdlNode, entries: &mut Vec<HookEntry>) -> Result<()
 
 /// Get first string value from a KDL node
 fn get_first_string(node: &KdlNode) -> Option<String> {
-    if let Some(entry) = node.entries().first() {
-        if let Some(val) = entry.value().as_string() {
-            return Some(val.to_string());
-        }
+    if let Some(entry) = node.entries().first()
+        && let Some(val) = entry.value().as_string()
+    {
+        return Some(val.to_string());
     }
     None
 }

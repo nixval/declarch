@@ -43,8 +43,10 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
         ))?
         .to_string();
 
-    let mut config = BackendConfig::default();
-    config.name = name.clone();
+    let mut config = BackendConfig {
+        name: name.clone(),
+        ..Default::default()
+    };
 
     // Parse children
     if let Some(children) = node.children() {
@@ -79,10 +81,10 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     let mut values = Vec::new();
     for entry in node.entries() {
         // Only use positional arguments (entries without a name)
-        if entry.name().is_none() {
-            if let Some(val) = entry.value().as_string() {
-                values.push(val.to_string());
-            }
+        if entry.name().is_none()
+            && let Some(val) = entry.value().as_string()
+        {
+            values.push(val.to_string());
         }
     }
 
@@ -476,10 +478,12 @@ mod tests {
 
     #[test]
     fn test_validate_missing_list_cmd() {
-        let mut config = BackendConfig::default();
-        config.name = "test".to_string();
-        config.install_cmd = "test install".to_string();
-        config.remove_cmd = "test remove".to_string();
+        let config = BackendConfig {
+            name: "test".to_string(),
+            install_cmd: "test install".to_string(),
+            remove_cmd: "test remove".to_string(),
+            ..Default::default()
+        };
         // list_cmd is empty
 
         let result = validate_backend_config(&config);
@@ -488,12 +492,14 @@ mod tests {
 
     #[test]
     fn test_validate_json_missing_name_key() {
-        let mut config = BackendConfig::default();
-        config.name = "test".to_string();
-        config.list_cmd = "test list".to_string();
-        config.list_format = OutputFormat::Json;
-        config.install_cmd = "test install".to_string();
-        config.remove_cmd = "test remove".to_string();
+        let config = BackendConfig {
+            name: "test".to_string(),
+            list_cmd: "test list".to_string(),
+            list_format: OutputFormat::Json,
+            install_cmd: "test install".to_string(),
+            remove_cmd: "test remove".to_string(),
+            ..Default::default()
+        };
         // Missing name_key
 
         let result = validate_backend_config(&config);
@@ -502,12 +508,14 @@ mod tests {
 
     #[test]
     fn test_validate_regex_missing_regex() {
-        let mut config = BackendConfig::default();
-        config.name = "test".to_string();
-        config.list_cmd = "test list".to_string();
-        config.list_format = OutputFormat::Regex;
-        config.install_cmd = "test install".to_string();
-        config.remove_cmd = "test remove".to_string();
+        let config = BackendConfig {
+            name: "test".to_string(),
+            list_cmd: "test list".to_string(),
+            list_format: OutputFormat::Regex,
+            install_cmd: "test install".to_string(),
+            remove_cmd: "test remove".to_string(),
+            ..Default::default()
+        };
         // Missing regex
 
         let result = validate_backend_config(&config);

@@ -41,7 +41,7 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
         let backend = parse_backend(backend_str)?;
         let filtered_count = config.packages
             .iter()
-            .filter(|(pkg_id, _)| &pkg_id.backend == &backend)
+            .filter(|(pkg_id, _)| pkg_id.backend == backend)
             .count();
 
         if filtered_count == 0 {
@@ -65,7 +65,7 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
             let backend = parse_backend(backend_str)?;
             config.packages
                 .iter()
-                .filter(|(pkg_id, _)| &pkg_id.backend == &backend)
+                .filter(|(pkg_id, _)| pkg_id.backend == backend)
                 .map(|(pkg_id, _)| pkg_id)
                 .collect()
         } else {
