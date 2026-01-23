@@ -594,7 +594,7 @@ description {
 }
 
 // --- Soar Packages (Cross-Distro) ---
-packages {
+packages:soar {
     // CLI tools (work everywhere)
     bat
     exa
