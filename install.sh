@@ -1,6 +1,6 @@
 #!/bin/bash
 # declarch Installation Script
-# Automatically installs declarch and Soar package manager
+# Installs declarch package manager
 
 set -e
 
@@ -46,41 +46,18 @@ fi
 
 echo -e "${GREEN}✅ declarch installed successfully${NC}"
 
-# Check if Soar is already installed
-if command -v soar &> /dev/null; then
-    echo -e "${GREEN}✅ Soar already installed${NC}"
-    SOAR_VERSION=$(soar --version 2>/dev/null || echo "unknown")
-    echo -e "   Version: ${SOAR_VERSION}"
-else
-    echo -e "${BLUE}📦 Installing Soar (cross-distro package manager)...${NC}"
-
-    # Try curl first, then wget
-    if command -v curl &> /dev/null; then
-        curl -fsSL "https://raw.githubusercontent.com/pkgforge/soar/main/install.sh" | sh
-    elif command -v wget &> /dev/null; then
-        wget -qO- "https://raw.githubusercontent.com/pkgforge/soar/main/install.sh" | sh
-    else
-        echo -e "${RED}Error: Neither curl nor wget found${NC}"
-        echo -e "${YELLOW}Please install Soar manually:${NC}"
-        echo "   https://github.com/pkgforge/soar#installation"
-        exit 1
-    fi
-
-    # Verify Soar installation
-    if command -v soar &> /dev/null; then
-        echo -e "${GREEN}✅ Soar installed successfully${NC}"
-        SOAR_VERSION=$(soar --version 2>/dev/null || echo "unknown")
-        echo -e "   Version: ${SOAR_VERSION}"
-    else
-        echo -e "${RED}❌ Soar installation failed${NC}"
-        echo -e "${YELLOW}Please install Soar manually:${NC}"
-        echo "   https://github.com/pkgforge/soar#installation"
-        exit 1
-    fi
-fi
-
 echo ""
-echo -e "${BLUE}🔍 Checking for additional package managers...${NC}"
+echo -e "${BLUE}🔍 Optional Dependencies:${NC}"
+echo ""
+
+# Check for Soar
+if command -v soar &> /dev/null; then
+    echo -e "  ${GREEN}✅${NC} Soar found ${GREEN}(cross-distro packages enabled)${NC}"
+else
+    echo -e "  ${YELLOW}○ Soar not found${NC}"
+    echo -e "     ${YELLOW}Install for cross-distro static packages:${NC}"
+    echo "     https://github.com/pkgforge/soar#installation"
+fi
 
 # Check for AUR helpers (Arch Linux)
 if command -v paru &> /dev/null; then
@@ -88,8 +65,8 @@ if command -v paru &> /dev/null; then
 elif command -v yay &> /dev/null; then
     echo -e "  ${GREEN}✅${NC} yay found ${GREEN}(AUR support enabled)${NC}"
 elif [ -f /etc/arch-release ]; then
-    echo -e "  ${YELLOW}⚠️  No AUR helper found${NC}"
-    echo -e "     ${YELLOW}Install paru or yay for AUR support:${NC}"
+    echo -e "  ${YELLOW}○ No AUR helper found${NC}"
+    echo -e "     ${YELLOW}Install for AUR support:${NC}"
     echo "     paru: https://github.com/Morganamilo/paru#install"
     echo "     yay: https://github.com/Jguer/yay#installation"
 fi
@@ -98,7 +75,7 @@ fi
 if command -v flatpak &> /dev/null; then
     echo -e "  ${GREEN}✅${NC} flatpak found ${GREEN}(Flatpak support enabled)${NC}"
 else
-    echo -e "  ${YELLOW}⚠️  flatpak not found${NC}"
+    echo -e "  ${YELLOW}○ flatpak not found${NC}"
     echo -e "     ${YELLOW}Install for Flatpak support:${NC}"
 
     # Detect distro and provide appropriate command
@@ -119,10 +96,11 @@ echo "   1. Initialize declarch:"
 echo -e "      ${BLUE}declarch init${NC}"
 echo ""
 echo "   2. Create your configuration:"
-echo -e "      ${BLUE}~/.config/declarch/packages.kdl${NC}"
+echo -e "      ${BLUE}~/.config/declarch/declarch.kdl${NC}"
 echo ""
 echo "   3. Sync packages:"
 echo -e "      ${BLUE}declarch sync${NC}"
 echo ""
 echo -e "${BLUE}Documentation:${NC}"
 echo "   https://github.com/nixval/declarch#readme"
+echo ""
