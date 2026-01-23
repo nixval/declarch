@@ -111,93 +111,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
     perform_system_update(options)?;
 
     // 4. Initialize Managers & Snapshot
-    output::info("Scanning system state...");
-    let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
-    let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
-
-    // Detect distro and create available backends
-    let distro = DistroType::detect();
-    let global_config = crate::config::types::GlobalConfig::default();
-
-    // Get backends from config (unique set)
-    let configured_backends: std::collections::HashSet<Backend> = config
-        .packages
-        .keys()
-        .map(|pkg_id| pkg_id.backend.clone())
-        .collect();
-
-    // Initialize managers for configured backends
-    for backend in configured_backends {
-        match create_manager(&backend, &global_config, options.noconfirm) {
-            Ok(manager) => {
-                let mut available = manager.is_available();
-
-                // Special handling for Soar: try to install if missing
-                if matches!(backend, Backend::Soar)
-                    && !available
-                    && !options.skip_soar_install
-                    && !options.dry_run
-                {
-                    output::warning("Soar is required but not installed");
-
-                    // Try to install Soar
-                    if install::install_soar()? {
-                        output::success("Soar installed successfully!");
-                        available = true;
-                    } else {
-                        output::warning("Skipping Soar packages - automatic installation failed");
-                    }
-                }
-
-                // Warn if targeting unavailable backend
-                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend)
-                {
-                    output::warning(&format!(
-                        "Backend '{}' is not available on this system.",
-                        backend
-                    ));
-                }
-
-                if available {
-                    // List installed packages from this backend
-                    match manager.list_installed() {
-                        Ok(packages) => {
-                            for (name, meta) in packages {
-                                let id = PackageId {
-                                    name,
-                                    backend: backend.clone(),
-                                };
-                                installed_snapshot.insert(id, meta);
-                            }
-                            managers.insert(backend.clone(), manager);
-                        }
-                        Err(e) => {
-                            output::warning(&format!(
-                                "Failed to list packages from {}: {}",
-                                backend, e
-                            ));
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                output::warning(&format!("Failed to initialize {} backend: {}", backend, e));
-            }
-        }
-    }
-
-    // On non-Arch systems, warn about AUR packages in config
-    if !distro.supports_aur() {
-        let has_aur_packages = config
-            .packages
-            .keys()
-            .any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
-        if has_aur_packages {
-            output::warning(
-                "AUR packages detected but system is not Arch-based. These will be skipped.",
-            );
-        }
-    }
+    let (mut installed_snapshot, mut managers) =
+        initialize_managers_and_snapshot(&config, options, &sync_target)?;
 
     // 5. Load State & Resolve
     let mut state = state::io::load_state()?;
@@ -742,7 +657,7 @@ fn resolve_target(target: &Option<String>) -> SyncTarget {
 }
 
 fn perform_system_update(options: &SyncOptions) -> Result<()> {
-    let global_config = crate::config::types::GlobalConfig::default(); 
+    let global_config = crate::config::types::GlobalConfig::default();
     let aur_helper = global_config.aur_helper.to_string();
 
     if options.update {
@@ -750,11 +665,117 @@ fn perform_system_update(options: &SyncOptions) -> Result<()> {
         if !options.dry_run {
             let mut cmd = Command::new(&aur_helper);
             cmd.arg("-Syu");
-            if options.yes || options.noconfirm { cmd.arg("--noconfirm"); }
-            
-            let status = cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).status()?;
-            if !status.success() { return Err(DeclarchError::Other("System update failed".into())); }
+            if options.yes || options.noconfirm {
+                cmd.arg("--noconfirm");
+            }
+
+            let status = cmd
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .status()?;
+            if !status.success() {
+                return Err(DeclarchError::Other("System update failed".into()));
+            }
         }
     }
     Ok(())
+}
+
+fn initialize_managers_and_snapshot(
+    config: &crate::config::types::RootConfig,
+    options: &SyncOptions,
+    sync_target: &SyncTarget,
+) -> Result<(
+    HashMap<PackageId, PackageMetadata>,
+    HashMap<Backend, Box<dyn PackageManager>>,
+)> {
+    output::info("Scanning system state...");
+    let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
+    let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
+
+    // Detect distro and create available backends
+    let distro = DistroType::detect();
+    let global_config = crate::config::types::GlobalConfig::default();
+
+    // Get backends from config (unique set)
+    let configured_backends: std::collections::HashSet<Backend> = config
+        .packages
+        .keys()
+        .map(|pkg_id| pkg_id.backend.clone())
+        .collect();
+
+    // Initialize managers for configured backends
+    for backend in configured_backends {
+        match create_manager(&backend, &global_config, options.noconfirm) {
+            Ok(manager) => {
+                let mut available = manager.is_available();
+
+                // Special handling for Soar: try to install if missing
+                if matches!(backend, Backend::Soar)
+                    && !available
+                    && !options.skip_soar_install
+                    && !options.dry_run
+                {
+                    output::warning("Soar is required but not installed");
+
+                    // Try to install Soar
+                    if install::install_soar()? {
+                        output::success("Soar installed successfully!");
+                        available = true;
+                    } else {
+                        output::warning("Skipping Soar packages - automatic installation failed");
+                    }
+                }
+
+                // Warn if targeting unavailable backend
+                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend)
+                {
+                    output::warning(&format!(
+                        "Backend '{}' is not available on this system.",
+                        backend
+                    ));
+                }
+
+                if available {
+                    // List installed packages from this backend
+                    match manager.list_installed() {
+                        Ok(packages) => {
+                            for (name, meta) in packages {
+                                let id = PackageId {
+                                    name,
+                                    backend: backend.clone(),
+                                };
+                                installed_snapshot.insert(id, meta);
+                            }
+                            managers.insert(backend.clone(), manager);
+                        }
+                        Err(e) => {
+                            output::warning(&format!(
+                                "Failed to list packages from {}: {}",
+                                backend, e
+                            ));
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                output::warning(&format!("Failed to initialize {} backend: {}", backend, e));
+            }
+        }
+    }
+
+    // On non-Arch systems, warn about AUR packages in config
+    if !distro.supports_aur() {
+        let has_aur_packages = config
+            .packages
+            .keys()
+            .any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
+        if has_aur_packages {
+            output::warning(
+                "AUR packages detected but system is not Arch-based. These will be skipped.",
+            );
+        }
+    }
+
+    Ok((installed_snapshot, managers))
 }
