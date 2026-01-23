@@ -15,6 +15,19 @@ Unify AUR, flatpak, npm, cargo, pip, and custom backends under one declarative c
 
 -----
 
+## 📚 [Documentation](https://nixval.github.io/declarch/)
+
+Full documentation available at: **[https://nixval.github.io/declarch/](https://nixval.github.io/declarch/)**
+
+- [Installation](https://nixval.github.io/declarch/getting-started/installation.html)
+- [Quick Start](https://nixval.github.io/declarch/getting-started/quick-start.html)
+- [Commands Reference](https://nixval.github.io/declarch/commands/)
+- [Configuration Guide](https://nixval.github.io/declarch/configuration/)
+- [Examples](https://nixval.github.io/declarch/examples/)
+- [Troubleshooting](https://nixval.github.io/declarch/advanced/troubleshooting.html)
+
+---
+
 ⚠️ Important Warning (Read This First)
 
 declarch is still in BETA.
