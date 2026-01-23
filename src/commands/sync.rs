@@ -108,11 +108,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
     crate::commands::hooks::execute_pre_sync(&config.hooks, options.hooks, options.dry_run)?;
 
     // 3. System Update
-    perform_system_update(options)?;
+    perform_system_update(&options)?;
 
     // 4. Initialize Managers & Snapshot
     let (mut installed_snapshot, mut managers) =
-        initialize_managers_and_snapshot(&config, options, &sync_target)?;
+        initialize_managers_and_snapshot(&config, &options, &sync_target)?;
 
     // 5. Load State & Resolve
     let mut state = state::io::load_state()?;
@@ -682,7 +682,7 @@ fn perform_system_update(options: &SyncOptions) -> Result<()> {
 }
 
 fn initialize_managers_and_snapshot(
-    config: &crate::config::types::RootConfig,
+    config: &crate::config::loader::MergedConfig,
     options: &SyncOptions,
     sync_target: &SyncTarget,
 ) -> Result<(
