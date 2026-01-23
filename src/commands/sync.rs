@@ -18,6 +18,10 @@ use colored::Colorize;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
+// Type aliases to reduce complexity
+type InstalledSnapshot = HashMap<PackageId, PackageMetadata>;
+type ManagerMap = HashMap<Backend, Box<dyn PackageManager>>;
+
 mod critical {
     pub const PACKAGES: &[&str] = &[
         "linux",
@@ -685,13 +689,10 @@ fn initialize_managers_and_snapshot(
     config: &crate::config::loader::MergedConfig,
     options: &SyncOptions,
     sync_target: &SyncTarget,
-) -> Result<(
-    HashMap<PackageId, PackageMetadata>,
-    HashMap<Backend, Box<dyn PackageManager>>,
-)> {
+) -> Result<(InstalledSnapshot, ManagerMap)> {
     output::info("Scanning system state...");
-    let mut installed_snapshot: HashMap<PackageId, PackageMetadata> = HashMap::new();
-    let mut managers: HashMap<Backend, Box<dyn PackageManager>> = HashMap::new();
+    let mut installed_snapshot: InstalledSnapshot = HashMap::new();
+    let mut managers: ManagerMap = HashMap::new();
 
     // Detect distro and create available backends
     let distro = DistroType::detect();
