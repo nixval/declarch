@@ -8,96 +8,100 @@ Configuration optimized for software development.
 // ~/.config/declarch/declarch.kdl
 
 meta {
-  host "dev-machine"
-  tags "development" "programming"
+    description "Development environment"
+    host "dev-machine"
+    tags "development" "programming"
 }
 
-// Core development tools
+// System packages
+packages {
+    neovim
+    tmux
+    lazygit
+    gh
+    postgresql
+    redis
+    docker
+    kubectl
+    terraform
+    curl
+    jq
+}
+
+// === DEVELOPMENT TOOLS ===
+
+// Rust crates
 packages:cargo {
-  // CLI tools
-  ripgrep      # Fast grep alternative
-  fd-find      # Fast find alternative
-  zoxide       # Smart cd
-  bat          # Better cat
-  eza          # Better ls
-  xh           # HTTP client
-  mdbook       # Book creation
-
-  // Build tools
-  cargo-edit   # Cargo extensions
+    ripgrep      // Fast grep alternative
+    fd-find      // Fast find alternative
+    zoxide       // Smart directory navigation
+    bat          // Enhanced cat with syntax highlighting
+    tealdeer     // Simplified man pages
+    xh           // Modern HTTP client
+    mdbook       # Book creation from markdown
+    cargo-edit   // Cargo extension for managing dependencies
 }
 
+// Node.js packages
 packages:npm {
-  # JavaScript/TypeScript
-  typescript
-  prettier
-  eslint
-  vite
-  create-vite
+    # JavaScript/TypeScript
+    typescript
+    prettier
+    eslint
+    vite         # Fast build tool
+    create-vite  # Project scaffolding
 
-  # AWS SDK
-  @aws-sdk/client-s3
+    # AWS SDK
+    @aws-sdk/client-s3
 }
 
-packages:pip {
-  # Python tools
-  python-black
-  mypy
-  pytest
-  pre-commit
+// Python packages
+packages:python {
+    black        # Code formatter
+    ruff         # Linter and formatter
+    mypy         # Type checker
+    jupyter      # Interactive notebooks
+    poetry       # Dependency management
 }
 
-// Language servers
-packages {
-  # System packages
-  go
-  nodejs
-  python
-  rustup
-  jdk-openjdk
-}
-
-// Optional: Docker and containers
-packages {
-  docker
-  docker-compose
-}
+// Optional hooks
+on-sync "notify-send 'Dev' 'Development tools updated'"
 ```
 
 ## What This Includes
 
-### Rust Development
+### Core Development Tools (System)
+- **Neovim** - Text editor
+- **tmux** - Terminal multiplexer
+- **lazygit** - Git TUI
+- **gh** - GitHub CLI
+- **Docker** - Container runtime
+- **kubectl** - Kubernetes CLI
+- **Terraform** - Infrastructure as Code
+
+### Rust Development (via cargo)
 - **ripgrep** - Fast text search
 - **fd** - Fast file search
 - **zoxide** - Smart directory navigation
 - **bat** - Enhanced cat with syntax highlighting
-- **eza** - Enhanced ls with colors
+- **tealdeer** - Simplified man pages
 - **xh** - Modern HTTP client
-- **mdbook** - Create books from markdown files
+- **mdbook** - Create books from markdown
 
-### JavaScript/TypeScript
+### JavaScript/TypeScript (via npm)
 - **TypeScript** - Type-safe JavaScript
 - **Prettier** - Code formatter
 - **ESLint** - Linter
 - **Vite** - Fast build tool
 - **create-vite** - Project scaffolding
+- **AWS SDK** - Amazon S3 client
 
-### Python
+### Python (via pip)
 - **black** - Code formatter
-- **mypy** - Type checker
-- **pytest** - Testing framework
-- **pre-commit** - Git hooks framework
-
-### Multiple Languages
-- **Go** - Google's Go language
-- **Node.js** - JavaScript runtime
-- **Python** - General purpose language
-- **Rust** - Systems language
-- **OpenJDK** - Java development kit
-
-### Container Tools
-- **Docker** - Container runtime
-- **Docker Compose** - Multi-container apps
+- **ruff** - Fast linter and formatter
+- **mypy** - Static type checker
+- **Jupyter** - Interactive notebooks
+- **poetry** - Dependency management
 
 ## Development Workflow
 
@@ -109,18 +113,38 @@ declarch sync
 # Start new project
 mkdir my-project
 cd my-project
-npm init vite  # Via npm packages
 
-# Code with tools
-rg "function"  # ripgrep search
-fd "test.rs"   # fd find files
-zoxide proj    # zoxide jump to project
+# JavaScript/TypeScript project
+npm init vite
 
-# Run and test
-cargo run      # Rust
-npm test       # Node
-pytest         # Python
+# Search code
+rg "function"     # ripgrep search
+fd "test.rs"      # fd find files
+zoxide proj       # zoxide jump to project
+
+# HTTP testing
+xh GET https://api.example.com
+
+# Read docs
+tldr tar          # simplified man pages
 ```
+
+## Backend Syntax Explained
+
+Declarch uses **backend prefix** to specify package manager:
+
+```kdl
+packages        // Default (AUR on Arch)
+packages:cargo  // Rust crates
+packages:npm    // Node.js packages
+packages:python // Python packages
+```
+
+Each backend:
+- **packages** - Installs via `paru -S` / `pacman -S`
+- **packages:cargo** - Installs via `cargo install`
+- **packages:npm** - Installs via `npm install -g`
+- **packages:python** - Installs via `pip install`
 
 ## Editor Integration
 
@@ -128,6 +152,25 @@ These tools work great with:
 - **Neovim/Vim** - With LSP configuration
 - **VS Code** - With extensions
 - **JetBrains IDEs** - Built-in support
+
+## Organizing by Language
+
+Keep your dev tools organized by backend:
+
+```kdl
+// General tools (system)
+packages {
+    neovim
+    tmux
+    git
+}
+
+// Language-specific
+packages:cargo { /* Rust tools */ }
+packages:npm { /* Node tools */ }
+packages:python { /* Python tools */ }
+packages:go { /* Go tools */ }
+```
 
 ## Source Files
 
