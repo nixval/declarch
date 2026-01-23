@@ -111,7 +111,8 @@ packages {{
 /// Contributors can add new recipes here!
 pub fn get_template_by_name(name: &str) -> Option<String> {
     match name.to_lowercase().as_str() {
-        "base" => Some(r#"// Base System Configuration
+        "base" => Some(
+            r#"// Base System Configuration
 // Maintainer: nixval
 // Description: Essential packages for any Linux system
 
@@ -140,9 +141,12 @@ packages:aur {
 
 // Environment variables for this module
 // env EDITOR="nvim"
-"#.to_string()),
+"#
+            .to_string(),
+        ),
 
-        "dev" => Some(r#"// Developer Tools
+        "dev" => Some(
+            r#"// Developer Tools
 // Maintainer: Declarch Community
 
 meta {
@@ -153,7 +157,9 @@ meta {
 packages {
     mise
 }
-"#.to_string()),
+"#
+            .to_string(),
+        ),
 
         _ => None, // Not found, will use generic default_module()
     }

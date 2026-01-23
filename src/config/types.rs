@@ -23,13 +23,15 @@ fn default_aur_helper() -> AurHelper {
 fn default_editor() -> String {
     // Try to detect preferred editor, fallback to nano
     if let Ok(ed) = std::env::var("EDITOR")
-        && !ed.is_empty() {
-            return ed;
-        }
+        && !ed.is_empty()
+    {
+        return ed;
+    }
     if let Ok(ed) = std::env::var("VISUAL")
-        && !ed.is_empty() {
-            return ed;
-        }
+        && !ed.is_empty()
+    {
+        return ed;
+    }
     "nano".to_string() // Default fallback
 }
 

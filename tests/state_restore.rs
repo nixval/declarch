@@ -34,7 +34,10 @@ fn test_state_multiple_backups() {
     // Create multiple backups with different timestamps
     for i in 1..=3 {
         let backup_path = state_dir.join(format!("state.json.bak.{}", i));
-        let state_content = format!(r#"{{"packages":{{"pkg{}":{{"backend":"aur"}}}},"meta":{{"hostname":"test"}}}}"#, i);
+        let state_content = format!(
+            r#"{{"packages":{{"pkg{}":{{"backend":"aur"}}}},"meta":{{"hostname":"test"}}}}"#,
+            i
+        );
         fs::write(&backup_path, state_content).expect("Failed to write backup");
     }
 

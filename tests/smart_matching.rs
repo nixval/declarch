@@ -1,8 +1,8 @@
 // Unit tests for smart matching logic
-use declarch::core::types::{Backend, PackageId, PackageMetadata};
-use declarch::core::matcher::PackageMatcher;
-use std::collections::HashMap;
 use chrono::Utc;
+use declarch::core::matcher::PackageMatcher;
+use declarch::core::types::{Backend, PackageId, PackageMetadata};
+use std::collections::HashMap;
 
 fn create_snapshot(packages: Vec<(&str, Backend, &str)>) -> HashMap<PackageId, PackageMetadata> {
     let mut snapshot = HashMap::new();
@@ -60,9 +60,7 @@ fn test_smart_match_git_variant() {
 
 #[test]
 fn test_smart_match_bin_variant() {
-    let snapshot = create_snapshot(vec![
-        ("spotify-bin", Backend::Aur, "1.2.0"),
-    ]);
+    let snapshot = create_snapshot(vec![("spotify-bin", Backend::Aur, "1.2.0")]);
 
     let matcher = PackageMatcher::new();
     let target = PackageId {
@@ -78,9 +76,7 @@ fn test_smart_match_bin_variant() {
 #[test]
 fn test_smart_match_prefix_variant() {
     // Tests stripping -git suffix from config to match installed package
-    let snapshot = create_snapshot(vec![
-        ("python-pipewire", Backend::Aur, "1.0.0"),
-    ]);
+    let snapshot = create_snapshot(vec![("python-pipewire", Backend::Aur, "1.0.0")]);
 
     let matcher = PackageMatcher::new();
     let target = PackageId {
@@ -95,9 +91,7 @@ fn test_smart_match_prefix_variant() {
 
 #[test]
 fn test_smart_match_flatpak_case_insensitive() {
-    let snapshot = create_snapshot(vec![
-        ("com.spotify.Client", Backend::Flatpak, "1.2.0"),
-    ]);
+    let snapshot = create_snapshot(vec![("com.spotify.Client", Backend::Flatpak, "1.2.0")]);
 
     let matcher = PackageMatcher::new();
     let target = PackageId {
@@ -112,9 +106,7 @@ fn test_smart_match_flatpak_case_insensitive() {
 
 #[test]
 fn test_smart_match_no_match() {
-    let snapshot = create_snapshot(vec![
-        ("hyprland", Backend::Aur, "0.40.0"),
-    ]);
+    let snapshot = create_snapshot(vec![("hyprland", Backend::Aur, "0.40.0")]);
 
     let matcher = PackageMatcher::new();
     let target = PackageId {

@@ -1,8 +1,8 @@
 use crate::config::loader::MergedConfig;
-use crate::state::types::State;
-use crate::core::types::{PackageId, PackageMetadata, SyncTarget};
 use crate::core::matcher::PackageMatcher;
+use crate::core::types::{PackageId, PackageMetadata, SyncTarget};
 use crate::error::Result;
+use crate::state::types::State;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
@@ -70,7 +70,11 @@ pub fn resolve(
             // Backend is now the same type from core::types
             let core_backend = state_pkg.backend.clone();
 
-            let name_part = key.split_once(':').map(|(_, n)| n).unwrap_or(key).to_string();
+            let name_part = key
+                .split_once(':')
+                .map(|(_, n)| n)
+                .unwrap_or(key)
+                .to_string();
             let pkg_id = PackageId {
                 name: name_part.clone(),
                 backend: core_backend,
@@ -88,8 +92,10 @@ pub fn resolve(
 fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<PackageId> {
     match target {
         SyncTarget::All => config.packages.keys().cloned().collect(),
-        
-        SyncTarget::Backend(backend) => config.packages.keys()
+
+        SyncTarget::Backend(backend) => config
+            .packages
+            .keys()
             .filter(|p| p.backend == *backend)
             .cloned()
             .collect(),
@@ -102,12 +108,13 @@ fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<P
                 if pkg_id.name == *query {
                     matched.insert(pkg_id.clone());
                 }
-                
+
                 for source in sources {
                     if let Some(stem) = source.file_stem()
-                        && stem.to_string_lossy().to_lowercase() == query_lower {
-                            matched.insert(pkg_id.clone());
-                        }
+                        && stem.to_string_lossy().to_lowercase() == query_lower
+                    {
+                        matched.insert(pkg_id.clone());
+                    }
                 }
             }
             matched
@@ -118,16 +125,19 @@ fn resolve_target_scope(config: &MergedConfig, target: &SyncTarget) -> HashSet<P
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::types::PackageState;
     use crate::core::types::Backend;
-    use std::path::PathBuf;
+    use crate::state::types::PackageState;
     use chrono::Utc;
+    use std::path::PathBuf;
 
     // Helper: Mock Config
     fn mock_config(pkgs: Vec<(&str, Backend)>) -> MergedConfig {
         let mut map = HashMap::new();
         for (name, backend) in pkgs {
-            let id = PackageId { name: name.to_string(), backend };
+            let id = PackageId {
+                name: name.to_string(),
+                backend,
+            };
             map.insert(id, vec![PathBuf::from("dummy.kdl")]);
         }
         MergedConfig {
@@ -148,17 +158,23 @@ mod tests {
     fn mock_state(pkgs: Vec<(&str, Backend, &str)>) -> State {
         let mut state = State::default();
         for (name, backend, version) in pkgs {
-            let id = PackageId { name: name.to_string(), backend: backend.clone() };
+            let id = PackageId {
+                name: name.to_string(),
+                backend: backend.clone(),
+            };
             let key = make_state_key(&id);
 
-            state.packages.insert(key, PackageState {
-                backend: backend.clone(),
-                config_name: name.to_string(),
-                provides_name: name.to_string(),
-                aur_package_name: None,
-                installed_at: Utc::now(),
-                version: Some(version.to_string()),
-            });
+            state.packages.insert(
+                key,
+                PackageState {
+                    backend: backend.clone(),
+                    config_name: name.to_string(),
+                    provides_name: name.to_string(),
+                    aur_package_name: None,
+                    installed_at: Utc::now(),
+                    version: Some(version.to_string()),
+                },
+            );
         }
         state
     }
@@ -167,13 +183,19 @@ mod tests {
     fn mock_snapshot(pkgs: Vec<(&str, Backend, &str)>) -> HashMap<PackageId, PackageMetadata> {
         let mut map = HashMap::new();
         for (name, backend, version) in pkgs {
-            let id = PackageId { name: name.to_string(), backend };
-            map.insert(id, PackageMetadata {
-                version: Some(version.to_string()),
-                variant: None,
-                installed_at: Utc::now(),
-                source_file: None,
-            });
+            let id = PackageId {
+                name: name.to_string(),
+                backend,
+            };
+            map.insert(
+                id,
+                PackageMetadata {
+                    version: Some(version.to_string()),
+                    variant: None,
+                    installed_at: Utc::now(),
+                    source_file: None,
+                },
+            );
         }
         map
     }
@@ -184,9 +206,9 @@ mod tests {
         let config = mock_config(vec![("git", Backend::Aur)]);
         let state = State::default();
         let snapshot = HashMap::new();
-        
+
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();
-        
+
         assert_eq!(tx.to_install.len(), 1);
         assert_eq!(tx.to_install[0].name, "git");
     }

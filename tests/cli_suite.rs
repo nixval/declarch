@@ -14,7 +14,9 @@ fn test_help_command() {
     cmd.arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("A declarative package manager for Linux"));
+        .stdout(predicate::str::contains(
+            "A declarative package manager for Linux",
+        ));
 }
 
 #[test]
@@ -35,9 +37,9 @@ fn test_version_flag() {
 fn test_init_dry_run() {
     // Rename to _temp_dir to suppress "unused variable" warning
     let _temp_dir = tempfile::tempdir().unwrap();
-    
+
     let mut cmd = declarch();
-    
+
     cmd.arg("unknown-command-xyz")
         .assert()
         .failure()

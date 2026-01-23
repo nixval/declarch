@@ -93,7 +93,6 @@ pub enum Command {
         gc: bool,
 
         // --- Advanced Options Group ---
-
         /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,

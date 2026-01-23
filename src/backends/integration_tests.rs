@@ -1,4 +1,4 @@
-use crate::backends::{get_builtin_backends, GenericManager};
+use crate::backends::{GenericManager, get_builtin_backends};
 use crate::core::types::Backend;
 use crate::packages::traits::PackageManager;
 
@@ -9,7 +9,10 @@ fn test_npm_backend_config_exists() {
 
     let npm_config = &backends["npm"];
     assert_eq!(npm_config.name, "npm");
-    assert_eq!(npm_config.list_format, crate::backends::config::OutputFormat::Json);
+    assert_eq!(
+        npm_config.list_format,
+        crate::backends::config::OutputFormat::Json
+    );
 }
 
 #[test]
@@ -20,7 +23,11 @@ fn test_all_generic_backends_configured() {
     let expected_backends = ["npm", "yarn", "pnpm", "bun", "pip", "cargo", "brew"];
 
     for backend in expected_backends {
-        assert!(backends.contains_key(backend), "Missing backend: {}", backend);
+        assert!(
+            backends.contains_key(backend),
+            "Missing backend: {}",
+            backend
+        );
     }
 }
 
@@ -29,11 +36,7 @@ fn test_generic_manager_creation() {
     let backends = get_builtin_backends();
     let npm_config = backends["npm"].clone();
 
-    let manager = GenericManager::from_config(
-        npm_config,
-        Backend::Npm,
-        false,
-    );
+    let manager = GenericManager::from_config(npm_config, Backend::Npm, false);
 
     assert_eq!(manager.backend_type(), Backend::Npm);
 }
@@ -59,7 +62,7 @@ fn test_pip_multiple_binaries() {
         crate::backends::config::BinarySpecifier::Multiple(binaries) => {
             assert_eq!(binaries[0], "pip3");
             assert_eq!(binaries[1], "pip");
-        },
+        }
         _ => panic!("pip should have Multiple binary specifier"),
     }
 }

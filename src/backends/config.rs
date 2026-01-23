@@ -78,9 +78,7 @@ impl BinarySpecifier {
     /// Get the first available binary
     pub fn find_available(&self) -> Option<String> {
         match self {
-            BinarySpecifier::Single(bin) => {
-                which::which(bin).ok().map(|_| bin.clone())
-            },
+            BinarySpecifier::Single(bin) => which::which(bin).ok().map(|_| bin.clone()),
             BinarySpecifier::Multiple(binaries) => {
                 for bin in binaries {
                     if which::which(bin).is_ok() {
@@ -96,9 +94,10 @@ impl BinarySpecifier {
     pub fn primary(&self) -> String {
         match self {
             BinarySpecifier::Single(bin) => bin.clone(),
-            BinarySpecifier::Multiple(binaries) => {
-                binaries.first().cloned().unwrap_or_else(|| "unknown".to_string())
-            }
+            BinarySpecifier::Multiple(binaries) => binaries
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string()),
         }
     }
 }

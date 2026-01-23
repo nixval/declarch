@@ -3,6 +3,7 @@ use crate::backends::parsers;
 use crate::core::types::{Backend as CoreBackend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
 use crate::packages::traits::PackageManager;
+use crate::utils::sanitize;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
@@ -15,7 +16,11 @@ pub struct GenericManager {
 
 impl GenericManager {
     /// Create a new generic manager from configuration
-    pub fn from_config(mut config: BackendConfig, backend_type: CoreBackend, noconfirm: bool) -> Self {
+    pub fn from_config(
+        mut config: BackendConfig,
+        backend_type: CoreBackend,
+        noconfirm: bool,
+    ) -> Self {
         // Set default columns if not specified
         if config.list_name_col.is_none() {
             config.list_name_col = Some(0);
@@ -33,14 +38,13 @@ impl GenericManager {
 
     /// Get the actual binary to use (first available from alternatives)
     fn get_binary(&self) -> Result<String> {
-        self.config.binary.find_available()
-            .ok_or_else(|| {
-                DeclarchError::PackageManagerError(format!(
-                    "{} not found. Please install {} first.",
-                    self.config.binary.primary(),
-                    self.config.name
-                ))
-            })
+        self.config.binary.find_available().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "{} not found. Please install {} first.",
+                self.config.binary.primary(),
+                self.config.name
+            ))
+        })
     }
 
     /// Build command with optional sudo
@@ -98,6 +102,9 @@ impl PackageManager for GenericManager {
             return Ok(());
         }
 
+        // Security: Validate all package names before shell execution
+        sanitize::validate_package_names(packages)?;
+
         let cmd_template = &self.config.install_cmd;
         let package_list = self.format_packages(packages);
         let mut cmd_str = cmd_template.replace("{packages}", &package_list);
@@ -123,7 +130,8 @@ impl PackageManager for GenericManager {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
 
-        let status = cmd.status()
+        let status = cmd
+            .status()
             .map_err(|e| DeclarchError::SystemCommandFailed {
                 command: format!("install: {}", cmd_str),
                 reason: e.to_string(),
@@ -144,6 +152,9 @@ impl PackageManager for GenericManager {
             return Ok(());
         }
 
+        // Security: Validate all package names before shell execution
+        sanitize::validate_package_names(packages)?;
+
         let cmd_template = &self.config.remove_cmd;
         let package_list = self.format_packages(packages);
         let mut cmd_str = cmd_template.replace("{packages}", &package_list);
@@ -162,7 +173,8 @@ impl PackageManager for GenericManager {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
 
-        let status = cmd.status()
+        let status = cmd
+            .status()
             .map_err(|e| DeclarchError::SystemCommandFailed {
                 command: format!("remove: {}", cmd_str),
                 reason: e.to_string(),

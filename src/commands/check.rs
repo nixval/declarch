@@ -1,8 +1,8 @@
-use crate::utils::paths;
 use crate::config::loader;
-use crate::ui as output;
-use crate::error::Result;
 use crate::core::types::Backend;
+use crate::error::Result;
+use crate::ui as output;
+use crate::utils::paths;
 use colored::Colorize;
 
 /// Parse backend string to Backend enum
@@ -23,7 +23,12 @@ fn parse_backend(backend_str: &str) -> Result<Backend> {
     }
 }
 
-pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend_filter: Option<String>) -> Result<()> {
+pub fn run(
+    verbose: bool,
+    check_duplicates: bool,
+    check_conflicts: bool,
+    backend_filter: Option<String>,
+) -> Result<()> {
     output::header("Configuration Check");
 
     let config_path = paths::config_file()?;
@@ -39,7 +44,8 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
     // Filter packages by backend if specified
     let package_count = if let Some(backend_str) = &backend_filter {
         let backend = parse_backend(backend_str)?;
-        let filtered_count = config.packages
+        let filtered_count = config
+            .packages
             .iter()
             .filter(|(pkg_id, _)| pkg_id.backend == backend)
             .count();
@@ -63,7 +69,8 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
 
         let mut sorted_pkgs: Vec<_> = if let Some(backend_str) = &backend_filter {
             let backend = parse_backend(backend_str)?;
-            config.packages
+            config
+                .packages
                 .iter()
                 .filter(|(pkg_id, _)| pkg_id.backend == backend)
                 .map(|(pkg_id, _)| pkg_id)
@@ -94,7 +101,10 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
         if duplicates.is_empty() {
             output::success("No duplicate declarations found.");
         } else {
-            output::warning(&format!("Found {} duplicate package declarations:", duplicates.len()));
+            output::warning(&format!(
+                "Found {} duplicate package declarations:",
+                duplicates.len()
+            ));
 
             for (pkg, sources) in duplicates {
                 println!("  📦 {}", pkg.to_string().yellow().bold());
@@ -103,7 +113,10 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
                     println!("     └─ {}", display_path.dimmed());
                 }
             }
-            println!("\n{}", "Note: Duplicates are automatically deduplicated during sync.".italic());
+            println!(
+                "\n{}",
+                "Note: Duplicates are automatically deduplicated during sync.".italic()
+            );
         }
     }
 
@@ -116,9 +129,18 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
         if conflicts.is_empty() {
             output::success("No cross-backend package name conflicts found.");
         } else {
-            output::warning(&format!("Found {} package name conflicts across backends:", conflicts.len()));
-            println!("\n{}", "These packages have the same name but different backends:".bold());
-            println!("{}", "They will be installed separately by each backend.".italic());
+            output::warning(&format!(
+                "Found {} package name conflicts across backends:",
+                conflicts.len()
+            ));
+            println!(
+                "\n{}",
+                "These packages have the same name but different backends:".bold()
+            );
+            println!(
+                "{}",
+                "They will be installed separately by each backend.".italic()
+            );
             println!("{}", "Watch out for PATH conflicts!\n".dimmed());
 
             for (pkg_name, backends) in conflicts {
@@ -131,7 +153,10 @@ pub fn run(verbose: bool, check_duplicates: bool, check_conflicts: bool, backend
             println!("\n{}", "Example:".bold());
             println!("  If 'claude-cli' exists in both AUR and npm:");
             println!("    • AUR installs to: {}", "/usr/bin/claude-cli".dimmed());
-            println!("    • npm installs to:  {}", "~/.npm-global/bin/claude-cli".dimmed());
+            println!(
+                "    • npm installs to:  {}",
+                "~/.npm-global/bin/claude-cli".dimmed()
+            );
             println!("  The one that runs depends on your {}", "PATH".bold());
             println!("\n  Use {}", "declarch info".bold().cyan());
             println!("  to see which backends have installed which packages.");

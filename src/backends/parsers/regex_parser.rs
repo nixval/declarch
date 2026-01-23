@@ -10,7 +10,9 @@ pub fn parse_regex(
     output: &str,
     config: &BackendConfig,
 ) -> Result<HashMap<String, PackageMetadata>> {
-    let pattern = config.list_regex.as_ref()
+    let pattern = config
+        .list_regex
+        .as_ref()
         .ok_or_else(|| DeclarchError::Other("Missing list_regex for regex parser".to_string()))?;
 
     let name_group = config.list_regex_name_group.unwrap_or(1);
@@ -24,15 +26,17 @@ pub fn parse_regex(
     for caps in regex.captures_iter(output) {
         if let Some(name_match) = caps.get(name_group) {
             let name = name_match.as_str().to_string();
-            let version = caps.get(version_group)
-                .map(|m| m.as_str().to_string());
+            let version = caps.get(version_group).map(|m| m.as_str().to_string());
 
-            installed.insert(name, PackageMetadata {
-                variant: None,
-                version,
-                installed_at: Utc::now(),
-                source_file: None,
-            });
+            installed.insert(
+                name,
+                PackageMetadata {
+                    variant: None,
+                    version,
+                    installed_at: Utc::now(),
+                    source_file: None,
+                },
+            );
         }
     }
 

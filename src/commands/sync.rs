@@ -1,35 +1,82 @@
-use crate::utils::paths;
+use crate::config::loader;
+use crate::core::{
+    resolver,
+    types::{PackageId, PackageMetadata, SyncTarget},
+};
+use crate::error::{DeclarchError, Result};
+use crate::packages::{PackageManager, create_manager};
+use crate::state::{
+    self,
+    types::{Backend, PackageState, State},
+};
+use crate::ui as output;
 use crate::utils::distro::DistroType;
 use crate::utils::install;
-use crate::ui as output;
-use crate::state::{self, types::{Backend, PackageState, State}};
-use crate::config::{loader, kdl::{HookConfig, HookType}};
-use crate::core::{resolver, types::{PackageId, PackageMetadata, SyncTarget}};
-use crate::packages::{PackageManager, create_manager};
-use crate::error::{DeclarchError, Result};
-use colored::Colorize;
+use crate::utils::paths;
 use chrono::Utc;
+use colored::Colorize;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
 mod critical {
     pub const PACKAGES: &[&str] = &[
-        "linux", "linux-lts", "linux-zen", "linux-hardened",
-        "linux-api-headers", "linux-firmware",
-        "amd-ucode", "intel-ucode",
-        "grub", "systemd-boot", "efibootmgr", "os-prober",
-        "base", "base-devel",
-        "systemd", "systemd-libs", "systemd-sysvcompat",
-        "glibc", "gcc-libs", "zlib", "openssl", "readline",
-        "bash", "zsh", "fish", "sh",
-        "sudo", "doas", "pam", "shadow", "util-linux", "coreutils",
-        "pacman", "pacman-contrib", "archlinux-keyring",
-        "paru", "yay", "aura", "pikaur",
+        "linux",
+        "linux-lts",
+        "linux-zen",
+        "linux-hardened",
+        "linux-api-headers",
+        "linux-firmware",
+        "amd-ucode",
+        "intel-ucode",
+        "grub",
+        "systemd-boot",
+        "efibootmgr",
+        "os-prober",
+        "base",
+        "base-devel",
+        "systemd",
+        "systemd-libs",
+        "systemd-sysvcompat",
+        "glibc",
+        "gcc-libs",
+        "zlib",
+        "openssl",
+        "readline",
+        "bash",
+        "zsh",
+        "fish",
+        "sh",
+        "sudo",
+        "doas",
+        "pam",
+        "shadow",
+        "util-linux",
+        "coreutils",
+        "pacman",
+        "pacman-contrib",
+        "archlinux-keyring",
+        "paru",
+        "yay",
+        "aura",
+        "pikaur",
         "flatpak",
-        "declarch", "declarch-bin", "git", "curl", "wget", "tar",
-        "mesa", "nvidia", "nvidia-utils", "nvidia-dkms",
-        "networkmanager", "iwd", "wpa_supplicant",
-        "btrfs-progs", "e2fsprogs", "dosfstools", "ntfs-3g"
+        "declarch",
+        "declarch-bin",
+        "git",
+        "curl",
+        "wget",
+        "tar",
+        "mesa",
+        "nvidia",
+        "nvidia-utils",
+        "nvidia-dkms",
+        "networkmanager",
+        "iwd",
+        "wpa_supplicant",
+        "btrfs-progs",
+        "e2fsprogs",
+        "dosfstools",
+        "ntfs-3g",
     ];
 }
 
@@ -66,10 +113,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let mut config = loader::load_root_config(&config_path)?;
 
     // Execute pre-sync hooks
-    execute_pre_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
+    crate::commands::hooks::execute_pre_sync(&config.hooks, options.hooks, options.dry_run)?;
 
     // 3. System Update
-    let global_config = crate::config::types::GlobalConfig::default(); 
+    let global_config = crate::config::types::GlobalConfig::default();
     let aur_helper = global_config.aur_helper.to_string();
 
     if options.update {
@@ -77,10 +124,17 @@ pub fn run(options: SyncOptions) -> Result<()> {
         if !options.dry_run {
             let mut cmd = Command::new(&aur_helper);
             cmd.arg("-Syu");
-            if options.yes || options.noconfirm { cmd.arg("--noconfirm"); }
-            
-            let status = cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).status()?;
-            if !status.success() { return Err(DeclarchError::Other("System update failed".into())); }
+            if options.yes || options.noconfirm {
+                cmd.arg("--noconfirm");
+            }
+
+            let status = cmd
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .status()?;
+            if !status.success() {
+                return Err(DeclarchError::Other("System update failed".into()));
+            }
         }
     }
 
@@ -94,7 +148,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let global_config = crate::config::types::GlobalConfig::default();
 
     // Get backends from config (unique set)
-    let configured_backends: std::collections::HashSet<Backend> = config.packages.keys()
+    let configured_backends: std::collections::HashSet<Backend> = config
+        .packages
+        .keys()
         .map(|pkg_id| pkg_id.backend.clone())
         .collect();
 
@@ -105,7 +161,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
                 let mut available = manager.is_available();
 
                 // Special handling for Soar: try to install if missing
-                if matches!(backend, Backend::Soar) && !available && !options.skip_soar_install && !options.dry_run {
+                if matches!(backend, Backend::Soar)
+                    && !available
+                    && !options.skip_soar_install
+                    && !options.dry_run
+                {
                     output::warning("Soar is required but not installed");
 
                     // Try to install Soar
@@ -118,8 +178,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
                 }
 
                 // Warn if targeting unavailable backend
-                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend) {
-                    output::warning(&format!("Backend '{}' is not available on this system.", backend));
+                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend)
+                {
+                    output::warning(&format!(
+                        "Backend '{}' is not available on this system.",
+                        backend
+                    ));
                 }
 
                 if available {
@@ -127,17 +191,23 @@ pub fn run(options: SyncOptions) -> Result<()> {
                     match manager.list_installed() {
                         Ok(packages) => {
                             for (name, meta) in packages {
-                                let id = PackageId { name, backend: backend.clone() };
+                                let id = PackageId {
+                                    name,
+                                    backend: backend.clone(),
+                                };
                                 installed_snapshot.insert(id, meta);
                             }
                             managers.insert(backend.clone(), manager);
-                        },
+                        }
                         Err(e) => {
-                            output::warning(&format!("Failed to list packages from {}: {}", backend, e));
+                            output::warning(&format!(
+                                "Failed to list packages from {}: {}",
+                                backend, e
+                            ));
                         }
                     }
                 }
-            },
+            }
             Err(e) => {
                 output::warning(&format!("Failed to initialize {} backend: {}", backend, e));
             }
@@ -146,9 +216,14 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // On non-Arch systems, warn about AUR packages in config
     if !distro.supports_aur() {
-        let has_aur_packages = config.packages.keys().any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
+        let has_aur_packages = config
+            .packages
+            .keys()
+            .any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
         if has_aur_packages {
-            output::warning("AUR packages detected but system is not Arch-based. These will be skipped.");
+            output::warning(
+                "AUR packages detected but system is not Arch-based. These will be skipped.",
+            );
         }
     }
 
@@ -160,7 +235,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let total_packages = config.packages.len();
 
     // Create filtered packages map
-    let filtered_packages: std::collections::HashMap<_, _> = config.packages.iter()
+    let filtered_packages: std::collections::HashMap<_, _> = config
+        .packages
+        .iter()
         .filter(|(pkg_id, _)| available_backends.contains(&pkg_id.backend))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
@@ -168,13 +245,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // Warn about packages from unavailable backends
     let skipped_count = total_packages - filtered_packages.len();
     if skipped_count > 0 {
-        output::warning(&format!("Skipping {} package(s) from unavailable backends.", skipped_count));
+        output::warning(&format!(
+            "Skipping {} package(s) from unavailable backends.",
+            skipped_count
+        ));
 
         // Show which packages were skipped
         for (pkg_id, _) in config.packages.iter() {
             if !available_backends.contains(&pkg_id.backend) {
-                output::info(&format!("  Skipping {} (backend '{}' not available)",
-                    pkg_id.name, pkg_id.backend));
+                output::info(&format!(
+                    "  Skipping {} (backend '{}' not available)",
+                    pkg_id.name, pkg_id.backend
+                ));
             }
         }
     }
@@ -195,8 +277,13 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // Only check for variant transitions in full sync or when targeting specific backends
     if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
         // Re-filter packages for variant checking (since we restored original packages)
-        let available_backends: std::collections::HashSet<Backend> = managers.keys().cloned().collect();
-        for pkg_id in config.packages.keys().filter(|pkg_id| available_backends.contains(&pkg_id.backend)) {
+        let available_backends: std::collections::HashSet<Backend> =
+            managers.keys().cloned().collect();
+        for pkg_id in config
+            .packages
+            .keys()
+            .filter(|pkg_id| available_backends.contains(&pkg_id.backend))
+        {
             // Skip if this package is already in transaction to install
             if tx.to_install.iter().any(|p| p.name == pkg_id.name) {
                 continue;
@@ -211,7 +298,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
                     let state_pkg = state.packages.get(&state_key);
 
                     // Only report if not tracked (means user might have manually changed it)
-                    if state_pkg.is_none() || state_pkg.and_then(|s| s.aur_package_name.as_ref()).map(|n| n != &matched_id.name).unwrap_or(false) {
+                    if state_pkg.is_none()
+                        || state_pkg
+                            .and_then(|s| s.aur_package_name.as_ref())
+                            .map(|n| n != &matched_id.name)
+                            .unwrap_or(false)
+                    {
                         variant_mismatches.push((pkg_id.name.clone(), matched_id.name));
                     }
                 }
@@ -226,29 +318,38 @@ pub fn run(options: SyncOptions) -> Result<()> {
         println!("\nThe following packages have different variants installed:\n");
 
         for (config_name, installed_name) in &variant_mismatches {
-            println!("  {}  →  {}",
+            println!(
+                "  {}  →  {}",
                 config_name.cyan().bold(),
                 installed_name.yellow().bold()
             );
         }
 
-        println!("\n{}", "This requires explicit transition to avoid unintended changes.".dimmed());
+        println!(
+            "\n{}",
+            "This requires explicit transition to avoid unintended changes.".dimmed()
+        );
         println!("\n{}", "To resolve this:".bold());
         println!("  1. For each package, run:");
         for (config_name, installed_name) in &variant_mismatches {
-            println!("     {}",
-                format!("declarch switch {} {}",
+            println!(
+                "     {}",
+                format!(
+                    "declarch switch {} {}",
                     installed_name.yellow(),
                     config_name.cyan()
-                ).bold()
+                )
+                .bold()
             );
         }
         println!("\n  2. Or, update your config to match the installed variant");
-        println!("\n  3. Use {} to bypass this check (not recommended)",
-            "--force".yellow().bold());
+        println!(
+            "\n  3. Use {} to bypass this check (not recommended)",
+            "--force".yellow().bold()
+        );
 
         return Err(DeclarchError::Other(
-            "Variant transition required. Use 'declarch switch' or update your config.".to_string()
+            "Variant transition required. Use 'declarch switch' or update your config.".to_string(),
         ));
     }
 
@@ -260,12 +361,15 @@ pub fn run(options: SyncOptions) -> Result<()> {
         };
 
         if should_warn {
-            let time_str = state.meta.last_update
+            let time_str = state
+                .meta
+                .last_update
                 .map(|t| format!("{}h ago", Utc::now().signed_duration_since(t).num_hours()))
                 .unwrap_or("unknown".to_string());
-            
+
             output::separator();
-            println!("{} Last system update: {}. Use {} to refresh.", 
+            println!(
+                "{} Last system update: {}. Use {} to refresh.",
                 "⚠ Partial Upgrade Risk:".yellow().bold(),
                 time_str.white(),
                 "--update".bold()
@@ -290,18 +394,19 @@ pub fn run(options: SyncOptions) -> Result<()> {
             state::io::save_state(&state)?;
         }
         // Execute post-sync hooks even when system is in sync
-        execute_post_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
+        crate::commands::hooks::execute_post_sync(&config.hooks, options.hooks, options.dry_run)?;
         return Ok(());
     }
 
-    if options.dry_run { return Ok(()); }
+    if options.dry_run {
+        return Ok(());
+    }
 
     // 7. Execution
     let skip_prompt = options.yes || options.noconfirm || options.force;
-    if !skip_prompt
-        && !output::prompt_yes_no("Proceed?") {
-            return Err(DeclarchError::Interrupted);
-        }
+    if !skip_prompt && !output::prompt_yes_no("Proceed?") {
+        return Err(DeclarchError::Interrupted);
+    }
 
     // -- INSTALLATION --
     execute_installations(&tx, &managers, &mut installed_snapshot)?;
@@ -325,7 +430,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
         // B. EXECUTE REMOVAL
         let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
-        
+
         for pkg in tx.to_prune.iter() {
             // 1. GHOST MODE (Static Check)
             if critical::PACKAGES.contains(&pkg.name.as_str()) {
@@ -337,19 +442,26 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
             // 3. FRATRICIDE CHECK (Dynamic Runtime Check)
             if protected_physical_names.contains(&real_name) {
-                println!("  ℹ Keeping physical package '{}' (claimed by active config)", real_name.dimmed());
+                println!(
+                    "  ℹ Keeping physical package '{}' (claimed by active config)",
+                    real_name.dimmed()
+                );
                 continue;
             }
 
-            removes.entry(pkg.backend.clone()).or_default().push(real_name);
+            removes
+                .entry(pkg.backend.clone())
+                .or_default()
+                .push(real_name);
         }
 
         for (backend, pkgs) in removes {
             if !pkgs.is_empty()
-                 && let Some(mgr) = managers.get(&backend) {
-                    output::info(&format!("Removing {} packages...", backend));
-                    mgr.remove(&pkgs)?;
-                }
+                && let Some(mgr) = managers.get(&backend)
+            {
+                output::info(&format!("Removing {} packages...", backend));
+                mgr.remove(&pkgs)?;
+            }
         }
     }
 
@@ -357,7 +469,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     update_state_after_sync(&mut state, &tx, &installed_snapshot, &options)?;
 
     // Execute post-sync hooks
-    execute_post_sync_hooks(&config.hooks, options.hooks, options.dry_run)?;
+    crate::commands::hooks::execute_post_sync(&config.hooks, options.hooks, options.dry_run)?;
 
     output::success("Sync complete!");
 
@@ -387,7 +499,10 @@ fn resolve_installed_package_name(
             let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
             for suffix in suffixes {
                 let alt_name = format!("{}{}", pkg.name, suffix);
-                let alt_id = PackageId { name: alt_name.clone(), backend: Backend::Aur };
+                let alt_id = PackageId {
+                    name: alt_name.clone(),
+                    backend: Backend::Aur,
+                };
                 if installed_snapshot.contains_key(&alt_id) {
                     real_name = alt_name;
                     return real_name;
@@ -395,24 +510,35 @@ fn resolve_installed_package_name(
             }
             // Try prefix match
             if let Some((prefix, _)) = pkg.name.split_once('-') {
-                let alt_id = PackageId { name: prefix.to_string(), backend: Backend::Aur };
+                let alt_id = PackageId {
+                    name: prefix.to_string(),
+                    backend: Backend::Aur,
+                };
                 if installed_snapshot.contains_key(&alt_id) {
                     real_name = prefix.to_string();
                 }
             }
-        },
+        }
         Backend::Flatpak => {
             let search = pkg.name.to_lowercase();
             for installed_id in installed_snapshot.keys() {
                 if installed_id.backend == Backend::Flatpak
-                    && installed_id.name.to_lowercase().contains(&search) {
-                        real_name = installed_id.name.clone();
-                        return real_name;
-                    }
+                    && installed_id.name.to_lowercase().contains(&search)
+                {
+                    real_name = installed_id.name.clone();
+                    return real_name;
+                }
             }
         }
-        Backend::Soar | Backend::Npm | Backend::Yarn | Backend::Pnpm | Backend::Bun
-        | Backend::Pip | Backend::Cargo | Backend::Brew | Backend::Custom(_) => {
+        Backend::Soar
+        | Backend::Npm
+        | Backend::Yarn
+        | Backend::Pnpm
+        | Backend::Bun
+        | Backend::Pip
+        | Backend::Cargo
+        | Backend::Brew
+        | Backend::Custom(_) => {
             // These backends require exact matching - no smart matching needed
             real_name = pkg.name.clone();
         }
@@ -627,178 +753,6 @@ fn update_state_after_sync(
     }
 
     state::io::save_state(state)?;
-
-    Ok(())
-}
-
-/// Execute pre-sync hooks with security check
-///
-/// Security: Only executes hooks if --hooks flag is provided
-/// Dry-run: Always shows hooks even without --hooks flag
-fn execute_pre_sync_hooks(
-    hooks: &Option<HookConfig>,
-    hooks_enabled: bool,
-    dry_run: bool,
-) -> Result<()> {
-    let hooks = match hooks.as_ref() {
-        Some(h) => h,
-        None => return Ok(()), // No hooks configured
-    };
-
-    if hooks.pre_sync.is_empty() {
-        return Ok(());
-    }
-
-    // Always show hooks in dry-run or when displaying info
-    output::separator();
-    if !hooks_enabled && !dry_run {
-        output::warning("Pre-sync hooks detected but not executed (--hooks not provided)");
-        println!("\n{}:", "Pre-sync Hooks".yellow().bold());
-        for hook in &hooks.pre_sync {
-            let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
-            println!("  {} {}",
-                if sudo_marker { "🔒" } else { "→" },
-                hook.command.cyan()
-            );
-        }
-        println!("\n{}", "To enable hooks, use the --hooks flag:".dimmed());
-        println!("  {}", "dc sync --hooks".bold());
-        println!("\n{}", "Security: Hooks from remote configs may contain arbitrary commands.".yellow());
-        println!("{}", "Review the config before enabling hooks.".yellow());
-        return Ok(());
-    }
-
-    // Display hooks
-    println!("\n{}:", "Executing Pre-sync Hooks".cyan().bold());
-    for hook in &hooks.pre_sync {
-        let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
-        println!("  {} {}",
-            if sudo_marker { "🔒" } else { "→" },
-            hook.command.cyan()
-        );
-    }
-
-    if dry_run {
-        output::info("Dry-run: Hooks not executed");
-        return Ok(());
-    }
-
-    // Execute hooks
-    for hook in &hooks.pre_sync {
-        let use_sudo = matches!(hook.hook_type, HookType::SudoNeeded);
-
-        let mut cmd = if use_sudo {
-            output::info(&format!("Executing hook with sudo: {}", hook.command));
-            let mut c = Command::new("sudo");
-            c.arg(hook.command.as_str());
-            c
-        } else {
-            output::info(&format!("Executing hook: {}", hook.command));
-            // For simple commands, use sh -c
-            let mut c = Command::new("sh");
-            c.arg("-c");
-            c.arg(hook.command.as_str());
-            c
-        };
-
-        cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit());
-
-        match cmd.status() {
-            Ok(status) if status.success() => {},
-            Ok(status) => {
-                output::warning(&format!("Hook exited with status: {}", status));
-            },
-            Err(e) => {
-                output::warning(&format!("Failed to execute hook: {}", e));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Execute post-sync hooks with security check
-///
-/// Security: Only executes hooks if --hooks flag is provided
-/// Dry-run: Always shows hooks even without --hooks flag
-fn execute_post_sync_hooks(
-    hooks: &Option<HookConfig>,
-    hooks_enabled: bool,
-    dry_run: bool,
-) -> Result<()> {
-    let hooks = match hooks.as_ref() {
-        Some(h) => h,
-        None => return Ok(()), // No hooks configured
-    };
-
-    if hooks.post_sync.is_empty() {
-        return Ok(());
-    }
-
-    // Always show hooks in dry-run or when displaying info
-    output::separator();
-    if !hooks_enabled && !dry_run {
-        output::warning("Post-sync hooks detected but not executed (--hooks not provided)");
-        println!("\n{}:", "Post-sync Hooks".yellow().bold());
-        for hook in &hooks.post_sync {
-            let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
-            println!("  {} {}",
-                if sudo_marker { "🔒" } else { "→" },
-                hook.command.cyan()
-            );
-        }
-        println!("\n{}", "To enable hooks, use the --hooks flag:".dimmed());
-        println!("  {}", "dc sync --hooks".bold());
-        println!("\n{}", "Security: Hooks from remote configs may contain arbitrary commands.".yellow());
-        println!("{}", "Review the config before enabling hooks.".yellow());
-        return Ok(());
-    }
-
-    // Display hooks
-    println!("\n{}:", "Executing Post-sync Hooks".cyan().bold());
-    for hook in &hooks.post_sync {
-        let sudo_marker = matches!(hook.hook_type, HookType::SudoNeeded);
-        println!("  {} {}",
-            if sudo_marker { "🔒" } else { "→" },
-            hook.command.cyan()
-        );
-    }
-
-    if dry_run {
-        output::info("Dry-run: Hooks not executed");
-        return Ok(());
-    }
-
-    // Execute hooks
-    for hook in &hooks.post_sync {
-        let use_sudo = matches!(hook.hook_type, HookType::SudoNeeded);
-
-        let mut cmd = if use_sudo {
-            output::info(&format!("Executing hook with sudo: {}", hook.command));
-            let mut c = Command::new("sudo");
-            c.arg(hook.command.as_str());
-            c
-        } else {
-            output::info(&format!("Executing hook: {}", hook.command));
-            // For simple commands, use sh -c
-            let mut c = Command::new("sh");
-            c.arg("-c");
-            c.arg(hook.command.as_str());
-            c
-        };
-
-        cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit());
-
-        match cmd.status() {
-            Ok(status) if status.success() => {},
-            Ok(status) => {
-                output::warning(&format!("Hook exited with status: {}", status));
-            },
-            Err(e) => {
-                output::warning(&format!("Failed to execute hook: {}", e));
-            }
-        }
-    }
 
     Ok(())
 }

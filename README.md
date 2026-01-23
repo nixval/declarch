@@ -1,9 +1,8 @@
-
-# 🌱 **declarch**
+# 🌱 **Declarch**
 
 <p align="center">
 <strong>A declarative package manager for Linux — powered by Rust.</strong><br>
-Inspired by Nix workflow, supporting AUR, Flatpak, and Soar.
+Supporting installation of aur, soar, flatpak, npm, bun, and many others by customize it
 </p>
 
 
@@ -16,21 +15,47 @@ Inspired by Nix workflow, supporting AUR, Flatpak, and Soar.
 
 -----
 
-## 🧠 The Philosophy
+⚠️ Important Warning (Read This First)
 
-Linux package management is often **imperative**. You run `pacman -S git`, `apt install git`, or `dnf install git`, and then you forget about it. Over time, your system becomes a "museum" of forgotten packages, orphans, and drift.
+declarch is still in BETA.
+- Architecture is fragile by design — this tool is a wrapper on top of wrappers (paru/yay, flatpak, npm, pip, etc).
+- Only tested on Arch-based distros (Arch Linux & EndeavourOS).
+- Other backends (Flatpak, npm, bun, pip, cargo, soar) may work on other distros, but you’re on your own.
+- You must install each backend manually (declarch does NOT bootstrap package managers).
+- Expect breaking changes, rough edges, and footguns.
+
+👉 If you want absolute stability, this is not that tool (yet).
+👉 If you like declarative systems and accept risk, welcome.
+
+## 🧠 Why declarch Exists
+
+Linux package management is mostly imperative.
+
+You run commands like:
+```bash
+paru -S something
+npm install -g random-tool
+pip install whatever
+```
+A month later:
+- You forgot why it was installed
+- You don’t know where it came from
+- Your system becomes a package graveyard
+declarch flips that.
+
+You declare what you want, not what you ran.
 
 ```kdl
 // ~/.config/declarch/declarch.kdl
 
-// AUR packages (Arch Linux)
-packages:aur {
+// AUR packages (Default from aur)
+packages {
     hyprland
     waybar
 }
 
 // Static binaries (Soar)
-packages {
+packages:soar {
     bat
     exa
     ripgrep
@@ -66,7 +91,7 @@ Then simply:
 declarch sync
 ```
 
-Share your config across different Linux distributions.
+Share your config across others
 
 **declarch** imposes a **Declarative Layer** on top of existing package managers.
 
@@ -89,7 +114,7 @@ Share your config across different Linux distributions.
   * **Smart Sync:** Auto-installs missing packages, adopts existing ones.
   * **Advanced Config:** Meta info, conflicts, env vars, hooks, policy control.
 
------
+---
 
 ## 🚀 Installation
 
@@ -148,17 +173,14 @@ The default config includes all advanced syntax features (commented out) for eas
 # From GitHub user repository
 declarch init myuser/dotfiles
 
-# From official project config
-declarch init hyprwm/hyprland
-
-# From community registry
-declarch init hyprland/niri-nico
-
 # From GitLab
 declarch init gitlab.com/user/repo
 
 # Direct URL
 declarch init https://example.com/config.kdl
+
+# Declarch-Packages repositories
+declarch init wm/hyprland
 ```
 
 ### Anatomy of `declarch.kdl`
@@ -168,71 +190,45 @@ declarch init https://example.com/config.kdl
 ```kdl
 // ~/.config/declarch/declarch.kdl
 
-// Set your editor
+// Set your editor (default nano)
+// use declarch edit 
 editor "nvim"
-
-// AUR packages (Arch Linux only)
-packages:aur {
-    hyprland
-    waybar
-}
-
-// Cross-distro static binaries (works everywhere)
-packages {
-    bat
-    exa
-    ripgrep
-}
-
-// Flatpak apps (works on any Linux)
-packages:flatpak {
-    com.spotify.Client
-    org.mozilla.firefox
-}
 
 // Import other modules
 imports {
-    modules/gaming
-    modules/development
+    modules/base // use declarch edit base
+    modules/gaming  // use declarch edit gaming
+    modules/development 
+    modules/hyprland/mydotfiles // use declarch edit hyprland/mydotfiles
 }
-```
 
-**Alternative: Embedded Syntax**
 
-```kdl
 packages {
-    // Default to Soar
-    bat
-    exa
-
-    // Nested backend-specific
-    aur {
-        hyprland
+	// AUR packages as default
+    hyprland
+    waybar
+    
+    // Horizontal writing
+    rofi kitty flatpak:org.mozzilla.firefox wl-clipboard
+    
+    // Embedded Syntax
+    soar{
+        bat
+	    exa
     }
-
-    flatpak {
-        com.spotify.Client
-    }
-}
-```
-
-**NEW: Inline Prefix Syntax** (Most Flexible)
-
-```kdl
-packages {
-    // Mix different backends in one block
-    hyprland           // Default (AUR)
-    aur:waybar         // Explicit AUR
-    soar:bat           // Soar (also works with "app:bat")
-    soar:exa           // Soar
+    // inline prefix
     flatpak:com.spotify.Client
-
-    // Can also combine with nested blocks
-    aur {
-        swww
-    }
+    npm:npmstat
+    pip:furl
+    cargo:tealdeer
 }
+
+packages:soar {
+	ripgrep
+}
+
 ```
+
 
 **Advanced KDL Syntax**
 
@@ -429,10 +425,7 @@ Fetch configurations from any Git repository without PRing to a central registry
 ```bash
 # User's GitHub repository
 declarch init myuser/hyprland-setup
-
-# Official project config
-declarch init hyprwm/hyprland
-
+d
 # Community registry
 declarch init gaming/steam-setup
 
@@ -459,65 +452,6 @@ See [Remote Init Guide](https://github.com/nixval/declarch/wiki/Remote-Init-Guid
 
 -----
 
-## 📦 Package Backends
-
-### AUR (Arch User Repository)
-
-Arch Linux packages from the community.
-
-```kdl
-packages:aur {
-    hyprland
-    waybar
-}
-```
-
-**Requires:** AUR helper (`paru` or `yay`)
-
----
-
-### Flatpak
-
-Universal packages — works on any Linux distribution.
-
-```kdl
-packages:flatpak {
-    com.spotify.Client
-    org.mozilla.firefox
-}
-```
-
-**Requires:** `flatpak` installed
-
----
-
-### Soar (Cross-Distro Static Binaries)
-
-Pre-built static binaries that work on any Linux.
-
-```kdl
-packages {
-    bat
-    exa
-    ripgrep
-    fd
-}
-```
-
-**Requires:** Nothing (auto-installs Soar if needed)
-
------
-
-## 💡 Why KDL?
-
-We chose [KDL](https://kdl.dev/) because it's designed for configuration, not data serialization.
-
-  * **VS JSON:** Comments are supported! `// like this`
-  * **VS YAML:** No whitespace/indentation anxiety
-  * **VS TOML:** Better support for nested hierarchies (blocks)
-  * **Human-Readable:** Clean, minimal syntax
-
------
 
 ## ⚠️ Safety First
 
@@ -527,41 +461,6 @@ We chose [KDL](https://kdl.dev/) because it's designed for configuration, not da
   * It automatically creates a backup of the state file before every write operation.
 
 -----
-
-## 📚 Documentation
-
-- [Home](https://github.com/nixval/declarch/wiki/Home) - Overview
-- [Installation Guide](https://github.com/nixval/declarch/wiki/Installation) - Detailed installation
-- [Quick Start](https://github.com/nixval/declarch/wiki/Quick-Start) - First steps
-- [KDL Syntax Reference](https://github.com/nixval/declarch/wiki/KDL-Syntax-Reference) - Complete syntax
-- [Remote Init Guide](https://github.com/nixval/declarch/wiki/Remote-Init-Guide) - Fetch from GitHub/GitLab
-- [Examples](https://github.com/nixval/declarch/wiki/Examples) - Real-world configs
-- [Backend System](docs/Backend-System.md) - Generic backend architecture
-- [Testing Guide](TESTING.md) - Test the new backend system
-- [Quick Test](QUICK-TEST.md) - Ready-to-use test configs
-
------
-
-## 🤝 Contributing
-
-Pull requests are welcome! This project is written in **Rust**.
-
-1. Fork it
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
------
-
-## 📜 License
-
-**MIT**
-
------
-
-
----
 
 ## ⚠️ Package Name Conflicts
 
@@ -605,4 +504,22 @@ Watch out for PATH conflicts!
 ```
 
 Use `declarch info` to see which backends have installed which packages.
+
+## 🤝 Contributing
+
+Pull requests are welcome! I only test this out in arch and endeavour. It possible to add nala, dnf5, or anything directly. For now it also available in backend.kdl, but it possible to be inside this tools if stable and tested out. This project is written in **Rust**.
+
+1. Fork it
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+-----
+
+## 📜 License
+
+**MIT**
+
+-----
 

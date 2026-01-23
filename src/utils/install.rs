@@ -37,7 +37,10 @@ pub fn install_soar() -> Result<bool> {
     output::error("Failed to install Soar automatically");
     output::warning("Please install Soar manually:");
     output::indent("https://github.com/pkgforge/soar#installation", 1);
-    output::indent("curl -fsSL https://raw.githubusercontent.com/pkgforge/soar/main/install.sh | sh", 1);
+    output::indent(
+        "curl -fsSL https://raw.githubusercontent.com/pkgforge/soar/main/install.sh | sh",
+        1,
+    );
 
     Ok(false)
 }
@@ -55,9 +58,7 @@ pub fn is_soar_installed() -> bool {
 
 /// Try installing Soar using curl
 fn try_install_with_curl() -> Result<bool> {
-    let curl_check = Command::new("which")
-        .arg("curl")
-        .output();
+    let curl_check = Command::new("which").arg("curl").output();
 
     if curl_check.map(|o| !o.status.success()).unwrap_or(true) {
         return Err(DeclarchError::Other("curl not found".into()));
@@ -82,9 +83,7 @@ fn try_install_with_curl() -> Result<bool> {
 
 /// Try installing Soar using wget
 fn try_install_with_wget() -> Result<bool> {
-    let wget_check = Command::new("which")
-        .arg("wget")
-        .output();
+    let wget_check = Command::new("which").arg("wget").output();
 
     if wget_check.map(|o| !o.status.success()).unwrap_or(true) {
         return Err(DeclarchError::Other("wget not found".into()));

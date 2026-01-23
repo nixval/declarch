@@ -5,10 +5,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 
 /// Parse tab-separated output (like flatpak list --columns=...)
-pub fn parse_tsv(
-    output: &str,
-    config: &BackendConfig,
-) -> Result<HashMap<String, PackageMetadata>> {
+pub fn parse_tsv(output: &str, config: &BackendConfig) -> Result<HashMap<String, PackageMetadata>> {
     let mut installed = HashMap::new();
     let name_col = config.list_name_col.unwrap_or(0);
     let version_col = config.list_version_col.unwrap_or(1);
@@ -24,12 +21,15 @@ pub fn parse_tsv(
         if let Some(name) = parts.get(name_col) {
             let version = parts.get(version_col).map(|&v| v.to_string());
 
-            installed.insert(name.to_string(), PackageMetadata {
-                variant: None,
-                version,
-                installed_at: Utc::now(),
-                source_file: None,
-            });
+            installed.insert(
+                name.to_string(),
+                PackageMetadata {
+                    variant: None,
+                    version,
+                    installed_at: Utc::now(),
+                    source_file: None,
+                },
+            );
         }
     }
 
@@ -53,8 +53,14 @@ mod tests {
         let result = parse_tsv(output, &config).unwrap();
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result["com.spotify.Client"].version.as_deref(), Some("1.2.3"));
-        assert_eq!(result["org.mozilla.firefox"].version.as_deref(), Some("120.0"));
+        assert_eq!(
+            result["com.spotify.Client"].version.as_deref(),
+            Some("1.2.3")
+        );
+        assert_eq!(
+            result["org.mozilla.firefox"].version.as_deref(),
+            Some("120.0")
+        );
     }
 
     #[test]
@@ -70,7 +76,10 @@ mod tests {
         let result = parse_tsv(output, &config).unwrap();
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result["com.spotify.Client"].version.as_deref(), Some("1.2.3"));
+        assert_eq!(
+            result["com.spotify.Client"].version.as_deref(),
+            Some("1.2.3")
+        );
     }
 
     #[test]

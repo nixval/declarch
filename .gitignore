@@ -12,9 +12,8 @@ _declarch
 .claude/
 
 # Release documentation (personal reference)
-RELEASE_GUIDE.md
-ENDEAVOUROS_SETUP.md
-
+personal-docs/
+.obsidian/
 # AUR publish scripts (personal reference)
 .aur/publish*.sh
 

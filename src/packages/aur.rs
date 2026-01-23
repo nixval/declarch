@@ -1,9 +1,9 @@
-use crate::packages::traits::PackageManager;
 use crate::core::types::{Backend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
+use crate::packages::traits::PackageManager;
+use chrono::Utc;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
-use chrono::Utc;
 
 pub struct AurManager {
     pub helper_cmd: String,
@@ -13,9 +13,9 @@ pub struct AurManager {
 impl AurManager {
     // Now accepts the specific helper command string from config/cli
     pub fn new(helper: String, noconfirm: bool) -> Self {
-        Self { 
+        Self {
             helper_cmd: helper,
-            noconfirm 
+            noconfirm,
         }
     }
 }
@@ -27,37 +27,38 @@ impl PackageManager for AurManager {
 
     fn list_installed(&self) -> Result<HashMap<String, PackageMetadata>> {
         // We use pacman -Q for speed. It covers both Repo and AUR.
-        let output = Command::new("pacman")
-            .arg("-Q")
-            .output()
-            .map_err(|e| DeclarchError::SystemCommandFailed { 
-                command: "pacman -Q".into(), 
-                reason: e.to_string() 
-            })?;
+        let output = Command::new("pacman").arg("-Q").output().map_err(|e| {
+            DeclarchError::SystemCommandFailed {
+                command: "pacman -Q".into(),
+                reason: e.to_string(),
+            }
+        })?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(
-                "Failed to query pacman database".into()
+                "Failed to query pacman database".into(),
             ));
         }
 
-        let stdout = String::from_utf8(output.stdout)
-            .map_err(|_| DeclarchError::PackageManagerError(
-                "Pacman output contained invalid UTF-8".into()
-            ))?;
+        let stdout = String::from_utf8(output.stdout).map_err(|_| {
+            DeclarchError::PackageManagerError("Pacman output contained invalid UTF-8".into())
+        })?;
         let mut installed = HashMap::new();
 
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if let Some(name) = parts.first() {
                 let version = parts.get(1).map(|&v| v.to_string());
-                
-                installed.insert(name.to_string(), PackageMetadata {
-                variant: None,
-                    version,
-                    installed_at: Utc::now(), 
-                    source_file: None,
-                });
+
+                installed.insert(
+                    name.to_string(),
+                    PackageMetadata {
+                        variant: None,
+                        version,
+                        installed_at: Utc::now(),
+                        source_file: None,
+                    },
+                );
             }
         }
 
@@ -65,8 +66,10 @@ impl PackageManager for AurManager {
     }
 
     fn install(&self, packages: &[String]) -> Result<()> {
-        if packages.is_empty() { return Ok(()); }
-        
+        if packages.is_empty() {
+            return Ok(());
+        }
+
         let mut cmd = Command::new(&self.helper_cmd);
         cmd.arg("-S").arg("--needed");
 
@@ -82,13 +85,18 @@ impl PackageManager for AurManager {
             .status()?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError(format!("{} install failed", self.helper_cmd)));
+            return Err(DeclarchError::PackageManagerError(format!(
+                "{} install failed",
+                self.helper_cmd
+            )));
         }
         Ok(())
     }
 
     fn remove(&self, packages: &[String]) -> Result<()> {
-        if packages.is_empty() { return Ok(()); }
+        if packages.is_empty() {
+            return Ok(());
+        }
 
         let mut cmd = Command::new("sudo");
         cmd.arg("pacman").arg("-Rns");
@@ -104,7 +112,9 @@ impl PackageManager for AurManager {
             .status()?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("Pacman remove failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "Pacman remove failed".into(),
+            ));
         }
         Ok(())
     }
@@ -129,10 +139,9 @@ impl PackageManager for AurManager {
             return Ok(Vec::new());
         }
 
-        let stdout = String::from_utf8(output.stdout)
-            .map_err(|_| DeclarchError::PackageManagerError(
-                "Pacman output contained invalid UTF-8".into()
-            ))?;
+        let stdout = String::from_utf8(output.stdout).map_err(|_| {
+            DeclarchError::PackageManagerError("Pacman output contained invalid UTF-8".into())
+        })?;
 
         // Parse the "Required By" field
         for line in stdout.lines() {

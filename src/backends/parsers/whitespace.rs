@@ -26,12 +26,15 @@ pub fn parse_whitespace_split(
         if let Some(name) = parts.get(name_col) {
             let version = parts.get(version_col).map(|&v| v.to_string());
 
-            installed.insert(name.to_string(), PackageMetadata {
-                variant: None,
-                version,
-                installed_at: Utc::now(),
-                source_file: None,
-            });
+            installed.insert(
+                name.to_string(),
+                PackageMetadata {
+                    variant: None,
+                    version,
+                    installed_at: Utc::now(),
+                    source_file: None,
+                },
+            );
         }
     }
 

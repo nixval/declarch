@@ -36,11 +36,15 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
 /// Parse a single backend node
 fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
     // Extract backend name from argument
-    let name = node.entries().first()
+    let name = node
+        .entries()
+        .first()
         .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| DeclarchError::Other(
-            "Backend name required. Usage: backend \"name\" { ... }".to_string()
-        ))?
+        .ok_or_else(|| {
+            DeclarchError::Other(
+                "Backend name required. Usage: backend \"name\" { ... }".to_string(),
+            )
+        })?
         .to_string();
 
     let mut config = BackendConfig {
@@ -90,7 +94,7 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
     if values.is_empty() {
         return Err(DeclarchError::Other(
-            "Binary requires at least one value. Usage: binary \"cmd1\" \"cmd2\"".to_string()
+            "Binary requires at least one value. Usage: binary \"cmd1\" \"cmd2\"".to_string(),
         ));
     }
 
@@ -105,11 +109,15 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 /// Parse list command with output format
 fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     // Extract command from argument
-    let cmd = node.entries().first()
+    let cmd = node
+        .entries()
+        .first()
         .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| DeclarchError::Other(
-            "List command required. Usage: list \"command\" { ... }".to_string()
-        ))?;
+        .ok_or_else(|| {
+            DeclarchError::Other(
+                "List command required. Usage: list \"command\" { ... }".to_string(),
+            )
+        })?;
 
     config.list_cmd = cmd.to_string();
 
@@ -119,88 +127,107 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             let child_name = child.name().value();
             match child_name {
                 "format" => {
-                    let format_str = child.entries().first()
+                    let format_str = child
+                        .entries()
+                        .first()
                         .and_then(|entry| entry.value().as_string())
-                        .ok_or_else(|| DeclarchError::Other(
-                            "Format value required. Usage: format json|whitespace|tsv|regex".to_string()
-                        ))?;
+                        .ok_or_else(|| {
+                            DeclarchError::Other(
+                                "Format value required. Usage: format json|whitespace|tsv|regex"
+                                    .to_string(),
+                            )
+                        })?;
 
                     config.list_format = match format_str {
                         "json" => OutputFormat::Json,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
-                        _ => return Err(DeclarchError::Other(format!(
-                            "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
-                            format_str
-                        ))),
+                        _ => {
+                            return Err(DeclarchError::Other(format!(
+                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
+                                format_str
+                            )));
+                        }
                     };
                 }
                 "json_path" => {
-                    config.list_json_path = child.entries().first()
+                    config.list_json_path = child
+                        .entries()
+                        .first()
                         .and_then(|entry| entry.value().as_string())
                         .map(|s| s.to_string());
                 }
                 "name_key" => {
-                    config.list_name_key = child.entries().first()
+                    config.list_name_key = child
+                        .entries()
+                        .first()
                         .and_then(|entry| entry.value().as_string())
                         .map(|s| s.to_string());
                 }
                 "version_key" => {
-                    config.list_version_key = child.entries().first()
+                    config.list_version_key = child
+                        .entries()
+                        .first()
                         .and_then(|entry| entry.value().as_string())
                         .map(|s| s.to_string());
                 }
                 "name_col" => {
-                    config.list_name_col = child.entries().first()
-                        .and_then(|entry| {
-                            // Try as string first, then as integer representation
-                            entry.value().as_string()
-                                .and_then(|s| s.parse::<usize>().ok())
-                                .or_else(|| {
-                                    // Convert value to string and parse
-                                    let val_str = entry.value().to_string();
-                                    val_str.parse::<usize>().ok()
-                                })
-                        });
+                    config.list_name_col = child.entries().first().and_then(|entry| {
+                        // Try as string first, then as integer representation
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                // Convert value to string and parse
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
                 }
                 "version_col" => {
-                    config.list_version_col = child.entries().first()
-                        .and_then(|entry| {
-                            entry.value().as_string()
-                                .and_then(|s| s.parse::<usize>().ok())
-                                .or_else(|| {
-                                    let val_str = entry.value().to_string();
-                                    val_str.parse::<usize>().ok()
-                                })
-                        });
+                    config.list_version_col = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
                 }
                 "regex" | "pattern" | "regex_pat" | "myregex" => {
-                    config.list_regex = child.entries().first()
+                    config.list_regex = child
+                        .entries()
+                        .first()
                         .and_then(|entry| entry.value().as_string())
                         .map(|s| s.to_string());
                 }
                 "name_group" => {
-                    config.list_regex_name_group = child.entries().first()
-                        .and_then(|entry| {
-                            entry.value().as_string()
-                                .and_then(|s| s.parse::<usize>().ok())
-                                .or_else(|| {
-                                    let val_str = entry.value().to_string();
-                                    val_str.parse::<usize>().ok()
-                                })
-                        });
+                    config.list_regex_name_group = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
                 }
                 "version_group" => {
-                    config.list_regex_version_group = child.entries().first()
-                        .and_then(|entry| {
-                            entry.value().as_string()
-                                .and_then(|s| s.parse::<usize>().ok())
-                                .or_else(|| {
-                                    let val_str = entry.value().to_string();
-                                    val_str.parse::<usize>().ok()
-                                })
-                        });
+                    config.list_regex_version_group = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
                 }
                 _ => {
                     // Ignore unknown fields in list block
@@ -214,11 +241,13 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
 /// Parse install command
 fn parse_install_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.install_cmd = node.entries().first()
+    config.install_cmd = node
+        .entries()
+        .first()
         .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| DeclarchError::Other(
-            "Install command required. Usage: install \"command\"".to_string()
-        ))?
+        .ok_or_else(|| {
+            DeclarchError::Other("Install command required. Usage: install \"command\"".to_string())
+        })?
         .to_string();
 
     Ok(())
@@ -226,11 +255,13 @@ fn parse_install_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
 /// Parse remove command
 fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.remove_cmd = node.entries().first()
+    config.remove_cmd = node
+        .entries()
+        .first()
         .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| DeclarchError::Other(
-            "Remove command required. Usage: remove \"command\"".to_string()
-        ))?
+        .ok_or_else(|| {
+            DeclarchError::Other("Remove command required. Usage: remove \"command\"".to_string())
+        })?
         .to_string();
 
     Ok(())
@@ -238,7 +269,9 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
 /// Parse noconfirm flag
 fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.noconfirm_flag = node.entries().first()
+    config.noconfirm_flag = node
+        .entries()
+        .first()
         .and_then(|entry| entry.value().as_string())
         .map(|s| s.to_string());
     Ok(())
@@ -246,11 +279,12 @@ fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
 /// Parse boolean value
 fn parse_bool(node: &KdlNode) -> Result<bool> {
-    node.entries().first()
+    node.entries()
+        .first()
         .and_then(|entry| entry.value().as_bool())
-        .ok_or_else(|| DeclarchError::Other(
-            "Boolean value required. Usage: needs_sudo true".to_string()
-        ))
+        .ok_or_else(|| {
+            DeclarchError::Other("Boolean value required. Usage: needs_sudo true".to_string())
+        })
 }
 
 /// Parse environment variables
@@ -288,19 +322,19 @@ fn parse_env(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 fn validate_backend_config(config: &BackendConfig) -> Result<()> {
     if config.list_cmd.is_empty() {
         return Err(DeclarchError::Other(
-            "Backend 'list_cmd' cannot be empty".to_string()
+            "Backend 'list_cmd' cannot be empty".to_string(),
         ));
     }
 
     if config.install_cmd.is_empty() {
         return Err(DeclarchError::Other(
-            "Backend 'install_cmd' cannot be empty".to_string()
+            "Backend 'install_cmd' cannot be empty".to_string(),
         ));
     }
 
     if config.remove_cmd.is_empty() {
         return Err(DeclarchError::Other(
-            "Backend 'remove_cmd' cannot be empty".to_string()
+            "Backend 'remove_cmd' cannot be empty".to_string(),
         ));
     }
 
@@ -309,26 +343,26 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         OutputFormat::Json => {
             if config.list_name_key.is_none() {
                 return Err(DeclarchError::Other(
-                    "JSON format requires 'name_key' to be specified in list block".to_string()
+                    "JSON format requires 'name_key' to be specified in list block".to_string(),
                 ));
             }
         }
         OutputFormat::Regex => {
             if config.list_regex.is_none() {
                 return Err(DeclarchError::Other(
-                    "Regex format requires 'regex' to be specified in list block".to_string()
+                    "Regex format requires 'regex' to be specified in list block".to_string(),
                 ));
             }
             if config.list_regex_name_group.is_none() {
                 return Err(DeclarchError::Other(
-                    "Regex format requires 'name_group' to be specified".to_string()
+                    "Regex format requires 'name_group' to be specified".to_string(),
                 ));
             }
         }
         OutputFormat::SplitWhitespace | OutputFormat::TabSeparated => {
             if config.list_name_col.is_none() {
                 return Err(DeclarchError::Other(
-                    "Whitespace/TSV format requires 'name_col' to be specified".to_string()
+                    "Whitespace/TSV format requires 'name_col' to be specified".to_string(),
                 ));
             }
         }

@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 // Re-export Backend from core to avoid duplication
 pub use crate::core::types::Backend;
 
@@ -16,7 +16,7 @@ pub struct StateMeta {
     pub schema_version: u8,
     pub last_sync: DateTime<Utc>,
     pub hostname: String,
-    
+
     // #[serde(default)] ensures it loads as None for existing state.json
     #[serde(default)]
     pub last_update: Option<DateTime<Utc>>,
@@ -60,11 +60,7 @@ impl Default for PackageState {
 
 impl PackageState {
     /// Create new PackageState from config name
-    pub fn from_config(
-        config_name: String,
-        backend: Backend,
-        version: Option<String>,
-    ) -> Self {
+    pub fn from_config(config_name: String, backend: Backend, version: Option<String>) -> Self {
         Self {
             backend,
             config_name: config_name.clone(),
@@ -96,7 +92,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             meta: StateMeta {
-                schema_version: 2, 
+                schema_version: 2,
                 last_sync: Utc::now(),
                 hostname: "unknown".to_string(),
                 last_update: None, // Default is never updated via declarch

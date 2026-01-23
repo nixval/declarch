@@ -1,9 +1,9 @@
-use crate::packages::traits::PackageManager;
 use crate::core::types::{Backend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
+use crate::packages::traits::PackageManager;
+use chrono::Utc;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
-use chrono::Utc;
 
 pub struct FlatpakManager {
     pub noconfirm: bool,
@@ -24,14 +24,14 @@ impl PackageManager for FlatpakManager {
         let output = Command::new("flatpak")
             .args(["list", "--app", "--columns=application,version"])
             .output()
-            .map_err(|e| DeclarchError::SystemCommandFailed { 
-                command: "flatpak list".into(), 
-                reason: e.to_string() 
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "flatpak list".into(),
+                reason: e.to_string(),
             })?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(
-                "Failed to list flatpak packages".into()
+                "Failed to list flatpak packages".into(),
             ));
         }
 
@@ -42,13 +42,16 @@ impl PackageManager for FlatpakManager {
             let parts: Vec<&str> = line.split('\t').collect();
             if let Some(name) = parts.first() {
                 let version = parts.get(1).map(|&v| v.to_string());
-                
-                installed.insert(name.to_string(), PackageMetadata {
-                variant: None,
-                    version,
-                    installed_at: Utc::now(), 
-                    source_file: None,
-                });
+
+                installed.insert(
+                    name.to_string(),
+                    PackageMetadata {
+                        variant: None,
+                        version,
+                        installed_at: Utc::now(),
+                        source_file: None,
+                    },
+                );
             }
         }
 
@@ -56,8 +59,10 @@ impl PackageManager for FlatpakManager {
     }
 
     fn install(&self, packages: &[String]) -> Result<()> {
-        if packages.is_empty() { return Ok(()); }
-        
+        if packages.is_empty() {
+            return Ok(());
+        }
+
         let mut cmd = Command::new("flatpak");
         cmd.arg("install").arg("--user").arg("flathub");
 
@@ -72,13 +77,17 @@ impl PackageManager for FlatpakManager {
             .status()?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("Flatpak install failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "Flatpak install failed".into(),
+            ));
         }
         Ok(())
     }
 
     fn remove(&self, packages: &[String]) -> Result<()> {
-        if packages.is_empty() { return Ok(()); }
+        if packages.is_empty() {
+            return Ok(());
+        }
 
         let mut cmd = Command::new("flatpak");
         cmd.arg("uninstall").arg("--user");
@@ -94,7 +103,9 @@ impl PackageManager for FlatpakManager {
             .status()?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("Flatpak remove failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "Flatpak remove failed".into(),
+            ));
         }
         Ok(())
     }

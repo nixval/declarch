@@ -1,7 +1,7 @@
-pub mod whitespace;
 pub mod json_parser;
-pub mod tsv;
 pub mod regex_parser;
+pub mod tsv;
+pub mod whitespace;
 
 use crate::backends::config::BackendConfig;
 use crate::core::types::PackageMetadata;
@@ -18,20 +18,14 @@ pub fn parse_package_list(
     match config.list_format {
         crate::backends::config::OutputFormat::SplitWhitespace => {
             whitespace::parse_whitespace_split(&stdout, config)
-        },
-        crate::backends::config::OutputFormat::TabSeparated => {
-            tsv::parse_tsv(&stdout, config)
-        },
-        crate::backends::config::OutputFormat::Json => {
-            json_parser::parse_json(&stdout, config)
-        },
-        crate::backends::config::OutputFormat::Regex => {
-            regex_parser::parse_regex(&stdout, config)
-        },
+        }
+        crate::backends::config::OutputFormat::TabSeparated => tsv::parse_tsv(&stdout, config),
+        crate::backends::config::OutputFormat::Json => json_parser::parse_json(&stdout, config),
+        crate::backends::config::OutputFormat::Regex => regex_parser::parse_regex(&stdout, config),
         crate::backends::config::OutputFormat::Custom => {
             // Custom parsers use Rust implementations
             Err(crate::error::DeclarchError::Other(
-                "Custom format requires Rust implementation".to_string()
+                "Custom format requires Rust implementation".to_string(),
             ))
         }
     }

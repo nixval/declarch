@@ -1,10 +1,10 @@
-use crate::packages::traits::PackageManager;
 use crate::core::types::{Backend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
-use std::collections::HashMap;
-use std::process::{Command, Stdio};
-use std::path::Path;
+use crate::packages::traits::PackageManager;
 use chrono::Utc;
+use std::collections::HashMap;
+use std::path::Path;
+use std::process::{Command, Stdio};
 
 /// Strip ANSI escape codes from a string
 fn strip_ansi_codes(input: &str) -> String {
@@ -49,11 +49,7 @@ impl SoarManager {
         std::env::var("XDG_CONFIG_HOME")
             .ok()
             .filter(|p| !p.is_empty())
-            .or_else(|| {
-                std::env::var("HOME")
-                    .ok()
-                    .map(|h| format!("{}/.config", h))
-            })
+            .or_else(|| std::env::var("HOME").ok().map(|h| format!("{}/.config", h)))
             .map(|base| format!("{}/soar", base))
             .filter(|p| Path::new(p).exists())
     }
@@ -117,7 +113,7 @@ impl PackageManager for SoarManager {
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(
-                "Failed to query Soar package database".into()
+                "Failed to query Soar package database".into(),
             ));
         }
 
@@ -147,9 +143,10 @@ impl PackageManager for SoarManager {
             let first_col = columns[0].trim();
 
             // Remove status indicator "[○] " prefix
-            let package_info = first_col.strip_prefix("[○] ")
-                .or_else(|| first_col.strip_prefix("[●] "))  // installed indicator
-                .or_else(|| first_col.strip_prefix("[×] "))  // error indicator
+            let package_info = first_col
+                .strip_prefix("[○] ")
+                .or_else(|| first_col.strip_prefix("[●] ")) // installed indicator
+                .or_else(|| first_col.strip_prefix("[×] ")) // error indicator
                 .unwrap_or(first_col);
 
             // Split package#variant:cache
@@ -166,12 +163,15 @@ impl PackageManager for SoarManager {
             // Second column: version
             let version = Some(columns[1].trim().to_string());
 
-            installed.insert(base_name, PackageMetadata {
-                version,
-                variant,
-                installed_at: Utc::now(),
-                source_file: None,
-            });
+            installed.insert(
+                base_name,
+                PackageMetadata {
+                    version,
+                    variant,
+                    installed_at: Utc::now(),
+                    source_file: None,
+                },
+            );
         }
 
         Ok(installed)
@@ -183,10 +183,10 @@ impl PackageManager for SoarManager {
         }
 
         let mut cmd = self.build_command();
-        cmd.arg("install");  // Fixed: was "apply", should be "install"
+        cmd.arg("install"); // Fixed: was "apply", should be "install"
 
         if self.noconfirm {
-            cmd.arg("-y");  // Soar uses -y for yes, not --yes
+            cmd.arg("-y"); // Soar uses -y for yes, not --yes
         }
 
         // Pass packages as arguments
@@ -202,9 +202,10 @@ impl PackageManager for SoarManager {
             })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError(
-                format!("Soar installation failed for packages: {:?}", packages)
-            ));
+            return Err(DeclarchError::PackageManagerError(format!(
+                "Soar installation failed for packages: {:?}",
+                packages
+            )));
         }
 
         Ok(())
@@ -234,9 +235,10 @@ impl PackageManager for SoarManager {
             })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError(
-                format!("Soar removal failed for packages: {:?}", packages)
-            ));
+            return Err(DeclarchError::PackageManagerError(format!(
+                "Soar removal failed for packages: {:?}",
+                packages
+            )));
         }
 
         Ok(())

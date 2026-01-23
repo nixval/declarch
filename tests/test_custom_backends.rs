@@ -24,7 +24,10 @@ fn test_nala_json_parser() {
     let result = declarch::backends::parsers::json_parser::parse_json(output, &config).unwrap();
 
     assert_eq!(result.len(), 3);
-    assert_eq!(result["vim"].version.as_deref(), Some("2:9.0.1000-0ubuntu1"));
+    assert_eq!(
+        result["vim"].version.as_deref(),
+        Some("2:9.0.1000-0ubuntu1")
+    );
     assert_eq!(result["neovim"].version.as_deref(), Some("0.9.1-1"));
     assert_eq!(result["git"].version.as_deref(), Some("1:2.43.0-0ubuntu1"));
 }
@@ -39,8 +42,8 @@ i+\tMain\tgcc\t13.2.0-1.1\tx86_64";
 
     let config = BackendConfig {
         list_format: OutputFormat::TabSeparated,
-        list_name_col: Some(2),  // 3rd column (0-indexed)
-        list_version_col: Some(3),  // 4th column
+        list_name_col: Some(2),    // 3rd column (0-indexed)
+        list_version_col: Some(3), // 4th column
         ..Default::default()
     };
 
@@ -75,5 +78,8 @@ fn test_dnf5_json_parser() {
     assert_eq!(result.len(), 3);
     assert_eq!(result["neovim"].version.as_deref(), Some("0.9.5-1.fc39"));
     assert_eq!(result["podman"].version.as_deref(), Some("4.9.4-1.fc39"));
-    assert_eq!(result["toolbox"].version.as_deref(), Some("0.0.99.5-1.fc39"));
+    assert_eq!(
+        result["toolbox"].version.as_deref(),
+        Some("0.0.99.5-1.fc39")
+    );
 }

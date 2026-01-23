@@ -1,5 +1,5 @@
-use thiserror::Error;
 use std::path::PathBuf;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DeclarchError {
@@ -17,10 +17,7 @@ pub enum DeclarchError {
     StdIoError(#[from] std::io::Error),
 
     #[error("Parsing error in '{file}': {message}")]
-    ParseError {
-        file: String,
-        message: String,
-    },
+    ParseError { file: String, message: String },
 
     #[error("KDL parse error: {0}")]
     KdlError(#[from] kdl::KdlError),

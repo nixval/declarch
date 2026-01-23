@@ -1,11 +1,11 @@
-use crate::utils::{self, paths, remote, install};
 use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
-use std::fs;
-use std::path::{Path, PathBuf};
+use crate::utils::{self, install, paths, remote};
 use colored::Colorize;
-use regex::Regex; // Import Regex
+use regex::Regex;
+use std::fs;
+use std::path::{Path, PathBuf}; // Import Regex
 
 #[derive(Debug)]
 pub struct InitOptions {
@@ -52,7 +52,10 @@ pub fn run(options: InitOptions) -> Result<()> {
 
     if !config_dir.exists() {
         fs::create_dir_all(&config_dir)?;
-        output::success(&format!("Created config directory: {}", config_dir.display()));
+        output::success(&format!(
+            "Created config directory: {}",
+            config_dir.display()
+        ));
     }
 
     let hostname = options.host.unwrap_or_else(|| {
@@ -70,7 +73,10 @@ pub fn run(options: InitOptions) -> Result<()> {
     let modules_dir = config_dir.join("modules");
     if !modules_dir.exists() {
         fs::create_dir_all(&modules_dir)?;
-        output::success(&format!("Created modules directory: {}", modules_dir.display()));
+        output::success(&format!(
+            "Created modules directory: {}",
+            modules_dir.display()
+        ));
     }
 
     let base_module_path = modules_dir.join("base.kdl");
@@ -78,7 +84,10 @@ pub fn run(options: InitOptions) -> Result<()> {
         let base_template = utils::templates::get_template_by_name("base")
             .unwrap_or_else(|| utils::templates::default_module("base"));
         fs::write(&base_module_path, base_template)?;
-        output::success(&format!("Created base module: {}", base_module_path.display()));
+        output::success(&format!(
+            "Created base module: {}",
+            base_module_path.display()
+        ));
     }
 
     let _state = state::io::init_state(hostname.clone())?;
@@ -158,7 +167,7 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
             Ok(remote_content) => {
                 output::success("Module downloaded successfully.");
                 remote_content
-            },
+            }
             Err(e) => {
                 output::warning(&format!("Remote fetch failed: {}", e));
                 output::info("Falling back to generic empty module.");
@@ -174,24 +183,38 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     // 5. AUTO INJECT IMPORT
     let root_config_path = paths::config_file()?;
     let import_path = modules_path.to_string_lossy().replace("\\", "/");
-    inject_import_to_root(&root_config_path, &import_path)?;
+    inject_import_to_root(&root_config_path, &import_path, force)?;
 
     Ok(())
 }
 
 /// Helper to inject the import statement into declarch.kdl using Regex
-fn inject_import_to_root(config_path: &Path, import_path: &str) -> Result<()> {
+fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> Result<()> {
     let content = fs::read_to_string(config_path)?;
-    
+
     // Pattern to insert: "path/to/module.kdl"
     // We add quotes for safety.
-    let import_line = format!("    {:?}", import_path); 
+    let import_line = format!("    {:?}", import_path);
 
     // 1. Check if it already exists (Simple check)
     // This catches both active imports and commented ones.
     // We assume if the string is there, the user knows about it.
     if content.contains(import_path) {
-        output::info(&format!("Module '{}' is already referenced in config.", import_path));
+        output::info(&format!(
+            "Module '{}' is already referenced in config.",
+            import_path
+        ));
+        return Ok(());
+    }
+
+    // Prompt for consent unless force is active
+    if !force
+        && !output::prompt_yes_no(&format!(
+            "Add '{}' to imports in declarch.kdl?",
+            import_path
+        ))
+    {
+        output::info("Skipping auto-import. You can add it manually.");
         return Ok(());
     }
 
@@ -206,14 +229,22 @@ fn inject_import_to_root(config_path: &Path, import_path: &str) -> Result<()> {
         // We append a newline and our import line
         re.replace(&content, |caps: &regex::Captures| {
             format!("{}\n{}", &caps[0], import_line)
-        }).to_string()
+        })
+        .to_string()
     } else {
         // FALLBACK: Append new block if not found
-        format!("{}\n\nimports {{\n{}\n}}\n", content.trim_end(), import_line)
+        format!(
+            "{}\n\nimports {{\n{}\n}}\n",
+            content.trim_end(),
+            import_line
+        )
     };
 
     fs::write(config_path, new_content)?;
-    output::success(&format!("Auto-imported: added '{}' to declarch.kdl", import_path.green()));
+    output::success(&format!(
+        "Auto-imported: added '{}' to declarch.kdl",
+        import_path.green()
+    ));
 
     Ok(())
 }

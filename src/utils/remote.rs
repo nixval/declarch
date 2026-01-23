@@ -59,7 +59,7 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
                 final_content.push_str(&content);
 
                 return Ok(final_content);
-            },
+            }
             Err(_) => continue,
         }
     }
@@ -172,7 +172,8 @@ fn build_urls(target: &str) -> Vec<String> {
         // It's a registry module path with extension
         urls.push(format!(
             "{}/modules/{}",
-            DEFAULT_REGISTRY, target  // Keep .kdl extension
+            DEFAULT_REGISTRY,
+            target // Keep .kdl extension
         ));
 
         // Also try GitHub as fallback
@@ -215,10 +216,7 @@ fn build_urls(target: &str) -> Vec<String> {
             }
 
             // Also try modules/ path for default registry (without .kdl)
-            urls.push(format!(
-                "{}/modules/{}.kdl",
-                DEFAULT_REGISTRY, clean_target
-            ));
+            urls.push(format!("{}/modules/{}.kdl", DEFAULT_REGISTRY, clean_target));
         }
 
         return urls;
@@ -234,7 +232,8 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
     // Validate URL scheme before making request
     validate_url(url)?;
 
-    let resp = client.get(url)
+    let resp = client
+        .get(url)
         .header("User-Agent", "declarch-cli")
         .send()
         .map_err(|e| DeclarchError::Other(format!("Network error: {}", e)))?;
@@ -291,9 +290,20 @@ fn is_private_address(host: &str) -> bool {
         let parts: Vec<&str> = host.split('.').collect();
         if parts.len() >= 2
             && let Ok(second_octet) = parts[1].parse::<u8>()
-                && (16..=32).contains(&second_octet) {
-                    return true;
-                }
+            && (16..=32).contains(&second_octet)
+        {
+            return true;
+        }
+    }
+
+    // Check for Link-local (169.254.x.x)
+    if host.starts_with("169.254.") {
+        return true;
+    }
+
+    // Check for IPv6 Unique Local Address (fc00::/7) and Link-local (fe80::/10)
+    if host.starts_with("fc") || host.starts_with("fd") || host.starts_with("fe80:") {
+        return true;
     }
 
     false
@@ -314,28 +324,36 @@ mod tests {
     fn test_build_urls_github_with_branch() {
         let urls = build_urls("myuser/hyprland1/develop");
 
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/hyprland1/develop/declarch.kdl")));
+        assert!(urls.iter().any(|u| {
+            u.contains("raw.githubusercontent.com/myuser/hyprland1/develop/declarch.kdl")
+        }));
         assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/hyprland1/main/declarch.kdl")));
     }
 
     #[test]
     fn test_build_urls_gitlab() {
         let urls = build_urls("gitlab.com/user/repo");
-        
-        assert!(urls.iter().any(|u| u.contains("gitlab.com/user/repo/-/raw/main/declarch.kdl")));
+
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("gitlab.com/user/repo/-/raw/main/declarch.kdl"))
+        );
     }
 
     #[test]
     fn test_build_urls_gitlab_with_branch() {
         let urls = build_urls("gitlab.com/user/repo/develop");
-        
-        assert!(urls.iter().any(|u| u.contains("gitlab.com/user/repo/-/raw/develop/declarch.kdl")));
+
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("gitlab.com/user/repo/-/raw/develop/declarch.kdl"))
+        );
     }
 
     #[test]
     fn test_build_urls_direct_url() {
         let urls = build_urls("https://example.com/config.kdl");
-        
+
         assert_eq!(urls.len(), 1);
         assert_eq!(urls[0], "https://example.com/config.kdl");
     }
@@ -344,7 +362,10 @@ mod tests {
     fn test_build_urls_flat_name() {
         let urls = build_urls("hyprland");
 
-        assert!(urls.iter().any(|u| u.contains("declarch-packages/main/modules/hyprland.kdl")));
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("declarch-packages/main/modules/hyprland.kdl"))
+        );
     }
 
     #[test]
@@ -353,7 +374,10 @@ mod tests {
 
         // Should try both GitHub and default registry
         assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com")));
-        assert!(urls.iter().any(|u| u.contains("declarch-packages/main/modules")));
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("declarch-packages/main/modules"))
+        );
     }
 
     #[test]
@@ -362,7 +386,9 @@ mod tests {
 
         // Should build URLs with declarch-uwsm.kdl
         assert!(urls.iter().any(|u| u.contains("declarch-uwsm.kdl")));
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/dotfiles/main/declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| {
+            u.contains("raw.githubusercontent.com/myuser/dotfiles/main/declarch-uwsm.kdl")
+        }));
     }
 
     #[test]
@@ -371,8 +397,14 @@ mod tests {
 
         // Should try both develop and main/master branches
         assert!(urls.iter().any(|u| u.contains("declarch-develop.kdl")));
-        assert!(urls.iter().any(|u| u.contains("/main/declarch-develop.kdl")));
-        assert!(urls.iter().any(|u| u.contains("/master/declarch-develop.kdl")));
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("/main/declarch-develop.kdl"))
+        );
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("/master/declarch-develop.kdl"))
+        );
     }
 
     #[test]
@@ -389,9 +421,16 @@ mod tests {
         let urls = build_urls("gaming/steam-setup.kdl");
 
         // Registry paths with .kdl should keep the extension
-        assert!(urls.iter().any(|u| u.contains("declarch-packages/main/modules/gaming/steam-setup.kdl")));
+        assert!(
+            urls.iter()
+                .any(|u| u.contains("declarch-packages/main/modules/gaming/steam-setup.kdl"))
+        );
         // Should also try GitHub as fallback
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/gaming/steam-setup/main/declarch.kdl")));
+        assert!(
+            urls.iter()
+                .any(|u| u
+                    .contains("raw.githubusercontent.com/gaming/steam-setup/main/declarch.kdl"))
+        );
     }
 
     #[test]
@@ -400,9 +439,28 @@ mod tests {
 
         // Should build URLs with develop branch and uwsm variant
         assert!(urls.iter().any(|u| u.contains("declarch-uwsm.kdl")));
-        assert!(urls.iter().any(|u| u.contains("raw.githubusercontent.com/myuser/dotfiles/develop/declarch-uwsm.kdl")));
+        assert!(urls.iter().any(|u| {
+            u.contains("raw.githubusercontent.com/myuser/dotfiles/develop/declarch-uwsm.kdl")
+        }));
         // Should also fallback to main/master
         assert!(urls.iter().any(|u| u.contains("/main/declarch-uwsm.kdl")));
         assert!(urls.iter().any(|u| u.contains("/master/declarch-uwsm.kdl")));
+    }
+
+    #[test]
+    fn test_private_address_checks() {
+        assert!(is_private_address("localhost"));
+        assert!(is_private_address("127.0.0.1"));
+        assert!(is_private_address("192.168.1.1"));
+        assert!(is_private_address("10.0.0.5"));
+        assert!(is_private_address("172.16.0.1"));
+        assert!(is_private_address("169.254.169.254")); // Cloud metadata
+        assert!(is_private_address("fe80::1")); // IPv6 Link-local
+        assert!(is_private_address("fc00::")); // IPv6 ULA
+
+        assert!(!is_private_address("8.8.8.8"));
+        assert!(!is_private_address("1.1.1.1"));
+        assert!(!is_private_address("github.com"));
+        assert!(!is_private_address("gitlab.com"));
     }
 }

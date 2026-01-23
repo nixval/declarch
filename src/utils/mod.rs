@@ -1,6 +1,7 @@
-pub mod paths;
-pub mod templates;
-pub mod remote;
+pub mod cache;
 pub mod distro;
 pub mod install;
-pub mod cache;
+pub mod paths;
+pub mod remote;
+pub mod sanitize;
+pub mod templates;

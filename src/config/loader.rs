@@ -1,11 +1,10 @@
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use crate::config::kdl::{parse_kdl_content, ConfigMeta, ConflictEntry, PolicyConfig, HookConfig};
+use crate::config::kdl::{ConfigMeta, ConflictEntry, HookConfig, PolicyConfig, parse_kdl_content};
+use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
-use crate::utils::paths::expand_home;
 use crate::utils::distro::DistroType;
-use crate::core::types::{PackageId, Backend};
-
+use crate::utils::paths::expand_home;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]
 pub struct MergedConfig {
@@ -32,14 +31,13 @@ pub struct MergedConfig {
 }
 
 impl MergedConfig {
-
     pub fn get_unique_packages(&self) -> Vec<PackageId> {
         self.packages.keys().cloned().collect()
     }
 
-
     pub fn get_duplicates(&self) -> Vec<(&PackageId, &Vec<PathBuf>)> {
-        self.packages.iter()
+        self.packages
+            .iter()
             .filter(|(_, sources)| sources.len() > 1)
             .collect()
     }
@@ -77,13 +75,12 @@ pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
 }
 
 fn recursive_load(
-    path: &Path, 
-    merged: &mut MergedConfig, 
-    visited: &mut std::collections::HashSet<PathBuf>
+    path: &Path,
+    merged: &mut MergedConfig,
+    visited: &mut std::collections::HashSet<PathBuf>,
 ) -> Result<()> {
     let abs_path = expand_home(path)
         .map_err(|e| DeclarchError::Other(format!("Path expansion error: {}", e)))?;
-
 
     let path_with_ext = if !abs_path.exists() && abs_path.extension().is_none() {
         abs_path.with_extension("kdl")
@@ -91,8 +88,10 @@ fn recursive_load(
         abs_path.clone()
     };
 
-    let canonical_path = std::fs::canonicalize(&path_with_ext)
-        .map_err(|_e| DeclarchError::ConfigNotFound { path: path_with_ext.clone() })?;
+    let canonical_path =
+        std::fs::canonicalize(&path_with_ext).map_err(|_e| DeclarchError::ConfigNotFound {
+            path: path_with_ext.clone(),
+        })?;
 
     if visited.contains(&canonical_path) {
         return Ok(());
@@ -115,7 +114,9 @@ fn recursive_load(
                 backend: Backend::Aur,
             };
 
-            merged.packages.entry(pkg_id)
+            merged
+                .packages
+                .entry(pkg_id)
                 .or_default()
                 .push(canonical_path.clone());
         }
@@ -128,7 +129,9 @@ fn recursive_load(
             backend: Backend::Soar,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -140,7 +143,9 @@ fn recursive_load(
             backend: Backend::Flatpak,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -152,7 +157,9 @@ fn recursive_load(
             backend: Backend::Npm,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -164,7 +171,9 @@ fn recursive_load(
             backend: Backend::Yarn,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -176,7 +185,9 @@ fn recursive_load(
             backend: Backend::Pnpm,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -188,7 +199,9 @@ fn recursive_load(
             backend: Backend::Bun,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -200,7 +213,9 @@ fn recursive_load(
             backend: Backend::Pip,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -212,7 +227,9 @@ fn recursive_load(
             backend: Backend::Cargo,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -224,7 +241,9 @@ fn recursive_load(
             backend: Backend::Brew,
         };
 
-        merged.packages.entry(pkg_id)
+        merged
+            .packages
+            .entry(pkg_id)
             .or_default()
             .push(canonical_path.clone());
     }
@@ -237,7 +256,9 @@ fn recursive_load(
                 backend: Backend::Custom(backend_name.clone()),
             };
 
-            merged.packages.entry(pkg_id)
+            merged
+                .packages
+                .entry(pkg_id)
                 .or_default()
                 .push(canonical_path.clone());
         }
@@ -249,8 +270,11 @@ fn recursive_load(
     // === NEW: Merge additional config fields ===
 
     // Meta: Only keep the first one (usually from root config)
-    if merged.meta.is_none() && raw.meta.description.is_some()
-        && raw.meta.author.is_some() && raw.meta.version.is_some() {
+    if merged.meta.is_none()
+        && raw.meta.description.is_some()
+        && raw.meta.author.is_some()
+        && raw.meta.version.is_some()
+    {
         merged.meta = Some(raw.meta);
     }
 
@@ -259,33 +283,35 @@ fn recursive_load(
 
     // Backend options: Merge (later configs override earlier ones)
     for (backend, opts) in raw.backend_options {
-        merged.backend_options.entry(backend)
+        merged
+            .backend_options
+            .entry(backend)
             .or_default()
             .extend(opts);
     }
 
     // Environment variables: Merge (later configs extend earlier ones)
     for (scope, vars) in raw.env {
-        merged.env.entry(scope)
-            .or_default()
-            .extend(vars);
+        merged.env.entry(scope).or_default().extend(vars);
     }
 
     // Repositories: Merge (later configs extend earlier ones)
     for (backend, repos) in raw.repositories {
-        merged.repositories.entry(backend)
+        merged
+            .repositories
+            .entry(backend)
             .or_default()
             .extend(repos);
     }
 
     // Policy: Last one wins
-    if raw.policy.protected.iter().any(|p| !p.is_empty())
-        || raw.policy.orphans.is_some() {
+    if raw.policy.protected.iter().any(|p| !p.is_empty()) || raw.policy.orphans.is_some() {
         merged.policy = Some(raw.policy);
     }
 
     // Hooks: Merge (later configs extend earlier ones)
-    if merged.hooks.is_none() && (!raw.hooks.pre_sync.is_empty() || !raw.hooks.post_sync.is_empty()) {
+    if merged.hooks.is_none() && (!raw.hooks.pre_sync.is_empty() || !raw.hooks.post_sync.is_empty())
+    {
         merged.hooks = Some(raw.hooks);
     } else if let Some(ref mut merged_hooks) = merged.hooks {
         if !raw.hooks.pre_sync.is_empty() {
@@ -298,11 +324,12 @@ fn recursive_load(
 
     // Get parent directory safely - canonicalized paths should always have a parent
     // except for root paths, which is a case we should handle explicitly
-    let parent_dir = canonical_path
-        .parent()
-        .ok_or_else(|| DeclarchError::Other(
-            format!("Cannot determine parent directory for config file: {}", canonical_path.display())
-        ))?;
+    let parent_dir = canonical_path.parent().ok_or_else(|| {
+        DeclarchError::Other(format!(
+            "Cannot determine parent directory for config file: {}",
+            canonical_path.display()
+        ))
+    })?;
 
     for import_str in raw.imports {
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {

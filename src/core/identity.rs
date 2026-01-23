@@ -86,8 +86,7 @@ impl PackageIdentity {
     /// - hyprland vs hyprland-git → SAME package (different variants)
     /// - hyprland vs wayland → DIFFERENT packages
     pub fn is_same_package(&self, other: &Self) -> bool {
-        self.provides_name == other.provides_name
-            && self.backend == other.backend
+        self.provides_name == other.provides_name && self.backend == other.backend
     }
 
     /// Check if this is a variant transition (same package, different variant)

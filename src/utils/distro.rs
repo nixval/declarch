@@ -3,10 +3,10 @@ use std::path::Path;
 /// Distro type detection for cross-distro package management
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DistroType {
-    Arch,        // Arch Linux and derivatives (EndeavourOS, Manjaro, etc.)
-    Debian,      // Debian and derivatives (Ubuntu, Mint, etc.)
-    Fedora,      // Fedora and derivatives (RHEL, CentOS, etc.)
-    Unknown,     // Unable to determine
+    Arch,    // Arch Linux and derivatives (EndeavourOS, Manjaro, etc.)
+    Debian,  // Debian and derivatives (Ubuntu, Mint, etc.)
+    Fedora,  // Fedora and derivatives (RHEL, CentOS, etc.)
+    Unknown, // Unable to determine
 }
 
 impl DistroType {
@@ -40,7 +40,8 @@ impl DistroType {
                 || content_lower.contains("manjaro")
                 || content_lower.contains("garuda linux")
                 || content_lower.contains("arco linux")
-                || content_lower.contains("artix linux") {
+                || content_lower.contains("artix linux")
+            {
                 return true;
             }
         }
@@ -58,7 +59,8 @@ impl DistroType {
                 || content_lower.contains("ubuntu")
                 || content_lower.contains("mint")
                 || content_lower.contains("pop!_os")
-                || content_lower.contains("elementary os") {
+                || content_lower.contains("elementary os")
+            {
                 return true;
             }
         }
@@ -75,7 +77,8 @@ impl DistroType {
             if content_lower.contains("fedora")
                 || content_lower.contains("red hat")
                 || content_lower.contains("rhel")
-                || content_lower.contains("centos") {
+                || content_lower.contains("centos")
+            {
                 return true;
             }
         }

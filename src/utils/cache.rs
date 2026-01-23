@@ -1,9 +1,9 @@
+use crate::error::{DeclarchError, Result};
+use directories::ProjectDirs;
+use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::error::{DeclarchError, Result};
-use std::fs;
-use serde::{Deserialize, Serialize};
-use directories::ProjectDirs;
 
 /// Cache duration in seconds (5 minutes)
 const CACHE_TTL: u64 = 300;
@@ -40,11 +40,10 @@ fn get_cache_dir() -> Result<PathBuf> {
     let cache_dir = proj_dirs.cache_dir().to_path_buf();
 
     if !cache_dir.exists() {
-        fs::create_dir_all(&cache_dir)
-            .map_err(|e| DeclarchError::IoError {
-                path: cache_dir.clone(),
-                source: e,
-            })?;
+        fs::create_dir_all(&cache_dir).map_err(|e| DeclarchError::IoError {
+            path: cache_dir.clone(),
+            source: e,
+        })?;
     }
 
     Ok(cache_dir)
@@ -79,11 +78,10 @@ pub fn set(key: &str, data: &str) -> Result<()> {
     let entry = CacheEntry::new(data.to_string());
     let json = serde_json::to_string_pretty(&entry)?;
 
-    fs::write(&cache_path, json)
-        .map_err(|e| DeclarchError::IoError {
-            path: cache_path,
-            source: e,
-        })?;
+    fs::write(&cache_path, json).map_err(|e| DeclarchError::IoError {
+        path: cache_path,
+        source: e,
+    })?;
 
     Ok(())
 }
@@ -92,12 +90,10 @@ pub fn set(key: &str, data: &str) -> Result<()> {
 pub fn clear() -> Result<()> {
     let cache_dir = get_cache_dir()?;
 
-    for entry in fs::read_dir(&cache_dir)
-        .map_err(|e| DeclarchError::IoError {
-            path: cache_dir.clone(),
-            source: e,
-        })?
-    {
+    for entry in fs::read_dir(&cache_dir).map_err(|e| DeclarchError::IoError {
+        path: cache_dir.clone(),
+        source: e,
+    })? {
         let entry = entry.map_err(|e| DeclarchError::IoError {
             path: cache_dir.clone(),
             source: e,
@@ -138,7 +134,9 @@ mod tests {
         entry.timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_secs() - CACHE_TTL - 1;
+            .as_secs()
+            - CACHE_TTL
+            - 1;
         assert!(!entry.is_valid());
     }
 

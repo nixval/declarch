@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-use std::fmt;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
 
 // Core identifier for any package managed by declarch
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,17 +18,17 @@ pub struct PackageId {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Backend {
-    Aur,      // Handles Pacman & AUR (Arch Linux)
-    Flatpak,  // Flatpak (Cross-distro)
-    Soar,     // Soar (Cross-distro static binaries)
-    Npm,      // npm (Node.js global packages)
-    Yarn,     // Yarn global packages
-    Pnpm,     // pnpm global packages
-    Bun,      // Bun global packages
-    Pip,      // pip (Python packages)
-    Cargo,    // Cargo (Rust packages)
-    Brew,     // Homebrew (macOS/Linux)
-    Custom(String),  // User-defined backends (nala, zypper, dnf5, etc.)
+    Aur,            // Handles Pacman & AUR (Arch Linux)
+    Flatpak,        // Flatpak (Cross-distro)
+    Soar,           // Soar (Cross-distro static binaries)
+    Npm,            // npm (Node.js global packages)
+    Yarn,           // Yarn global packages
+    Pnpm,           // pnpm global packages
+    Bun,            // Bun global packages
+    Pip,            // pip (Python packages)
+    Cargo,          // Cargo (Rust packages)
+    Brew,           // Homebrew (macOS/Linux)
+    Custom(String), // User-defined backends (nala, zypper, dnf5, etc.)
 }
 
 impl fmt::Display for Backend {
@@ -102,7 +102,10 @@ impl FromStr for PackageId {
 
             // Only treat as custom backend if it looks like a valid backend name
             // (alphanumeric, hyphens, underscores)
-            if backend_name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            if backend_name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            {
                 return Ok(PackageId {
                     name: package_name.to_string(),
                     backend: Backend::Custom(backend_name.to_string()),
@@ -136,5 +139,5 @@ pub enum SyncTarget {
     Backend(Backend),
     // User provided a specific string (e.g., "git" or "modules/gaming")
     // The resolver will check modules first, then packages.
-    Named(String), 
+    Named(String),
 }

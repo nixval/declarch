@@ -1,11 +1,11 @@
-use crate::utils::paths;
 use crate::config::kdl::parse_kdl_content;
-use crate::ui as output;
 use crate::error::{DeclarchError, Result};
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use crate::ui as output;
+use crate::utils::paths;
 use colored::Colorize;
 use kdl::KdlDocument;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[derive(Debug)]
 pub struct EditOptions {
@@ -18,7 +18,7 @@ pub fn run(options: EditOptions) -> Result<()> {
     // Check if declarch is initialized
     if !config_dir.exists() {
         return Err(DeclarchError::Other(
-            "Declarch not initialized. Run 'declarch init' first.".into()
+            "Declarch not initialized. Run 'declarch init' first.".into(),
         ));
     }
 
@@ -44,7 +44,10 @@ pub fn run(options: EditOptions) -> Result<()> {
 
     // Show info
     output::header("Editing Configuration");
-    output::info(&format!("File: {}", file_to_edit.display().to_string().cyan()));
+    output::info(&format!(
+        "File: {}",
+        file_to_edit.display().to_string().cyan()
+    ));
     output::info(&format!("Editor: {}", editor.green()));
 
     // Open editor
@@ -91,7 +94,7 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
     // If target is just a filename (no slashes), check in modules/
     if target_path.components().count() == 1 {
         let mut module_path = PathBuf::from("modules").join(&target_path);
-        
+
         // Add .kdl extension if not present
         if module_path.extension().is_none() {
             module_path.set_extension("kdl");
@@ -108,37 +111,44 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
         // Search through all categories
         let modules_dir = config_dir.join("modules");
         if modules_dir.exists()
-            && let Ok(entries) = std::fs::read_dir(&modules_dir) {
-                for category_entry in entries {
-                    if let Ok(category_entry) = category_entry
-                        && let Ok(file_type) = category_entry.file_type()
-                            && file_type.is_dir() {
-                                let category_name = category_entry.file_name();
-                                let nested_path = config_dir.join("modules")
-                                    .join(&category_name)
-                                    .join(&target_path);
+            && let Ok(entries) = std::fs::read_dir(&modules_dir)
+        {
+            for category_entry in entries {
+                if let Ok(category_entry) = category_entry
+                    && let Ok(file_type) = category_entry.file_type()
+                    && file_type.is_dir()
+                {
+                    let category_name = category_entry.file_name();
+                    let nested_path = config_dir
+                        .join("modules")
+                        .join(&category_name)
+                        .join(&target_path);
 
-                                // Add .kdl extension if needed
-                                let nested_path = if nested_path.extension().is_none() {
-                                    let mut p = nested_path.clone();
-                                    p.set_extension("kdl");
-                                    p
-                                } else {
-                                    nested_path
-                                };
+                    // Add .kdl extension if needed
+                    let nested_path = if nested_path.extension().is_none() {
+                        let mut p = nested_path.clone();
+                        p.set_extension("kdl");
+                        p
+                    } else {
+                        nested_path
+                    };
 
-                                if nested_path.exists() {
-                                    output::info(&format!("Found in category: {}", category_name.to_string_lossy()));
-                                    return Ok(nested_path);
-                                }
-                            }
+                    if nested_path.exists() {
+                        output::info(&format!(
+                            "Found in category: {}",
+                            category_name.to_string_lossy()
+                        ));
+                        return Ok(nested_path);
+                    }
                 }
             }
+        }
 
         // Not found
         return Err(DeclarchError::Other(format!(
             "Module '{}' not found\n  Tried: modules/{}\n  Hint: Use 'declarch info' to list available modules",
-            target, module_path.display()
+            target,
+            module_path.display()
         )));
     }
 
@@ -170,21 +180,24 @@ fn get_editor_from_config() -> Result<String> {
 
     if config_file.exists()
         && let Ok(content) = std::fs::read_to_string(&config_file)
-            && let Ok(config) = parse_kdl_content(&content)
-                && let Some(editor) = config.editor
-                    && !editor.is_empty() {
-                        return Ok(editor);
-                    }
+        && let Ok(config) = parse_kdl_content(&content)
+        && let Some(editor) = config.editor
+        && !editor.is_empty()
+    {
+        return Ok(editor);
+    }
 
     // Check environment variables
     if let Ok(ed) = std::env::var("EDITOR")
-        && !ed.is_empty() {
-            return Ok(ed);
-        }
+        && !ed.is_empty()
+    {
+        return Ok(ed);
+    }
     if let Ok(ed) = std::env::var("VISUAL")
-        && !ed.is_empty() {
-            return Ok(ed);
-        }
+        && !ed.is_empty()
+    {
+        return Ok(ed);
+    }
 
     // Fallback to nano
     Ok("nano".to_string())

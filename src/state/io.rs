@@ -1,23 +1,24 @@
-use std::path::PathBuf;
+use crate::error::{DeclarchError, Result};
+use crate::state::types::State;
+use directories::ProjectDirs;
 use std::fs;
 use std::io::Write;
-use crate::state::types::State;
-use crate::error::{DeclarchError, Result};
-use directories::ProjectDirs;
+use std::path::PathBuf;
 
 pub fn get_state_path() -> Result<PathBuf> {
-    let proj_dirs = ProjectDirs::from("com", "declarch", "declarch")
-        .ok_or(DeclarchError::Other("Could not determine home directory".into()))?;
-    
-    let state_dir = proj_dirs.state_dir()
-        .ok_or(DeclarchError::Other("System does not support state directory".into()))?;
-    
+    let proj_dirs = ProjectDirs::from("com", "declarch", "declarch").ok_or(
+        DeclarchError::Other("Could not determine home directory".into()),
+    )?;
+
+    let state_dir = proj_dirs.state_dir().ok_or(DeclarchError::Other(
+        "System does not support state directory".into(),
+    ))?;
+
     if !state_dir.exists() {
-        fs::create_dir_all(state_dir)
-            .map_err(|e| DeclarchError::IoError { 
-                path: state_dir.to_path_buf(), 
-                source: e 
-            })?;
+        fs::create_dir_all(state_dir).map_err(|e| DeclarchError::IoError {
+            path: state_dir.to_path_buf(),
+            source: e,
+        })?;
     }
 
     Ok(state_dir.join("state.json"))
@@ -81,13 +82,13 @@ pub fn load_state() -> Result<State> {
                         let _ = save_state(&state);
                     }
                     return Ok(state);
-                },
+                }
                 Err(_) => {
                     // Main state file is corrupted, try to restore from backup
                     restore_from_backup(&path)?
                 }
             }
-        },
+        }
         Err(_) => {
             // Failed to read state file, try to restore from backup
             restore_from_backup(&path)?
@@ -99,27 +100,28 @@ pub fn load_state() -> Result<State> {
 
 /// Attempt to restore state from the most recent backup
 fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
-    let dir = state_path.parent()
-        .ok_or_else(|| DeclarchError::Other(
-            format!("Invalid state path (no parent directory): {}", state_path.display())
-        ))?;
+    let dir = state_path.parent().ok_or_else(|| {
+        DeclarchError::Other(format!(
+            "Invalid state path (no parent directory): {}",
+            state_path.display()
+        ))
+    })?;
 
     // Try backups in reverse order (most recent first)
     for i in 1..=3 {
         let backup_path = dir.join(format!("state.json.bak.{}", i));
         if backup_path.exists() {
-            let content = fs::read_to_string(&backup_path)
-                .map_err(|e| DeclarchError::IoError {
-                    path: backup_path.clone(),
-                    source: e
-                })?;
+            let content = fs::read_to_string(&backup_path).map_err(|e| DeclarchError::IoError {
+                path: backup_path.clone(),
+                source: e,
+            })?;
 
             match serde_json::from_str::<State>(&content) {
                 Ok(state) => {
                     // Successfully restored from backup, restore the main file
                     let _ = fs::copy(&backup_path, state_path);
                     return Ok(state);
-                },
+                }
                 Err(_) => continue,
             }
         }
@@ -133,16 +135,18 @@ pub fn save_state(state: &State) -> Result<()> {
     let path = get_state_path()?;
 
     // Get parent directory - state paths should always have a parent
-    let dir = path.parent()
-        .ok_or_else(|| DeclarchError::Other(
-            format!("Invalid state path (no parent directory): {}", path.display())
-        ))?;
+    let dir = path.parent().ok_or_else(|| {
+        DeclarchError::Other(format!(
+            "Invalid state path (no parent directory): {}",
+            path.display()
+        ))
+    })?;
 
     // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
     // Shift: .bak.2 -> .bak.3
     // Shift: .bak.1 -> .bak.2
     // Copy:  current -> .bak.1
-    
+
     if path.exists() {
         let max_backups = 3;
         for i in (1..max_backups).rev() {
@@ -161,17 +165,18 @@ pub fn save_state(state: &State) -> Result<()> {
     let content = serde_json::to_string_pretty(state)?;
 
     let tmp_path = dir.join("state.tmp");
-    let mut tmp_file = fs::File::create(&tmp_path)
-        .map_err(|e| DeclarchError::IoError { path: tmp_path.clone(), source: e })?;
-    
+    let mut tmp_file = fs::File::create(&tmp_path).map_err(|e| DeclarchError::IoError {
+        path: tmp_path.clone(),
+        source: e,
+    })?;
+
     tmp_file.write_all(content.as_bytes())?;
     tmp_file.sync_all()?;
 
-    fs::rename(&tmp_path, &path)
-        .map_err(|e| DeclarchError::IoError { 
-            path: path.clone(), 
-            source: e
-        })?;
+    fs::rename(&tmp_path, &path).map_err(|e| DeclarchError::IoError {
+        path: path.clone(),
+        source: e,
+    })?;
 
     Ok(())
 }

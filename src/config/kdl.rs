@@ -1,5 +1,5 @@
-use kdl::{KdlDocument, KdlNode};
 use crate::error::Result;
+use kdl::{KdlDocument, KdlNode};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
@@ -104,7 +104,7 @@ pub struct ConfigMeta {
 #[derive(Debug, Clone)]
 pub struct ConflictEntry {
     pub packages: Vec<String>,
-    pub condition: Option<String>,  // Future: for conditional conflicts
+    pub condition: Option<String>, // Future: for conditional conflicts
 }
 
 /// Package lifecycle policies
@@ -187,7 +187,7 @@ impl BackendParser for SoarParser {
     }
 
     fn aliases(&self) -> &[&'static str] {
-        &["app"]  // "app" is an alias for "soar"
+        &["app"] // "app" is an alias for "soar"
     }
 
     fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
@@ -315,7 +315,7 @@ impl BackendParser for BrewParser {
 struct BackendParserRegistry {
     parsers: Vec<Box<dyn BackendParser>>,
     #[allow(dead_code)]
-    default_backend: &'static str,  // Reserved for future use
+    default_backend: &'static str, // Reserved for future use
 }
 
 impl BackendParserRegistry {
@@ -334,13 +334,16 @@ impl BackendParserRegistry {
                 Box::new(CargoParser),
                 Box::new(BrewParser),
             ],
-            default_backend: "aur",  // Default to AUR for Arch Linux
+            default_backend: "aur", // Default to AUR for Arch Linux
         }
     }
 
     /// Find a parser by backend name (including aliases)
     fn find_parser(&self, backend: &str) -> Option<&dyn BackendParser> {
-        self.parsers.iter().find(|p| p.matches(backend)).map(|p| p.as_ref())
+        self.parsers
+            .iter()
+            .find(|p| p.matches(backend))
+            .map(|p| p.as_ref())
     }
 
     /// Parse packages with inline prefix syntax
@@ -456,7 +459,12 @@ impl BackendParserRegistry {
     }
 
     /// Parse packages for a custom (user-defined) backend
-    fn parse_custom_backend(&self, backend_name: &str, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+    fn parse_custom_backend(
+        &self,
+        backend_name: &str,
+        node: &KdlNode,
+        config: &mut RawConfig,
+    ) -> Result<()> {
         let mut packages = Vec::new();
 
         // Extract packages from children
@@ -488,7 +496,9 @@ impl BackendParserRegistry {
         }
 
         // Store in custom_packages HashMap
-        config.custom_packages.insert(backend_name.to_string(), packages);
+        config
+            .custom_packages
+            .insert(backend_name.to_string(), packages);
 
         Ok(())
     }
@@ -550,55 +560,57 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         match node_name {
             "import" | "imports" => {
                 extract_strings(node, &mut config.imports);
-            },
+            }
             "exclude" | "excludes" => {
                 extract_mixed_values(node, &mut config.excludes);
-            },
+            }
             "aliases-pkg" | "alias-pkg" => {
                 extract_aliases(node, &mut config.aliases);
-            },
+            }
             "editor" => {
                 // Extract editor from first string argument
                 if let Some(entry) = node.entries().first()
-                    && let Some(val) = entry.value().as_string() {
-                        config.editor = Some(val.to_string());
-                    }
-            },
+                    && let Some(val) = entry.value().as_string()
+                {
+                    config.editor = Some(val.to_string());
+                }
+            }
             "description" => {
                 // Parse description into meta
                 if let Some(entry) = node.entries().first()
-                    && let Some(val) = entry.value().as_string() {
+                    && let Some(val) = entry.value().as_string()
+                {
                     config.meta.description = Some(val.to_string());
                 }
-            },
+            }
             // NEW: Meta block
             "meta" => {
                 parse_meta_block(node, &mut config.meta)?;
-            },
+            }
             // NEW: Conflicts
             "conflicts" | "conflict" => {
                 parse_conflicts(node, &mut config.conflicts)?;
-            },
+            }
             // NEW: Backend options
             name if name.starts_with("options") => {
                 parse_backend_options(node, &mut config.backend_options)?;
-            },
+            }
             // NEW: Environment variables
             name if name.starts_with("env") => {
                 parse_env_vars(node, &mut config.env, None)?;
-            },
+            }
             // NEW: Package repositories
             name if name.starts_with("repos") || name.starts_with("repositories") => {
                 parse_repositories(node, &mut config.repositories)?;
-            },
+            }
             // NEW: Policy
             "policy" => {
                 parse_policy(node, &mut config.policy)?;
-            },
+            }
             // NEW: Hooks
             "hooks" => {
                 parse_hooks(node, &mut config.hooks)?;
-            },
+            }
             // NEW: Simplified flat hooks
             "on-sync" => {
                 if let Some(val) = get_first_string(node) {
@@ -607,7 +619,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                         hook_type: HookType::Run,
                     });
                 }
-            },
+            }
             "on-sync-sudo" => {
                 if let Some(val) = get_first_string(node) {
                     config.hooks.post_sync.push(HookEntry {
@@ -615,7 +627,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                         hook_type: HookType::SudoNeeded,
                     });
                 }
-            },
+            }
             "on-pre-sync" => {
                 if let Some(val) = get_first_string(node) {
                     config.hooks.pre_sync.push(HookEntry {
@@ -623,30 +635,30 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                         hook_type: HookType::Run,
                     });
                 }
-            },
+            }
             // Parse packages with flexible syntax using the registry
             name if name.starts_with("packages") => {
                 registry.parse_packages_node(node, &mut config)?;
-            },
+            }
             // Legacy syntax support (with deprecation warning in the future)
             "aur-packages" | "aur-package" => {
                 let packages = extract_mixed_values_return(node);
-                config.packages.extend(packages.into_iter().map(|p| PackageEntry {
-                    name: p,
-                }));
-            },
+                config
+                    .packages
+                    .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
+            }
             "soar-packages" | "soar-package" => {
                 let packages = extract_mixed_values_return(node);
-                config.soar_packages.extend(packages.into_iter().map(|p| PackageEntry {
-                    name: p,
-                }));
-            },
+                config
+                    .soar_packages
+                    .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
+            }
             "flatpak-packages" | "flatpak-package" => {
                 let packages = extract_mixed_values_return(node);
-                config.flatpak_packages.extend(packages.into_iter().map(|p| PackageEntry {
-                    name: p,
-                }));
-            },
+                config
+                    .flatpak_packages
+                    .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
+            }
             _ => {}
         }
     }
@@ -736,7 +748,10 @@ fn parse_conflicts(node: &KdlNode, conflicts: &mut Vec<ConflictEntry>) -> Result
 }
 
 /// Parse backend options: options:aur { noconfirm true }
-fn parse_backend_options(node: &KdlNode, options: &mut HashMap<String, HashMap<String, String>>) -> Result<()> {
+fn parse_backend_options(
+    node: &KdlNode,
+    options: &mut HashMap<String, HashMap<String, String>>,
+) -> Result<()> {
     // Check for colon syntax: options:aur
     let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
         backend.to_string()
@@ -755,7 +770,8 @@ fn parse_backend_options(node: &KdlNode, options: &mut HashMap<String, HashMap<S
             if let Some(val) = get_first_string(child) {
                 opts.insert(key.to_string(), val);
             } else if let Some(val) = child.entries().first()
-                && let Some(val) = val.value().as_string() {
+                && let Some(val) = val.value().as_string()
+            {
                 opts.insert(key.to_string(), val.to_string());
             } else {
                 // Boolean flag without value
@@ -781,7 +797,11 @@ fn parse_backend_options(node: &KdlNode, options: &mut HashMap<String, HashMap<S
 }
 
 /// Parse environment variables: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
-fn parse_env_vars(node: &KdlNode, env: &mut HashMap<String, Vec<String>>, backend: Option<&str>) -> Result<()> {
+fn parse_env_vars(
+    node: &KdlNode,
+    env: &mut HashMap<String, Vec<String>>,
+    backend: Option<&str>,
+) -> Result<()> {
     // Check for colon syntax: env:aur
     let backend_name = if let Some((_, b)) = node.name().value().split_once(':') {
         b.to_string()
@@ -804,7 +824,10 @@ fn parse_env_vars(node: &KdlNode, env: &mut HashMap<String, Vec<String>>, backen
             let key = name.value();
             if let Some(val) = entry.value().as_string() {
                 // Only format as key=value if not already in key=value format
-                if !key.is_empty() && !key.contains('(') && !vars.contains(&format!("{}={}", key, val)) {
+                if !key.is_empty()
+                    && !key.contains('(')
+                    && !vars.contains(&format!("{}={}", key, val))
+                {
                     vars.push(format!("{}={}", key, val));
                 }
             }
@@ -819,7 +842,8 @@ fn parse_env_vars(node: &KdlNode, env: &mut HashMap<String, Vec<String>>, backen
             if let Some(val) = get_first_string(child) {
                 vars.push(format!("{}={}", key, val));
             } else if let Some(val) = child.entries().first()
-                && let Some(val) = val.value().as_string() {
+                && let Some(val) = val.value().as_string()
+            {
                 vars.push(format!("{}={}", key, val));
             }
         }
@@ -940,7 +964,8 @@ fn parse_hook_entries(node: &KdlNode, entries: &mut Vec<HookEntry>) -> Result<()
                     hook_type,
                 });
             } else if let Some(entry) = child.entries().first()
-                && let Some(val) = entry.value().as_string() {
+                && let Some(val) = entry.value().as_string()
+            {
                 entries.push(HookEntry {
                     command: val.to_string(),
                     hook_type,
@@ -982,7 +1007,9 @@ fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let child_name = child.name().value();
-            let child_entries: Vec<_> = child.entries().iter()
+            let child_entries: Vec<_> = child
+                .entries()
+                .iter()
                 .filter_map(|e| e.value().as_string())
                 .collect();
 
@@ -1021,7 +1048,7 @@ fn extract_mixed_values(node: &KdlNode, target: &mut Vec<String>) {
             target.push(name.to_string());
 
             for entry in child.entries() {
-                 if let Some(val) = entry.value().as_string() {
+                if let Some(val) = entry.value().as_string() {
                     target.push(val.to_string());
                 }
             }
@@ -1041,7 +1068,7 @@ fn extract_mixed_values_return(node: &KdlNode) -> Vec<String> {
         for child in children.nodes() {
             result.push(child.name().value().to_string());
             for entry in child.entries() {
-                 if let Some(val) = entry.value().as_string() {
+                if let Some(val) = entry.value().as_string() {
                     result.push(val.to_string());
                 }
             }
@@ -1082,7 +1109,9 @@ fn extract_strings(node: &KdlNode, target: &mut Vec<String>) {
 /// ```
 fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
     // Case 1: Inline format: aliases-pkg name1 name2
-    let entries: Vec<_> = node.entries().iter()
+    let entries: Vec<_> = node
+        .entries()
+        .iter()
         .filter_map(|e| e.value().as_string())
         .collect();
 
@@ -1094,7 +1123,9 @@ fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
     // Case 2: Children format
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            let child_entries: Vec<_> = child.entries().iter()
+            let child_entries: Vec<_> = child
+                .entries()
+                .iter()
                 .filter_map(|e| e.value().as_string())
                 .collect();
 
@@ -1124,8 +1155,14 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.aliases.len(), 2);
-        assert_eq!(config.aliases.get("pipewire"), Some(&"pipewire-jack2".to_string()));
-        assert_eq!(config.aliases.get("python-poetry"), Some(&"python-poetry-core".to_string()));
+        assert_eq!(
+            config.aliases.get("pipewire"),
+            Some(&"pipewire-jack2".to_string())
+        );
+        assert_eq!(
+            config.aliases.get("python-poetry"),
+            Some(&"python-poetry-core".to_string())
+        );
     }
 
     #[test]
@@ -1139,8 +1176,14 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.aliases.len(), 2);
-        assert_eq!(config.aliases.get("pipewire"), Some(&"pipewire-jack2".to_string()));
-        assert_eq!(config.aliases.get("python-poetry"), Some(&"python-poetry-core".to_string()));
+        assert_eq!(
+            config.aliases.get("pipewire"),
+            Some(&"pipewire-jack2".to_string())
+        );
+        assert_eq!(
+            config.aliases.get("python-poetry"),
+            Some(&"python-poetry-core".to_string())
+        );
     }
 
     #[test]
@@ -1160,7 +1203,10 @@ mod tests {
         assert_eq!(config.packages.len(), 2);
         assert_eq!(config.aliases.len(), 1);
         assert_eq!(config.excludes.len(), 1);
-        assert_eq!(config.aliases.get("pipewire"), Some(&"pipewire-jack2".to_string()));
+        assert_eq!(
+            config.aliases.get("pipewire"),
+            Some(&"pipewire-jack2".to_string())
+        );
     }
 
     #[test]
@@ -1233,8 +1279,18 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "com.spotify.Client")
+        );
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "org.mozilla.firefox")
+        );
     }
 
     #[test]
@@ -1313,8 +1369,18 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "com.spotify.Client")
+        );
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "org.mozilla.firefox")
+        );
     }
 
     #[test]
@@ -1344,8 +1410,18 @@ mod tests {
         assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "com.spotify.Client")
+        );
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "org.mozilla.firefox")
+        );
     }
 
     #[test]
@@ -1394,7 +1470,12 @@ mod tests {
         assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "com.spotify.Client")
+        );
     }
 
     // NEW TESTS: Inline prefix syntax
@@ -1435,7 +1516,12 @@ mod tests {
         assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
 
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "com.spotify.Client")
+        );
     }
 
     #[test]
@@ -1452,9 +1538,9 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);  // hyprland + waybar
-        assert_eq!(config.soar_packages.len(), 1);  // bat
-        assert_eq!(config.flatpak_packages.len(), 1);  // com.spotify.Client
+        assert_eq!(config.packages.len(), 2); // hyprland + waybar
+        assert_eq!(config.soar_packages.len(), 1); // bat
+        assert_eq!(config.flatpak_packages.len(), 1); // com.spotify.Client
     }
 
     #[test]
@@ -1543,7 +1629,12 @@ mod tests {
 
         // Flatpak packages: com.spotify.Client
         assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(
+            config
+                .flatpak_packages
+                .iter()
+                .any(|p| p.name == "com.spotify.Client")
+        );
     }
 
     #[test]
@@ -1557,7 +1648,7 @@ mod tests {
         assert!(registry.find_parser("unknown").is_none());
 
         // Test aliases
-        assert!(registry.find_parser("app").is_some());  // alias for soar
+        assert!(registry.find_parser("app").is_some()); // alias for soar
     }
 
     #[test]
@@ -1588,7 +1679,7 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.soar_packages.len(), 2);  // bat + exa
+        assert_eq!(config.soar_packages.len(), 2); // bat + exa
         assert_eq!(config.flatpak_packages.len(), 2);
     }
 
@@ -1606,10 +1697,16 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.meta.description, Some("My Hyprland Setup".to_string()));
+        assert_eq!(
+            config.meta.description,
+            Some("My Hyprland Setup".to_string())
+        );
         assert_eq!(config.meta.author, Some("nixval".to_string()));
         assert_eq!(config.meta.version, Some("1.0.0".to_string()));
-        assert_eq!(config.meta.url, Some("https://github.com/nixval/dotfiles".to_string()));
+        assert_eq!(
+            config.meta.url,
+            Some("https://github.com/nixval/dotfiles".to_string())
+        );
     }
 
     #[test]
@@ -1702,7 +1799,10 @@ mod tests {
         assert!(config.repositories.contains_key("flatpak"));
 
         assert!(config.repositories["aur"].contains(&"https://aur.archlinux.org".to_string()));
-        assert!(config.repositories["flatpak"].contains(&"https://flathub.org/repo/flathub.flatpakrepo".to_string()));
+        assert!(
+            config.repositories["flatpak"]
+                .contains(&"https://flathub.org/repo/flathub.flatpakrepo".to_string())
+        );
     }
 
     // NEW: Policy tests
@@ -1744,13 +1844,19 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.hooks.post_sync.len(), 3);
 
-        assert_eq!(config.hooks.post_sync[0].command, "notify-send 'Packages updated'");
+        assert_eq!(
+            config.hooks.post_sync[0].command,
+            "notify-send 'Packages updated'"
+        );
         assert_eq!(config.hooks.post_sync[0].hook_type, HookType::Run);
 
         assert_eq!(config.hooks.post_sync[1].command, "systemctl restart gdm");
         assert_eq!(config.hooks.post_sync[1].hook_type, HookType::SudoNeeded);
 
-        assert_eq!(config.hooks.post_sync[2].command, "~/.config/declarch/post-sync.sh");
+        assert_eq!(
+            config.hooks.post_sync[2].command,
+            "~/.config/declarch/post-sync.sh"
+        );
         assert_eq!(config.hooks.post_sync[2].hook_type, HookType::Script);
     }
 
@@ -1805,7 +1911,10 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Check meta
-        assert_eq!(config.meta.description, Some("Full workstation setup".to_string()));
+        assert_eq!(
+            config.meta.description,
+            Some("Full workstation setup".to_string())
+        );
         assert_eq!(config.meta.author, Some("nixval".to_string()));
         assert_eq!(config.meta.version, Some("2.0.0".to_string()));
 
@@ -1852,7 +1961,10 @@ mod tests {
 
         // Check post-sync hooks
         assert_eq!(config.hooks.post_sync.len(), 2);
-        assert_eq!(config.hooks.post_sync[0].command, "notify-send 'Packages updated'");
+        assert_eq!(
+            config.hooks.post_sync[0].command,
+            "notify-send 'Packages updated'"
+        );
         assert_eq!(config.hooks.post_sync[0].hook_type, HookType::Run);
         assert_eq!(config.hooks.post_sync[1].command, "systemctl restart gdm");
         assert_eq!(config.hooks.post_sync[1].hook_type, HookType::SudoNeeded);
@@ -1876,7 +1988,19 @@ mod tests {
 
         // Should have both flat and nested hooks
         assert_eq!(config.hooks.post_sync.len(), 2);
-        assert!(config.hooks.post_sync.iter().any(|h| h.command == "notify-send 'Flat hook'"));
-        assert!(config.hooks.post_sync.iter().any(|h| h.command == "notify-send 'Nested hook'"));
+        assert!(
+            config
+                .hooks
+                .post_sync
+                .iter()
+                .any(|h| h.command == "notify-send 'Flat hook'")
+        );
+        assert!(
+            config
+                .hooks
+                .post_sync
+                .iter()
+                .any(|h| h.command == "notify-send 'Nested hook'")
+        );
     }
 }

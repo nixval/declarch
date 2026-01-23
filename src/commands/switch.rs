@@ -1,11 +1,11 @@
+use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
+use crate::error::{DeclarchError, Result};
 use crate::packages::{PackageManager, create_manager};
 use crate::state::{self, types::PackageState};
 use crate::ui as output;
-use crate::error::{DeclarchError, Result};
-use crate::config::types::GlobalConfig;
-use colored::Colorize;
 use chrono::Utc;
+use colored::Colorize;
 use std::process::Command;
 
 #[derive(Debug)]
@@ -92,7 +92,8 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             output::warning("Removing or replacing this package may break these dependencies.");
             output::indent("Ensure the new package provides the same functionality.", 1);
 
-            if !options.yes && !options.force
+            if !options.yes
+                && !options.force
                 && !output::prompt_yes_no("Continue despite dependency warnings?")
             {
                 output::warning("Transition cancelled by user");
@@ -105,10 +106,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
         }
         Err(e) => {
             // Error checking dependencies, warn but continue
-            output::warning(&format!(
-                "Could not check reverse dependencies: {}",
-                e
-            ));
+            output::warning(&format!("Could not check reverse dependencies: {}", e));
             output::warning("Proceed with caution");
         }
     }
@@ -119,16 +117,21 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     output::separator();
     output::info("Transition plan:");
-    output::indent(&format!("{} {}", "Remove:".red().bold(), options.old_package), 1);
-    output::indent(&format!("{} {}", "Install:".green().bold(), options.new_package), 1);
+    output::indent(
+        &format!("{} {}", "Remove:".red().bold(), options.old_package),
+        1,
+    );
+    output::indent(
+        &format!("{} {}", "Install:".green().bold(), options.new_package),
+        1,
+    );
     output::indent(&format!("Backend: {}", backend), 1);
     output::separator();
 
-    if !options.yes && !options.dry_run
-        && !output::prompt_yes_no("Proceed with transition?") {
-            output::warning("Transition cancelled by user");
-            return Ok(());
-        }
+    if !options.yes && !options.dry_run && !output::prompt_yes_no("Proceed with transition?") {
+        output::warning("Transition cancelled by user");
+        return Ok(());
+    }
 
     if options.dry_run {
         output::info("Dry run completed - no changes made");
@@ -175,7 +178,9 @@ pub fn run(options: SwitchOptions) -> Result<()> {
                 provides_name: options.new_package.clone(),
                 aur_package_name,
                 installed_at: Utc::now(),
-                version: installed.get(&options.new_package).and_then(|m| m.version.clone()),
+                version: installed
+                    .get(&options.new_package)
+                    .and_then(|m| m.version.clone()),
             };
 
             state.packages.insert(new_state_key, new_pkg_state);
@@ -301,7 +306,8 @@ fn execute_transition(
     output::indent(&format!("Uninstalling {}...", old_package.yellow()), 0);
 
     // Uninstall old package
-    manager.remove(&[old_package.to_string()])
+    manager
+        .remove(&[old_package.to_string()])
         .map_err(|e| DeclarchError::Other(format!("Failed to uninstall {}: {}", old_package, e)))?;
 
     output::success(&format!("Uninstalled {}", old_package));
@@ -309,7 +315,8 @@ fn execute_transition(
     // Install new package
     output::indent(&format!("Installing {}...", new_package.green()), 0);
 
-    manager.install(&[new_package.to_string()])
+    manager
+        .install(&[new_package.to_string()])
         .map_err(|e| DeclarchError::Other(format!("Failed to install {}: {}", new_package, e)))?;
 
     output::success(&format!("Installed {}", new_package));

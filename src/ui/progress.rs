@@ -1,7 +1,7 @@
+use crate::ui;
+use colored::Colorize;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
-use colored::Colorize;
-use crate::ui;
 
 /// Progress indicator for long-running operations
 pub struct ProgressBar {
@@ -159,11 +159,7 @@ impl Spinner {
         }
 
         let frame = self.frames[self.current_frame % self.frames.len()];
-        print!(
-            "\r{} {} ...",
-            frame.cyan().bold(),
-            self.message
-        );
+        print!("\r{} {} ...", frame.cyan().bold(), self.message);
         io::stdout().flush().unwrap_or(());
     }
 }

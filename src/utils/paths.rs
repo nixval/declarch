@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 use crate::error::{DeclarchError, Result};
-use directories::{UserDirs, ProjectDirs};
+use directories::{ProjectDirs, UserDirs};
+use std::path::{Path, PathBuf};
 
 pub fn expand_home(path: &Path) -> Result<PathBuf> {
     let path_str = path.to_string_lossy();
@@ -9,16 +9,18 @@ pub fn expand_home(path: &Path) -> Result<PathBuf> {
         return Ok(path.to_path_buf());
     }
 
-    let user_dirs = UserDirs::new()
-        .ok_or_else(|| DeclarchError::Other("Could not determine user home directory".to_string()))?;
-    
+    let user_dirs = UserDirs::new().ok_or_else(|| {
+        DeclarchError::Other("Could not determine user home directory".to_string())
+    })?;
+
     let home = user_dirs.home_dir();
-    
+
     if path_str == "~" {
         return Ok(home.to_path_buf());
     }
 
-    let stripped = path_str.strip_prefix("~/")
+    let stripped = path_str
+        .strip_prefix("~/")
         .ok_or_else(|| DeclarchError::Other(format!("Invalid path format: {}", path_str)))?;
 
     Ok(home.join(stripped))

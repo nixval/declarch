@@ -1,13 +1,14 @@
+use crate::backends::{GenericManager, get_builtin_backends};
+use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::packages::PackageManager;
 use crate::utils::distro::DistroType;
-use crate::config::types::GlobalConfig;
-use crate::backends::{get_builtin_backends, GenericManager};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 /// Factory function for creating package manager instances
-pub type BackendFactory = Box<dyn Fn(&GlobalConfig, bool) -> Result<Box<dyn PackageManager>, String> + Send + Sync>;
+pub type BackendFactory =
+    Box<dyn Fn(&GlobalConfig, bool) -> Result<Box<dyn PackageManager>, String> + Send + Sync>;
 
 /// Backend registry for managing available package managers
 ///
@@ -47,7 +48,10 @@ impl BackendRegistry {
     /// Register a backend with its factory function
     pub fn register<F>(&mut self, backend: Backend, factory: F)
     where
-        F: Fn(&GlobalConfig, bool) -> Result<Box<dyn PackageManager>, String> + Send + Sync + 'static,
+        F: Fn(&GlobalConfig, bool) -> Result<Box<dyn PackageManager>, String>
+            + Send
+            + Sync
+            + 'static,
     {
         self.factories.insert(backend, Box::new(factory));
     }
@@ -71,8 +75,12 @@ impl BackendRegistry {
                 let all_backends = crate::backends::load_all_backends()
                     .map_err(|e| format!("Failed to load backends: {}", e))?;
 
-                let backend_config = all_backends.get(backend_name)
-                    .ok_or_else(|| format!("Custom backend '{}' not found in backends.kdl", backend_name))?;
+                let backend_config = all_backends.get(backend_name).ok_or_else(|| {
+                    format!(
+                        "Custom backend '{}' not found in backends.kdl",
+                        backend_name
+                    )
+                })?;
 
                 Ok(Box::new(GenericManager::from_config(
                     backend_config.clone(),
@@ -109,7 +117,9 @@ impl BackendRegistry {
 
         // Flatpak Backend (Cross-distro) - Uses Rust implementation
         self.register(Backend::Flatpak, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::flatpak::FlatpakManager::new(noconfirm)))
+            Ok(Box::new(crate::packages::flatpak::FlatpakManager::new(
+                noconfirm,
+            )))
         });
 
         // Soar Backend (Cross-distro) - Uses Rust implementation
@@ -221,8 +231,15 @@ impl BackendRegistry {
                         backends.push(backend);
                     }
                 }
-                Backend::Soar | Backend::Flatpak | Backend::Npm | Backend::Yarn
-                | Backend::Pnpm | Backend::Bun | Backend::Pip | Backend::Cargo | Backend::Brew
+                Backend::Soar
+                | Backend::Flatpak
+                | Backend::Npm
+                | Backend::Yarn
+                | Backend::Pnpm
+                | Backend::Bun
+                | Backend::Pip
+                | Backend::Cargo
+                | Backend::Brew
                 | Backend::Custom(_) => {
                     // These work on all distros
                     backends.push(backend);
@@ -249,11 +266,13 @@ static REGISTRY: OnceLock<Arc<Mutex<BackendRegistry>>> = OnceLock::new();
 
 /// Get the global backend registry
 pub fn get_registry() -> Arc<Mutex<BackendRegistry>> {
-    REGISTRY.get_or_init(|| {
-        let mut registry = BackendRegistry::new();
-        registry.register_defaults();
-        Arc::new(Mutex::new(registry))
-    }).clone()
+    REGISTRY
+        .get_or_init(|| {
+            let mut registry = BackendRegistry::new();
+            registry.register_defaults();
+            Arc::new(Mutex::new(registry))
+        })
+        .clone()
 }
 
 /// Create a package manager using the global registry
@@ -329,7 +348,10 @@ mod tests {
 
         // Register a mock backend
         registry.register(Backend::Aur, |_config, _noconfirm| {
-            Ok(Box::new(crate::packages::aur::AurManager::new("paru".to_string(), false)))
+            Ok(Box::new(crate::packages::aur::AurManager::new(
+                "paru".to_string(),
+                false,
+            )))
         });
 
         assert!(registry.has_backend(&Backend::Aur));
