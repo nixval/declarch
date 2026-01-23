@@ -1,0 +1,52 @@
+// Development Environment Configuration
+
+meta {
+    description "Development environment"
+    author "yourname"
+    version "1.0.0"
+    tags "development" "programming"
+}
+
+editor "nvim"
+
+packages {
+    neovim
+    tmux
+    lazygit
+    gh
+    postgresql
+    redis
+    docker
+    kubectl
+    terraform
+    curl
+    jq
+}
+
+packages:cargo {
+    ripgrep
+    fd-find
+    zoxide
+    cargo-edit
+    tealdeer
+    xh
+    mdbook
+}
+
+packages:npm {
+    typescript
+    prettier
+    vite
+    create-vite
+    vitest
+}
+
+packages:python {
+    black
+    ruff
+    mypy
+    jupyter
+    poetry
+}
+
+on-sync "notify-send 'Dev' 'Updated'"

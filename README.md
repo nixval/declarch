@@ -8,7 +8,7 @@ Supporting installation of aur, soar, flatpak, npm, bun, and many others by cust
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="Build" src="https://img.shields.io/badge/status-v0.4.1-orange">
+  <img alt="Build" src="https://img.shields.io/badge/status-v0.4.2-orange">
   <img alt="Arch" src="https://img.shields.io/badge/arch-linux-blue">
   <img alt="Rust" src="https://img.shields.io/badge/built_with-rust-orange">
 </p>

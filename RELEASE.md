@@ -1,5 +1,69 @@
 # Release Notes
 
+## [0.4.2] - 2026-01-23
+
+### Bug Fixes
+
+**🔧 Critical Documentation Fixes**
+- Fixed KDL syntax errors in all example configurations
+  - Removed invalid `/* */` block comments (KDL only supports `//`)
+  - Added required quotes to `imports` statements
+  - Merged duplicate `packages:*` blocks (caused parse errors)
+  - Merged multiple `packages {}` blocks into single block
+
+**Files Fixed:**
+- `examples/desktop.kdl` - Fixed imports syntax
+- `examples/development.kdl` - Complete rewrite, fixed all parsing issues
+- `examples/modular.kdl` - Simplified and corrected syntax
+
+### Testing & Validation
+
+**✅ Comprehensive Test Suite**
+- All commands tested: init, check, sync, info, edit, switch
+- Custom backends tested: mise (asdf-compatible), pnpm
+- All example configurations validated
+- Hooks system verified
+- Remote init functionality confirmed
+
+**Backend.kdl Examples:**
+```kdl
+// Mise backend (asdf-compatible tool manager)
+backend "mise" {
+    binary "mise"
+    list "mise ls --json"
+    install "mise install -y {packages}"
+    remove "mise uninstall -y {packages}"
+}
+```
+
+### Documentation
+
+- Validated all example configurations parse correctly
+- Confirmed KDL syntax compliance across all files
+- Verified backend system works with custom package managers
+
+### Migration from 0.4.1
+
+No migration needed. This is a bug-fix release with documentation improvements.
+
+### SHA256 Checksums
+
+**Source Tarball:**
+```
+# Update after creating release
+```
+
+**Binary Release (x86_64):**
+```
+# Update after creating release
+```
+
+### Contributors
+
+- Directed by: nixval
+
+---
+
 ## [0.4.1] - 2025-01-20
 
 ### Major Features

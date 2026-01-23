@@ -1,7 +1,7 @@
 # Maintainer: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch
-pkgver=0.4.1
+pkgver=0.4.2
 pkgrel=1
 pkgdesc="A declarative package manager for Linux with user-defined backend support"
 arch=('x86_64')
@@ -51,4 +51,4 @@ package() {
   install -Dm644 <(target/release/$pkgname completions zsh) \
     "$pkgdir/usr/share/zsh/site-functions/_$pkgname"
 }
-sha256sums=('a9bfc9c3d8e8184a11b1e61ee6fee3d6a5e631a783206db021c13993ccf19882')
+sha256sums=('SKIP')  # Update after creating release tarball

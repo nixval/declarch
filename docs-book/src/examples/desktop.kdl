@@ -1,0 +1,183 @@
+// Desktop Environment Configuration (Hyprland)
+// Complete desktop setup with Wayland, window manager, and applications
+
+// === METADATA ===
+meta {
+    description "Hyprland desktop environment"
+    author "yourname"
+    version "1.0.0"
+    tags "desktop" "wayland" "hyprland"
+}
+
+// === IMPORTS ===
+imports {
+    modules/base
+    modules/desktop/hyprland
+}
+
+// === EDITOR ===
+editor "nvim"
+
+// === CONFLICTS ===
+// Prevent installing competing packages
+conflicts {
+    // Window managers
+    i3    hyprland
+    sway  hyprland
+
+    // Audio systems
+    pipewire  pulseaudio
+}
+
+// === BACKEND OPTIONS ===
+// Configure package manager behavior
+options:aur {
+    noconfirm    // Skip AUR installation prompts
+    helper "paru" // Use paru instead of yay
+}
+
+// === POLICY ===
+// Define package lifecycle rules
+policy {
+    protected {
+        linux
+        systemd
+        base-devel
+        wayland
+    }
+    orphans "keep"
+}
+
+// === ENVIRONMENT ===
+// Set environment variables for package operations
+env EDITOR="nvim"
+env VISUAL="nvim"
+env:aur MAKEFLAGS="-j4"  // Parallel AUR builds
+
+// === HOOKS ===
+// Run commands before/after sync
+on-pre-sync "notify-send 'Declarch' 'Starting package synchronization...'"
+on-sync "notify-send 'Declarch' 'Packages updated successfully'"
+on-sync "fc-cache -fv"  // Refresh font cache
+
+// === PACKAGES ===
+
+// Default backend (AUR)
+packages {
+    // === WINDOW MANAGER ===
+    hyprland        // Dynamic tiling Wayland compositor
+    waybar          // Status bar for Wayland
+    wofi            // Application launcher
+    waypaper        // Wallpaper utility
+    wlogout         // Logout menu
+
+    // === TERMINAL & SHELL ===
+    kitty           // GPU-accelerated terminal
+    zsh             // Shell
+    starship        // Cross-shell prompt
+
+    // === WAYLAND UTILITIES ===
+    wl-clipboard     // Wayland clipboard utilities
+    wlroots          // Wayland compositor library
+    hyprpicker       // Wayland color picker
+    hyprlock         // Hyprland lock screen
+
+    // === SCREENSHOTS & RECORDING ===
+    grim            // Screenshot utility for Wayland
+    slurp           // Selection tool for grim
+    wf-recorder     // Screen recorder for Wayland
+    swappy          // Snapshot editor
+
+    // === BACKGROUND SERVICES ===
+    waybar          // Status bar (already listed above)
+    dunst           // Notification daemon
+    polkit-gnome    // PolicyKit authentication agent
+    networkmanager  // Network management
+    blueman         // Bluetooth manager
+}
+
+// === STATIC BINARIES (Cross-Distro) ===
+packages:soar {
+    // CLI tools that work on any Linux
+    bat             // Modern cat
+    exa             // Modern ls (or eza)
+    ripgrep         // Fast grep
+    fd              // Fast find
+    fzf             // Fuzzy finder
+    zoxide          // Smart cd
+    dust            // Modern du
+    duf             // Modern df
+}
+
+// === FLATPAK APPLICATIONS ===
+// Universal apps from Flathub
+packages:flatpak {
+    // === BROWSERS ===
+    org.mozilla.firefox        // Firefox
+    com.google.Chrome          // Google Chrome
+
+    // === COMMUNICATION ===
+    com.discordapp.Discord     // Discord
+    org.telegram.desktop       // Telegram
+    com.slack.Slack            // Slack
+
+    // === MEDIA ===
+    com.spotify.Client         // Spotify
+    org.gimp.GIMP              // Image editor
+    org.inkscape.Inkscape      // Vector graphics
+    org.videolan.VLC           // Media player
+
+    // === PRODUCTIVITY ===
+    com.github.micahflee.torbrowser-launcher  // Tor Browser
+    org.libreoffice.LibreOffice               // Office suite
+    com.obsproject.Studio                     // OBS Studio
+
+    // === DEVELOPMENT ===
+    com.visualstudio.code         // VS Code
+    org.vim.Vim                   // Vim (if needed GUI version)
+}
+
+// === DEVELOPMENT TOOLS ===
+
+// Node.js ecosystem
+packages:npm {
+    typescript
+    prettier
+    eslint
+    @types/node
+}
+
+// Python ecosystem
+packages:python {
+    black
+    ruff
+    jupyter
+    numpy
+    pandas
+}
+
+// Rust ecosystem
+packages:cargo {
+    ripgrep
+    fd-find
+    cargo-edit
+    cargo-watch
+    sqlx-cli
+}
+
+// === OPTIONAL: USER-DEFINED BACKENDS ===
+// Uncomment and configure if needed
+
+// Go packages
+// backends {
+//     go {
+//         cmd "go install"
+//         list_cmd "ls ~/go/bin/"
+//         remove_cmd "rm ~/go/bin/<package>"
+//     }
+// }
+//
+// packages:go {
+//     github.com/cli/cli@latest
+//     golang.org/x/tools/gopls@latest
+// }

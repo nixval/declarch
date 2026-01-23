@@ -1,0 +1,140 @@
+// Modular Configuration Example
+// This demonstrates how to organize your configuration into reusable modules
+
+// === METADATA ===
+meta {
+    description "Modular desktop workstation"
+    author "yourname"
+    version "1.0.0"
+    tags "modular" "desktop" "development"
+}
+
+// === IMPORTS ===
+// Import modules to build your configuration
+imports {
+    "modules/base"
+
+    // Desktop environment
+    // "modules/desktop/hyprland"
+
+    // Development tools
+    // "modules/development/rust"
+    // "modules/development/node"
+    // "modules/development/python"
+
+    // Optional: Gaming
+    // "modules/gaming/steam"
+}
+
+// === EDITOR ===
+editor "nvim"
+
+// === PACKAGES ===
+// Add host-specific packages not in modules
+packages {
+    // my-custom-tool
+}
+
+// === HOOKS ===
+on-sync "notify-send 'Desktop' 'Packages updated for $(hostname)'"
+
+// ========================================
+// MODULE FILE EXAMPLES
+// Create these files in: ~/.config/declarch/modules/
+// ========================================
+
+// ----------------------------------------
+// FILE: modules/base.kdl
+// ----------------------------------------
+// meta {
+//     description "Essential CLI tools for any system"
+//     author "yourname"
+//     tags "base" "cli" "essentials"
+// }
+//
+// // Cross-distro static binaries (work on any Linux)
+// packages:soar {
+//     bat         // Modern cat
+//     exa         // Modern ls
+//     ripgrep     // Fast grep
+//     fd          // Fast find
+//     fzf         // Fuzzy finder
+//     zoxide      // Smart cd
+//     dust        // Modern du
+//     duf         // Modern df
+//     btop        // Modern top
+// }
+//
+// // System utilities
+// packages {
+//     tmux        // Terminal multiplexer
+//     htop        // Process viewer
+//     ncdu        // Disk usage analyzer
+//     jq          // JSON processor
+// }
+
+// ----------------------------------------
+// FILE: modules/desktop/hyprland.kdl
+// ----------------------------------------
+// meta {
+//     description "Hyprland Wayland desktop environment"
+//     author "yourname"
+//     tags "desktop" "wayland" "hyprland"
+// }
+//
+// packages {
+//     hyprland        // Window manager
+//     waybar          // Status bar
+//     wofi            // App launcher
+//     kitty           // Terminal
+//     dunst           // Notifications
+// }
+//
+// packages:flatpak {
+//     org.mozilla.firefox
+//     com.spotify.Client
+// }
+//
+// on-sync "notify-send 'Desktop' 'Hyprland packages updated'"
+
+// ----------------------------------------
+// FILE: modules/development/rust.kdl
+// ----------------------------------------
+// meta {
+//     description "Rust development tools"
+//     author "yourname"
+//     tags "development" "rust"
+// }
+//
+// packages:cargo {
+//     ripgrep
+//     fd-find
+//     cargo-edit
+//     sqlx-cli
+// }
+//
+// packages {
+//     rust-analyzer
+// }
+
+// ----------------------------------------
+// HOST-SPECIFIC CONFIGURATIONS
+// ----------------------------------------
+// You can create variant configs for different hosts:
+//
+// Desktop: declarch-desktop.kdl
+//   imports {
+//       "modules/base"
+//       "modules/desktop/hyprland"
+//       "modules/development"
+//   }
+//
+// Laptop: declarch-laptop.kdl
+//   imports {
+//       "modules/base"
+//       "modules/desktop/kde"
+//       "modules/development"
+//   }
+//
+// Load with hostname:
+//   declarch init user/repo --host desktop

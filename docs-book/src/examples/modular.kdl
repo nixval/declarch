@@ -1,0 +1,335 @@
+// Modular Configuration Example
+// This demonstrates how to organize your configuration into reusable modules
+
+// === MAIN CONFIGURATION (declarch.kdl) ===
+
+// === METADATA ===
+meta {
+    description "Modular desktop workstation"
+    author "yourname"
+    version "1.0.0"
+    tags "modular" "desktop" "development"
+}
+
+// === IMPORTS ===
+// Import modules to build your configuration
+imports {
+    // Base system (always needed)
+    modules/base
+
+    // Desktop environment
+    modules/desktop/hyprland
+
+    // Development tools
+    modules/development/rust
+    modules/development/node
+    modules/development/python
+
+    // Optional: Gaming
+    // modules/gaming/steam
+}
+
+// === EDITOR ===
+editor "nvim"
+
+// === HOST-SPECIFIC OVERRIDES ===
+// Use: declarch init user/repo --host <hostname>
+//
+// This file would be named: declarch-desktop.kdl
+// And loaded with: declarch init user/repo --host desktop
+
+// === CUSTOM PACKAGES FOR THIS HOST ===
+// Add host-specific packages not in modules
+packages {
+    // Host-specific packages go here
+    my-custom-tool
+}
+
+// === HOST-SPECIFIC SETTINGS ===
+on-sync "notify-send 'Desktop' 'Packages updated for $(hostname)'"
+
+// ========================================
+// MODULE FILES
+// Create these files in: ~/.config/declarch/modules/
+// ========================================
+
+// ========================================
+// FILE: modules/base.kdl
+// ========================================
+
+/*
+// modules/base.kdl
+
+meta {
+    description "Essential CLI tools for any system"
+    author "yourname"
+    tags "base" "cli" "essentials"
+}
+
+// Cross-distro static binaries (work on any Linux)
+packages:soar {
+    bat         // Modern cat
+    exa         // Modern ls
+    ripgrep     // Fast grep
+    fd          // Fast find
+    fzf         // Fuzzy finder
+    zoxide      // Smart cd
+    dust        // Modern du
+    duf         // Modern df
+    btop        // Modern top
+    gping       // Ping with graph
+    procs       // Modern ps
+}
+
+// System utilities
+packages {
+    tmux        // Terminal multiplexer
+    htop        // Process viewer
+    ncdu        // Disk usage analyzer
+    jq          // JSON processor
+    ripgrep     // Already listed above
+}
+*/
+
+// ========================================
+// FILE: modules/desktop/hyprland.kdl
+// ========================================
+
+/*
+// modules/desktop/hyprland.kdl
+
+meta {
+    description "Hyprland Wayland desktop environment"
+    author "yourname"
+    tags "desktop" "wayland" "hyprland"
+}
+
+// Desktop environment
+packages {
+    hyprland        // Window manager
+    waybar          // Status bar
+    wofi            // App launcher
+    waypaper        // Wallpaper manager
+    wlogout         // Logout menu
+    hyprlock        // Lock screen
+    hyprpicker      // Color picker
+    kitty           // Terminal
+    dunst           // Notifications
+    rofi            // Another launcher option
+}
+
+// Wayland utilities
+packages {
+    wl-clipboard    // Clipboard
+    grim            // Screenshots
+    slurp           // Selection tool
+    wf-recorder     // Screen recording
+    swappy          // Snapshot editor
+}
+
+// Desktop applications via Flatpak
+packages:flatpak {
+    org.mozilla.firefox
+    com.spotify.Client
+    com.discordapp.Discord
+    org.telegram.desktop
+}
+
+// Desktop-specific hooks
+on-sync "notify-send 'Desktop' 'Hyprland packages updated'"
+on-sync "pkill -SIGUSR1 waybar"  // Refresh waybar
+*/
+
+// ========================================
+// FILE: modules/development/rust.kdl
+// ========================================
+
+/*
+// modules/development/rust.kdl
+
+meta {
+    description "Rust development tools"
+    author "yourname"
+    tags "development" "rust"
+}
+
+// Cargo packages
+packages:cargo {
+    ripgrep         // Fast grep
+    fd-find         // Fast find
+    zoxide          // Smart cd
+    cargo-edit      // Cargo extension
+    cargo-watch     // Watch for changes
+    cargo-audit     // Security audit
+    sqlx-cli        // SQL toolkit
+}
+
+// AUR packages
+packages {
+    rust-analyzer   // LSP server
+}
+
+on-sync "notify-send 'Rust' 'Rust toolchain updated'"
+*/
+
+// ========================================
+// FILE: modules/development/node.kdl
+// ========================================
+
+/*
+// modules/development/node.kdl
+
+meta {
+    description "Node.js and TypeScript development"
+    author "yourname"
+    tags "development" "node" "typescript"
+}
+
+// npm packages
+packages:npm {
+    typescript
+    @types/node
+    prettier
+    eslint
+    vite
+}
+
+on-sync "notify-send 'Node.js' 'npm packages updated'"
+*/
+
+// ========================================
+// FILE: modules/development/python.kdl
+// ========================================
+
+/*
+// modules/development/python.kdl
+
+meta {
+    description "Python development tools"
+    author "yourname"
+    tags "development" "python"
+}
+
+// Python packages
+packages:python {
+    black       // Formatter
+    ruff        // Linter
+    mypy        // Type checker
+    jupyter     // Notebooks
+}
+
+on-sync "notify-send 'Python' 'Python packages updated'"
+*/
+
+// ========================================
+// FILE: modules/gaming/steam.kdl
+// ========================================
+
+/*
+// modules/gaming/steam.kdl
+
+meta {
+    description "Steam gaming setup"
+    author "yourname"
+    tags "gaming" "steam"
+}
+
+// Gaming packages
+packages {
+    steam
+    gamemode
+    mangohud
+
+    // Controllers
+    xboxdrv
+    dbus-x11
+}
+
+// Gaming tools
+packages:flatpak {
+    com.valvesoftware.Steam
+    com.discordapp.Discord
+}
+
+on-sync "notify-send 'Gaming' 'Steam and gaming tools updated'"
+*/
+
+// ========================================
+// USAGE EXAMPLES
+// ========================================
+
+/*
+// 1. CREATE MODULE STRUCTURE
+mkdir -p ~/.config/declarch/modules/{desktop,development,gaming}
+
+// 2. CREATE MODULE FILES
+touch ~/.config/declarch/modules/base.kdl
+touch ~/.config/declarch/modules/desktop/hyprland.kdl
+touch ~/.config/declarch/modules/development/rust.kdl
+touch ~/.config/declarch/modules/development/node.kdl
+touch ~/.config/declarch/modules/development/python.kdl
+
+// 3. EDIT MODULES
+declarch edit base
+declarch edit desktop/hyprland
+declarch edit development/rust
+declarch edit development/node
+declarch edit development/python
+
+// 4. CHECK CONFIGURATION
+declarch check --verbose
+
+// 5. PREVIEW SYNC
+declarch sync --dry-run
+
+// 6. APPLY
+declarch sync
+*/
+
+// ========================================
+// HOST-SPECIFIC CONFIGURATIONS
+// ========================================
+
+/*
+// Desktop: declarch-desktop.kdl
+imports {
+    modules/base
+    modules/desktop/hyprland
+    modules/development
+    modules/gaming/steam
+}
+
+// Laptop: declarch-laptop.kdl
+imports {
+    modules/base
+    modules/desktop/kde
+    modules/development
+}
+
+// Server: declarch-server.kdl
+imports {
+    modules/base
+    modules/server
+}
+
+// Load with hostname:
+// declarch init user/repo --host desktop
+*/
+
+// ========================================
+// VARIANT SYSTEM
+// ========================================
+
+/*
+// Repository structure:
+// myuser/dotfiles/
+// ├── declarch.kdl              # Default (minimal)
+// ├── declarch-desktop.kdl      # Desktop variant
+// ├── declarch-laptop.kdl       # Laptop variant
+// └── modules/
+//
+// Usage:
+// declarch init myuser/dotfiles              # → declarch.kdl
+// declarch init myuser/dotfiles:desktop      # → declarch-desktop.kdl
+// declarch init myuser/dotfiles:laptop       # → declarch-laptop.kdl
+*/

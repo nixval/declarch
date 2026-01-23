@@ -1,0 +1,39 @@
+[book]
+title = "Declarch Documentation"
+description = "Declarative package manager for Linux"
+authors = ["nixval"]
+language = "en"
+multilingual = false
+src = "docs-book/src"
+
+[build]
+build-dir = "docs-book/book"
+create-missing = false
+
+[preprocessor.index]
+
+[preprocessor.links]
+
+[output.html]
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
+smart-punctuation = true
+mathematics-support = false
+copy-fonts = true
+git-repository-url = "https://github.com/nixval/declarch"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/nixval/declarch/edit/main/docs-book/src/{path}"
+
+[output.html.search]
+enable = true
+search-results-heading = "Search Results"
+
+[output.html.code]
+hard-wrap = true
+
+[output.html.playground]
+editable = false
+copy-js = true
+
+[output.html.redirect]
+"/README.html" = "/intro.html"
