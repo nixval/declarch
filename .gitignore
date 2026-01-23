@@ -33,3 +33,6 @@ repomix-output.xml
 
 # AUR release automation (private)
 .aur/
+
+# Release scripts (private reference)
+release-*.sh

@@ -36,7 +36,7 @@ else
         cargo install declarch
     elif [ "$INSTALL_METHOD" = "git" ]; then
         echo -e "${BLUE}📦 Installing declarch from git...${NC}"
-        cargo install declarch --git https://github.com/user/declarch
+        cargo install declarch --git https://github.com/nixval/declarch
     else
         echo -e "${RED}Error: Unknown installation method '$INSTALL_METHOD'${NC}"
         echo "Usage: $0 [cargo|git|--local]"
@@ -125,4 +125,4 @@ echo "   3. Sync packages:"
 echo -e "      ${BLUE}declarch sync${NC}"
 echo ""
 echo -e "${BLUE}Documentation:${NC}"
-echo "   https://github.com/user/declarch#readme"
+echo "   https://github.com/nixval/declarch#readme"
