@@ -116,20 +116,8 @@ mod tests {
         let _installed = is_soar_installed();
     }
 
-    #[test]
-    fn test_curl_check() {
-        // Verify curl check doesn't panic
-        let result = try_install_with_curl();
-        // We expect this to fail in most test environments
-        // unless Soar and curl are actually available
-        let _ = result;
-    }
-
-    #[test]
-    fn test_wget_check() {
-        // Verify wget check doesn't panic
-        let result = try_install_with_wget();
-        // We expect this to fail in most test environments
-        let _ = result;
-    }
+    // Note: test_curl_check and test_wget_check removed
+    // They were causing unwanted Soar downloads during test runs
+    // The install_soar() function is no longer used in the main install script
+    // Users should install Soar manually if needed
 }
