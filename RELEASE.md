@@ -1,4 +1,4 @@
-# Release Notes
+
 
 ## [0.4.2] - 2026-01-23
 
@@ -212,7 +212,6 @@ No migration needed. User-defined backends are opt-in via KDL configuration.
 
 ### Contributors
 
-- Code by: Claude Sonnet 4.5
 - Directed by: nixval
 
 ---

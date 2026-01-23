@@ -61,7 +61,7 @@ declarch --version
 
 ```bash
 declarch --version
-# Output: declarch 0.4.1
+# Output: declarch 0.4.2
 ```
 
 ### 2. Initialize Configuration

@@ -18,7 +18,7 @@ All notable changes to this project will be documented in this file.
 - Refactored `sync.rs` to move hook logic to `commands/hooks.rs`.
 - Deduplicated pre/post sync hook execution logic.
 
-## [0.4.1] - 2025-01-20
+## [0.4.2] - 2025-01-20
 
 ### Added
 - Generic backend system.
