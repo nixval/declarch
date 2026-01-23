@@ -54,6 +54,14 @@ codegen-units = 1   # Maximize optimization at cost of parallelism
 opt-level = "s"     # Optimize for size
 strip = true        # Remove debug symbols
 
+# Profile for development builds - faster compilation, good enough performance
+[profile.dev-release]
+inherits = "release"
+lto = "off"         # Disable LTO for much faster builds
+codegen-units = 256 # Enable maximum parallelism
+opt-level = 3        # Still optimize well, but not for size
+strip = true         # Still strip debug symbols
+
 # Development dependencies (only for testing/benchmarking)
 [dev-dependencies]
 tempfile = "3.23.0"
