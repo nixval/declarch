@@ -1296,7 +1296,7 @@ mod tests {
     // Existing tests (unchanged for backward compatibility)
 
     #[test]
-    fn test_parse_aliases_inline() {
+    fn aliases_inline() {
         let kdl = r#"
             aliases-pkg pipewire pipewire-jack2
             aliases-pkg python-poetry python-poetry-core
@@ -1315,7 +1315,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_aliases_block() {
+    fn aliases_block() {
         let kdl = r#"
             aliases-pkg {
                 pipewire pipewire-jack2
@@ -1336,7 +1336,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_mixed_config() {
+    fn mixed_config() {
         let kdl = r#"
             packages {
                 neovim
@@ -1359,7 +1359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_empty_aliases() {
+    fn empty_aliases() {
         let kdl = r#"
             packages neovim
         "#;
@@ -1369,7 +1369,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_aur_packages() {
+    fn aur_packages() {
         let kdl = r#"
             aur-packages {
                 hyprland
@@ -1384,7 +1384,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_default_packages() {
+    fn default_packages() {
         let kdl = r#"
             packages {
                 hyprland
@@ -1401,7 +1401,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_soar_packages() {
+    fn soar_packages() {
         let kdl = r#"
             soar-packages {
                 bat
@@ -1418,7 +1418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_flatpak_packages() {
+    fn flatpak_packages() {
         let kdl = r#"
             flatpak-packages {
                 com.spotify.Client
@@ -1443,7 +1443,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cross_distro_config() {
+    fn cross_distro_config() {
         let kdl = r#"
             // Cross-distro configuration example
 
@@ -1478,7 +1478,7 @@ mod tests {
     // New syntax tests
 
     #[test]
-    fn test_parse_colon_syntax_soar() {
+    fn colon_soar() {
         let kdl = r#"
             packages:soar {
                 bat
@@ -1493,7 +1493,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_colon_syntax_aur() {
+    fn colon_aur() {
         let kdl = r#"
             packages:aur {
                 hyprland
@@ -1508,7 +1508,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_colon_syntax_flatpak() {
+    fn colon_flatpak() {
         let kdl = r#"
             packages:flatpak {
                 com.spotify.Client
@@ -1533,7 +1533,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_embedded_syntax() {
+    fn embedded_syntax() {
         let kdl = r#"
             packages {
                 hyprland
@@ -1574,7 +1574,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_mixed_syntax_styles() {
+    fn mixed_syntax() {
         let kdl = r#"
             // Default packages (AUR)
             packages {
@@ -1600,7 +1600,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_embedded_with_explicit_soar() {
+    fn embedded_explicit_soar() {
         let kdl = r#"
             packages {
                 soar {
@@ -1630,7 +1630,7 @@ mod tests {
     // NEW TESTS: Inline prefix syntax
 
     #[test]
-    fn test_parse_inline_prefix_single() {
+    fn inline_single() {
         let kdl = r#"
             packages {
                 soar:bat
@@ -1643,7 +1643,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_inline_prefix_multiple() {
+    fn inline_multiple() {
         let kdl = r#"
             packages {
                 hyprland
@@ -1674,7 +1674,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_inline_prefix_with_nested_blocks() {
+    fn inline_nested() {
         let kdl = r#"
             packages {
                 hyprland
@@ -1693,7 +1693,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_inline_prefix_with_app_alias() {
+    fn inline_alias() {
         let kdl = r#"
             packages {
                 app:bat
@@ -1708,7 +1708,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_inline_prefix_string_arguments() {
+    fn inline_string_args() {
         let kdl = r#"
             packages "soar:bat" "aur:hyprland" "flatpak:app.id"
         "#;
@@ -1725,7 +1725,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_unknown_backend_with_inline_prefix() {
+    fn unknown_backend() {
         let kdl = r#"
             packages {
                 unknown:package
@@ -1738,7 +1738,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_complex_mixed_syntax() {
+    fn complex_mixed() {
         let kdl = r#"
             packages {
                 // Default packages (AUR)
@@ -1787,7 +1787,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backend_parser_registry() {
+    fn backend_registry() {
         let registry = BackendParserRegistry::new();
 
         // Test finding parsers by name
@@ -1801,7 +1801,7 @@ mod tests {
     }
 
     #[test]
-    fn test_backward_compatibility() {
+    fn backward_compat() {
         // Ensure all old syntax still works
         let kdl = r#"
             packages {
@@ -1835,7 +1835,7 @@ mod tests {
     // NEW: Meta block tests
 
     #[test]
-    fn test_parse_meta_block() {
+    fn meta_block() {
         let kdl = r#"
             meta {
                 description "My Hyprland Setup"
@@ -1859,7 +1859,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_meta_with_tags() {
+    fn meta_tags() {
         let kdl = r#"
             meta {
                 description "Workstation setup"
@@ -1877,7 +1877,7 @@ mod tests {
     // NEW: Conflicts tests
 
     #[test]
-    fn test_parse_conflicts() {
+    fn conflicts() {
         let kdl = r#"
             conflicts vim neovim
         "#;
@@ -1892,7 +1892,7 @@ mod tests {
     // NEW: Backend options tests
 
     #[test]
-    fn test_parse_backend_options() {
+    fn backend_options() {
         let kdl = r#"
             options:aur {
                 noconfirm
@@ -1910,7 +1910,7 @@ mod tests {
     // NEW: Environment variables tests
 
     #[test]
-    fn test_parse_env_vars() {
+    fn env_vars() {
         let kdl = r#"
             env EDITOR="nvim" VISUAL="nvim"
 
@@ -1932,7 +1932,7 @@ mod tests {
     // NEW: Repositories tests
 
     #[test]
-    fn test_parse_repositories() {
+    fn repositories() {
         let kdl = r#"
             repos:aur {
                 "https://aur.archlinux.org"
@@ -1957,7 +1957,7 @@ mod tests {
     // NEW: Policy tests
 
     #[test]
-    fn test_parse_policy() {
+    fn policy() {
         let kdl = r#"
             policy {
                 protected {
@@ -1979,14 +1979,12 @@ mod tests {
     // NEW: Hooks tests
 
     #[test]
-    fn test_parse_hooks() {
+    fn hooks() {
         let kdl = r#"
             hooks {
-                post-sync {
-                    run "notify-send 'Packages updated'"
-                    sudo-needed "systemctl restart gdm"
-                    script "~/.config/declarch/post-sync.sh"
-                }
+                post-sync "notify-send 'Packages updated'"
+                post-sync "systemctl restart gdm" --sudo
+                post-sync "~/.config/declarch/post-sync.sh"
             }
         "#;
 
@@ -2018,7 +2016,7 @@ mod tests {
     // NEW: Comprehensive integration test
 
     #[test]
-    fn test_parse_full_config() {
+    fn full_config() {
         let kdl = r#"
             meta {
                 description "Full workstation setup"
@@ -2057,9 +2055,7 @@ mod tests {
             }
 
             hooks {
-                post-sync {
-                    run "notify-send 'Sync complete'"
-                }
+                post-sync "notify-send 'Sync complete'"
             }
         "#;
 
@@ -2103,7 +2099,7 @@ mod tests {
     // NEW: Flat hooks syntax test
 
     #[test]
-    fn test_parse_flat_hooks() {
+    fn hooks_flat() {
         let kdl = r#"
             on-sync "notify-send 'Packages updated'"
             on-sync-sudo "systemctl restart gdm"
@@ -2134,37 +2130,200 @@ mod tests {
         assert_eq!(post_sync_hooks[1].hook_type, HookType::Root);
     }
 
-    // NEW: Mixed hooks (old nested + new flat)
+    // NEW: Mixed hooks (flat syntax + hooks block)
 
     #[test]
-    fn test_parse_mixed_hooks() {
+    fn hooks_mixed() {
         let kdl = r#"
             on-sync "notify-send 'Flat hook'"
 
             hooks {
-                post-sync {
-                    run "notify-send 'Nested hook'"
-                }
+                post-sync "notify-send 'Nested hook'"
             }
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
 
+        // Filter post-sync hooks
+        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .collect();
+
         // Should have both flat and nested hooks
-        assert_eq!(config.hooks.post_sync.len(), 2);
+        assert_eq!(post_sync_hooks.len(), 2);
         assert!(
-            config
-                .hooks
-                .post_sync
+            post_sync_hooks
                 .iter()
                 .any(|h| h.command == "notify-send 'Flat hook'")
         );
         assert!(
-            config
-                .hooks
-                .post_sync
+            post_sync_hooks
                 .iter()
                 .any(|h| h.command == "notify-send 'Nested hook'")
         );
+    }
+
+    // Comprehensive hooks tests
+
+    #[test]
+    fn hooks_comprehensive() {
+        let kdl = r#"
+meta {
+    description "Test all hooks features"
+    author "nixval"
+    version "1.0.0"
+}
+
+packages {
+    bat
+}
+
+hooks {
+    // Global hooks
+    pre-sync "echo 'Pre-sync'"
+    post-sync "echo 'Post-sync'"
+    on-success "echo 'Success'"
+    on-failure "echo 'Failed'"
+
+    // Package hook (block syntax)
+    bat {
+        post-install "echo 'Bat installed'"
+    }
+
+    // Backend hooks
+    aur:post-sync "echo 'AUR synced'"
+}
+"#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        // Test pre-sync hooks
+        let pre_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PreSync)
+            .collect();
+        assert_eq!(pre_sync_hooks.len(), 1);
+        assert_eq!(pre_sync_hooks[0].command, "echo 'Pre-sync'");
+        assert!(pre_sync_hooks[0].package.is_none());
+
+        // Test post-sync hooks
+        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .collect();
+        assert_eq!(post_sync_hooks.len(), 2);
+        assert!(post_sync_hooks.iter().any(|h| h.command == "echo 'Post-sync'"));
+        assert!(post_sync_hooks.iter().any(|h| h.command == "echo 'AUR synced'"));
+
+        // Test on-success hooks
+        let on_success_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::OnSuccess)
+            .collect();
+        assert_eq!(on_success_hooks.len(), 1);
+        assert_eq!(on_success_hooks[0].command, "echo 'Success'");
+
+        // Test on-failure hooks
+        let on_failure_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::OnFailure)
+            .collect();
+        assert_eq!(on_failure_hooks.len(), 1);
+        assert_eq!(on_failure_hooks[0].command, "echo 'Failed'");
+
+        // Test post-install hooks
+        let post_install_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostInstall)
+            .collect();
+        assert_eq!(post_install_hooks.len(), 1);
+        assert_eq!(post_install_hooks[0].command, "echo 'Bat installed'");
+        assert_eq!(post_install_hooks[0].package.as_ref().unwrap(), "bat");
+    }
+
+    #[test]
+    fn hooks_flags() {
+        let kdl = r#"
+hooks {
+    post-sync "echo 'Regular hook'"
+    post-sync "systemctl restart gdm" --sudo
+    docker:post-install "mkinitcpio -P" --sudo --required
+    post-sync "cleanup.sh" --ignore
+}
+"#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        let all_hooks = &config.hooks.hooks;
+
+        // Regular hook (no sudo)
+        let regular = all_hooks.iter()
+            .find(|h| h.command.contains("Regular hook"))
+            .unwrap();
+        assert_eq!(regular.hook_type, HookType::User);
+        assert_eq!(regular.error_behavior, ErrorBehavior::Warn);
+
+        // Sudo hook
+        let sudo = all_hooks.iter()
+            .find(|h| h.command.contains("systemctl restart gdm"))
+            .unwrap();
+        assert_eq!(sudo.hook_type, HookType::Root);
+
+        // Required hook
+        let required = all_hooks.iter()
+            .find(|h| h.command.contains("mkinitcpio"))
+            .unwrap();
+        assert_eq!(required.hook_type, HookType::Root);
+        assert_eq!(required.error_behavior, ErrorBehavior::Required);
+
+        // Ignore hook
+        let ignore = all_hooks.iter()
+            .find(|h| h.command.contains("cleanup.sh"))
+            .unwrap();
+        assert_eq!(ignore.error_behavior, ErrorBehavior::Ignore);
+    }
+
+    #[test]
+    fn hooks_shorthand() {
+        let kdl = r#"
+packages {
+    docker
+    waybar
+}
+
+hooks {
+    // Shorthand syntax
+    docker:post-install "systemctl enable docker" --sudo
+    waybar:post-install "pkill waybar"
+
+    // Backend shorthand
+    aur:post-sync "echo 'AUR done'"
+    flatpak:post-sync "echo 'Flatpak done'"
+}
+"#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+
+        // Test package shorthand
+        let docker_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.package.as_deref() == Some("docker"))
+            .collect();
+        assert_eq!(docker_hooks.len(), 1);
+        assert_eq!(docker_hooks[0].phase, HookPhase::PostInstall);
+        assert_eq!(docker_hooks[0].hook_type, HookType::Root);
+
+        let waybar_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.package.as_deref() == Some("waybar"))
+            .collect();
+        assert_eq!(waybar_hooks.len(), 1);
+        assert_eq!(waybar_hooks[0].phase, HookPhase::PostInstall);
+
+        // Test backend shorthand (should be detected by post-sync phase)
+        let aur_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .filter(|h| h.command.contains("AUR"))
+            .collect();
+        assert_eq!(aur_hooks.len(), 1);
+
+        let flatpak_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .filter(|h| h.command.contains("Flatpak"))
+            .collect();
+        assert_eq!(flatpak_hooks.len(), 1);
     }
 }
