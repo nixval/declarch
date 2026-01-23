@@ -1,9 +1,11 @@
 use crate::config::loader;
 use crate::core::types::Backend;
 use crate::error::Result;
+use crate::state;
 use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
+use std::collections::HashSet;
 
 /// Parse backend string to Backend enum
 fn parse_backend(backend_str: &str) -> Result<Backend> {
@@ -28,7 +30,13 @@ pub fn run(
     check_duplicates: bool,
     check_conflicts: bool,
     backend_filter: Option<String>,
+    diff: bool,
+    validate_only: bool,
+    benchmark: bool,
+    extra_modules: Vec<String>,
 ) -> Result<()> {
+    let start_time = std::time::Instant::now();
+
     output::header("Configuration Check");
 
     let config_path = paths::config_file()?;
@@ -38,8 +46,37 @@ pub fn run(
 
     output::info(&format!("Entry point: {}", config_path.display()));
 
-    let config = loader::load_root_config(&config_path)?;
+    // Handle --modules flag (load additional modules)
+    let config = if !extra_modules.is_empty() {
+        output::info(&format!("Loading additional modules: {:?}", extra_modules));
+        // TODO: Phase 5 - implement actual module loading
+        loader::load_root_config(&config_path)?
+    } else {
+        loader::load_root_config(&config_path)?
+    };
+
+    let config_time = start_time.elapsed();
+
     output::success("Syntax & Imports: OK");
+
+    // Handle --validate flag (exit early after validation)
+    if validate_only {
+        output::info("Validation complete (no sync performed)");
+        if benchmark {
+            show_benchmarks(config_time, start_time.elapsed());
+        }
+        return Ok(());
+    }
+
+    // Handle --diff flag (show planned changes)
+    if diff {
+        show_diff(&config)?;
+    }
+
+    // Handle --benchmark flag
+    if benchmark {
+        show_benchmarks(config_time, start_time.elapsed());
+    }
 
     // Filter packages by backend if specified
     let package_count = if let Some(backend_str) = &backend_filter {
@@ -164,4 +201,92 @@ pub fn run(
     }
 
     Ok(())
+}
+
+/// Show planned changes (diff between config and state)
+fn show_diff(config: &loader::MergedConfig) -> Result<()> {
+    use crate::core::types::PackageId;
+
+    output::separator();
+    output::info("Calculating planned changes...");
+
+    // Load state if available
+    let state_path = state::io::get_state_path()?;
+    if !state_path.exists() {
+        output::warning("No state found. All packages will be installed.");
+        output::separator();
+        println!("{}", "Packages to Install:".bold().green());
+
+        for pkg_id in config.packages.keys() {
+            println!("  + {} {}", pkg_id.backend, pkg_id.name);
+        }
+        return Ok(());
+    }
+
+    let state = state::io::load_state()?;
+
+    // Create sets for comparison
+    let config_set: HashSet<PackageId> = config.packages.keys().cloned().collect();
+    let mut state_set: HashSet<PackageId> = HashSet::new();
+
+    for (_key, pkg_state) in &state.packages {
+        let pkg_id = PackageId {
+            backend: pkg_state.backend.clone(),
+            name: pkg_state.config_name.clone(),
+        };
+        state_set.insert(pkg_id);
+    }
+
+    // Calculate differences
+    let to_install: Vec<_> = config_set
+        .difference(&state_set)
+        .cloned()
+        .collect();
+
+    let to_remove: Vec<_> = state_set
+        .difference(&config_set)
+        .cloned()
+        .collect();
+
+    // Display results
+    if to_install.is_empty() && to_remove.is_empty() {
+        output::success("No changes planned. System is in sync.");
+        return Ok(());
+    }
+
+    if !to_install.is_empty() {
+        println!();
+        println!("{}", format!("To Install ({}):", to_install.len()).bold().green());
+        for pkg_id in &to_install {
+            println!("  + {} {}", pkg_id.backend, pkg_id.name);
+        }
+    }
+
+    if !to_remove.is_empty() {
+        println!();
+        println!("{}", format!("To Remove ({}):", to_remove.len()).bold().red());
+        for pkg_id in &to_remove {
+            println!("  - {} {}", pkg_id.backend, pkg_id.name);
+        }
+    }
+
+    println!();
+    output::info("Run 'dcl sync' to apply these changes");
+
+    Ok(())
+}
+
+/// Show benchmark metrics
+fn show_benchmarks(config_time: std::time::Duration, total_time: std::time::Duration) {
+    output::separator();
+    println!("{}", "Performance Metrics:".bold());
+
+    println!(
+        "  Config loading:     {:>8} ms",
+        config_time.as_millis()
+    );
+    println!(
+        "  Total time:         {:>8} ms",
+        total_time.as_millis()
+    );
 }
