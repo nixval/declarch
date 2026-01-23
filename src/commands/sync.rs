@@ -98,15 +98,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     output::header("Synchronizing Packages");
 
     // 1. Target Resolution
-    let sync_target = if let Some(t) = &options.target {
-        match t.to_lowercase().as_str() {
-            "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::Aur),
-            "flatpak" => SyncTarget::Backend(Backend::Flatpak),
-            _ => SyncTarget::Named(t.clone()),
-        }
-    } else {
-        SyncTarget::All
-    };
+    let sync_target = resolve_target(&options.target);
 
     // 2. Load Config
     let config_path = paths::config_file()?;
@@ -755,4 +747,16 @@ fn update_state_after_sync(
     state::io::save_state(state)?;
 
     Ok(())
+}
+
+fn resolve_target(target: &Option<String>) -> SyncTarget {
+    if let Some(t) = target {
+        match t.to_lowercase().as_str() {
+            "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::Aur),
+            "flatpak" => SyncTarget::Backend(Backend::Flatpak),
+            _ => SyncTarget::Named(t.clone()),
+        }
+    } else {
+        SyncTarget::All
+    }
 }
