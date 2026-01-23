@@ -40,10 +40,13 @@ check() {
 package() {
   cd "$pkgname-$pkgver"
 
-  # Strip binary to remove debug symbols and build paths
+  # Strip binaries to remove debug symbols and build paths
   strip --strip-all "target/release/$pkgname"
+  strip --strip-all "target/release/dcl"
 
+  # Install main binary
   install -Dm755 "target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm755 "target/release/dcl" "$pkgdir/usr/bin/dcl"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 

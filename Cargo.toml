@@ -45,8 +45,8 @@ name = "declarch"
 path = "src/main.rs"
 
 [[bin]]
-name = "dc"
-path = "src/dc.rs"
+name = "dcl"
+path = "src/dcl.rs"
 
 [profile.release]
 lto = "thin"        # Link-time optimization: "thin" balances speed and compile time

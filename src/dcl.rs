@@ -1,5 +1,5 @@
-// DC alias - wrapper for declarch command
-// This file provides the 'dc' command as an alternative to 'declarch'
+// DCL alias - wrapper for declarch command
+// This file provides the 'dcl' command as a shorthand for 'declarch'
 
 use clap::Parser;
 use declarch::cli::args::{Cli, Command};
