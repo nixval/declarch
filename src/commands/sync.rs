@@ -111,7 +111,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     perform_system_update(&options)?;
 
     // 4. Initialize Managers & Snapshot
-    let (mut installed_snapshot, mut managers) =
+    let (mut installed_snapshot, managers) =
         initialize_managers_and_snapshot(&config, &options, &sync_target)?;
 
     // 5. Load State & Resolve
