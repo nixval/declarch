@@ -1,167 +1,131 @@
 # Desktop Environment Setup
 
-Complete desktop configuration with multiple package managers.
+A complete desktop configuration for daily use.
 
-## Configuration
+## Quick Example
 
 ```kdl
-// ~/.config/declarch/declarch.kdl
-
 meta {
-    description "Hyprland desktop environment"
-    host "desktop-arch"
+  host "desktop-arch"
+  description "My desktop computer"
 }
 
-// Import modules (optional)
-imports {
-    "modules/base"
-    "modules/desktop/hyprland"
-}
-
-// === CONFLICTS ===
-// Prevent installing competing packages
-conflicts {
-    i3    hyprland
-    sway  hyprland
-}
-
-// === HOOKS ===
-// Notifications during sync
-on-pre-sync "notify-send 'Declarch' 'Starting package synchronization...'"
-on-sync "notify-send 'Declarch' 'Packages updated successfully'"
-
-// === SYSTEM PACKAGES (AUR) ===
+// Window manager & desktop
 packages {
-    // Window manager
-    hyprland
-    waybar
-    wofi
-
-    // Terminal & Shell
-    kitty
-    zsh
-    starship
-
-    // Applications
-    firefox
-    thunar
-    discord
+  hyprland    // Tiling Wayland compositor
+  waybar      // Status bar
+  wofi        // App launcher
+  kitty       // Terminal
+  zsh         // Shell
 }
 
-// === CLI TOOLS (Static Binaries) ===
-// Works on any Linux distro
+// Cross-distro tools (work on ANY Linux!)
 packages:soar {
-    bat     // Modern cat
-    exa     // Modern ls
-    ripgrep // Fast grep
-    fd      // Fast find
-    zoxide  // Smart cd
+  bat     // Better cat
+  exa     // Better ls
+  ripgrep // Fast search
+  fd      // Fast find
 }
 
-// === DEVELOPMENT TOOLS ===
-
-// Rust crates
+// Development tools
 packages:cargo {
-    ripgrep
-    fd-find
-    zoxide
-    bat
-    tealdeer
+  ripgrep
+  fd-find
 }
 
-// Node.js packages
 packages:npm {
-    typescript
-    prettier
-    eslint
+  typescript
+  prettier
 }
 
-// === FLATPAK APPLICATIONS ===
+// Desktop apps (from Flatpak)
 packages:flatpak {
-    com.spotify.Client
-    org.telegram.desktop
-    com.slack.Slack
-    com.discordapp.Discord
-    org.mozilla.firefox
+  com.spotify.Client        // Music
+  org.mozilla.firefox       // Browser
+  com.discordapp.Discord    // Chat
 }
 ```
 
-## Features
-
-### Desktop Environment
-- **Hyprland** as Wayland compositor
-- **Waybar** status bar
-- **Wofi** application launcher
-- **Kitty** terminal emulator
-- **Zsh** + **Starship** prompt
-
-### Applications
-- **Firefox** browser
-- **Thunar** file manager
-- **Discord**, **Slack**, **Telegram** from Flatpak
-- **Spotify** from Flatpak
-
-### Development Tools
-- **Rust tools**: ripgrep, fd, zoxide, bat via cargo
-- **Node.js tools**: TypeScript, Prettier, ESLint via npm
-- **Cross-distro CLI tools** via Soar
-
 ## What This Includes
 
-### Window Manager & Desktop
-- **Hyprland** - Dynamic tiling Wayland compositor
+### Desktop Environment
+- **Hyprland** - Modern Wayland tiling window manager
 - **Waybar** - Customizable status bar
-- **Wofi** - Application launcher for Wayland
+- **Wofi** - Application launcher
+- **Kitty** - Fast GPU-accelerated terminal
 
-### Cross-Distro Tools (Soar)
-- **bat** - Cat with syntax highlighting
-- **exa** - Better ls with colors
-- **ripgrep** - Fast text search
-- **fd** - Fast file search
-- **zoxide** - Smart directory navigation
+### Cross-Distro Tools
+These work on **Arch, Ubuntu, Fedora, ANY Linux**:
+- **bat** - `cat` with colors and syntax highlighting
+- **exa** - `ls` with colors and git info
+- **ripgrep** - Ultra-fast text search
+- **fd** - Fast, user-friendly alternative to `find`
 
-These work on **any Linux distro** (Ubuntu, Fedora, etc.) not just Arch!
+### Development Tools
+- Via **cargo**: ripgrep, fd-find
+- Via **npm**: typescript, prettier
 
-### Development
-- **Via cargo**: ripgrep, fd-find, zoxide, bat, tealdeer
-- **Via npm**: typescript, prettier, eslint
-
-### Flatpak Applications
-- Spotify
-- Telegram Desktop
-- Slack
-- Discord
-- Firefox
+### Apps
+- **Spotify** - Music streaming
+- **Firefox** - Web browser
+- **Discord** - Chat/Voice
 
 ## Usage
 
 ```bash
-# Check configuration
+# See what will be installed
 declarch check
 
-# Dry run to see what will change
+# Dry-run (preview changes)
 declarch sync --dry-run
 
-# Sync all packages
+# Install everything
 declarch sync
 ```
 
-## Modular Setup
+## Supported Package Managers
 
-This config uses imports for organization:
+Declarch works with many package managers. Here are the most common:
 
+| Package Manager | Backend | Use For |
+|----------------|---------|---------|
+| Arch/AUR | `packages` | System packages |
+| Soar | `packages:soar` | Cross-distro tools |
+| npm | `packages:npm` | Node.js tools |
+| cargo | `packages:cargo` | Rust crates |
+| Flatpak | `packages:flatpak` | Desktop apps |
+
+## Three Syntax Styles
+
+You can write packages in 3 different ways. All work the same:
+
+**Style 1: Backend blocks** (recommended, clearest):
 ```kdl
-imports {
-    "modules/base"
-    "modules/desktop/hyprland"
+packages:npm {
+  typescript
+  prettier
 }
 ```
 
-Each file can be edited separately:
-```bash
-declarch edit base           # Edit modules/base.kdl
-declarch edit hyprland       # Edit modules/desktop/hyprland.kdl
+**Style 2: Embedded blocks**:
+```kdl
+packages {
+  npm {
+    typescript
+    prettier
+  }
+}
 ```
+
+**Style 3: Inline prefix**:
+```kdl
+packages {
+  npm:typescript
+  npm:prettier
+}
+```
+
+Mix them however you like!
 
 ## Source Files
 
@@ -169,4 +133,4 @@ declarch edit hyprland       # Edit modules/desktop/hyprland.kdl
 
 ---
 
-**Next:** See [Development Environment](development.html) for programming-focused setup.
+**Next:** See [Development Environment](development.html) for programming setup.

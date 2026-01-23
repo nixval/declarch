@@ -2,196 +2,81 @@
 
 Split your configuration into multiple files for better organization.
 
-## Directory Structure
+## Quick Example
 
-```
-~/.config/declarch/
-├── declarch.kdl           # Main configuration
-├── modules/
-│   ├── base.kdl           # Essential packages
-│   ├── desktop.kdl        # Desktop environment
-│   ├── development.kdl    # Development tools
-│   └── gaming.kdl         # Gaming-related
-└── backends.kdl           # Custom backends
-```
-
-## Main Configuration
+Instead of one giant file, split it into modules:
 
 ```kdl
-// ~/.config/declarch/declarch.kdl
-
+// Main file: ~/.config/declarch/declarch.kdl
 meta {
-    host "my-workstation"
-    description "Modular setup"
+  host "my-workstation"
 }
 
-// Import modules
+// Import other files
 imports {
-    "modules/base"
-    "modules/desktop"
-    "modules/development"
-}
-
-// Host-specific overrides
-%host "gaming-pc" {
-    imports {
-        "modules/gaming"
-    }
+  "modules/base"
+  "modules/desktop"
+  "modules/development"
 }
 ```
 
-## Base Module
+## Module Files
 
+Create these files in `~/.config/declarch/modules/`:
+
+**Base system** (`modules/base.kdl`):
 ```kdl
-// ~/.config/declarch/modules/base.kdl
-
-// Essential system tools
 packages {
-    git
-    curl
-    wget
-    vim
-    htop
-    tmux
-    zsh
+  git
+  curl
+  vim
+  htop
 }
 ```
 
-## Desktop Module
-
+**Desktop** (`modules/desktop.kdl`):
 ```kdl
-// ~/.config/declarch/modules/desktop.kdl
-
 packages {
-    # Desktop environment
-    hyprland
-    waybar
-    rofi-wayland
-    alacritty
+  hyprland
+  waybar
 }
 
 packages:flatpak {
-    com.spotify.Client
-    org.telegram.desktop
+  com.spotify.Client
 }
 ```
 
-## Development Module
-
+**Development** (`modules/development.kdl`):
 ```kdl
-// ~/.config/declarch/modules/development.kdl
-
 packages:cargo {
-    ripgrep
-    fd-find
-    bat
-    zoxide
+  ripgrep
+  fd-find
 }
 
 packages:npm {
-    typescript
-    prettier
+  typescript
+  prettier
 }
 ```
 
-## Gaming Module
-
-```kdl
-// ~/.config/declarch/modules/gaming.kdl
-
-packages {
-    steam
-    lutris
-    gamemode
-    mangohud
-}
-
-// Host-specific: only on gaming-pc
-%host "gaming-pc" {
-    packages {
-        wine-staging
-        protonup-qt
-    }
-}
-```
-
-## Benefits of Modular Setup
+## Why Use Modules?
 
 ### 1. Organization
-- Separate concerns into different files
-- Easy to find and update specific functionality
-- Clear structure for complex configs
+- Keep related packages together
+- Easier to find things
+- Less overwhelming
 
 ### 2. Reusability
-- Share modules across different machines
+- Share modules between computers
 - Mix and match as needed
-- Create a "library" of modules
+- Build a "module library"
 
-### 3. Host-Specific Configs
-- Different packages for different machines
-- Use `%host` directive for overrides
-- Conditional imports per host
+### 3. Maintenance
+- Update one module at a time
+- Clear git history
+- Easier to troubleshoot
 
-### 4. Version Control
-- Easier to manage changes in git
-- Clear history per module
-- Smaller, focused pull requests
-
-## Import Syntax
-
-### Basic Import
-```kdl
-imports {
-    "modules/base"
-}
-```
-
-### Multiple Imports
-```kdl
-imports {
-    "modules/base"
-    "modules/desktop"
-    "modules/development"
-}
-```
-
-### Nested Paths
-```kdl
-imports {
-    "modules/desktop/hyprland"
-    "modules/development/rust"
-    "modules/mydotfiles/alacritty"
-}
-```
-
-## Host-Specific Overrides
-
-### Conditional Block
-```kdl
-// Only apply on gaming-pc
-%host "gaming-pc" {
-    imports {
-        "modules/gaming"
-    }
-
-    packages {
-        steam
-    }
-}
-```
-
-### Multiple Hosts
-```kdl
-%host "desktop" "workstation" {
-    packages {
-        heavy-software
-    }
-}
-```
-
-## Editing Module Files
-
-Use `declarch edit` to edit specific modules:
+## Usage
 
 ```bash
 # Edit main config
@@ -200,54 +85,93 @@ declarch edit
 # Edit specific module
 declarch edit base
 declarch edit desktop
-declarch edit development/rust
+declarch edit development
 
-# Edit with custom editor
-declarch edit base --editor nvim
+# Sync everything
+declarch sync
+```
+
+## Host-Specific Modules
+
+Only use certain modules on specific machines:
+
+```kdl
+// Main config
+imports {
+  "modules/base"
+  "modules/desktop"
+  "modules/development"
+}
+
+// Only on gaming PC
+%host "gaming-pc" {
+  imports {
+    "modules/gaming"
+  }
+
+  packages {
+    steam
+    lutris
+  }
+}
+```
+
+## Three Syntax Styles
+
+You can use any of the three syntax styles in modules:
+
+**Style 1: Backend blocks**:
+```kdl
+// modules/development.kdl
+packages:cargo {
+  ripgrep
+}
+
+packages:npm {
+  typescript
+}
+```
+
+**Style 2: Embedded blocks**:
+```kdl
+// modules/development.kdl
+packages {
+  cargo {
+    ripgrep
+  }
+
+  npm {
+    typescript
+  }
+}
+```
+
+**Style 3: Inline**:
+```kdl
+// modules/development.kdl
+packages {
+  cargo:ripgrep
+  npm:typescript
+}
 ```
 
 ## Tips
 
-1. **Start Simple**: Begin with single file, split later as needed
-2. **Use Meaningful Names**: `base.kdl`, `desktop.kdl`, etc.
-3. **Keep Imports Order**: Import base modules first
-4. **Avoid Circular Imports**: Don't import files that import each other
-5. **Document Modules**: Add meta info to each module file
+1. Start simple, split later
+2. Use meaningful names: `base.kdl`, `desktop.kdl`
+3. Import base modules first
+4. Don't create circular imports
 
-## Example Module with Metadata
+## Directory Structure
 
-```kdl
-// ~/.config/declarch/modules/development.kdl
-
-meta {
-    description "Development tools and IDEs"
-    version "1.0.0"
-    author "yourname"
-    tags "development" "programming"
-}
-
-packages:cargo {
-    ripgrep
-    fd-find
-}
-
-on-sync "notify-send 'Dev tools updated'"
 ```
-
-## Usage
-
-```bash
-# Check all imported configurations
-declarch check
-
-# Sync all modules
-declarch sync
-
-# Sync specific target (host)
-declarch sync --target gaming-pc
-
-# See what will be synced
-declarch sync --dry-run
+~/.config/declarch/
+├── declarch.kdl      # Main config
+└── modules/
+    ├── base.kdl       # Essential packages
+    ├── desktop.kdl    # Desktop environment
+    ├── development.kdl # Dev tools
+    └── gaming.kdl     # Games (optional)
 ```
 
 ## Source Files
@@ -257,6 +181,5 @@ declarch sync --dry-run
 ---
 
 **See also:**
-- [KDL Syntax - Imports](../configuration/kdl-syntax.html#imports)
-- [Modules](../configuration/modules.html)
-- [Remote Init](../advanced/remote-init.html) - Import from remote URLs
+- [KDL Syntax](../configuration/kdl-syntax.html) - Complete syntax reference
+- [Modules](../configuration/modules.html) - Advanced module features

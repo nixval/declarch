@@ -1,175 +1,142 @@
 # Development Environment Setup
 
-Configuration optimized for software development.
+Configuration for software development.
 
-## Configuration
+## Quick Example
 
 ```kdl
-// ~/.config/declarch/declarch.kdl
-
 meta {
-    description "Development environment"
-    host "dev-machine"
-    tags "development" "programming"
+  host "dev-machine"
+  description "Development computer"
 }
 
-// System packages
+// Core tools
 packages {
-    neovim
-    tmux
-    lazygit
-    gh
-    postgresql
-    redis
-    docker
-    kubectl
-    terraform
-    curl
-    jq
+  neovim
+  git
+  docker
+  gh       // GitHub CLI
 }
 
-// === DEVELOPMENT TOOLS ===
-
-// Rust crates
+// Rust tools
 packages:cargo {
-    ripgrep      // Fast grep alternative
-    fd-find      // Fast find alternative
-    zoxide       // Smart directory navigation
-    bat          // Enhanced cat with syntax highlighting
-    tealdeer     // Simplified man pages
-    xh           // Modern HTTP client
-    mdbook       # Book creation from markdown
-    cargo-edit   // Cargo extension for managing dependencies
+  ripgrep    // Fast search
+  fd-find    // Fast find
+  zoxide     // Smart cd
+  bat       // Better cat
 }
 
-// Node.js packages
+// Node.js tools
 packages:npm {
-    # JavaScript/TypeScript
-    typescript
-    prettier
-    eslint
-    vite         # Fast build tool
-    create-vite  # Project scaffolding
-
-    # AWS SDK
-    @aws-sdk/client-s3
+  typescript
+  prettier
+  eslint
+  vite
 }
 
-// Python packages
+// Python tools
 packages:python {
-    black        # Code formatter
-    ruff         # Linter and formatter
-    mypy         # Type checker
-    jupyter      # Interactive notebooks
-    poetry       # Dependency management
+  black     // Formatter
+  ruff      // Linter
+  jupyter   // Notebooks
 }
-
-// Optional hooks
-on-sync "notify-send 'Dev' 'Development tools updated'"
 ```
 
 ## What This Includes
 
-### Core Development Tools (System)
+### Core Tools (System)
 - **Neovim** - Text editor
-- **tmux** - Terminal multiplexer
-- **lazygit** - Git TUI
+- **Git** - Version control
+- **Docker** - Containers
 - **gh** - GitHub CLI
-- **Docker** - Container runtime
-- **kubectl** - Kubernetes CLI
-- **Terraform** - Infrastructure as Code
 
-### Rust Development (via cargo)
-- **ripgrep** - Fast text search
-- **fd** - Fast file search
-- **zoxide** - Smart directory navigation
-- **bat** - Enhanced cat with syntax highlighting
-- **tealdeer** - Simplified man pages
-- **xh** - Modern HTTP client
-- **mdbook** - Create books from markdown
+### Language-Specific Tools
 
-### JavaScript/TypeScript (via npm)
-- **TypeScript** - Type-safe JavaScript
-- **Prettier** - Code formatter
-- **ESLint** - Linter
-- **Vite** - Fast build tool
-- **create-vite** - Project scaffolding
-- **AWS SDK** - Amazon S3 client
+**Rust (via cargo):**
+- ripgrep - Fast text search
+- fd-find - Fast file search
+- zoxide - Smart directory navigation
+- bat - Enhanced cat
 
-### Python (via pip)
-- **black** - Code formatter
-- **ruff** - Fast linter and formatter
-- **mypy** - Static type checker
-- **Jupyter** - Interactive notebooks
-- **poetry** - Dependency management
+**Node.js (via npm):**
+- TypeScript - Type-safe JavaScript
+- Prettier - Code formatter
+- ESLint - Linter
+- Vite - Fast build tool
+
+**Python (via pip):**
+- black - Code formatter
+- ruff - Fast linter
+- Jupyter - Interactive notebooks
+
+## Package Managers Supported
+
+Declarch works with many package managers:
+
+| Backend | Command | Example Packages |
+|---------|---------|-----------------|
+| `packages` | paru/pacman | neovim, git, docker |
+| `packages:cargo` | cargo install | ripgrep, fd-find |
+| `packages:npm` | npm install -g | typescript, prettier |
+| `packages:python` | pip install | black, ruff |
+| `packages:go` | go install | (custom backend) |
+| `packages:flatpak` | flatpak install | IDEs and apps |
+
+## Three Syntax Styles
+
+Choose the style you prefer:
+
+**Style 1: Backend blocks** (recommended):
+```kdl
+packages:npm {
+  typescript
+  prettier
+}
+
+packages:cargo {
+  ripgrep
+}
+```
+
+**Style 2: Embedded blocks**:
+```kdl
+packages {
+  npm {
+    typescript
+    prettier
+  }
+
+  cargo {
+    ripgrep
+  }
+}
+```
+
+**Style 3: Inline**:
+```kdl
+packages {
+  npm:typescript
+  npm:prettier
+  cargo:ripgrep
+}
+```
 
 ## Development Workflow
 
 ```bash
-# Initial setup
-declarch init
+# Setup
 declarch sync
 
-# Start new project
-mkdir my-project
-cd my-project
+# Daily work
+rg "function"     # Search code (ripgrep)
+fd "test.rs"      # Find files (fd)
+zoxide proj       # Jump to project (zoxide)
 
-# JavaScript/TypeScript project
-npm init vite
+# JavaScript
+npm init vite     # Create new project
 
-# Search code
-rg "function"     # ripgrep search
-fd "test.rs"      # fd find files
-zoxide proj       # zoxide jump to project
-
-# HTTP testing
-xh GET https://api.example.com
-
-# Read docs
-tldr tar          # simplified man pages
-```
-
-## Backend Syntax Explained
-
-Declarch uses **backend prefix** to specify package manager:
-
-```kdl
-packages        // Default (AUR on Arch)
-packages:cargo  // Rust crates
-packages:npm    // Node.js packages
-packages:python // Python packages
-```
-
-Each backend:
-- **packages** - Installs via `paru -S` / `pacman -S`
-- **packages:cargo** - Installs via `cargo install`
-- **packages:npm** - Installs via `npm install -g`
-- **packages:python** - Installs via `pip install`
-
-## Editor Integration
-
-These tools work great with:
-- **Neovim/Vim** - With LSP configuration
-- **VS Code** - With extensions
-- **JetBrains IDEs** - Built-in support
-
-## Organizing by Language
-
-Keep your dev tools organized by backend:
-
-```kdl
-// General tools (system)
-packages {
-    neovim
-    tmux
-    git
-}
-
-// Language-specific
-packages:cargo { /* Rust tools */ }
-packages:npm { /* Node tools */ }
-packages:python { /* Python tools */ }
-packages:go { /* Go tools */ }
+# Python
+jupyter notebook  # Start notebook
 ```
 
 ## Source Files
@@ -178,4 +145,4 @@ packages:go { /* Go tools */ }
 
 ---
 
-**Next:** See [Modular Setup](modular.html) for organizing complex configurations.
+**Next:** See [Modular Setup](modular.html) to organize configs.
