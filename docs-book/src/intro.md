@@ -4,112 +4,182 @@
 
 ## What is Declarch?
 
-Declarch allows you to declare all your packages from different package managers (AUR, Flatpak, npm, cargo, pip, and custom backends) in one configuration file and keep them in sync.
+Declarch lets you declare ALL your packages from different package managers in one file and keeps them in sync.
 
-## Why Declarative?
+## Why Use Declarch?
 
-Traditional package management is **imperative**:
-
+**Without Declarch** (imperative, forgetful):
 ```bash
-# Install packages one by one, forget why later
 paru -S neovim
 npm install -g typescript
 flatpak install com.spotify.Client
 cargo install ripgrep
+# A month later: why did I install these?
 ```
 
-**Problem:** A month later, you forget why you installed them or where they came from.
-
-With Declarch, it's **declarative**:
-
+**With Declarch** (declarative, clear):
 ```kdl
-// ~/.config/declarch/declarch.kdl
-
-// Default backend (AUR on Arch Linux)
+// One file, all your packages
 packages {
-    neovim
-    git
-    curl
+  neovim          // From Arch/AUR
 }
 
-// Node.js packages
 packages:npm {
-    typescript
-    prettier
+  typescript      // From npm
 }
 
-// Rust crates
-packages:cargo {
-    ripgrep
-    fd-find
-}
-
-// Flatpak applications
 packages:flatpak {
-    com.spotify.Client
+  com.spotify.Client
+}
+
+packages:cargo {
+  ripgrep
 }
 ```
 
-Then simply run:
+Then just run:
 ```bash
 declarch sync
 ```
 
-## How It Works
+## Three Ways to Write Packages
 
-Declarch uses **backend syntax** to specify which package manager to use:
+Declarch gives you **3 syntax options** - choose what you like:
 
+### Option 1: Backend Blocks (Recommended)
 ```kdl
-packages              // Default backend (AUR on Arch)
-packages:npm          // Node.js packages
-packages:cargo        // Rust crates
-packages:python       // Python packages (pip)
-packages:flatpak      // Flatpak applications
-packages:soar         // Static binaries (cross-distro)
+packages:npm {
+  typescript
+  prettier
+}
+
+packages:cargo {
+  ripgrep
+  fd-find
+}
 ```
 
-Each backend installs packages through its respective package manager:
-- **AUR** → `paru`/`yay`
-- **npm** → `npm install -g`
-- **cargo** → `cargo install`
-- **python** → `pip install`
-- **flatpak** → `flatpak install`
-- **soar** → `soar install`
+### Option 2: Embedded Blocks
+```kdl
+packages {
+  npm {
+    typescript
+    prettier
+  }
+
+  cargo {
+    ripgrep
+    fd-find
+  }
+}
+```
+
+### Option 3: Inline Prefix
+```kdl
+packages {
+  npm:typescript
+  npm:prettier
+  cargo:ripgrep
+  cargo:fd-find
+}
+```
+
+### Mix All Three Styles!
+```kdl
+packages {
+  // Default (AUR)
+  neovim
+  git
+
+  // Inline
+  npm:prettier
+
+  // Embedded block
+  npm {
+    typescript
+    eslint
+  }
+
+  // Backend block
+  flatpak {
+    com.spotify.Client
+  }
+}
+```
+
+All three styles work the same. Pick what you prefer!
+
+## What Happens When You Sync?
+
+Declarch talks to each package manager:
+
+```kdl
+packages         → paru/yay (AUR)
+packages:npm     → npm install -g
+packages:cargo   → cargo install
+packages:python  → pip install
+packages:flatpak → flatpak install
+packages:soar    → soar install (cross-distro!)
+```
+
+It only installs what's missing and removes what you don't want anymore.
 
 ## Features
 
-- **Universal**: Support AUR, Flatpak, npm, cargo, pip, soar, and custom backends
-- **Declarative**: One config file for all your packages
-- **Cross-distro**: Soar backend works on any Linux distro
-- **Safe**: See what will be installed/removed before syncing
-- **Flexible**: Create custom backends for any package manager
-- **Modular**: Import and organize configs into reusable modules
-- **Smart**: Auto-adopts existing packages, only installs what's missing
+- **One config for all packages** - No more forgetting what you installed
+- **Works on any Linux** - Use Soar backend for cross-distro packages
+- **Safe** - See what will change before syncing
+- **Flexible** - Create custom backends for any package manager
+- **Modular** - Split config into multiple files
+- **Smart** - Auto-adopts existing packages
 
-## Who is this for?
+## Who is This For?
 
-- **Arch Linux users** who want Nix-style declarative package management
-- **Developers** who manage packages across multiple package managers
-- **System administrators** who want reproducible system configurations
-- **Linux enthusiasts** who want to experiment with declarative systems
+- **Arch Linux users** who want declarative package management
+- **Developers** managing tools across npm, cargo, pip, etc.
+- **People with multiple machines** - Share configs between computers
+- **Anyone** tired of forgetting why they installed packages
 
-## Philosophy
+## Quick Example
 
-Declarch is inspired by [Nix](https://nixos.org/) and [Home Manager](https://nix-community.github.io/home-manager/), but designed to be:
-- **Simpler**: KDL config is intuitive and readable
-- **Non-intrusive**: Works with existing package managers
-- **Flexible**: Easy to extend with custom backends
-- **Pragmatic**: Doesn't require reinstalling your entire system
+Save this as `~/.config/declarch/declarch.kdl`:
+
+```kdl
+meta {
+  host "my-laptop"
+}
+
+packages {
+  bat     // Modern cat
+  exa     // Modern ls
+  ripgrep // Fast search
+}
+
+packages:npm {
+  typescript
+  prettier
+}
+
+packages:flatpak {
+  com.spotify.Client
+}
+```
+
+Then run:
+```bash
+declarch sync
+```
+
+That's it! All your packages are now managed declaratively.
 
 ## Status
 
 ⚠️ **Declarch is in BETA**
 
-- Architecture is evolving
 - Only tested on Arch-based distros (Arch Linux, EndeavourOS)
 - Expect breaking changes
 - See [Troubleshooting](advanced/troubleshooting.html) for known issues
 
 ---
 
-**Ready to get started?** See [Installation](getting-started/installation.html).
+**Ready?** See [Installation](getting-started/installation.html).

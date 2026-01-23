@@ -1,70 +1,130 @@
 # Minimal Setup
 
-This example shows the simplest possible Declarch configuration.
+The simplest way to get started with Declarch.
 
 ## Configuration
 
-```kdl
-// ~/.config/declarch/declarch.kdl
+Save this as `~/.config/declarch/declarch.kdl`:
 
+```kdl
+// Basic metadata
 meta {
-    host "my-laptop"
+  host "my-laptop"
 }
 
-// Default packages from system repository (AUR on Arch)
+// System packages (from Arch/AUR)
 packages {
-    neovim
-    git
-    curl
-    wget
-    htop
+  neovim
+  git
+  curl
+  htop
 }
 ```
 
-## What This Does
+## That's It!
 
-- Sets hostname to `my-laptop`
-- Installs packages using system package manager (pacman/AUR on Arch)
-- Tracks these packages in declarative config
-
-## Usage
-
+Run the commands:
 ```bash
-# Initialize config
+# Initialize (creates config file)
 declarch init
 
 # Check what will be installed
 declarch check
 
-# Sync packages
+# Install everything
 declarch sync
 ```
 
 ## Adding Other Package Managers
 
+Declarch supports **many package managers**. Here's how to add them:
+
+### npm (Node.js)
 ```kdl
-// Add npm packages
+// Style 1: Backend block (recommended)
 packages:npm {
+  typescript
+  prettier
+}
+
+// Style 2: Embedded block
+packages {
+  npm {
     typescript
     prettier
+  }
 }
 
-// Add cargo packages
-packages:cargo {
-    ripgrep
-    fd-find
-}
-
-// Add Flatpak apps
-packages:flatpak {
-    com.spotify.Client
+// Style 3: Inline
+packages {
+  npm:typescript
+  npm:prettier
 }
 ```
+
+### cargo (Rust)
+```kdl
+packages:cargo {
+  ripgrep
+  fd-find
+}
+```
+
+### Flatpak (apps)
+```kdl
+packages:flatpak {
+  com.spotify.Client
+}
+```
+
+### All Together
+
+```kdl
+meta {
+  host "my-laptop"
+}
+
+// System packages
+packages {
+  neovim
+  git
+  curl
+}
+
+// Node.js tools
+packages:npm {
+  typescript
+  prettier
+}
+
+// Rust tools
+packages:cargo {
+  ripgrep
+  fd-find
+}
+
+// Desktop apps
+packages:flatpak {
+  com.spotify.Client
+}
+```
+
+## What Each Backend Does
+
+| Backend | Installs Via | Example |
+|---------|--------------|---------|
+| `packages` | paru/pacman (AUR) | `neovim` |
+| `packages:npm` | `npm install -g` | `typescript` |
+| `packages:cargo` | `cargo install` | `ripgrep` |
+| `packages:flatpak` | `flatpak install` | `com.spotify.Client` |
+| `packages:soar` | `soar install` | `bat` (any Linux!) |
+
+## Next Steps
+
+- Try [Desktop Environment](desktop.html) for a complete setup
+- See [Development Environment](development.html) for programming tools
+- Learn [Modular Setup](modular.html) to organize configs
 
 ## Source Files
 
 - [`minimal.kdl`](https://github.com/nixval/declarch/blob/main/examples/minimal.kdl)
-
----
-
-**Next:** See [Desktop Environment](desktop.html) for a more complete setup.
