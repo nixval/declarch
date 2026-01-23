@@ -17,50 +17,41 @@ Complete reference for all valid KDL syntax in declarch configuration files.
 
 ## Package Declarations
 
-### 1. Soar Packages (Cross-Distro Static Binaries)
+### 1. System Packages (Arch Linux / AUR)
 
 **Syntax:**
 ```kdl
 packages {
-    bat
-    exa
-    ripgrep
-    fd
-}
-```
-
-**Or with colon syntax:**
-```kdl
-packages:soar {
-    bat
-    exa
-}
-```
-
-**Description:** Static binaries from Soar registry. Works on any Linux distribution.
-
----
-
-### 2. AUR Packages (Arch Linux Only)
-
-**Syntax:**
-```kdl
-packages:aur {
     hyprland
     waybar
     swww
 }
 ```
 
-**Or legacy syntax:**
+**Or explicitly:**
 ```kdl
-aur-packages {
+packages:aur {
     hyprland
     waybar
 }
 ```
 
-**Description:** Packages from Arch User Repository (AUR). Only available on Arch-based distributions.
+**Description:** Main system packages from Arch Repositories or AUR. This is the default backend when no prefix is specified.
+
+---
+
+### 2. Soar Packages (Cross-Distro Static Binaries)
+
+**Syntax:**
+```kdl
+packages:soar {
+    bat
+    exa
+    ripgrep
+}
+```
+
+**Description:** Static binaries from Soar registry. portable and works on any Linux distribution.
 
 ---
 
