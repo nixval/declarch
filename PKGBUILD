@@ -15,8 +15,7 @@ optdepends=(
 )
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-# sha256sums generated after release: makepkg -g
-sha256sums=('SKIP')  # Update after creating release tarball
+sha256sums=('e75173710aa1db6e497874a731cec26bbe3524529c5a174d4f2ed80266bd2ee0')
 
 prepare() {
   cd "$pkgname-$pkgver"
