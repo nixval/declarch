@@ -728,7 +728,7 @@ fn initialize_managers_and_snapshot(
                 }
 
                 // Warn if targeting unavailable backend
-                if !available && matches!(sync_target, SyncTarget::Backend(ref b) if b == &backend)
+                if !available && matches!(sync_target, SyncTarget::Backend(b) if b == &backend)
                 {
                     output::warning(&format!(
                         "Backend '{}' is not available on this system.",
