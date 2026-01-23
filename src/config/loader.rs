@@ -310,15 +310,11 @@ fn recursive_load(
     }
 
     // Hooks: Merge (later configs extend earlier ones)
-    if merged.hooks.is_none() && (!raw.hooks.pre_sync.is_empty() || !raw.hooks.post_sync.is_empty())
-    {
+    if merged.hooks.is_none() && !raw.hooks.hooks.is_empty() {
         merged.hooks = Some(raw.hooks);
     } else if let Some(ref mut merged_hooks) = merged.hooks {
-        if !raw.hooks.pre_sync.is_empty() {
-            merged_hooks.pre_sync.extend(raw.hooks.pre_sync);
-        }
-        if !raw.hooks.post_sync.is_empty() {
-            merged_hooks.post_sync.extend(raw.hooks.post_sync);
+        if !raw.hooks.hooks.is_empty() {
+            merged_hooks.hooks.extend(raw.hooks.hooks);
         }
     }
 

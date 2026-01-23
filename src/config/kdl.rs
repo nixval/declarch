@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{DeclarchError, Result};
 use kdl::{KdlDocument, KdlNode};
 use std::collections::{HashMap, HashSet};
 
@@ -93,6 +93,7 @@ pub struct PackageEntry {
 /// Configuration metadata
 #[derive(Debug, Clone, Default)]
 pub struct ConfigMeta {
+    pub title: Option<String>,
     pub description: Option<String>,
     pub author: Option<String>,
     pub version: Option<String>,
@@ -119,10 +120,8 @@ pub struct PolicyConfig {
 /// Hook configuration
 #[derive(Debug, Clone, Default)]
 pub struct HookConfig {
-    /// Pre-sync hooks
-    pub pre_sync: Vec<HookEntry>,
-    /// Post-sync hooks
-    pub post_sync: Vec<HookEntry>,
+    /// All hooks (organized by phase during execution)
+    pub hooks: Vec<HookEntry>,
 }
 
 /// Hook entry
@@ -130,16 +129,56 @@ pub struct HookConfig {
 pub struct HookEntry {
     pub command: String,
     pub hook_type: HookType,
+    pub phase: HookPhase,
+    pub package: Option<String>,
+    pub conditions: Vec<HookCondition>,
+    pub error_behavior: ErrorBehavior,
 }
 
-/// Hook type
+/// Hook type (simplified from v0.4.3)
 #[derive(Debug, Clone, PartialEq)]
 pub enum HookType {
-    Run,        // Run without sudo
-    SudoNeeded, // Explicitly needs sudo
-    Script,     // Run a script file
-    Backup,     // Backup a file
-    Notify,     // Send notification
+    User, // Run without sudo
+    Root, // Run with sudo
+}
+
+/// Hook phase - when the hook should run
+#[derive(Debug, Clone, PartialEq)]
+pub enum HookPhase {
+    // Global phases
+    PreSync,
+    PostSync,
+    OnSuccess,
+    OnFailure,
+    // Package phases
+    PreInstall,
+    PostInstall,
+    PreRemove,
+    PostRemove,
+    OnUpdate,
+}
+
+/// Hook condition - when to run the hook
+#[derive(Debug, Clone, PartialEq)]
+pub enum HookCondition {
+    IfInstalled(String),  // Run only if package is installed
+    IfChanged(String),    // Run only if package was installed/updated
+    IfBackend(String),    // Run only if this backend had changes
+    IfSuccess,            // Run only if previous hook succeeded
+}
+
+/// Error behavior for hooks
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErrorBehavior {
+    Warn,     // Default: warn on error (from v0.4.3)
+    Required, // Fail sync if hook fails (new in v0.4.4)
+    Ignore,   // Silently ignore errors (new in v0.4.4)
+}
+
+impl Default for ErrorBehavior {
+    fn default() -> Self {
+        Self::Warn
+    }
 }
 
 /// Trait for backend-specific package parsing
@@ -611,28 +650,40 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "hooks" => {
                 parse_hooks(node, &mut config.hooks)?;
             }
-            // NEW: Simplified flat hooks
+            // NEW: Simplified flat hooks (backward compatibility)
             "on-sync" => {
                 if let Some(val) = get_first_string(node) {
-                    config.hooks.post_sync.push(HookEntry {
+                    config.hooks.hooks.push(HookEntry {
                         command: val,
-                        hook_type: HookType::Run,
+                        hook_type: HookType::User,
+                        phase: HookPhase::PostSync,
+                        package: None,
+                        conditions: vec![],
+                        error_behavior: ErrorBehavior::default(),
                     });
                 }
             }
             "on-sync-sudo" => {
                 if let Some(val) = get_first_string(node) {
-                    config.hooks.post_sync.push(HookEntry {
+                    config.hooks.hooks.push(HookEntry {
                         command: val,
-                        hook_type: HookType::SudoNeeded,
+                        hook_type: HookType::Root,
+                        phase: HookPhase::PostSync,
+                        package: None,
+                        conditions: vec![],
+                        error_behavior: ErrorBehavior::default(),
                     });
                 }
             }
             "on-pre-sync" => {
                 if let Some(val) = get_first_string(node) {
-                    config.hooks.pre_sync.push(HookEntry {
+                    config.hooks.hooks.push(HookEntry {
                         command: val,
-                        hook_type: HookType::Run,
+                        hook_type: HookType::User,
+                        phase: HookPhase::PreSync,
+                        package: None,
+                        conditions: vec![],
+                        error_behavior: ErrorBehavior::default(),
                     });
                 }
             }
@@ -673,6 +724,11 @@ fn parse_meta_block(node: &KdlNode, meta: &mut ConfigMeta) -> Result<()> {
             let child_name = child.name().value();
 
             match child_name {
+                "title" => {
+                    if let Some(val) = get_first_string(child) {
+                        meta.title = Some(val);
+                    }
+                }
                 "description" => {
                     if let Some(val) = get_first_string(child) {
                         meta.description = Some(val);
@@ -926,54 +982,147 @@ fn parse_policy(node: &KdlNode, policy: &mut PolicyConfig) -> Result<()> {
 }
 
 /// Parse hooks block: hooks { post-sync { sudo-needed "systemctl restart gdm" } }
+/// Parse hooks block
+/// Supports:
+/// 1. Global hooks: pre-sync "command", post-sync "command", on-success "command", on-failure "command"
+/// 2. Package hooks (block): docker { post-install "command" --sudo }
+/// 3. Package hooks (shorthand): docker:post-install "command" --sudo
 fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            match child.name().value() {
-                "pre-sync" => {
-                    parse_hook_entries(child, &mut hooks.pre_sync)?;
+            let child_name = child.name().value();
+
+            // Check for shorthand syntax: docker:post-install
+            if child_name.contains(':') {
+                let parts: Vec<&str> = child_name.splitn(2, ':').collect();
+                if parts.len() == 2 {
+                    let package = parts[0];
+                    let phase_str = parts[1];
+                    let phase = parse_hook_phase(phase_str)?;
+
+                    if let Some(command) = get_first_string(child) {
+                        let (hook_type, error_behavior) = parse_hook_flags(child)?;
+                        hooks.hooks.push(HookEntry {
+                            command: command.to_string(),
+                            hook_type,
+                            phase,
+                            package: Some(package.to_string()),
+                            conditions: vec![], // Phase 2
+                            error_behavior,
+                        });
+                    }
                 }
-                "post-sync" => {
-                    parse_hook_entries(child, &mut hooks.post_sync)?;
+            }
+            // Check for package block: docker { post-install "..." }
+            else if is_package_block(child) {
+                let package = child_name.to_string();
+                parse_package_hook_block(child, package, hooks)?;
+            }
+            // Global hooks: pre-sync, post-sync, on-success, on-failure
+            else {
+                let phase = parse_hook_phase(child_name)?;
+                if let Some(command) = get_first_string(child) {
+                    let (hook_type, error_behavior) = parse_hook_flags(child)?;
+                    hooks.hooks.push(HookEntry {
+                        command: command.to_string(),
+                        hook_type,
+                        phase,
+                        package: None,
+                        conditions: vec![], // Phase 2
+                        error_behavior,
+                    });
                 }
-                _ => {}
             }
         }
     }
     Ok(())
 }
 
-/// Parse individual hook entries
-fn parse_hook_entries(node: &KdlNode, entries: &mut Vec<HookEntry>) -> Result<()> {
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_name = child.name().value();
+/// Parse hook phase from string
+fn parse_hook_phase(s: &str) -> Result<HookPhase> {
+    match s {
+        "pre-sync" => Ok(HookPhase::PreSync),
+        "post-sync" => Ok(HookPhase::PostSync),
+        "on-success" => Ok(HookPhase::OnSuccess),
+        "on-failure" => Ok(HookPhase::OnFailure),
+        "pre-install" => Ok(HookPhase::PreInstall),
+        "post-install" => Ok(HookPhase::PostInstall),
+        "pre-remove" => Ok(HookPhase::PreRemove),
+        "post-remove" => Ok(HookPhase::PostRemove),
+        "on-update" => Ok(HookPhase::OnUpdate),
+        _ => Err(DeclarchError::ConfigError(format!(
+            "Invalid hook phase '{}'. Valid phases: {}",
+            s,
+            vec![
+                "pre-sync", "post-sync", "on-success", "on-failure",
+                "pre-install", "post-install", "pre-remove", "post-remove", "on-update"
+            ].join(", ")
+        ))),
+    }
+}
 
-            let hook_type = match child_name {
-                "run" => HookType::Run,
-                "sudo-needed" => HookType::SudoNeeded,
-                "script" => HookType::Script,
-                "backup" => HookType::Backup,
-                "notify" => HookType::Notify,
-                _ => HookType::Run, // Default to Run
-            };
+/// Parse hook flags from a node
+/// Returns (hook_type, error_behavior)
+fn parse_hook_flags(node: &KdlNode) -> Result<(HookType, ErrorBehavior)> {
+    let mut hook_type = HookType::User;
+    let mut error_behavior = ErrorBehavior::default();
 
-            if let Some(command) = get_first_string(child) {
-                entries.push(HookEntry {
-                    command: command.to_string(),
-                    hook_type,
-                });
-            } else if let Some(entry) = child.entries().first()
-                && let Some(val) = entry.value().as_string()
-            {
-                entries.push(HookEntry {
-                    command: val.to_string(),
-                    hook_type,
-                });
+    for entry in node.entries().iter().skip(1) {
+        // Skip the first entry (command string)
+        if let Some(val) = entry.value().as_string() {
+            match val {
+                "--sudo" => hook_type = HookType::Root,
+                "--required" => error_behavior = ErrorBehavior::Required,
+                "--ignore" => error_behavior = ErrorBehavior::Ignore,
+                _ => {
+                    // Unknown flag - could warn here
+                }
             }
         }
     }
 
+    Ok((hook_type, error_behavior))
+}
+
+/// Check if a node is a package block (has children with hook phases)
+fn is_package_block(node: &KdlNode) -> bool {
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let name = child.name().value();
+            if matches!(name,
+                "pre-install" | "post-install" | "pre-remove" | "post-remove" | "on-update"
+            ) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Parse package hook block: docker { post-install "..." }
+fn parse_package_hook_block(
+    node: &KdlNode,
+    package: String,
+    hooks: &mut HookConfig,
+) -> Result<()> {
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let phase_str = child.name().value();
+            let phase = parse_hook_phase(phase_str)?;
+
+            if let Some(command) = get_first_string(child) {
+                let (hook_type, error_behavior) = parse_hook_flags(child)?;
+                hooks.hooks.push(HookEntry {
+                    command: command.to_string(),
+                    hook_type,
+                    phase,
+                    package: Some(package.clone()),
+                    conditions: vec![], // Phase 2
+                    error_behavior,
+                });
+            }
+        }
+    }
     Ok(())
 }
 
@@ -1842,22 +1991,28 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.hooks.post_sync.len(), 3);
+
+        // Filter post-sync hooks
+        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .collect();
+
+        assert_eq!(post_sync_hooks.len(), 3);
 
         assert_eq!(
-            config.hooks.post_sync[0].command,
+            post_sync_hooks[0].command,
             "notify-send 'Packages updated'"
         );
-        assert_eq!(config.hooks.post_sync[0].hook_type, HookType::Run);
+        assert_eq!(post_sync_hooks[0].hook_type, HookType::User);
 
-        assert_eq!(config.hooks.post_sync[1].command, "systemctl restart gdm");
-        assert_eq!(config.hooks.post_sync[1].hook_type, HookType::SudoNeeded);
+        assert_eq!(post_sync_hooks[1].command, "systemctl restart gdm");
+        assert_eq!(post_sync_hooks[1].hook_type, HookType::Root);
 
         assert_eq!(
-            config.hooks.post_sync[2].command,
+            post_sync_hooks[2].command,
             "~/.config/declarch/post-sync.sh"
         );
-        assert_eq!(config.hooks.post_sync[2].hook_type, HookType::Script);
+        assert_eq!(post_sync_hooks[2].hook_type, HookType::User);
     }
 
     // NEW: Comprehensive integration test
@@ -1939,7 +2094,10 @@ mod tests {
         assert_eq!(config.policy.orphans, Some("keep".to_string()));
 
         // Check hooks
-        assert_eq!(config.hooks.post_sync.len(), 1);
+        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .collect();
+        assert_eq!(post_sync_hooks.len(), 1);
     }
 
     // NEW: Flat hooks syntax test
@@ -1955,19 +2113,25 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Check pre-sync hooks
-        assert_eq!(config.hooks.pre_sync.len(), 1);
-        assert_eq!(config.hooks.pre_sync[0].command, "echo 'Starting sync...'");
-        assert_eq!(config.hooks.pre_sync[0].hook_type, HookType::Run);
+        let pre_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PreSync)
+            .collect();
+        assert_eq!(pre_sync_hooks.len(), 1);
+        assert_eq!(pre_sync_hooks[0].command, "echo 'Starting sync...'");
+        assert_eq!(pre_sync_hooks[0].hook_type, HookType::User);
 
         // Check post-sync hooks
-        assert_eq!(config.hooks.post_sync.len(), 2);
+        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
+            .filter(|h| h.phase == HookPhase::PostSync)
+            .collect();
+        assert_eq!(post_sync_hooks.len(), 2);
         assert_eq!(
-            config.hooks.post_sync[0].command,
+            post_sync_hooks[0].command,
             "notify-send 'Packages updated'"
         );
-        assert_eq!(config.hooks.post_sync[0].hook_type, HookType::Run);
-        assert_eq!(config.hooks.post_sync[1].command, "systemctl restart gdm");
-        assert_eq!(config.hooks.post_sync[1].hook_type, HookType::SudoNeeded);
+        assert_eq!(post_sync_hooks[0].hook_type, HookType::User);
+        assert_eq!(post_sync_hooks[1].command, "systemctl restart gdm");
+        assert_eq!(post_sync_hooks[1].hook_type, HookType::Root);
     }
 
     // NEW: Mixed hooks (old nested + new flat)

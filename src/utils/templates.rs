@@ -13,6 +13,7 @@ pub fn default_host(hostname: &str) -> String {
 
 // === META ===
 meta {{
+    title "{hostname} Setup"
     description "My {hostname} setup"
     author "nixval"
     version "1.0.0"
@@ -28,18 +29,11 @@ imports {{
 
 // === PACKAGES ===
 packages {{
-    // Add AUR packages (default, Arch-only)
+    // Uncomment packages to install them
+    // Example packages:
     // hyprland
     // waybar
-
-    // Or use inline prefix syntax:
-    // aur:waybar
-    // soar:bat
-    // flatpak:org.mozilla.firefox
-
-    // With package attributes:
-    // waybar enable=true
-    // docker enable=true post-install="systemctl enable docker"
+    // bat
 }}
 
 // === CONFLICTS ===
@@ -92,6 +86,7 @@ pub fn default_module(name: &str) -> String {
         r#"// Module: {name}
 
 meta {{
+    title "{name} Module"
     description "Packages for {name}"
     author "nixval"
 }}
@@ -117,30 +112,21 @@ pub fn get_template_by_name(name: &str) -> Option<String> {
 // Description: Essential packages for any Linux system
 
 meta {
-    description "Base system packages"
+    title "Base System"
+    description "Essential packages for any Linux system"
     author "nixval"
     version "1.0.0"
     tags "base" "essential"
 }
 
-// Example AUR package (Arch Linux only)
-// Uncomment to install:
-packages:aur {
+// Uncomment packages to install them
+packages {
     // bat         // Better cat with syntax highlighting
+    // exa         // Better ls with colors
+    // fd          // Better find command
+    // ripgrep     // Faster grep alternative
+    // zoxide      // Smart cd command
 }
-
-// Soar packages (cross-distro static binaries)
-// These work on any Linux distribution - uncomment if you use Soar:
-// packages:soar {
-//     bat         // Better cat with syntax highlighting
-//     exa         // Better ls with colors
-//     fd          // Better find command
-//     ripgrep     // Faster grep alternative
-//     zoxide      // Smart cd command
-// }
-
-// Environment variables for this module
-// env EDITOR="nvim"
 "#
             .to_string(),
         ),
@@ -150,12 +136,16 @@ packages:aur {
 // Maintainer: Declarch Community
 
 meta {
-    description "Development tools and IDEs"
+    title "Development Tools"
+    description "Development tools and utilities"
     author "nixval"
+    version "1.0.0"
+    tags "development" "tools"
 }
 
 packages {
-    mise
+    // mise        // Version manager for various tools
+    // lazydocker  // Docker TUI
 }
 "#
             .to_string(),

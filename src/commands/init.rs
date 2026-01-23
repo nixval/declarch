@@ -2,6 +2,7 @@ use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
 use crate::utils::{self, install, paths, remote};
+use crate::config::kdl::parse_kdl_content;
 use colored::Colorize;
 use regex::Regex;
 use std::fs;
@@ -176,6 +177,9 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
         }
     };
 
+    // Display module meta information before proceeding
+    display_module_meta(&content);
+
     // 4. Write File
     fs::write(&full_path, &content)?;
     output::success(&format!("Created module: {}", full_path.display()));
@@ -186,6 +190,63 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     inject_import_to_root(&root_config_path, &import_path, force)?;
 
     Ok(())
+}
+
+/// Extract and display meta information from KDL content
+fn display_module_meta(content: &str) {
+    // Try to parse the content and extract meta
+    if let Ok(raw_config) = parse_kdl_content(content) {
+        let meta = &raw_config.meta;
+
+        // Only display if we have some meta information
+        let has_meta = meta.title.is_some()
+            || meta.description.is_some()
+            || meta.author.is_some()
+            || meta.version.is_some()
+            || !meta.tags.is_empty()
+            || meta.url.is_some();
+
+        if has_meta {
+            output::separator();
+            println!("{}", "Module Information:".bold().cyan());
+
+            if let Some(title) = &meta.title {
+                println!("  {}", title.bold());
+                println!();
+            }
+
+            if let Some(description) = &meta.description {
+                println!("  {}", description.dimmed());
+                println!();
+            }
+
+            let mut details = Vec::new();
+
+            if let Some(author) = &meta.author {
+                details.push(format!("Author: {}", author.yellow()));
+            }
+
+            if let Some(version) = &meta.version {
+                details.push(format!("Version: {}", version.green()));
+            }
+
+            if !meta.tags.is_empty() {
+                details.push(format!("Tags: {}", meta.tags.join(", ").purple()));
+            }
+
+            if let Some(url) = &meta.url {
+                details.push(format!("URL: {}", url.blue().underline()));
+            }
+
+            if !details.is_empty() {
+                for detail in details {
+                    println!("  {}", detail);
+                }
+            }
+
+            output::separator();
+        }
+    }
 }
 
 /// Helper to inject the import statement into declarch.kdl using Regex
