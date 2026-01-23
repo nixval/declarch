@@ -80,12 +80,8 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 modules.clone(),
             )
         }
-        Some(Command::Info {
-            doctor: _,
-            debug: _,
-        }) => {
-            // TODO: Phase 4 - implement doctor, debug flags
-            commands::info::run()
+        Some(Command::Info { doctor, debug }) => {
+            commands::info::run(*doctor, *debug)
         }
         Some(Command::List {
             backend,
