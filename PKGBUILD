@@ -1,7 +1,7 @@
 # Maintainer: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch
-pkgver=0.4.2
+pkgver=0.4.3
 pkgrel=1
 pkgdesc="Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends"
 arch=('x86_64')

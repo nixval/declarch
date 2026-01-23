@@ -1,6 +1,6 @@
 [package]
 name = "declarch"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2024"
 description = "Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends"
 license = "MIT"

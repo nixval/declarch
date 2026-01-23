@@ -8,7 +8,7 @@ Unify AUR, flatpak, npm, cargo, pip, and custom backends under one declarative c
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="Build" src="https://img.shields.io/badge/status-v0.4.2-orange">
+  <img alt="Build" src="https://img.shields.io/badge/status-v0.4.3-orange">
   <img alt="Arch" src="https://img.shields.io/badge/arch-linux-blue">
   <img alt="Rust" src="https://img.shields.io/badge/built_with-rust-orange">
 </p>
