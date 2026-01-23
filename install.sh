@@ -28,18 +28,15 @@ if [ "$1" = "--local" ]; then
     sudo chmod +x /usr/local/bin/declarch
 
 else
-    # Installation from crates.io or git
-    INSTALL_METHOD="${1:-cargo}"
+    # Installation from git (default) or local
+    INSTALL_METHOD="${1:-git}"
 
-    if [ "$INSTALL_METHOD" = "cargo" ]; then
-        echo -e "${BLUE}📦 Installing declarch via cargo...${NC}"
-        cargo install declarch
-    elif [ "$INSTALL_METHOD" = "git" ]; then
+    if [ "$INSTALL_METHOD" = "git" ]; then
         echo -e "${BLUE}📦 Installing declarch from git...${NC}"
-        cargo install declarch --git https://github.com/nixval/declarch
+        cargo install declarch --git https://github.com/nixval/declarch --tag v0.4.3
     else
         echo -e "${RED}Error: Unknown installation method '$INSTALL_METHOD'${NC}"
-        echo "Usage: $0 [cargo|git|--local]"
+        echo "Usage: $0 [git|--local]"
         exit 1
     fi
 fi
