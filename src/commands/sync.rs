@@ -108,27 +108,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     crate::commands::hooks::execute_pre_sync(&config.hooks, options.hooks, options.dry_run)?;
 
     // 3. System Update
-    let global_config = crate::config::types::GlobalConfig::default();
-    let aur_helper = global_config.aur_helper.to_string();
-
-    if options.update {
-        output::info("Updating system...");
-        if !options.dry_run {
-            let mut cmd = Command::new(&aur_helper);
-            cmd.arg("-Syu");
-            if options.yes || options.noconfirm {
-                cmd.arg("--noconfirm");
-            }
-
-            let status = cmd
-                .stdin(Stdio::inherit())
-                .stdout(Stdio::inherit())
-                .status()?;
-            if !status.success() {
-                return Err(DeclarchError::Other("System update failed".into()));
-            }
-        }
-    }
+    perform_system_update(options)?;
 
     // 4. Initialize Managers & Snapshot
     output::info("Scanning system state...");
@@ -759,4 +739,22 @@ fn resolve_target(target: &Option<String>) -> SyncTarget {
     } else {
         SyncTarget::All
     }
+}
+
+fn perform_system_update(options: &SyncOptions) -> Result<()> {
+    let global_config = crate::config::types::GlobalConfig::default(); 
+    let aur_helper = global_config.aur_helper.to_string();
+
+    if options.update {
+        output::info("Updating system...");
+        if !options.dry_run {
+            let mut cmd = Command::new(&aur_helper);
+            cmd.arg("-Syu");
+            if options.yes || options.noconfirm { cmd.arg("--noconfirm"); }
+            
+            let status = cmd.stdin(Stdio::inherit()).stdout(Stdio::inherit()).status()?;
+            if !status.success() { return Err(DeclarchError::Other("System update failed".into())); }
+        }
+    }
+    Ok(())
 }
