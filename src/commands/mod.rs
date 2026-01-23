@@ -4,5 +4,6 @@ pub mod edit;
 pub mod hooks;
 pub mod info;
 pub mod init;
+pub mod list;
 pub mod switch;
 pub mod sync;

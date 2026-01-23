@@ -127,10 +127,49 @@ pub enum Command {
         /// Validate specific backend only (e.g., aur, flatpak, npm, cargo, pip)
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
+
+        /// Show planned changes without executing
+        #[arg(long)]
+        diff: bool,
+
+        /// Validate config only, don't sync
+        #[arg(long)]
+        validate: bool,
+
+        /// Show performance metrics
+        #[arg(long)]
+        benchmark: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES")]
+        modules: Vec<String>,
     },
 
     /// Show system status and managed packages
-    Info,
+    Info {
+        /// Diagnose system issues
+        #[arg(long)]
+        doctor: bool,
+
+        /// Enable verbose logging
+        #[arg(long)]
+        debug: bool,
+    },
+
+    /// List installed packages
+    List {
+        /// Filter by backend (e.g., aur, flatpak, cargo, npm)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Show orphan packages (not in config)
+        #[arg(long)]
+        orphans: bool,
+
+        /// Show packages that match config
+        #[arg(long)]
+        synced: bool,
+    },
 
     /// Switch package variant (e.g., hyprland -> hyprland-git)
     Switch {

@@ -66,11 +66,31 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             duplicates,
             conflicts,
             backend,
+            diff: _,
+            validate: _,
+            benchmark: _,
+            modules: _,
         }) => {
             let is_verbose = *verbose || args.global.verbose;
+            // TODO: Phase 3 - implement diff, validate, benchmark, modules flags
             commands::check::run(is_verbose, *duplicates, *conflicts, backend.clone())
         }
-        Some(Command::Info) => commands::info::run(),
+        Some(Command::Info {
+            doctor: _,
+            debug: _,
+        }) => {
+            // TODO: Phase 4 - implement doctor, debug flags
+            commands::info::run()
+        }
+        Some(Command::List {
+            backend,
+            orphans,
+            synced,
+        }) => commands::list::run(commands::list::ListOptions {
+            backend: backend.clone(),
+            orphans: *orphans,
+            synced: *synced,
+        }),
         Some(Command::Switch {
             old_package,
             new_package,
