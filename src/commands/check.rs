@@ -49,8 +49,7 @@ pub fn run(
     // Handle --modules flag (load additional modules)
     let config = if !extra_modules.is_empty() {
         output::info(&format!("Loading additional modules: {:?}", extra_modules));
-        // TODO: Phase 5 - implement actual module loading
-        loader::load_root_config(&config_path)?
+        load_config_with_modules(&config_path, &extra_modules)?
     } else {
         loader::load_root_config(&config_path)?
     };
@@ -289,4 +288,63 @@ fn show_benchmarks(config_time: std::time::Duration, total_time: std::time::Dura
         "  Total time:         {:>8} ms",
         total_time.as_millis()
     );
+}
+
+/// Load config with additional modules
+fn load_config_with_modules(
+    config_path: &std::path::PathBuf,
+    extra_modules: &[String],
+) -> Result<loader::MergedConfig> {
+    use std::path::PathBuf;
+
+    // Load base config
+    let mut merged = loader::load_root_config(config_path)?;
+
+    // Load each additional module
+    for module_name in extra_modules {
+        // Try as module name (e.g., "gaming" -> modules/gaming.kdl)
+        let module_path = paths::module_file(module_name);
+
+        let final_path = if let Ok(path) = module_path {
+            if path.exists() {
+                path
+            } else {
+                // Try as direct path
+                let direct_path = PathBuf::from(module_name);
+                if direct_path.exists() {
+                    direct_path
+                } else {
+                    return Err(crate::error::DeclarchError::Other(format!(
+                        "Module not found: {}",
+                        module_name
+                    )));
+                }
+            }
+        } else {
+            // Try as direct path
+            let direct_path = PathBuf::from(module_name);
+            if direct_path.exists() {
+                direct_path
+            } else {
+                return Err(crate::error::DeclarchError::Other(format!(
+                    "Module not found: {}",
+                    module_name
+                )));
+            }
+        };
+
+        // Load the module
+        output::info(&format!("  Loading module: {}", final_path.display()));
+
+        // Use internal loader function (it's actually public via load_root_config, but we need to work with the merged config)
+        // We'll use load_root_config on the module file directly
+        let module_config = loader::load_root_config(&final_path)?;
+
+        // Merge the module config into our existing config
+        merged.packages.extend(module_config.packages);
+        merged.excludes.extend(module_config.excludes);
+        // Note: We're not merging other fields like meta, conflicts, etc. to keep it simple
+    }
+
+    Ok(merged)
 }

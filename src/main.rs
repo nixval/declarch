@@ -49,6 +49,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             noconfirm,
             hooks,
             skip_soar_install,
+            modules,
         }) => commands::sync::run(commands::sync::SyncOptions {
             dry_run: *dry_run,
             prune: *prune,
@@ -60,6 +61,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             noconfirm: *noconfirm,
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
+            modules: modules.clone(),
         }),
         Some(Command::Check {
             verbose,

@@ -108,6 +108,10 @@ pub enum Command {
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
         skip_soar_install: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
     },
 
     /// Verify configuration syntax and imports

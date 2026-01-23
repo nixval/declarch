@@ -96,6 +96,7 @@ pub struct SyncOptions {
     pub noconfirm: bool,
     pub hooks: bool,
     pub skip_soar_install: bool,
+    pub modules: Vec<String>,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
@@ -106,7 +107,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 2. Load Config
     let config_path = paths::config_file()?;
-    let mut config = loader::load_root_config(&config_path)?;
+    let mut config = if !options.modules.is_empty() {
+        output::info(&format!("Loading additional modules: {:?}", options.modules));
+        load_config_with_modules(&config_path, &options.modules)?
+    } else {
+        loader::load_root_config(&config_path)?
+    };
 
     // Execute pre-sync hooks
     crate::commands::hooks::execute_pre_sync(&config.hooks, options.hooks, options.dry_run)?;
@@ -778,4 +784,61 @@ fn initialize_managers_and_snapshot(
     }
 
     Ok((installed_snapshot, managers))
+}
+
+/// Load config with additional modules
+fn load_config_with_modules(
+    config_path: &std::path::PathBuf,
+    extra_modules: &[String],
+) -> Result<loader::MergedConfig> {
+    use std::path::PathBuf;
+
+    // Load base config
+    let mut merged = loader::load_root_config(config_path)?;
+
+    // Load each additional module
+    for module_name in extra_modules {
+        // Try as module name (e.g., "gaming" -> modules/gaming.kdl)
+        let module_path = paths::module_file(module_name);
+
+        let final_path = if let Ok(path) = module_path {
+            if path.exists() {
+                path
+            } else {
+                // Try as direct path
+                let direct_path = PathBuf::from(module_name);
+                if direct_path.exists() {
+                    direct_path
+                } else {
+                    return Err(crate::error::DeclarchError::Other(format!(
+                        "Module not found: {}",
+                        module_name
+                    )));
+                }
+            }
+        } else {
+            // Try as direct path
+            let direct_path = PathBuf::from(module_name);
+            if direct_path.exists() {
+                direct_path
+            } else {
+                return Err(crate::error::DeclarchError::Other(format!(
+                    "Module not found: {}",
+                    module_name
+                )));
+            }
+        };
+
+        // Load the module
+        output::info(&format!("  Loading module: {}", final_path.display()));
+
+        // Load the module config
+        let module_config = loader::load_root_config(&final_path)?;
+
+        // Merge the module config into our existing config
+        merged.packages.extend(module_config.packages);
+        merged.excludes.extend(module_config.excludes);
+    }
+
+    Ok(merged)
 }
