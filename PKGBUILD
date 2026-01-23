@@ -3,7 +3,7 @@
 pkgname=declarch
 pkgver=0.4.2
 pkgrel=1
-pkgdesc="A declarative package manager for Linux with user-defined backend support"
+pkgdesc="Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends"
 arch=('x86_64')
 url="https://github.com/nixval/declarch"
 license=('MIT')

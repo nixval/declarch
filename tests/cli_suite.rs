@@ -15,7 +15,7 @@ fn test_help_command() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "A declarative package manager for Linux",
+            "Universal declarative package manager",
         ));
 }
 

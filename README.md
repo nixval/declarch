@@ -1,8 +1,8 @@
 # 🌱 **Declarch**
 
 <p align="center">
-<strong>A declarative package manager for Linux — powered by Rust.</strong><br>
-Supporting installation of aur, soar, flatpak, npm, bun, and many others by customize it
+<strong>Universal declarative package manager — powered by Rust.</strong><br>
+Unify AUR, flatpak, npm, cargo, pip, and custom backends under one declarative config
 </p>
 
 
