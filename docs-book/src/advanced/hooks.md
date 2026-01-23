@@ -17,48 +17,111 @@ Hooks are shell commands that run at specific points during the `declarch sync` 
 
 Remote configurations (from `declarch init <url>`) may contain arbitrary commands. Always review hooks before enabling.
 
-## Hook Types
+## Hook Types (v0.4.4)
 
-### Pre-Sync Hook
+### Global Hooks
 
-Runs **before** any package operations.
+Run at specific sync phases:
 
-```kdl
-on-pre-sync "notify-send 'Starting package sync...'"
-```
+- **`pre-sync`** - Before any package operations
+- **`post-sync`** - After all package operations
+- **`on-success`** - After successful sync
+- **`on-failure`** - After failed sync
 
-Uses:
-- Notify user of pending updates
-- Create system backups
-- Prepare system for changes
+### Package Hooks
 
-### Post-Sync Hook
+Run for specific packages:
 
-Runs **after** successful package operations (without sudo).
+- **`pre-install`** - Before installing a package
+- **`post-install`** - After installing a package
+- **`pre-remove`** - Before removing a package
+- **`post-remove`** - After removing a package
+- **`on-update`** - When a package is updated
 
-```kdl
-on-sync "notify-send 'Packages updated successfully'"
-on-sync "pkill -SIGUSR1 dunst"  // Refresh notification daemon
-```
+## Syntax
 
-Uses:
-- Send success notifications
-- Refresh application caches
-- Update system status
-
-### Post-Sync Sudo Hook
-
-Runs **after** successful package operations (with sudo privileges).
+### Global Hooks
 
 ```kdl
-on-sync-sudo "systemctl restart gdm"
-on-sync-sudo "ldconfig"
+hooks {
+    pre-sync "echo 'Starting sync...'"
+    post-sync "notify-send 'Done'"
+    on-success "notify-send 'Success!'"
+    on-failure "notify-send 'Failed!'"
+}
 ```
 
-Uses:
-- Restart services
-- Update system cache
-- Modify system configuration
+### Package Hooks (Block Syntax)
+
+```kdl
+hooks {
+    docker {
+        post-install "systemctl enable docker" --sudo
+        post-remove "systemctl disable docker" --sudo
+    }
+
+    nvidia {
+        post-install "mkinitcpio -P" --sudo --required
+    }
+}
+```
+
+### Package Hooks (Shorthand Syntax)
+
+```kdl
+hooks {
+    docker:post-install "systemctl enable docker" --sudo
+    waybar:post-install "systemctl --user restart waybar"
+}
+```
+
+### Mixed Syntax
+
+```kdl
+hooks {
+    // Global hooks
+    pre-sync "echo 'Starting...'"
+
+    // Package block (good for multiple hooks)
+    docker {
+        post-install "systemctl enable docker" --sudo
+        post-remove "docker system prune -f"
+    }
+
+    // Shorthand (good for single hook)
+    waybar:post-install "systemctl --user restart waybar"
+}
+```
+
+## Flags
+
+### Execution Flags
+
+| Flag | Description |
+|------|-------------|
+| `--sudo` | Run with sudo privileges |
+| `--required` | Fail sync if hook errors |
+| `--ignore` | Silently ignore hook errors |
+
+Default behavior: Warn on error (doesn't fail sync)
+
+### Examples
+
+```kdl
+hooks {
+    // Regular hook (no sudo)
+    post-sync "notify-send 'Done'"
+
+    // Run with sudo
+    post-sync "systemctl restart gdm" --sudo
+
+    // Critical hook - fail if errors
+    nvidia:post-install "mkinitcpio -P" --sudo --required
+
+    // Non-critical - ignore errors
+    post-sync "cleanup.sh" --ignore
+}
+```
 
 ## Basic Usage
 
@@ -70,168 +133,136 @@ Hooks are **disabled by default**. Enable with:
 declarch sync --hooks
 ```
 
-### Add Hooks to Config
+### Add Global Hooks
 
 ```kdl
 // declarch.kdl
 
-on-pre-sync "notify-send 'Starting sync...'"
-on-sync "notify-send 'Packages updated'"
-on-sync-sudo "systemctl restart gdm"
-```
-
-### Run with Hooks
-
-```bash
-declarch sync --hooks
-```
-
-## Hook Syntax
-
-### Flat Syntax (Recommended)
-
-```kdl
-on-pre-sync "command1"
-on-sync "command2"
-on-sync-sudo "command3"
-```
-
-### Nested Syntax (Still Supported)
-
-```kdl
 hooks {
-    pre-sync {
-        run "notify-send 'Starting sync...'"
-    }
-    post-sync {
-        run "notify-send 'Packages updated'"
-        sudo-needed "systemctl restart gdm"
+    pre-sync "notify-send 'Starting sync...'"
+    post-sync "notify-send 'Packages updated'"
+}
+```
+
+### Add Package Hooks
+
+```kdl
+// declarch.kdl
+
+packages {
+    docker
+}
+
+hooks {
+    docker {
+        post-install "systemctl enable --now docker" --sudo
     }
 }
 ```
 
 ## Examples
 
-### Desktop Notifications
+### Docker Service
 
 ```kdl
-on-pre-sync "notify-send -t 5000 'Declarch' 'Starting package synchronization...'"
-on-sync "notify-send -t 5000 'Declarch' 'Packages updated successfully!'"
+packages {
+    docker
+}
+
+hooks {
+    docker {
+        post-install "systemctl enable --now docker" --sudo --required
+        post-remove "systemctl disable docker" --sudo
+    }
+}
 ```
 
-### Restart Display Server
+### NVIDIA Drivers
 
 ```kdl
-on-sync-sudo "systemctl restart gdm"
+packages {
+    nvidia
+}
+
+hooks {
+    nvidia:post-install "mkinitcpio -P" --sudo --required
+}
 ```
 
-### Update Application Databases
+### Desktop Environment
 
 ```kdl
-on-sync "update-desktop-database ~/.local/share/applications"
-on-sync-sudo "ldconfig"
+packages {
+    gdm
+    waybar
+}
+
+hooks {
+    gdm:post-install "systemctl enable gdm" --sudo
+
+    waybar {
+        post-install "systemctl --user enable waybar"
+        post-install "pkill -SIGUSR1 waybar"
+    }
+}
 ```
 
-### Refresh Waybar
+### Development Tools
 
 ```kdl
-on-sync "pkill -SIGUSR1 waybar"
+packages {
+    rust
+}
+
+hooks {
+    rust:post-install "rustup component add rust-analyzer"
+}
 ```
 
-### Generate Fonts Cache
+## Error Handling
+
+### Default Behavior (Warn)
 
 ```kdl
-on-sync-sudo "fc-cache -fv"
+hooks {
+    // Warns if this fails, but doesn't stop sync
+    post-sync "cleanup.sh"
+}
 ```
 
-### Clean Up
+### Required Hooks
 
 ```kdl
-on-sync "journalctl --vacuum-time=7d"
-on-sync "rm -rf ~/.cache/pacman/pkg"
+hooks {
+    // Fails sync if this hook errors
+    nvidia:post-install "mkinitcpio -P" --sudo --required
+}
 ```
 
-### Backup System
+### Ignore Errors
 
 ```kdl
-on-pre-sync "timeshift --create --comments 'Before declarch sync'"
+hooks {
+    // Silently ignores errors
+    post-sync "optional-cleanup.sh" --ignore
+}
 ```
 
-### Custom Scripts
+## Validation
+
+### No Embedded Sudo
+
+❌ **Don't** embed `sudo` in commands:
 
 ```kdl
-on-pre-sync "~/.config/declarch/scripts/pre-sync.sh"
-on-sync "~/.config/declarch/scripts/post-sync.sh"
+// ERROR: Use --sudo flag instead
+docker:post-install "sudo systemctl enable docker" --sudo
 ```
 
-## Hook Scripts
+✅ **Do** use the `--sudo` flag:
 
-### Create Hook Script
-
-```bash
-# ~/.config/declarch/scripts/post-sync.sh
-
-#!/bin/bash
-
-# Refresh font cache
-fc-cache -fv &> /dev/null &
-
-# Update GTK icon cache
-update-desktop-database ~/.local/share/applications &> /dev/null &
-
-# Send notification
-notify-send "Declarch" "Sync completed"
-
-# Restart Waybar if running
-if pgrep -x waybar > /dev/null; then
-    pkill -SIGUSR1 waybar
-fi
-```
-
-Make it executable:
-```bash
-chmod +x ~/.config/declarch/scripts/post-sync.sh
-```
-
-Reference in config:
 ```kdl
-on-sync "~/.config/declarch/scripts/post-sync.sh"
-```
-
-## Conditional Hooks
-
-### Run Only If Specific Packages Changed
-
-```bash
-#!/bin/bash
-# post-sync.sh
-
-# Check if hyprland was installed
-if declarch info | grep -q "hyprland"; then
-    echo "Hyprland installed, running setup..."
-    # Run hyprland setup
-fi
-```
-
-### Run Only on Success
-
-Hooks only run on successful sync. If sync fails, hooks don't run.
-
-### Environment-Aware Hooks
-
-```bash
-#!/bin/bash
-# post-sync.sh
-
-# Only run on desktop
-if hostname | grep -q "desktop"; then
-    systemctl restart gdm
-fi
-
-# Only run if gaming packages installed
-if declarch check --verbose | grep -q "steam"; then
-    notify-send "Gaming packages updated"
-fi
+docker:post-install "systemctl enable docker" --sudo
 ```
 
 ## Hooks in Modules
@@ -239,10 +270,17 @@ fi
 Hooks work in modules too:
 
 ```kdl
-// modules/desktop/hyprland.kdl
+// modules/docker.kdl
 
-on-sync "notify-send 'Hyprland packages updated'"
-on-sync-sudo "systemctl restart --user hyprland"
+packages {
+    docker
+}
+
+hooks {
+    docker {
+        post-install "systemctl enable docker" --sudo
+    }
+}
 ```
 
 ### Hook Merging
@@ -251,12 +289,16 @@ When importing modules with hooks, hooks are accumulated:
 
 **Root config:**
 ```kdl
-on-sync "notify-send 'Sync complete'"
+hooks {
+    post-sync "notify-send 'Root sync complete'"
+}
 ```
 
-**Module (desktop/hyprland.kdl):**
+**Module (docker.kdl):**
 ```kdl
-on-sync "notify-send 'Hyprland updated'"
+hooks {
+    docker:post-install "systemctl enable docker" --sudo
+}
 ```
 
 **Result:** Both hooks run.
@@ -269,7 +311,7 @@ Always review before enabling hooks from remote configs:
 
 ```bash
 declarch init myuser/dotfiles
-cat ~/.config/declarch/declarch.kdl | grep -A 10 "on-"
+cat ~/.config/declarch/declarch.kdl | grep -A 10 "hooks"
 ```
 
 ### 2. Use --dry-run First
@@ -278,36 +320,21 @@ cat ~/.config/declarch/declarch.kdl | grep -A 10 "on-"
 declarch sync --dry-run --hooks
 ```
 
-This shows which hooks would run (in future versions).
-
-### 3. Avoid Destructive Commands
-
-Don't use hooks like:
-```kdl
-// ❌ Dangerous
-on-sync "rm -rf ~/important-data"
-```
-
-### 4. Use Non-Sudo When Possible
-
-Prefer `on-sync` over `on-sync-sudo`:
+### 3. Prefer User-Level Hooks
 
 ```kdl
 // ✅ Prefer user-level
-on-sync "pkill waybar"
+waybar:post-install "systemctl --user restart waybar"
 
 // ❌ Avoid sudo unless needed
-on-sync-sudo "systemctl restart gdm"
+gdm:post-install "systemctl restart gdm" --sudo
 ```
 
-### 5. Quote Commands Properly
+### 4. Use --required for Critical Hooks
 
 ```kdl
-// ✅ Good
-on-sync "notify-send 'Message here'"
-
-// ❌ Bad - quoting issues
-on-sync "notify-send 'Message with ' quotes'"
+// Critical system update - must succeed
+nvidia:post-install "mkinitcpio -P" --sudo --required
 ```
 
 ## Troubleshooting
@@ -334,18 +361,9 @@ notify-send 'Test'
 declarch check
 ```
 
-### Permission Denied
-
-**Cause:** Script not executable
-
-**Solution:**
-```bash
-chmod +x ~/.config/declarch/scripts/post-sync.sh
-```
-
 ### Sudo Password Prompt
 
-**Cause:** `on-sync-sudo` requires password
+**Cause:** Hook uses `--sudo` flag
 
 **Solution:**
 Configure sudoers to allow specific commands without password:
@@ -357,20 +375,24 @@ username ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart gdm
 
 Hooks run in this order:
 
-1. Pre-sync hooks (in order defined)
-2. Package operations (install, remove, adopt)
-3. Post-sync hooks (in order defined)
-4. Post-sync sudo hooks (in order defined)
+1. **Pre-sync** hooks (global, in order defined)
+2. **Pre-install** hooks (per package, in order defined)
+3. Package operations (install, remove, update)
+4. **Post-install** hooks (per package, in order defined)
+5. **Post-sync** hooks (global, in order defined)
+6. **On-success** or **On-failure** hooks
 
 Example:
 ```kdl
-on-pre-sync "echo 'Step 1'"
-on-pre-sync "echo 'Step 2'"
+hooks {
+    pre-sync "echo 'Step 1'"
+    pre-sync "echo 'Step 2'"
 
-on-sync "echo 'Step 3'"
-on-sync "echo 'Step 4'"
+    docker:post-install "echo 'Step 3'"
 
-on-sync-sudo "echo 'Step 5'"
+    post-sync "echo 'Step 4'"
+    post-sync "echo 'Step 5'"
+}
 ```
 
 Output:
@@ -385,40 +407,43 @@ Step 5
 
 ## Advanced Patterns
 
-### Notify Only on Changes
-
-```bash
-#!/bin/bash
-# post-sync.sh
-
-# Check if any packages were installed/removed
-if declarch sync --dry-run 2>/dev/null | grep -E "^\+|^-" > /dev/null; then
-    notify-send "Declarch" "Packages were updated"
-fi
-```
-
 ### Service Management
 
 ```kdl
-// Restart service only if its packages were updated
-on-sync-sudo "systemctl try-restart gdm || true"
+hooks {
+    docker:post-install "systemctl enable --now docker" --sudo --required
+    docker:post-remove "docker system prune -f"
+}
 ```
 
-### Conditional Hooks Based on Exit Code
+### Notification Chain
 
 ```kdl
-on-sync "command || notify-send 'Command failed'"
+hooks {
+    post-sync "notify-send 'Packages updated'"
+    waybar:post-install "pkill -SIGUSR1 waybar"
+}
 ```
 
-### Chain Multiple Commands
+### Conditional Logic in Scripts
 
 ```kdl
-on-sync "command1 && command2 && command3"
+hooks {
+    post-sync "~/.config/declarch/scripts/post-sync.sh"
+}
 ```
 
-Or use a script:
-```kdl
-on-sync "~/.config/declarch/scripts/post-sync.sh"
+```bash
+#!/bin/bash
+# ~/.config/declarch/scripts/post-sync.sh
+
+# Only run on desktop
+if hostname | grep -q "desktop"; then
+    systemctl restart gdm
+fi
+
+# Send notification
+notify-send "Declarch" "Sync completed"
 ```
 
 ## Related
@@ -427,6 +452,40 @@ on-sync "~/.config/declarch/scripts/post-sync.sh"
 - [Modules Guide](../configuration/modules.md) - Hooks in modules
 - [Sync Command](../commands/sync.md) - Enabling hooks with --hooks flag
 
+## Migration from v0.4.3
+
+### Old Syntax (Deprecated)
+
+```kdl
+// Old (v0.4.3)
+on-sync "notify-send 'Done'"
+on-sync-sudo "systemctl restart gdm"
+hooks {
+    post-sync {
+        run "notify-send 'Done'"
+        sudo-needed "systemctl restart gdm"
+    }
+}
+```
+
+### New Syntax (v0.4.4)
+
+```kdl
+// New (v0.4.4)
+hooks {
+    post-sync "notify-send 'Done'"
+    post-sync "systemctl restart gdm" --sudo
+}
+```
+
+### Key Changes
+
+1. **`on-sync-sudo`** → **`--sudo` flag**
+2. **`run`** / **`sudo-needed`** → removed (use flags)
+3. **`on-pre-sync`** → **`pre-sync`** (in hooks block)
+4. **`HookType` enum** simplified to `User` / `Root`
+5. **Per-package hooks** added
+
 ## Tips
 
 1. **Keep hooks simple:** One command per hook
@@ -434,35 +493,3 @@ on-sync "~/.config/declarch/scripts/post-sync.sh"
 3. **Test hooks manually:** Run hook commands directly before adding to config
 4. **Use notifications:** Get feedback on hook execution
 5. **Avoid long-running hooks:** Hooks block sync completion
-
-## Examples Gallery
-
-### Desktop Setup
-
-```kdl
-on-pre-sync "notify-send 'Starting system update...'"
-on-sync "update-desktop-database ~/.local/share/applications"
-on-sync "fc-cache -fv"
-on-sync-sudo "systemctl restart gdm"
-```
-
-### Development Setup
-
-```kdl
-on-sync "cargo install-update -a"
-on-sync "npm update -g"
-on-sync "pip list --outdated"
-```
-
-### Gaming Setup
-
-```kdl
-on-sync "notify-send 'Steam packages updated'"
-on-sync-sudo "systemctl restart steam"
-```
-
-### Minimal Setup
-
-```kdl
-on-sync "notify-send 'Sync complete'"
-```
