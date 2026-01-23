@@ -16,9 +16,8 @@ rustflags = [
 # [target.x86_64-unknown-linux-gnu]
 # rustflags = ["-C", "link-arg=-fuse-ld=mold"]  # Use mold (fastest, needs install)
 
-[profile.dev]
-# For development, don't embed paths
-rustflags = ["-C", "link-arg=-Wl,--strip-all"]
+# Development builds use the target settings above
+# No profile-specific overrides needed
 
 [net]
 # Use sparse git fetch for faster dependency cloning
