@@ -1,4 +1,4 @@
-# Cargo configuration for faster builds
+# Cargo configuration for faster builds and better binaries
 
 [build]
 # Use faster linker (mold > lld > default)
@@ -8,11 +8,17 @@
 linker = "clang"
 rustflags = [
     "-C", "link-arg=-fuse-ld=lld",  # Use lld linker (faster than default)
+    # Remove absolute paths from binary (security/privacy)
+    "-C", "link-arg=-Wl,--strip-all",
 ]
 
 # Fallback if clang/lld not available:
 # [target.x86_64-unknown-linux-gnu]
 # rustflags = ["-C", "link-arg=-fuse-ld=mold"]  # Use mold (fastest, needs install)
+
+[profile.dev]
+# For development, don't embed paths
+rustflags = ["-C", "link-arg=-Wl,--strip-all"]
 
 [net]
 # Use sparse git fetch for faster dependency cloning

@@ -52,7 +52,9 @@ path = "src/dc.rs"
 lto = "thin"        # Link-time optimization: "thin" balances speed and compile time
 codegen-units = 1   # Maximize optimization at cost of parallelism
 opt-level = "s"     # Optimize for size
-strip = true        # Remove debug symbols
+strip = true        # Remove debug symbols (also removes paths!)
+panic = "abort"      # Reduces binary size by removing unwinding code
+overflow-checks = true  # Keep for safety
 
 # Profile for development builds - faster compilation, good enough performance
 [profile.dev-release]
