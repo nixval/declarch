@@ -186,10 +186,7 @@ editor "micro"     // Micro
 
 **Syntax:**
 ```kdl
-description {
-    This is my personal Arch Linux setup
-    with Hyprland window manager and Waybar status bar
-}
+description "This is my personal Arch Linux setup with Hyprland window manager and Waybar status bar"
 ```
 
 **Or single-line:**

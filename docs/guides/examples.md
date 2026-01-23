@@ -57,10 +57,7 @@ editor "nvim"
 
 editor "nvim"
 
-description {
-    Complete Hyprland desktop with Waybar, SDDM, and gaming support.
-    Focused on minimalism and performance.
-}
+description "Complete Hyprland desktop with Waybar, SDDM, and gaming support. Focused on minimalism and performance."
 
 // --- Window Manager ---
 packages:aur {
@@ -956,3 +953,88 @@ git commit -m "Initial config"
 ---
 
 **Have a great config example? Share it! 🚀**
+
+---
+
+## Complete Feature Showcase
+
+**For:** Advanced users utilizing all new features (meta, hooks, policies).
+
+**`declarch.kdl`**
+```kdl
+// Comprehensive Feature Demo
+
+// 1. Meta Information
+meta {
+    description "My Advanced Setup"
+    author "nixval"
+    version "2.0.0"
+    tags "workstation" "advanced"
+}
+
+// 2. Global Environment
+env {
+    EDITOR "nvim"
+    VISUAL "nvim"
+    BROWSER "firefox"
+}
+
+// 3. Backend-Specific Environment
+env:aur {
+    MAKEFLAGS "-j16"
+}
+
+// 4. Policy Control
+policy {
+    protected {
+        linux
+        base
+        base-devel
+        declarch
+    }
+    orphans "ask"
+}
+
+// 5. Conflicts
+conflicts {
+    vim neovim
+    pipewire pulseaudio
+}
+
+// 6. Backend Options
+options:aur {
+    noconfirm true
+    helper "paru"
+}
+
+// 7. Hooks (New Flat Syntax)
+on-pre-sync "echo 'Starting system sync...'"
+on-sync "notify-send 'Declarch' 'Sync completed successfully'"
+on-sync-sudo "systemctl daemon-reload"
+
+// 8. New Language Backends
+packages:cargo {
+    ripgrep
+    fd-find
+}
+
+packages:npm {
+    typescript
+    prettier
+}
+
+packages:pip {
+    poetry
+    black
+}
+
+// 9. Traditional Packages
+packages:aur {
+    hyprland
+    waybar
+}
+
+packages:flatpak {
+    org.mozilla.firefox
+}
+```
