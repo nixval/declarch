@@ -588,10 +588,7 @@ packages:aur {
 // Cross-Distro Setup
 // Works on Arch, Fedora, Ubuntu, etc.
 
-description {
-    Portable configuration that works on any Linux distribution.
-    Uses only Soar (static binaries) and Flatpak (universal packages).
-}
+description "Portable configuration that works on any Linux distribution. Uses only Soar (static binaries) and Flatpak (universal packages)."
 
 // --- Soar Packages (Cross-Distro) ---
 packages:soar {
