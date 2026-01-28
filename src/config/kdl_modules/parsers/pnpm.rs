@@ -1,0 +1,18 @@
+use crate::config::kdl_modules::types::RawConfig;
+use crate::error::Result;
+use crate::config::kdl::extract_packages_to;
+use kdl::KdlNode;
+
+/// pnpm backend parser
+pub struct PnpmParser;
+
+impl super::BackendParser for PnpmParser {
+    fn name(&self) -> &'static str {
+        "pnpm"
+    }
+
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        extract_packages_to(node, &mut config.pnpm_packages);
+        Ok(())
+    }
+}

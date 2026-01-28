@@ -3,176 +3,18 @@ pub use crate::config::kdl_modules::types::{
     ConflictEntry, ConfigMeta, ErrorBehavior, HookCondition, HookConfig, HookEntry,
     HookPhase, HookType, PackageEntry, PolicyConfig, RawConfig,
 };
+// Re-export BackendParser trait from parsers module
+pub use crate::config::kdl_modules::parsers::BackendParser;
 
 use crate::error::{DeclarchError, Result};
 use kdl::{KdlDocument, KdlNode};
 use std::collections::HashMap;
 
-/// Trait for backend-specific package parsing
-///
-/// Each backend (AUR, Soar, Flatpak) implements this trait
-/// to define how it parses packages from KDL nodes.
-pub trait BackendParser: Send + Sync {
-    /// Backend identifier (e.g., "aur", "soar", "flatpak")
-    fn name(&self) -> &'static str;
-
-    /// Aliases for this backend (e.g., "app" is an alias for "soar")
-    fn aliases(&self) -> &[&'static str] {
-        &[]
-    }
-
-    /// Parse packages from a KDL node and add them to the config
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()>;
-
-    /// Check if a backend name matches this parser (including aliases)
-    fn matches(&self, backend: &str) -> bool {
-        self.name() == backend || self.aliases().contains(&backend)
-    }
-}
-
-/// AUR (Arch User Repository) backend parser
-struct AurParser;
-
-impl BackendParser for AurParser {
-    fn name(&self) -> &'static str {
-        "aur"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.packages);
-        Ok(())
-    }
-}
-
-/// Soar (static binaries) backend parser
-struct SoarParser;
-
-impl BackendParser for SoarParser {
-    fn name(&self) -> &'static str {
-        "soar"
-    }
-
-    fn aliases(&self) -> &[&'static str] {
-        &["app"] // "app" is an alias for "soar"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.soar_packages);
-        Ok(())
-    }
-}
-
-/// Flatpak backend parser
-struct FlatpakParser;
-
-impl BackendParser for FlatpakParser {
-    fn name(&self) -> &'static str {
-        "flatpak"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.flatpak_packages);
-        Ok(())
-    }
-}
-
-/// npm backend parser
-struct NpmParser;
-
-impl BackendParser for NpmParser {
-    fn name(&self) -> &'static str {
-        "npm"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.npm_packages);
-        Ok(())
-    }
-}
-
-/// Yarn backend parser
-struct YarnParser;
-
-impl BackendParser for YarnParser {
-    fn name(&self) -> &'static str {
-        "yarn"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.yarn_packages);
-        Ok(())
-    }
-}
-
-/// pnpm backend parser
-struct PnpmParser;
-
-impl BackendParser for PnpmParser {
-    fn name(&self) -> &'static str {
-        "pnpm"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.pnpm_packages);
-        Ok(())
-    }
-}
-
-/// Bun backend parser
-struct BunParser;
-
-impl BackendParser for BunParser {
-    fn name(&self) -> &'static str {
-        "bun"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.bun_packages);
-        Ok(())
-    }
-}
-
-/// pip backend parser
-struct PipParser;
-
-impl BackendParser for PipParser {
-    fn name(&self) -> &'static str {
-        "pip"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.pip_packages);
-        Ok(())
-    }
-}
-
-/// Cargo backend parser
-struct CargoParser;
-
-impl BackendParser for CargoParser {
-    fn name(&self) -> &'static str {
-        "cargo"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.cargo_packages);
-        Ok(())
-    }
-}
-
-/// Homebrew backend parser
-struct BrewParser;
-
-impl BackendParser for BrewParser {
-    fn name(&self) -> &'static str {
-        "brew"
-    }
-
-    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.brew_packages);
-        Ok(())
-    }
-}
+// Import individual parsers
+use crate::config::kdl_modules::parsers::{
+    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser, NpmParser,
+    PipParser, PnpmParser, SoarParser, YarnParser,
+};
 
 /// Registry for backend parsers
 ///
@@ -969,7 +811,7 @@ fn get_first_string(node: &KdlNode) -> Option<String> {
 /// - String arguments: `packages "bat" "exa"`
 /// - Children node names: `packages { bat exa }`
 /// - Mixed: `packages "bat" { exa }`
-fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
+pub fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
     // Extract from string arguments of this node
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
