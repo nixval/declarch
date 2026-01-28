@@ -5,8 +5,12 @@ pub use crate::config::kdl_modules::types::{
 };
 // Re-export BackendParser trait from parsers module
 pub use crate::config::kdl_modules::parsers::BackendParser;
+// Re-export helper functions for backward compatibility
+pub use crate::config::kdl_modules::helpers::{
+    aliases, conflicts, env, hooks, meta, packages, policy, repositories,
+};
 
-use crate::error::{DeclarchError, Result};
+use crate::error::Result;
 use kdl::{KdlDocument, KdlNode};
 use std::collections::HashMap;
 
@@ -218,6 +222,55 @@ impl Default for BackendParserRegistry {
     }
 }
 
+/// Parse backend options: options:aur { noconfirm true }
+fn parse_backend_options(
+    node: &KdlNode,
+    options: &mut HashMap<String, HashMap<String, String>>,
+) -> Result<()> {
+    // Check for colon syntax: options:aur
+    let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
+        backend.to_string()
+    } else {
+        // No backend specified, apply to all? Or skip?
+        // For now, skip if no backend specified
+        return Ok(());
+    };
+
+    let mut opts = HashMap::new();
+
+    // Extract from children
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let key = child.name().value();
+            if let Some(val) = meta::get_first_string(child) {
+                opts.insert(key.to_string(), val);
+            } else if let Some(val) = child.entries().first()
+                && let Some(val) = val.value().as_string()
+            {
+                opts.insert(key.to_string(), val.to_string());
+            } else {
+                // Boolean flag without value
+                opts.insert(key.to_string(), "true".to_string());
+            }
+        }
+    }
+
+    // Extract from string arguments (key=value format)
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string()
+            && let Some((key, v)) = val.split_once('=')
+        {
+            opts.insert(key.to_string(), v.to_string());
+        }
+    }
+
+    if !opts.is_empty() {
+        options.insert(backend_name, opts);
+    }
+
+    Ok(())
+}
+
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     let doc: KdlDocument = content.parse().map_err(|e: kdl::KdlError| {
         // Provide more helpful error messages for common KDL syntax issues
@@ -267,13 +320,13 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
 
         match node_name {
             "import" | "imports" => {
-                extract_strings(node, &mut config.imports);
+                packages::extract_strings(node, &mut config.imports);
             }
             "exclude" | "excludes" => {
-                extract_mixed_values(node, &mut config.excludes);
+                packages::extract_mixed_values(node, &mut config.excludes);
             }
             "aliases-pkg" | "alias-pkg" => {
-                extract_aliases(node, &mut config.aliases);
+                aliases::extract_aliases(node, &mut config.aliases);
             }
             "editor" => {
                 // Extract editor from first string argument
@@ -293,11 +346,11 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             // NEW: Meta block
             "meta" => {
-                parse_meta_block(node, &mut config.meta)?;
+                meta::parse_meta_block(node, &mut config.meta)?;
             }
             // NEW: Conflicts
             "conflicts" | "conflict" => {
-                parse_conflicts(node, &mut config.conflicts)?;
+                conflicts::parse_conflicts(node, &mut config.conflicts)?;
             }
             // NEW: Backend options
             name if name.starts_with("options") => {
@@ -305,23 +358,23 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             // NEW: Environment variables
             name if name.starts_with("env") => {
-                parse_env_vars(node, &mut config.env, None)?;
+                env::parse_env_vars(node, &mut config.env, None)?;
             }
             // NEW: Package repositories
             name if name.starts_with("repos") || name.starts_with("repositories") => {
-                parse_repositories(node, &mut config.repositories)?;
+                repositories::parse_repositories(node, &mut config.repositories)?;
             }
             // NEW: Policy
             "policy" => {
-                parse_policy(node, &mut config.policy)?;
+                policy::parse_policy(node, &mut config.policy)?;
             }
             // NEW: Hooks
             "hooks" => {
-                parse_hooks(node, &mut config.hooks)?;
+                hooks::parse_hooks(node, &mut config.hooks)?;
             }
             // NEW: Simplified flat hooks (backward compatibility)
             "on-sync" => {
-                if let Some(val) = get_first_string(node) {
+                if let Some(val) = meta::get_first_string(node) {
                     config.hooks.hooks.push(HookEntry {
                         command: val,
                         hook_type: HookType::User,
@@ -333,7 +386,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 }
             }
             "on-sync-sudo" => {
-                if let Some(val) = get_first_string(node) {
+                if let Some(val) = meta::get_first_string(node) {
                     config.hooks.hooks.push(HookEntry {
                         command: val,
                         hook_type: HookType::Root,
@@ -345,7 +398,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 }
             }
             "on-pre-sync" => {
-                if let Some(val) = get_first_string(node) {
+                if let Some(val) = meta::get_first_string(node) {
                     config.hooks.hooks.push(HookEntry {
                         command: val,
                         hook_type: HookType::User,
@@ -362,19 +415,19 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             // Legacy syntax support (with deprecation warning in the future)
             "aur-packages" | "aur-package" => {
-                let packages = extract_mixed_values_return(node);
+                let packages = packages::extract_mixed_values_return(node);
                 config
                     .packages
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             "soar-packages" | "soar-package" => {
-                let packages = extract_mixed_values_return(node);
+                let packages = packages::extract_mixed_values_return(node);
                 config
                     .soar_packages
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             "flatpak-packages" | "flatpak-package" => {
-                let packages = extract_mixed_values_return(node);
+                let packages = packages::extract_mixed_values_return(node);
                 config
                     .flatpak_packages
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
@@ -384,578 +437,6 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     }
 
     Ok(config)
-}
-
-/// Parse meta block: meta { description "..." author "..." version "..." }
-fn parse_meta_block(node: &KdlNode, meta: &mut ConfigMeta) -> Result<()> {
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_name = child.name().value();
-
-            match child_name {
-                "title" => {
-                    if let Some(val) = get_first_string(child) {
-                        meta.title = Some(val);
-                    }
-                }
-                "description" => {
-                    if let Some(val) = get_first_string(child) {
-                        meta.description = Some(val);
-                    }
-                }
-                "author" => {
-                    if let Some(val) = get_first_string(child) {
-                        meta.author = Some(val);
-                    }
-                }
-                "version" => {
-                    if let Some(val) = get_first_string(child) {
-                        meta.version = Some(val);
-                    }
-                }
-                "tags" => {
-                    // tags can be multiple: tags ["workstation" "gaming"]
-                    for entry in child.entries() {
-                        if let Some(val) = entry.value().as_string() {
-                            meta.tags.push(val.to_string());
-                        }
-                    }
-                    if let Some(children) = child.children() {
-                        for tag_child in children.nodes() {
-                            meta.tags.push(tag_child.name().value().to_string());
-                        }
-                    }
-                }
-                "url" => {
-                    if let Some(val) = get_first_string(child) {
-                        meta.url = Some(val);
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Parse conflicts block: conflicts { vim neovim }
-fn parse_conflicts(node: &KdlNode, conflicts: &mut Vec<ConflictEntry>) -> Result<()> {
-    let mut packages = Vec::new();
-
-    // Extract from string arguments
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            packages.push(val.to_string());
-        }
-    }
-
-    // Extract from children
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            packages.push(child.name().value().to_string());
-            // Also check for string arguments in child entries
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    packages.push(val.to_string());
-                }
-            }
-        }
-    }
-
-    if !packages.is_empty() {
-        conflicts.push(ConflictEntry {
-            packages,
-            condition: None,
-        });
-    }
-
-    Ok(())
-}
-
-/// Parse backend options: options:aur { noconfirm true }
-fn parse_backend_options(
-    node: &KdlNode,
-    options: &mut HashMap<String, HashMap<String, String>>,
-) -> Result<()> {
-    // Check for colon syntax: options:aur
-    let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
-        backend.to_string()
-    } else {
-        // No backend specified, apply to all? Or skip?
-        // For now, skip if no backend specified
-        return Ok(());
-    };
-
-    let mut opts = HashMap::new();
-
-    // Extract from children
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let key = child.name().value();
-            if let Some(val) = get_first_string(child) {
-                opts.insert(key.to_string(), val);
-            } else if let Some(val) = child.entries().first()
-                && let Some(val) = val.value().as_string()
-            {
-                opts.insert(key.to_string(), val.to_string());
-            } else {
-                // Boolean flag without value
-                opts.insert(key.to_string(), "true".to_string());
-            }
-        }
-    }
-
-    // Extract from string arguments (key=value format)
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string()
-            && let Some((key, v)) = val.split_once('=')
-        {
-            opts.insert(key.to_string(), v.to_string());
-        }
-    }
-
-    if !opts.is_empty() {
-        options.insert(backend_name, opts);
-    }
-
-    Ok(())
-}
-
-/// Parse environment variables: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
-fn parse_env_vars(
-    node: &KdlNode,
-    env: &mut HashMap<String, Vec<String>>,
-    backend: Option<&str>,
-) -> Result<()> {
-    // Check for colon syntax: env:aur
-    let backend_name = if let Some((_, b)) = node.name().value().split_once(':') {
-        b.to_string()
-    } else {
-        backend.unwrap_or("global").to_string()
-    };
-
-    let mut vars = Vec::new();
-
-    // Extract from string arguments (format: "EDITOR=nvim")
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            vars.push(val.to_string());
-        }
-    }
-
-    // Extract from named arguments (format: EDITOR="nvim")
-    for entry in node.entries() {
-        if let Some(name) = entry.name() {
-            let key = name.value();
-            if let Some(val) = entry.value().as_string() {
-                // Only format as key=value if not already in key=value format
-                if !key.is_empty()
-                    && !key.contains('(')
-                    && !vars.contains(&format!("{}={}", key, val))
-                {
-                    vars.push(format!("{}={}", key, val));
-                }
-            }
-        }
-    }
-
-    // Extract from children
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            // Child name could be the key, value in arguments
-            let key = child.name().value();
-            if let Some(val) = get_first_string(child) {
-                vars.push(format!("{}={}", key, val));
-            } else if let Some(val) = child.entries().first()
-                && let Some(val) = val.value().as_string()
-            {
-                vars.push(format!("{}={}", key, val));
-            }
-        }
-    }
-
-    if !vars.is_empty() {
-        env.insert(backend_name, vars);
-    }
-
-    Ok(())
-}
-
-/// Parse repositories: repos:aur { "https://..." }
-fn parse_repositories(node: &KdlNode, repos: &mut HashMap<String, Vec<String>>) -> Result<()> {
-    // Check for colon syntax: repos:aur
-    let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
-        backend.to_string()
-    } else {
-        // No backend specified - skip
-        return Ok(());
-    };
-
-    let mut repo_urls = Vec::new();
-
-    // Extract from string arguments
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            repo_urls.push(val.to_string());
-        }
-    }
-
-    // Extract from children
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            repo_urls.push(child.name().value().to_string());
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    repo_urls.push(val.to_string());
-                }
-            }
-        }
-    }
-
-    if !repo_urls.is_empty() {
-        repos.insert(backend_name, repo_urls);
-    }
-
-    Ok(())
-}
-
-/// Parse policy block: policy { protected { linux systemd } orphans "keep" }
-fn parse_policy(node: &KdlNode, policy: &mut PolicyConfig) -> Result<()> {
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            match child.name().value() {
-                "protected" => {
-                    // Extract protected packages
-                    for entry in child.entries() {
-                        if let Some(val) = entry.value().as_string() {
-                            policy.protected.insert(val.to_string());
-                        }
-                    }
-                    if let Some(grandchildren) = child.children() {
-                        for gc in grandchildren.nodes() {
-                            policy.protected.insert(gc.name().value().to_string());
-                        }
-                    }
-                }
-                "orphans" => {
-                    // Extract orphans strategy
-                    if let Some(val) = get_first_string(child) {
-                        policy.orphans = Some(val);
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Parse hooks block: hooks { post-sync { sudo-needed "systemctl restart gdm" } }
-/// Parse hooks block
-/// Supports:
-/// 1. Global hooks: pre-sync "command", post-sync "command", on-success "command", on-failure "command"
-/// 2. Package hooks (block): docker { post-install "command" --sudo }
-/// 3. Package hooks (shorthand): docker:post-install "command" --sudo
-fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_name = child.name().value();
-
-            // Check for shorthand syntax: docker:post-install
-            if child_name.contains(':') {
-                let parts: Vec<&str> = child_name.splitn(2, ':').collect();
-                if parts.len() == 2 {
-                    let package = parts[0];
-                    let phase_str = parts[1];
-                    let phase = parse_hook_phase(phase_str)?;
-
-                    if let Some(command) = get_first_string(child) {
-                        let (hook_type, error_behavior) = parse_hook_flags(child)?;
-                        hooks.hooks.push(HookEntry {
-                            command: command.to_string(),
-                            hook_type,
-                            phase,
-                            package: Some(package.to_string()),
-                            conditions: vec![], // Phase 2
-                            error_behavior,
-                        });
-                    }
-                }
-            }
-            // Check for package block: docker { post-install "..." }
-            else if is_package_block(child) {
-                let package = child_name.to_string();
-                parse_package_hook_block(child, package, hooks)?;
-            }
-            // Global hooks: pre-sync, post-sync, on-success, on-failure
-            else {
-                let phase = parse_hook_phase(child_name)?;
-                if let Some(command) = get_first_string(child) {
-                    let (hook_type, error_behavior) = parse_hook_flags(child)?;
-                    hooks.hooks.push(HookEntry {
-                        command: command.to_string(),
-                        hook_type,
-                        phase,
-                        package: None,
-                        conditions: vec![], // Phase 2
-                        error_behavior,
-                    });
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Parse hook phase from string
-fn parse_hook_phase(s: &str) -> Result<HookPhase> {
-    match s {
-        "pre-sync" => Ok(HookPhase::PreSync),
-        "post-sync" => Ok(HookPhase::PostSync),
-        "on-success" => Ok(HookPhase::OnSuccess),
-        "on-failure" => Ok(HookPhase::OnFailure),
-        "pre-install" => Ok(HookPhase::PreInstall),
-        "post-install" => Ok(HookPhase::PostInstall),
-        "pre-remove" => Ok(HookPhase::PreRemove),
-        "post-remove" => Ok(HookPhase::PostRemove),
-        "on-update" => Ok(HookPhase::OnUpdate),
-        _ => Err(DeclarchError::ConfigError(format!(
-            "Invalid hook phase '{}'. Valid phases: {}",
-            s,
-            vec![
-                "pre-sync", "post-sync", "on-success", "on-failure",
-                "pre-install", "post-install", "pre-remove", "post-remove", "on-update"
-            ].join(", ")
-        ))),
-    }
-}
-
-/// Parse hook flags from a node
-/// Returns (hook_type, error_behavior)
-fn parse_hook_flags(node: &KdlNode) -> Result<(HookType, ErrorBehavior)> {
-    let mut hook_type = HookType::User;
-    let mut error_behavior = ErrorBehavior::default();
-
-    for entry in node.entries().iter().skip(1) {
-        // Skip the first entry (command string)
-        if let Some(val) = entry.value().as_string() {
-            match val {
-                "--sudo" => hook_type = HookType::Root,
-                "--required" => error_behavior = ErrorBehavior::Required,
-                "--ignore" => error_behavior = ErrorBehavior::Ignore,
-                _ => {
-                    // Unknown flag - could warn here
-                }
-            }
-        }
-    }
-
-    Ok((hook_type, error_behavior))
-}
-
-/// Check if a node is a package block (has children with hook phases)
-fn is_package_block(node: &KdlNode) -> bool {
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let name = child.name().value();
-            if matches!(name,
-                "pre-install" | "post-install" | "pre-remove" | "post-remove" | "on-update"
-            ) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-/// Parse package hook block: docker { post-install "..." }
-fn parse_package_hook_block(
-    node: &KdlNode,
-    package: String,
-    hooks: &mut HookConfig,
-) -> Result<()> {
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let phase_str = child.name().value();
-            let phase = parse_hook_phase(phase_str)?;
-
-            if let Some(command) = get_first_string(child) {
-                let (hook_type, error_behavior) = parse_hook_flags(child)?;
-                hooks.hooks.push(HookEntry {
-                    command: command.to_string(),
-                    hook_type,
-                    phase,
-                    package: Some(package.clone()),
-                    conditions: vec![], // Phase 2
-                    error_behavior,
-                });
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Get first string value from a KDL node
-fn get_first_string(node: &KdlNode) -> Option<String> {
-    if let Some(entry) = node.entries().first()
-        && let Some(val) = entry.value().as_string()
-    {
-        return Some(val.to_string());
-    }
-    None
-}
-
-/// Extract packages from a node and add them to a target vector
-///
-/// Handles:
-/// - String arguments: `packages "bat" "exa"`
-/// - Children node names: `packages { bat exa }`
-/// - Mixed: `packages "bat" { exa }`
-pub fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
-    // Extract from string arguments of this node
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            target.push(PackageEntry {
-                name: val.to_string(),
-            });
-        }
-    }
-
-    // Extract from children node names
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_name = child.name().value();
-            let child_entries: Vec<_> = child
-                .entries()
-                .iter()
-                .filter_map(|e| e.value().as_string())
-                .collect();
-
-            if child_entries.is_empty() {
-                // No string arguments, just the node name
-                target.push(PackageEntry {
-                    name: child_name.to_string(),
-                });
-            } else {
-                // Has string arguments - push node name AND all arguments
-                // First, push the node name
-                target.push(PackageEntry {
-                    name: child_name.to_string(),
-                });
-                // Then, push all arguments as separate packages
-                for arg in child_entries {
-                    target.push(PackageEntry {
-                        name: arg.to_string(),
-                    });
-                }
-            }
-        }
-    }
-}
-
-fn extract_mixed_values(node: &KdlNode, target: &mut Vec<String>) {
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            target.push(val.to_string());
-        }
-    }
-
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let name = child.name().value();
-            target.push(name.to_string());
-
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    target.push(val.to_string());
-                }
-            }
-        }
-    }
-}
-
-fn extract_mixed_values_return(node: &KdlNode) -> Vec<String> {
-    let mut result = Vec::new();
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            result.push(val.to_string());
-        }
-    }
-
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            result.push(child.name().value().to_string());
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    result.push(val.to_string());
-                }
-            }
-        }
-    }
-    result
-}
-
-fn extract_strings(node: &KdlNode, target: &mut Vec<String>) {
-    for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            target.push(val.to_string());
-        }
-    }
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let name = child.name().value();
-            target.push(name.to_string());
-
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    target.push(val.to_string());
-                }
-            }
-        }
-    }
-}
-
-/// Extract package aliases from KDL node
-///
-/// Supported syntax:
-/// ```kdl
-/// aliases-pkg pipewire pipewire-jack2
-/// aliases-pkg {
-///     python-poetry python-poetry-core
-///     firefox firefox-beta
-/// }
-/// ```
-fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
-    // Case 1: Inline format: aliases-pkg name1 name2
-    let entries: Vec<_> = node
-        .entries()
-        .iter()
-        .filter_map(|e| e.value().as_string())
-        .collect();
-
-    if entries.len() == 2 {
-        // aliases-pkg config_name actual_name
-        target.insert(entries[0].to_string(), entries[1].to_string());
-    }
-
-    // Case 2: Children format
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_entries: Vec<_> = child
-                .entries()
-                .iter()
-                .filter_map(|e| e.value().as_string())
-                .collect();
-
-            if child_entries.len() == 2 {
-                target.insert(child_entries[0].to_string(), child_entries[1].to_string());
-            } else if child_entries.len() == 1 {
-                // Support: node-name target-name
-                let config_name = child.name().value();
-                target.insert(config_name.to_string(), child_entries[0].to_string());
-            }
-        }
-    }
 }
 
 #[cfg(test)]
