@@ -203,10 +203,105 @@ pub enum Command {
         target: Option<String>,
     },
 
+    /// Install packages to configuration
+    ///
+    /// Adds packages to KDL configuration files and automatically syncs the system.
+    ///
+    /// Examples:
+    ///   dcl install hyprland              Add to modules/others.kdl
+    ///   dcl install vim nano emacs        Add multiple packages
+    ///   dcl install soar:bat              Add to backend-specific block
+    ///   dcl install npm --modules base    Add to specific module
+    Install {
+        /// Package(s) to install (format: [backend:]package)
+        ///
+        /// Examples:
+        ///   hyprland                     Package without backend (uses default)
+        ///   soar:bat                     Package with backend override
+        ///   npm:nodejs                   NPM package
+        ///   aur:firefox                  AUR package
+        #[arg(required = true, num_args = 1.., value_name = "PACKAGES")]
+        packages: Vec<String>,
+
+        /// Target package manager for all packages
+        ///
+        /// If specified, all packages will use this backend unless overridden
+        /// by the backend:package syntax in individual package names.
+        #[arg(short = 'b', long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Target module file (e.g., "base" or "linux/notes")
+        ///
+        /// If not specified, packages are added to modules/others.kdl
+        #[arg(short = 'm', long, value_name = "MODULE")]
+        module: Option<String>,
+
+        /// Don't sync after editing config
+        #[arg(long)]
+        no_sync: bool,
+    },
+
+    /// Manage declarch settings
+    ///
+    /// Configure output format, colors, and other preferences.
+    ///
+    /// Examples:
+    ///   dcl settings set color never     Disable colors
+    ///   dcl settings set format json     Set output format to JSON
+    ///   dcl settings show                Show all settings
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommand,
+    },
+
     /// Generate shell completions
     Completions {
         /// The shell to generate completions for
         #[arg(value_enum)]
         shell: Shell,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum SettingsCommand {
+    /// Set a setting value
+    ///
+    /// Examples:
+    ///   dcl settings set color never
+    ///   dcl settings set format json
+    Set {
+        /// Setting name (color, progress, format, verbose)
+        #[arg(value_name = "KEY")]
+        key: String,
+
+        /// Setting value
+        #[arg(value_name = "VALUE")]
+        value: String,
+    },
+
+    /// Get a setting value
+    ///
+    /// Example:
+    ///   dcl settings get color
+    Get {
+        /// Setting name
+        #[arg(value_name = "KEY")]
+        key: String,
+    },
+
+    /// Show all settings
+    ///
+    /// Example:
+    ///   dcl settings show
+    Show,
+
+    /// Reset setting to default
+    ///
+    /// Example:
+    ///   dcl settings reset color
+    Reset {
+        /// Setting name
+        #[arg(value_name = "KEY")]
+        key: String,
     },
 }

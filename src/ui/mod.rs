@@ -1,38 +1,91 @@
 use colored::Colorize;
 use std::io::{self, Write};
+use std::sync::OnceLock;
 
 pub mod progress;
 
+static COLOR_MODE: OnceLock<ColorMode> = OnceLock::new();
+
+#[derive(Clone, Copy, PartialEq)]
+enum ColorMode {
+    Auto,
+    Always,
+    Never,
+}
+
+/// Initialize color mode from settings
+/// Should be called once at startup
+pub fn init_colors() {
+    if let Ok(settings) = crate::config::settings::Settings::load() {
+        let mode = match settings.get("color").map(|s| s.as_str()) {
+            Some("always") => ColorMode::Always,
+            Some("never") => ColorMode::Never,
+            _ => ColorMode::Auto,  // default
+        };
+        COLOR_MODE.get_or_init(|| mode);
+    } else {
+        COLOR_MODE.get_or_init(|| ColorMode::Auto);
+    }
+}
+
+/// Check if colors should be applied based on current mode
+fn should_colorize() -> bool {
+    let mode = COLOR_MODE.get().copied().unwrap_or(ColorMode::Auto);
+
+    match mode {
+        ColorMode::Always => true,
+        ColorMode::Never => false,
+        ColorMode::Auto => {
+            // Check if we're in a TTY
+            atty::is(atty::Stream::Stdout)
+        }
+    }
+}
+
+/// Helper function to conditionally apply color
+fn color_str(s: &str, colorizer: impl Fn(&str) -> colored::ColoredString) -> String {
+    if should_colorize() {
+        colorizer(s).to_string()
+    } else {
+        s.to_string()
+    }
+}
+
 pub fn header(title: &str) {
-    println!("\n{}", title.bold().underline());
+    println!("\n{}", color_str(title, |s| s.bold().underline()));
 }
 
 pub fn success(msg: &str) {
-    println!("{} {}", "✓".green().bold(), msg);
+    let symbol = color_str("✓", |s| s.green().bold());
+    println!("{} {}", symbol, msg);
 }
 
 pub fn info(msg: &str) {
-    println!("{} {}", "ℹ".blue().bold(), msg);
+    let symbol = color_str("ℹ", |s| s.blue().bold());
+    println!("{} {}", symbol, msg);
 }
 
 pub fn warning(msg: &str) {
-    eprintln!("{} {}", "⚠".yellow().bold(), msg);
+    let symbol = color_str("⚠", |s| s.yellow().bold());
+    eprintln!("{} {}", symbol, msg);
 }
 
 pub fn error(msg: &str) {
-    eprintln!("{} {}", "✗".red().bold(), msg);
+    let symbol = color_str("✗", |s| s.red().bold());
+    eprintln!("{} {}", symbol, msg);
 }
 
 pub fn separator() {
-    println!("{}", "─".repeat(60).bright_black());
+    println!("{}", color_str(&"─".repeat(60), |s| s.bright_black()));
 }
 
 pub fn keyval(key: &str, val: &str) {
-    println!("{}: {}", key.bold(), val);
+    println!("{}: {}", color_str(key, |s| s.bold()), val);
 }
 
 pub fn tag(label: &str, val: &str) {
-    println!("{} {}", label.bold().white().on_blue(), val);
+    let tag = color_str(label, |s| s.bold().white().on_blue());
+    println!("{} {}", tag, val);
 }
 
 pub fn indent(msg: &str, level: usize) {
@@ -41,7 +94,8 @@ pub fn indent(msg: &str, level: usize) {
 }
 
 pub fn prompt_yes_no(question: &str) -> bool {
-    print!("{} {} [Y/n] ", "?".yellow().bold(), question);
+    let symbol = color_str("?", |s| s.yellow().bold());
+    print!("{} {} [Y/n] ", symbol, question);
 
     // Attempt to flush stdout, default to true if terminal is broken
     if let Err(e) = io::stdout().flush() {

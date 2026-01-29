@@ -50,8 +50,17 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 2. Load Config
     let config_path = paths::config_file()?;
     let mut config = if !options.modules.is_empty() {
-        output::info(&format!("Loading additional modules: {:?}", options.modules));
-        load_config_with_modules(&config_path, &options.modules)?
+        // Check if this is selective sync (single module, no target specified)
+        // or loading additional modules
+        if options.modules.len() == 1 && options.target.is_none() {
+            // Selective sync: load ONLY this module
+            output::info(&format!("Syncing module: {}", options.modules[0]));
+            load_single_module(&config_path, &options.modules[0])?
+        } else {
+            // Load additional modules (existing behavior)
+            output::info(&format!("Loading additional modules: {:?}", options.modules));
+            load_config_with_modules(&config_path, &options.modules)?
+        }
     } else {
         loader::load_root_config(&config_path)?
     };
@@ -116,7 +125,31 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // -- INSTALLATION --
-    execute_installations(&tx, &managers, &mut installed_snapshot)?;
+    let successfully_installed = execute_installations(&tx, &managers, &mut installed_snapshot)?;
+
+    // Track installation failures but continue with adoption
+    let failed_count = tx.to_install.len() - successfully_installed.len();
+    let had_failures = failed_count > 0;
+
+    if had_failures {
+        output::error(&format!(
+            "Failed to install {} out of {} package(s)",
+            failed_count,
+            tx.to_install.len()
+        ));
+
+        // Find which packages failed
+        let failed_packages: Vec<_> = tx.to_install
+            .iter()
+            .filter(|pkg| !successfully_installed.contains(pkg))
+            .map(|pkg| format!("{}:{}", pkg.backend, pkg.name))
+            .collect();
+
+        output::error(&format!(
+            "Failed packages: {}",
+            failed_packages.join(", ")
+        ));
+    }
 
     // -- REMOVAL --
     if should_prune {
@@ -128,6 +161,15 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // Execute post-sync hooks
     crate::commands::hooks::execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+
+    // If there were installation failures, return error after everything else is done
+    // This allows adoption and state updates to complete
+    if had_failures {
+        return Err(crate::error::DeclarchError::Other(format!(
+            "{} package(s) failed to install. Please check the error messages above.",
+            failed_count
+        )));
+    }
 
     output::success("Sync complete!");
 
@@ -227,7 +269,7 @@ fn display_transaction_plan(
     if !tx.to_install.is_empty() {
         println!("{}", "To Install:".green().bold());
         for pkg in &tx.to_install {
-            println!("  + {}", pkg);
+            println!("  + {} ({})", pkg.name, pkg.backend);
         }
     }
 
@@ -238,14 +280,14 @@ fn display_transaction_plan(
                 .get(pkg)
                 .map(|m| m.version.as_deref().unwrap_or("?"))
                 .unwrap_or("smart-match");
-            println!("  ~ {} (v{})", pkg, v_display);
+            println!("  ~ {} ({}) (v{})", pkg.name, pkg.backend, v_display);
         }
     }
 
     if !tx.to_adopt.is_empty() {
         println!("{}", "To Adopt (Track in State):".yellow().bold());
         for pkg in &tx.to_adopt {
-            println!("  ~ {}", pkg);
+            println!("  ~ {} ({})", pkg.name, pkg.backend);
         }
     }
 
@@ -261,15 +303,16 @@ fn display_transaction_plan(
             if should_prune {
                 if is_critical {
                     println!(
-                        "  - {} {}",
-                        pkg.to_string().yellow(),
+                        "  - {} ({}) {}",
+                        pkg.name.yellow(),
+                        pkg.backend,
                         "(Protected - Detaching from State)".italic()
                     );
                 } else {
-                    println!("  - {}", pkg);
+                    println!("  - {} ({})", pkg.name, pkg.backend);
                 }
             } else {
-                println!("  - {}", pkg.to_string().dimmed());
+                println!("  - {} ({})", pkg.name.dimmed(), pkg.backend);
             }
         }
     }
@@ -280,7 +323,9 @@ fn execute_installations(
     tx: &resolver::Transaction,
     managers: &HashMap<Backend, Box<dyn PackageManager>>,
     installed_snapshot: &mut HashMap<PackageId, PackageMetadata>,
-) -> Result<()> {
+) -> Result<Vec<PackageId>> {
+    use std::collections::HashSet;
+
     // Group packages by backend
     let mut installs: HashMap<Backend, Vec<String>> = HashMap::new();
     for pkg in tx.to_install.iter() {
@@ -290,11 +335,38 @@ fn execute_installations(
             .push(pkg.name.clone());
     }
 
+    let mut successfully_installed = Vec::new();
+
     // Install packages
     for (backend, pkgs) in installs {
         if let Some(mgr) = managers.get(&backend) {
             output::info(&format!("Installing {} packages...", backend));
+
+            // Track which packages exist before installation
+            let pre_install_snapshot: HashSet<_> = mgr.list_installed()?
+                .keys()
+                .cloned()
+                .collect();
+
             mgr.install(&pkgs)?;
+
+            // Check which packages exist after installation
+            let post_install_snapshot: HashSet<_> = mgr.list_installed()?
+                .keys()
+                .cloned()
+                .collect();
+
+            // Find newly installed packages
+            for pkg_name in &pkgs {
+                if !pre_install_snapshot.contains(pkg_name)
+                    && post_install_snapshot.contains(pkg_name)
+                {
+                    successfully_installed.push(PackageId {
+                        name: pkg_name.clone(),
+                        backend: backend.clone(),
+                    });
+                }
+            }
         }
     }
 
@@ -316,7 +388,7 @@ fn execute_installations(
         }
     }
 
-    Ok(())
+    Ok(successfully_installed)
 }
 
 /// Discover the actual AUR package name for a given package
@@ -383,9 +455,21 @@ fn update_state_after_sync(
         .chain(tx.to_adopt.iter())
         .chain(tx.to_update_project_metadata.iter());
 
+    // Track failed installations (packages not found in snapshot)
+    let mut failed_packages = Vec::new();
+
     // Upsert packages into state
     for pkg in packages_to_upsert {
         let meta = find_package_metadata(pkg, installed_snapshot);
+
+        // CRITICAL FIX: Only add to state if package is actually installed
+        // Packages that failed installation won't be in the snapshot
+        if meta.is_none() {
+            // Package failed to install - track it but don't add to state
+            failed_packages.push(pkg.clone());
+            continue;
+        }
+
         let version = meta.and_then(|m| m.version.clone());
         let key = resolver::make_state_key(pkg);
 
@@ -408,6 +492,9 @@ fn update_state_after_sync(
             },
         );
     }
+
+    // Note: failed_packages are tracked but error is handled in main sync flow
+    // This allows adoption to continue even if some installations failed
 
     // Prune from state if needed
     if options.prune {
@@ -792,6 +879,51 @@ fn execute_pruning(
 }
 
 /// Load config with additional modules
+/// Load a single module file (for selective sync)
+/// Loads ONLY the specified module, not the entire config
+fn load_single_module(
+    _config_path: &std::path::PathBuf,
+    module_name: &str,
+) -> Result<loader::MergedConfig> {
+    use std::path::PathBuf;
+
+    // Try as module name (e.g., "gaming" -> modules/gaming.kdl)
+    let module_path = paths::module_file(module_name);
+
+    let final_path = if let Ok(path) = module_path {
+        if path.exists() {
+            path
+        } else {
+            // Try as direct path
+            let direct_path = PathBuf::from(module_name);
+            if direct_path.exists() {
+                direct_path
+            } else {
+                return Err(crate::error::DeclarchError::Other(format!(
+                    "Module not found: {}",
+                    module_name
+                )));
+            }
+        }
+    } else {
+        // Try as direct path
+        let direct_path = PathBuf::from(module_name);
+        if direct_path.exists() {
+            direct_path
+        } else {
+            return Err(crate::error::DeclarchError::Other(format!(
+                "Module not found: {}",
+                module_name
+            )));
+        }
+    };
+
+    // Load ONLY this module's packages (not the full config)
+    let module_config = loader::load_root_config(&final_path)?;
+
+    Ok(module_config)
+}
+
 fn load_config_with_modules(
     config_path: &std::path::PathBuf,
     extra_modules: &[String],

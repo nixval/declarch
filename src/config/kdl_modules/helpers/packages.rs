@@ -75,9 +75,23 @@ pub fn extract_mixed_values_return(node: &KdlNode) -> Vec<String> {
 
 /// Extract only string values from node entries (not children)
 pub fn extract_strings(node: &KdlNode, target: &mut Vec<String>) {
+    // First, extract from entries (key-value pairs on same line)
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
             target.push(val.to_string());
+        }
+    }
+
+    // Also extract from children nodes (nodes inside braces)
+    // This handles cases like: imports { "file1.kdl" "file2.kdl" }
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            // Get the string value from child node name
+            let child_name = child.name().value();
+            // Skip comment nodes (they start with //)
+            if !child_name.starts_with("//") {
+                target.push(child_name.to_string());
+            }
         }
     }
 }

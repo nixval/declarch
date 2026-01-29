@@ -1,5 +1,5 @@
 use clap::Parser;
-use declarch::cli::args::{Cli, Command};
+use declarch::cli::args::{Cli, Command, SettingsCommand};
 use declarch::commands;
 use declarch::ui as output;
 use std::process::exit;
@@ -8,6 +8,9 @@ use std::process::exit;
 // If you implement the root check later, add it back.
 
 fn main() {
+    // 0. Initialize color settings (must be first)
+    output::init_colors();
+
     // 1. Signal Handling
     ctrlc::set_handler(move || {
         println!();
@@ -113,6 +116,41 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         Some(Command::Edit { target }) => commands::edit::run(commands::edit::EditOptions {
             target: target.clone(),
         }),
+        Some(Command::Install {
+            packages,
+            backend,
+            module,
+            no_sync,
+        }) => commands::install::run(commands::install::InstallOptions {
+            packages: packages.clone(),
+            backend: backend.clone(),
+            module: module.clone(),
+            no_sync: *no_sync,
+        }),
+        Some(Command::Settings { command }) => {
+            // Convert CLI SettingsCommand to command SettingsCommand
+            let cmd = match command {
+                SettingsCommand::Set { key, value } => {
+                    commands::settings::SettingsCommand::Set {
+                        key: key.clone(),
+                        value: value.clone(),
+                    }
+                }
+                SettingsCommand::Get { key } => {
+                    commands::settings::SettingsCommand::Get {
+                        key: key.clone(),
+                    }
+                }
+                SettingsCommand::Show => commands::settings::SettingsCommand::Show,
+                SettingsCommand::Reset { key } => {
+                    commands::settings::SettingsCommand::Reset {
+                        key: key.clone(),
+                    }
+                }
+            };
+
+            commands::settings::run(cmd)
+        }
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
         None => {
             output::info("No command provided. Use --help.");

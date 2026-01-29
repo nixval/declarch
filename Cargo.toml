@@ -33,6 +33,7 @@ which = "8.0.0"
 # UX / UI
 ctrlc = "3.5.1"
 colored = "3.0.0"
+atty = "0.2"
 clap_complete = "4.5.61"
 regex = "1.12.2"
 reqwest = { version = "0.12.25", default-features = false, features = ["blocking", "rustls-tls"]}

@@ -71,6 +71,13 @@ pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
 
     recursive_load(path, &mut merged, &mut visited_paths)?;
 
+    // DEBUG: Show final merged config
+    eprintln!("[DEBUG] === FINAL CONFIG ===");
+    eprintln!("[DEBUG] Total packages loaded: {}", merged.packages.len());
+    for (pkg_id, sources) in &merged.packages {
+        eprintln!("[DEBUG]   {:?} from {:?}", pkg_id, sources);
+    }
+
     Ok(merged)
 }
 
@@ -79,6 +86,9 @@ fn recursive_load(
     merged: &mut MergedConfig,
     visited: &mut std::collections::HashSet<PathBuf>,
 ) -> Result<()> {
+    // DEBUG: Show which file is being loaded
+    eprintln!("[DEBUG] Loading file: {}", path.display());
+
     let abs_path = expand_home(path)
         .map_err(|e| DeclarchError::Other(format!("Path expansion error: {}", e)))?;
 
@@ -89,19 +99,34 @@ fn recursive_load(
     };
 
     let canonical_path =
-        std::fs::canonicalize(&path_with_ext).map_err(|_e| DeclarchError::ConfigNotFound {
-            path: path_with_ext.clone(),
+        std::fs::canonicalize(&path_with_ext).map_err(|_e| {
+            // DEBUG: File not found
+            eprintln!("[DEBUG] File not found: {}", path_with_ext.display());
+            DeclarchError::ConfigNotFound {
+                path: path_with_ext.clone(),
+            }
         })?;
 
+    // DEBUG: Show canonical path
+    eprintln!("[DEBUG] Canonical path: {}", canonical_path.display());
+
     if visited.contains(&canonical_path) {
+        eprintln!("[DEBUG] Already visited, skipping");
         return Ok(());
     }
     visited.insert(canonical_path.clone());
 
     let content = std::fs::read_to_string(&canonical_path)?;
+    eprintln!("[DEBUG] File size: {} bytes", content.len());
 
     // Parsing KDL
     let raw = parse_kdl_content(&content)?;
+
+    // DEBUG: Show what packages were found
+    eprintln!("[DEBUG] Found {} AUR packages in {}", raw.packages.len(), canonical_path.display());
+    for pkg in &raw.packages {
+        eprintln!("[DEBUG]   Package: {}", pkg.name);
+    }
 
     // Detect distro for conditional package processing
     let distro = DistroType::detect();
@@ -113,6 +138,9 @@ fn recursive_load(
                 name: pkg_entry.name,
                 backend: Backend::Aur,
             };
+
+            // DEBUG: Show package being added
+            eprintln!("[DEBUG] Adding AUR package: {} from {}", pkg_id.name, canonical_path.display());
 
             merged
                 .packages
@@ -128,6 +156,9 @@ fn recursive_load(
             name: pkg_entry.name,
             backend: Backend::Soar,
         };
+
+        // DEBUG: Show Soar package being added
+        eprintln!("[DEBUG] Adding Soar package: {} from {}", pkg_id.name, canonical_path.display());
 
         merged
             .packages
@@ -328,6 +359,9 @@ fn recursive_load(
     })?;
 
     for import_str in raw.imports {
+        // DEBUG: Show which import is being processed
+        eprintln!("[DEBUG] Processing import: '{}' from parent: {}", import_str, parent_dir.display());
+
         // Security: Validate import path to prevent path traversal attacks
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
             // Absolute paths or home paths: allow but validate
@@ -350,10 +384,32 @@ fn recursive_load(
                 )));
             }
 
-            parent_dir.join(import_str)
+            // Relative paths are relative to current config directory
+            // Examples: "modules/base.kdl", "others.kdl", "linux/notes.kdl"
+            // Just join with parent_dir - no stripping needed
+            let result = parent_dir.join(import_str);
+            // DEBUG: Show resolved path
+            eprintln!("[DEBUG] Resolved to: {}", result.display());
+            eprintln!("[DEBUG] File exists: {}", result.exists());
+            result
         };
 
-        recursive_load(&import_path, merged, visited)?;
+        // Try to load the import, but gracefully skip if file doesn't exist
+        match recursive_load(&import_path, merged, visited) {
+            Ok(()) => {}
+            Err(DeclarchError::ConfigNotFound { path }) => {
+                // File doesn't exist - warn and skip instead of failing
+                crate::ui::warning(&format!(
+                    "Skipping missing import: {}",
+                    path.display()
+                ));
+                eprintln!("[DEBUG] Import file not found, skipping: {}", path.display());
+            }
+            Err(e) => {
+                // Other errors should still propagate
+                return Err(e);
+            }
+        }
     }
 
     Ok(())

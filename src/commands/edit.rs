@@ -146,9 +146,9 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
 
         // Not found
         return Err(DeclarchError::Other(format!(
-            "Module '{}' not found\n  Tried: modules/{}\n  Hint: Use 'declarch info' to list available modules",
+            "Module '{}' not found\n  Tried: {}\n  Hint: Use 'declarch info' to list available modules",
             target,
-            module_path.display()
+            full_path.display()  // Use full_path which already includes modules/
         )));
     }
 
@@ -170,12 +170,22 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
 /// Get editor to use from config file or environment
 ///
 /// Priority:
-/// 1. editor "nvim" in declarch.kdl
-/// 2. $EDITOR environment variable
-/// 3. $VISUAL environment variable
-/// 4. "nano" (default fallback)
+/// 1. Settings (declarch settings set editor nvim)
+/// 2. editor "nvim" in declarch.kdl
+/// 3. $EDITOR environment variable
+/// 4. $VISUAL environment variable
+/// 5. "nano" (default fallback)
 fn get_editor_from_config() -> Result<String> {
-    // Try to load and parse the root config file
+    // Priority 1: Settings system (NEW)
+    if let Ok(settings) = crate::config::settings::Settings::load() {
+        if let Some(editor) = settings.get("editor") {
+            if !editor.is_empty() {
+                return Ok(editor.clone());
+            }
+        }
+    }
+
+    // Priority 2: Try to load and parse the root config file
     let config_file = paths::config_file()?;
 
     if config_file.exists()
@@ -187,7 +197,7 @@ fn get_editor_from_config() -> Result<String> {
         return Ok(editor);
     }
 
-    // Check environment variables
+    // Priority 3: Check environment variables
     if let Ok(ed) = std::env::var("EDITOR")
         && !ed.is_empty()
     {
@@ -199,6 +209,6 @@ fn get_editor_from_config() -> Result<String> {
         return Ok(ed);
     }
 
-    // Fallback to nano
+    // Priority 4: Fallback to nano
     Ok("nano".to_string())
 }

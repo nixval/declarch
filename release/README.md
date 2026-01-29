@@ -118,7 +118,6 @@ Share your config across others
 ## ✨ Key Features
 
   * **Declarative Config:** Uses the clean, readable **KDL** syntax.
-  * **Dual Command:** Use `declarch` or shorter `dcl` alias.
   * **Remote Init:** Fetch configs from GitHub/GitLab repositories.
   * **Universal Backend:** Supports **AUR**, **Flatpak**, **Soar**, **npm**, **pip**, **cargo**, **brew**, **yarn**, **pnpm**, **bun**.
   * **Generic System:** Easy to add new package managers via configuration.
@@ -167,11 +166,7 @@ sudo install target/release/declarch /usr/local/bin/
 ### Initialize Config
 
 ```bash
-# Using declarch
 declarch init
-
-# Or use the shorter alias
-dcl init
 ```
 
 This creates:
