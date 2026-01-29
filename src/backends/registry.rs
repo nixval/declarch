@@ -1,3 +1,81 @@
+//! # Built-in Backend Configurations
+//!
+//! This module defines built-in backend configurations for package managers that
+//! use the generic config-driven pattern (via `GenericManager`).
+//!
+//! ## Generic Backend Pattern
+//!
+//! Generic backends are package managers that follow standard patterns:
+//! - Simple install/remove/list commands
+//! - No complex state management
+//! - No special initialization logic
+//! - Can be fully configured via `BackendConfig`
+//!
+//! ## Supported Generic Backends
+//!
+//! ### Node.js Ecosystem
+//! - **npm**: Node package manager
+//! - **yarn**: Package manager for Node (uses npm for listing)
+//! - **pnpm**: Fast, disk space efficient package manager
+//! - **bun**: Ultra-fast Node.js runtime and package manager
+//!
+//! ### Python
+//! - **pip**: Python package manager (tries pip3 first, then pip)
+//!
+//! ### Rust
+//! - **cargo**: Rust package manager
+//!
+//! ### Cross-Platform
+//! - **brew**: Homebrew package manager (Linux/macOS)
+//!
+//! ## Backend Configuration Structure
+//!
+//! Each backend defines:
+//! - `binary`: How to invoke the package manager
+//! - `list_cmd`: Command to list installed packages
+//! - `install_cmd`: Command to install packages
+//! - `remove_cmd`: Command to remove packages
+//! - `list_format`: Output format (Json, SplitWhitespace, etc.)
+//! - `needs_sudo`: Whether sudo is required
+//! - `noconfirm_flag`: Auto-confirmation flag
+//!
+//! ## Adding a New Generic Backend
+//!
+//! To add support for a new package manager:
+//!
+//! ```no_run
+//! # use declarch::backends::config::{BackendConfig, BinarySpecifier};
+//! # use declarch::backends::config::OutputFormat;
+//! # let mut backends = std::collections::HashMap::new();
+//! // Add to get_builtin_backends():
+//! backends.insert(
+//!     "newpm".to_string(),
+//!     BackendConfig {
+//!         name: "newpm".to_string(),
+//!         binary: BinarySpecifier::Single("newpm".to_string()),
+//!         list_cmd: "newpm list --json 2>/dev/null".to_string(),
+//!         install_cmd: "newpm install {packages}".to_string(),
+//!         remove_cmd: "newpm uninstall {packages}".to_string(),
+//!         query_cmd: None,
+//!         list_format: OutputFormat::Json,
+//!         list_name_col: None,
+//!         list_version_col: None,
+//!         list_json_path: Some("dependencies".to_string()),
+//!         list_name_key: Some("name".to_string()),
+//!         list_version_key: Some("version".to_string()),
+//!         list_regex: None,
+//!         list_regex_name_group: None,
+//!         list_regex_version_group: None,
+//!         noconfirm_flag: Some("--yes".to_string()),
+//!         needs_sudo: false,
+//!         preinstall_env: None,
+//!         use_rust_fallback: false,
+//!     },
+//! );
+//! ```
+//!
+//! Then register it in `packages/registry.rs::register_defaults()`.
+
 use crate::backends::config::{BackendConfig, BinarySpecifier};
 use crate::backends::user_parser;
 use crate::utils::paths;

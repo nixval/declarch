@@ -6,6 +6,63 @@ Complete reference for all supported package manager backends in declarch.
 
 Declarch supports multiple package management backends through a unified interface. Each backend represents a different package manager or ecosystem.
 
+## Architecture
+
+Declarch uses **two different backend implementation patterns** to support different types of package managers:
+
+### Custom Rust Implementations
+
+Some backends require custom Rust implementations due to their complexity or special requirements:
+
+| Backend | Why Custom? | Location |
+|---------|-------------|----------|
+| **AUR** | AUR helper detection (paru/yay), special AUR handling | `src/packages/aur.rs` |
+| **Flatpak** | Remote management, special installation patterns | `src/packages/flatpak.rs` |
+| **Soar** | Auto-installation, static binary management | `src/packages/soar.rs` |
+
+These backends have:
+- Complex state management
+- Special detection/initialization logic
+- Non-standard command patterns
+- Backend-specific features
+
+### Generic Config-Driven Implementations
+
+Most backends use a generic configuration-driven approach via `GenericManager`:
+
+| Backend | Type | Config Location |
+|---------|------|-----------------|
+| **npm, yarn, pnpm, bun** | Node.js package managers | `src/backends/registry.rs` |
+| **pip** | Python package manager | `src/backends/registry.rs` |
+| **cargo** | Rust package manager | `src/backends/registry.rs` |
+| **brew** | Homebrew | `src/backends/registry.rs` |
+
+These backends:
+- Follow standard package manager patterns
+- Use simple install/remove/list commands
+- Require no special initialization
+- Can be fully configured declaratively
+
+### How Backends Are Loaded
+
+1. **Custom backends** are registered in `src/packages/registry.rs`
+2. **Generic backends** load their configuration from `src/backends/registry.rs`
+3. Both are created through the `BackendRegistry` factory
+4. User-defined backends (from `backends.kdl`) can override built-in configurations
+
+### Adding a New Backend
+
+**For a custom backend** (complex logic):
+1. Create implementation file in `src/packages/<name>.rs`
+2. Implement `PackageManager` trait
+3. Add `Backend::<Name>` to `core/types.rs`
+4. Register in `BackendRegistry::register_defaults()`
+
+**For a generic backend** (simple commands):
+1. Add configuration to `src/backends/registry.rs::get_builtin_backends()`
+2. Add `Backend::<Name>` to `core/types.rs`
+3. Register in `BackendRegistry::register_defaults()` using `GenericManager`
+
 ## Available Backends
 
 | Backend | Description | Distribution Support | Syntax |

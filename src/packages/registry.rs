@@ -1,3 +1,55 @@
+//! # Package Manager Registry
+//!
+//! This module manages the registration and creation of package manager instances.
+//!
+//! ## Backend Implementation Patterns
+//!
+//! Declarch supports **two different backend implementation patterns**:
+//!
+//! ### 1. Custom Rust Implementations (src/packages/*.rs)
+//!
+//! These backends have complex logic that cannot be expressed in simple configuration.
+//!
+//! - **AUR** (`packages/aur.rs`): Paru/Yay detection, special AUR handling
+//! - **Flatpak** (`packages/flatpak.rs`): Remote management, special installation patterns
+//! - **Soar** (`packages/soar.rs`): Auto-installation, static binary management
+//!
+//! ### 2. Generic Config-Driven Implementations (src/backends/registry.rs)
+//!
+//! These backends follow simple command patterns and are configuration-driven.
+//!
+//! - **npm, yarn, pnpm, bun**: Node.js package managers (install/remove/list)
+//! - **pip**: Python package manager
+//! - **cargo**: Rust package manager
+//! - **brew**: Homebrew package manager
+//!
+//! ## When to Use Which Pattern?
+//!
+//! **Use Custom Implementation** when:
+//! - Backend requires complex state management
+//! - Special detection/initialization logic needed
+//! - Non-standard command patterns
+//! - Backend-specific features (e.g., AUR helpers)
+//!
+//! **Use Generic Implementation** when:
+//! - Backend follows standard package manager pattern
+//! - Simple install/remove/list commands
+//! - No special initialization required
+//! - Can be configured declaratively
+//!
+//! ## Adding a New Backend
+//!
+//! For a **custom backend**:
+//! 1. Create `src/packages/<backend>.rs` with Manager struct
+//! 2. Implement `PackageManager` trait
+//! 3. Add `Backend::<Name>` variant to `core/types.rs`
+//! 4. Register in `BackendRegistry::register_defaults()`
+//!
+//! For a **generic backend**:
+//! 1. Add configuration to `src/backends/registry.rs::get_builtin_backends()`
+//! 2. Add `Backend::<Name>` variant to `core/types.rs`
+//! 3. Register in `BackendRegistry::register_defaults()` using `GenericManager`
+
 use crate::backends::{GenericManager, get_builtin_backends};
 use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
