@@ -17,6 +17,33 @@ lifecycle actions are shell commands that run at specific points during the `dec
 
 Remote configurations (from `declarch init <url>`) may contain arbitrary commands. Always review lifecycle actions before enabling.
 
+### Security Features (v0.4.4+)
+
+The following security measures are in place to protect against malicious commands:
+
+1. **No Embedded Sudo**: Commands containing `sudo` are rejected. Use the `--sudo` flag instead.
+2. **Character Validation**: Only safe characters are allowed (alphanumeric, spaces, slashes, dots, hyphens, underscores, @, :, =, $, ~, {, })
+3. **Safe Parsing**: Commands are parsed using `shlex` (not `shell-words`) for better security
+4. **No Shell Expansion**: Commands execute directly without shell interpretation
+
+Example of blocked commands:
+```kdl
+// ❌ BLOCKED: Embedded sudo
+hooks {
+    post-install "sudo systemctl enable docker"
+}
+
+// ❌ BLOCKED: Unsafe characters (backticks, pipes, etc.)
+hooks {
+    post-install "notify-send 'Hello' && malicious_command"
+}
+
+// ✅ ALLOWED: Use --sudo flag instead
+hooks {
+    docker:post-install "systemctl enable docker" --sudo
+}
+```
+
 ## Action Types (v0.4.4)
 
 ### Global Actions

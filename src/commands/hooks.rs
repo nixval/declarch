@@ -108,12 +108,21 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
         )));
     }
 
-    // Parse the command string into args
-    let args = shell_words::split(&hook.command).map_err(|e| {
+    // Security: Validate command contains only safe characters before parsing
+    // Allow: alphanumeric, spaces, tabs, slashes, dots, hyphens, underscores, @, :, =, $, ~
+    let safe_char_regex = regex::Regex::new(r"^[\w\s\-\./@:=\$~\{\}]+$").unwrap();
+    if !safe_char_regex.is_match(&hook.command) {
+        return Err(DeclarchError::ConfigError(format!(
+            "Hook command contains unsafe characters.\n  Command: {}",
+            sanitize::sanitize_for_display(&hook.command)
+        )));
+    }
+
+    // Parse the command string into args using shlex (safer than shell_words)
+    let args = shlex::split(&hook.command).ok_or_else(|| {
         DeclarchError::ConfigError(format!(
-            "Failed to parse hook command '{}': {}",
-            sanitize::sanitize_for_display(&hook.command),
-            e
+            "Failed to parse hook command '{}': Invalid quoting or escaping",
+            sanitize::sanitize_for_display(&hook.command)
         ))
     })?;
 
