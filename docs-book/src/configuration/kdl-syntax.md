@@ -123,7 +123,7 @@ packages:npm {
     prettier
 }
 
-packages:python {
+packages:pip {
     black
     ruff
 }
@@ -316,13 +316,19 @@ Run commands before/after sync:
 
 ```kdl
 // Pre-sync action
-on-pre-sync "notify-send 'Starting sync...'"
+hooks {
+    pre-sync "notify-send 'Starting sync...'"
+}
 
 // Post-sync action
-on-sync "notify-send 'Packages updated'"
+hooks {
+    post-sync "notify-send 'Packages updated'"
+}
 
 // Post-sync with sudo
-on-sync-sudo "systemctl restart gdm"
+hooks {
+    post-sync "systemctl restart gdm" --sudo
+}
 ```
 
 ### Package Mappings
@@ -397,7 +403,7 @@ packages:npm {
 ### Python
 
 ```kdl
-packages:python {
+packages:pip {
     black
     ruff
     jupyter
@@ -566,9 +572,11 @@ options:aur {
 env EDITOR="nvim"
 env:aur MAKEFLAGS="-j4"
 
-// === HOOKS ===
-on-pre-sync "notify-send 'Starting sync...'"
-on-sync "notify-send 'Packages updated'"
+// === LIFECYCLE ACTIONS ===
+hooks {
+    pre-sync "notify-send 'Starting sync...'"
+    post-sync "notify-send 'Packages updated'"
+}
 
 // === PACKAGES ===
 
@@ -607,7 +615,7 @@ packages:npm {
 }
 
 // Python ecosystem
-packages:python {
+packages:pip {
     black
     ruff
     jupyter

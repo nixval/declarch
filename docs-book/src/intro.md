@@ -117,7 +117,7 @@ Declarch talks to each package manager:
 packages         → paru/yay (AUR)
 packages:npm     → npm install -g
 packages:cargo   → cargo install
-packages:python  → pip install
+packages:pip  → pip install
 packages:flatpak → flatpak install
 packages:soar    → soar install (cross-distro!)
 ```

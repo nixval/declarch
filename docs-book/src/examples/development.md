@@ -6,7 +6,7 @@ Configuration for software development.
 
 ```kdl
 meta {
-  host "dev-machine"
+  title "dev-machine"
   description "Development computer"
 }
 
@@ -35,7 +35,7 @@ packages:npm {
 }
 
 // Python tools
-packages:python {
+packages:pip {
   black     // Formatter
   ruff      // Linter
   jupyter   // Notebooks
@@ -78,7 +78,7 @@ Declarch works with many package managers:
 | `packages` | paru/pacman | neovim, git, docker |
 | `packages:cargo` | cargo install | ripgrep, fd-find |
 | `packages:npm` | npm install -g | typescript, prettier |
-| `packages:python` | pip install | black, ruff |
+| `packages:pip` | pip install | black, ruff |
 | `packages:go` | go install | (custom backend) |
 | `packages:flatpak` | flatpak install | IDEs and apps |
 

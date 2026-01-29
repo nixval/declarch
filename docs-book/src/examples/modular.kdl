@@ -46,7 +46,9 @@ packages {
 }
 
 // === HOST-SPECIFIC SETTINGS ===
-on-sync "notify-send 'Desktop' 'Packages updated for $(hostname)'"
+hooks {
+    post-sync "notify-send 'Desktop' 'Packages updated for $(hostname)'"
+}
 
 // ========================================
 // MODULE FILES
@@ -135,9 +137,11 @@ packages:flatpak {
     org.telegram.desktop
 }
 
-// Desktop-specific hooks
-on-sync "notify-send 'Desktop' 'Hyprland packages updated'"
-on-sync "pkill -SIGUSR1 waybar"  // Refresh waybar
+// Desktop-specific lifecycle actions
+hooks {
+    post-sync "notify-send 'Desktop' 'Hyprland packages updated'"
+    post-sync "pkill -SIGUSR1 waybar"  // Refresh waybar
+}
 */
 
 // ========================================
@@ -169,7 +173,9 @@ packages {
     rust-analyzer   // LSP server
 }
 
-on-sync "notify-send 'Rust' 'Rust toolchain updated'"
+hooks {
+    post-sync "notify-send 'Rust' 'Rust toolchain updated'"
+}
 */
 
 // ========================================
@@ -194,7 +200,9 @@ packages:npm {
     vite
 }
 
-on-sync "notify-send 'Node.js' 'npm packages updated'"
+hooks {
+    post-sync "notify-send 'Node.js' 'npm packages updated'"
+}
 */
 
 // ========================================
@@ -211,14 +219,16 @@ meta {
 }
 
 // Python packages
-packages:python {
+packages:pip {
     black       // Formatter
     ruff        // Linter
     mypy        // Type checker
     jupyter     // Notebooks
 }
 
-on-sync "notify-send 'Python' 'Python packages updated'"
+hooks {
+    post-sync "notify-send 'Python' 'Python packages updated'"
+}
 */
 
 // ========================================
@@ -251,7 +261,9 @@ packages:flatpak {
     com.discordapp.Discord
 }
 
-on-sync "notify-send 'Gaming' 'Steam and gaming tools updated'"
+hooks {
+    post-sync "notify-send 'Gaming' 'Steam and gaming tools updated'"
+}
 */
 
 // ========================================

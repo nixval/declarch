@@ -192,7 +192,9 @@ packages:flatpak {
     com.spotify.Client
 }
 
-on-sync "notify-send 'Hyprland packages updated'"
+hooks {
+    post-sync "notify-send 'Hyprland packages updated'"
+}
 ```
 
 ## Advanced Module Features

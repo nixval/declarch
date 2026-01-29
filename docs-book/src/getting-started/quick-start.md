@@ -172,7 +172,7 @@ packages:npm {
     prettier
 }
 
-packages:python {
+packages:pip {
     black
     ruff
 }

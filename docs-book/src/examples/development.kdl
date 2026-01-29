@@ -76,7 +76,7 @@ packages:npm {
 
 // === LANGUAGE: PYTHON ===
 
-packages:python {
+packages:pip {
     // === DEVELOPMENT ===
     black               // Code formatter
     ruff                // Fast linter
@@ -208,10 +208,12 @@ packages {
     nginx               // Web server
 }
 
-// === HOOKS ===
+// === LIFECYCLE ACTIONS ===
 // Run development environment setup after sync
-on-sync "notify-send 'Dev Environment' 'Development packages updated'"
-on-sync "~/.config/declarch/scripts/dev-post-sync.sh"
+hooks {
+    post-sync "notify-send 'Dev Environment' 'Development packages updated'"
+    post-sync "~/.config/declarch/scripts/dev-post-sync.sh"
+}
 
 // === DEV POST-SYNC SCRIPT ===
 // Create: ~/.config/declarch/scripts/dev-post-sync.sh

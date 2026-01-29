@@ -54,11 +54,13 @@ env EDITOR="nvim"
 env VISUAL="nvim"
 env:aur MAKEFLAGS="-j4"  // Parallel AUR builds
 
-// === HOOKS ===
+// === LIFECYCLE ACTIONS ===
 // Run commands before/after sync
-on-pre-sync "notify-send 'Declarch' 'Starting package synchronization...'"
-on-sync "notify-send 'Declarch' 'Packages updated successfully'"
-on-sync "fc-cache -fv"  // Refresh font cache
+hooks {
+    pre-sync "notify-send 'Declarch' 'Starting package synchronization...'"
+    post-sync "notify-send 'Declarch' 'Packages updated successfully'"
+    post-sync "fc-cache -fv"  // Refresh font cache
+}
 
 // === PACKAGES ===
 
@@ -148,7 +150,7 @@ packages:npm {
 }
 
 // Python ecosystem
-packages:python {
+packages:pip {
     black
     ruff
     jupyter

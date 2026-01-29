@@ -200,7 +200,7 @@ Declarch supports multiple package managers through **backends**:
 | **soar** | Static binary registry | `packages:soar { pkg }` | All Linux |
 | **flatpak** | Universal apps | `packages:flatpak { app }` | All Linux |
 | **npm** | Node.js packages | `packages:npm { pkg }` | All Linux |
-| **python** | Python packages | `packages:python { pkg }` | All Linux |
+| **python** | Python packages | `packages:pip { pkg }` | All Linux |
 | **cargo** | Rust crates | `packages:cargo { crate }` | All Linux |
 | **brew** | Homebrew | `packages:brew { pkg }` | Linux/macOS |
 

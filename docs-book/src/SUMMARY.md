@@ -46,7 +46,7 @@
 
 - [Minimal Setup](./examples/minimal.md)
 - [Desktop Environment](./examples/desktop.md)
-- [Development Environment](./examples/examples.md)
+- [Development Environment](./examples/development.md)
 - [Modular Setup](./examples/modular.md)
 
 ---

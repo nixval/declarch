@@ -17,7 +17,7 @@ Declarch supports multiple package management backends through a unified interfa
 | **yarn** | Yarn packages | All Linux | `packages:yarn { pkg }` |
 | **pnpm** | pnpm packages | All Linux | `packages:pnpm { pkg }` |
 | **bun** | Bun packages | All Linux | `packages:bun { pkg }` |
-| **python** | Python packages (pip) | All Linux | `packages:python { pkg }` |
+| **pip** | Python packages (pip) | All Linux | `packages:pip { pkg }` |
 | **cargo** | Rust crates | All Linux | `packages:cargo { crate }` |
 | **brew** | Homebrew | Linux, macOS | `packages:brew { pkg }` |
 
@@ -299,7 +299,7 @@ paru -S python python-pip
 ### Configuration
 
 ```kdl
-packages:python {
+packages:pip {
     black
     ruff
     jupyter
@@ -472,7 +472,7 @@ packages:npm {
     prettier
 }
 
-packages:python {
+packages:pip {
     black
     ruff
 }

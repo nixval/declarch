@@ -40,7 +40,7 @@ packages {
 //     prettier
 // }
 //
-// packages:python {
+// packages:pip {
 //     black
 //     ruff
 // }
