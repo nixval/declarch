@@ -1,3 +1,4 @@
+use crate::constants::{CONFIG_EXTENSION, CONFIG_FILE_NAME, DECLARCH_DIR_NAME, BACKENDS_FILE_NAME, MODULES_DIR_NAME, PROJECT_QUALIFIER, PROJECT_ORG};
 use crate::error::{DeclarchError, Result};
 use directories::{ProjectDirs, UserDirs};
 use std::path::{Path, PathBuf};
@@ -27,13 +28,13 @@ pub fn expand_home(path: &Path) -> Result<PathBuf> {
 }
 
 pub fn config_dir() -> Result<PathBuf> {
-    let proj = ProjectDirs::from("com", "declarch", "declarch")
+    let proj = ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME)
         .ok_or_else(|| DeclarchError::Other("Could not determine config directory".to_string()))?;
     Ok(proj.config_dir().to_path_buf())
 }
 
 pub fn config_file() -> Result<PathBuf> {
-    Ok(config_dir()?.join("declarch.kdl"))
+    Ok(config_dir()?.join(CONFIG_FILE_NAME))
 }
 
 pub fn hosts_dir() -> Result<PathBuf> {
@@ -41,17 +42,17 @@ pub fn hosts_dir() -> Result<PathBuf> {
 }
 
 pub fn modules_dir() -> Result<PathBuf> {
-    Ok(config_dir()?.join("modules"))
+    Ok(config_dir()?.join(MODULES_DIR_NAME))
 }
 
 pub fn host_file(name: &str) -> Result<PathBuf> {
-    Ok(hosts_dir()?.join(format!("{}.kdl", name)))
+    Ok(hosts_dir()?.join(format!("{}.{}", name, CONFIG_EXTENSION)))
 }
 
 pub fn module_file(name: &str) -> Result<PathBuf> {
-    Ok(modules_dir()?.join(format!("{}.kdl", name)))
+    Ok(modules_dir()?.join(format!("{}.{}", name, CONFIG_EXTENSION)))
 }
 
 pub fn backend_config() -> Result<PathBuf> {
-    Ok(config_dir()?.join("backends.kdl"))
+    Ok(config_dir()?.join(BACKENDS_FILE_NAME))
 }

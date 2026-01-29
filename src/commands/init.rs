@@ -1,3 +1,4 @@
+use crate::constants::{CONFIG_EXTENSION, CONFIG_FILE_NAME};
 use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
@@ -80,7 +81,7 @@ pub fn run(options: InitOptions) -> Result<()> {
         ));
     }
 
-    let base_module_path = modules_dir.join("base.kdl");
+    let base_module_path = modules_dir.join(format!("base.{}", CONFIG_EXTENSION));
     if !base_module_path.exists() {
         let base_template = utils::templates::get_template_by_name("base")
             .unwrap_or_else(|| utils::templates::default_module("base"));
@@ -127,7 +128,7 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     // 1. Resolve Path - preserve directory structure
     let mut path_buf = PathBuf::from(target_path);
     if path_buf.extension().is_none() {
-        path_buf.set_extension("kdl");
+        path_buf.set_extension(CONFIG_EXTENSION);
     }
 
     // Always prepend "modules/" to keep structure
@@ -249,11 +250,11 @@ fn display_module_meta(content: &str) {
     }
 }
 
-/// Helper to inject the import statement into declarch.kdl using Regex
+/// Helper to inject the import statement into main config file using Regex
 fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> Result<()> {
     let content = fs::read_to_string(config_path)?;
 
-    // Pattern to insert: "path/to/module.kdl"
+    // Pattern to insert: "path/to/module.{extension}"
     // We add quotes for safety.
     let import_line = format!("    {:?}", import_path);
 
@@ -271,8 +272,8 @@ fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> 
     // Prompt for consent unless force is active
     if !force
         && !output::prompt_yes_no(&format!(
-            "Add '{}' to imports in declarch.kdl?",
-            import_path
+            "Add '{}' to imports in {}?",
+            import_path, CONFIG_FILE_NAME
         ))
     {
         output::info("Skipping auto-import. You can add it manually.");
@@ -303,8 +304,8 @@ fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> 
 
     fs::write(config_path, new_content)?;
     output::success(&format!(
-        "Auto-imported: added '{}' to declarch.kdl",
-        import_path.green()
+        "Auto-imported: added '{}' to {}",
+        import_path.green(), CONFIG_FILE_NAME
     ));
 
     Ok(())

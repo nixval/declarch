@@ -51,6 +51,7 @@
 //! 3. Register in `BackendRegistry::register_defaults()` using `GenericManager`
 
 use crate::backends::{GenericManager, get_builtin_backends};
+use crate::constants::BACKENDS_FILE_NAME;
 use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::packages::PackageManager;
@@ -129,8 +130,8 @@ impl BackendRegistry {
 
                 let backend_config = all_backends.get(backend_name).ok_or_else(|| {
                     format!(
-                        "Custom backend '{}' not found in backends.kdl",
-                        backend_name
+                        "Custom backend '{}' not found in {}",
+                        backend_name, BACKENDS_FILE_NAME
                     )
                 })?;
 

@@ -1,3 +1,4 @@
+use crate::constants::{CONFIG_EXTENSION, DEFAULT_BRANCHES, PROJECT_NAME};
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use reqwest::blocking::Client;
@@ -65,8 +66,8 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
     }
 
     Err(DeclarchError::TargetNotFound(format!(
-        "Failed to fetch from: {}\n  Hint: Ensure the repository has a declarch.kdl file",
-        target_path
+        "Failed to fetch from: {}\n  Hint: Ensure the repository has a {}.{} file",
+        target_path, PROJECT_NAME, CONFIG_EXTENSION
     )))
 }
 
@@ -81,7 +82,7 @@ fn build_urls(target: &str) -> Vec<String> {
     }
 
     // Strip .kdl extension if present (for cleaner URL building)
-    let clean_target = target.strip_suffix(".kdl").unwrap_or(target);
+    let clean_target = target.strip_suffix(&format!(".{}", CONFIG_EXTENSION)).unwrap_or(target);
 
     // 2. Config variant syntax: user/repo:variant or user/repo/branch:variant
     // Examples:
@@ -102,16 +103,16 @@ fn build_urls(target: &str) -> Vec<String> {
 
                     // Try: user/repo:variant → user/repo/main/declarch-variant.kdl
                     urls.push(format!(
-                        "https://raw.githubusercontent.com/{}/{}/main/declarch-{}.kdl",
-                        owner, repo_name, variant
+                        "https://raw.githubusercontent.com/{}/{}/main/{}-{}.{}",
+                        owner, repo_name, PROJECT_NAME, variant, CONFIG_EXTENSION
                     ));
 
                     // Also try branches (main, master)
                     if variant != "main" && variant != "master" {
-                        for b in ["main", "master"] {
+                        for b in DEFAULT_BRANCHES {
                             urls.push(format!(
-                                "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
-                                owner, repo_name, b, variant
+                                "https://raw.githubusercontent.com/{}/{}/{}/{}-{}.{}",
+                                owner, repo_name, b, PROJECT_NAME, variant, CONFIG_EXTENSION
                             ));
                         }
                     }
@@ -123,16 +124,16 @@ fn build_urls(target: &str) -> Vec<String> {
 
                     // Try: user/repo/branch:variant → user/repo/branch/declarch-variant.kdl
                     urls.push(format!(
-                        "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
-                        owner, repo_name, branch, variant
+                        "https://raw.githubusercontent.com/{}/{}/{}/{}-{}.{}",
+                        owner, repo_name, branch, PROJECT_NAME, variant, CONFIG_EXTENSION
                     ));
 
                     // Also try main/master as fallback
                     if branch != "main" && branch != "master" {
-                        for b in ["main", "master"] {
+                        for b in DEFAULT_BRANCHES {
                             urls.push(format!(
-                                "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
-                                owner, repo_name, b, variant
+                                "https://raw.githubusercontent.com/{}/{}/{}/{}-{}.{}",
+                                owner, repo_name, b, PROJECT_NAME, variant, CONFIG_EXTENSION
                             ));
                         }
                     }
@@ -158,8 +159,8 @@ fn build_urls(target: &str) -> Vec<String> {
             };
 
             urls.push(format!(
-                "https://gitlab.com/{}/{}/-/raw/{}/declarch.kdl",
-                owner, repo, branch
+                "https://gitlab.com/{}/{}/-/raw/{}/{}.{}",
+                owner, repo, branch, PROJECT_NAME, CONFIG_EXTENSION
             ));
         }
 
@@ -168,7 +169,7 @@ fn build_urls(target: &str) -> Vec<String> {
 
     // 4. Registry module path (has .kdl extension, like "gaming/steam-setup.kdl")
     // This takes priority over GitHub user/repo to avoid ambiguity
-    if target.contains('/') && target.ends_with(".kdl") {
+    if target.contains('/') && target.ends_with(&format!(".{}", CONFIG_EXTENSION)) {
         // It's a registry module path with extension
         urls.push(format!(
             "{}/modules/{}",
@@ -181,8 +182,8 @@ fn build_urls(target: &str) -> Vec<String> {
         if parts.len() >= 2 {
             let (owner, repo) = (parts[0], parts[1]);
             urls.push(format!(
-                "https://raw.githubusercontent.com/{}/{}/main/declarch.kdl",
-                owner, repo
+                "https://raw.githubusercontent.com/{}/{}/main/{}.{}",
+                owner, repo, PROJECT_NAME, CONFIG_EXTENSION
             ));
         }
 
@@ -205,25 +206,27 @@ fn build_urls(target: &str) -> Vec<String> {
             let branches_to_try = if branch == "main" || branch == "master" {
                 vec![branch]
             } else {
-                vec![branch, "main", "master"]
+                let mut branches = vec![branch];
+                branches.extend(DEFAULT_BRANCHES.iter().cloned());
+                branches
             };
 
             for b in branches_to_try {
                 urls.push(format!(
-                    "https://raw.githubusercontent.com/{}/{}/{}/declarch.kdl",
-                    owner, repo, b
+                    "https://raw.githubusercontent.com/{}/{}/{}/{}.{}",
+                    owner, repo, b, PROJECT_NAME, CONFIG_EXTENSION
                 ));
             }
 
             // Also try modules/ path for default registry (without .kdl)
-            urls.push(format!("{}/modules/{}.kdl", DEFAULT_REGISTRY, clean_target));
+            urls.push(format!("{}/modules/{}.{}", DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION));
         }
 
         return urls;
     }
 
     // 6. Flat name → try default registry
-    urls.push(format!("{}/modules/{}.kdl", DEFAULT_REGISTRY, clean_target));
+    urls.push(format!("{}/modules/{}.{}", DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION));
 
     urls
 }
