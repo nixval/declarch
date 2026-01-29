@@ -185,26 +185,14 @@ pub fn run(options: InstallOptions) -> Result<()> {
         all_packages.extend(edit.packages_added.iter().cloned());
     }
 
-    // Compact summary
-    if !files_created.is_empty() || !files_updated.is_empty() || !all_packages.is_empty() {
-        output::separator();
-
-        if !files_created.is_empty() {
-            output::success(&format!("Created: {}", files_created.join(", ")));
-        }
-
-        if !files_updated.is_empty() {
-            output::success(&format!("Updated: {}", files_updated.join(", ")));
-        }
-
-        if !all_packages.is_empty() {
-            output::info(&format!("Packages: {}", all_packages.join(", ")));
-        }
-    }
-
     // Step 4: Auto-sync (unless --no-sync)
     if !options.no_sync {
-        output::info("Syncing system...");
+        // Show sync message with package details
+        let packages_with_backend: Vec<String> = all_packages.iter()
+            .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("aur")))
+            .collect();
+
+        output::info(&format!("Syncing packages: {} ...", packages_with_backend.join(", ")));
 
         // Import sync command at top to avoid circular dependency
         use crate::commands::sync::{self, SyncOptions};
@@ -220,12 +208,17 @@ pub fn run(options: InstallOptions) -> Result<()> {
             noconfirm: false,
             hooks: true,  // Always run hooks during install
             skip_soar_install: false,
-            modules: modified_modules,  // Sync only modified modules
+            modules: modified_modules.clone(),  // Sync only modified modules
         });
 
         match sync_result {
             Ok(()) => {
-                output::success("Install complete!");
+                // Show success message with module name
+                if let Some(module) = modified_modules.first() {
+                    output::success(&format!("Sync completed, added to '{}'", module));
+                } else {
+                    output::success("Sync completed");
+                }
 
                 // Clean up backups on successful install
                 for edit in &all_edits {
@@ -327,11 +320,6 @@ fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
     };
 
     fs::write(&config_path, new_content)?;
-
-    output::success(&format!(
-        "Auto-imported: added '{}' to declarch.kdl",
-        import_path
-    ));
 
     Ok(())
 }

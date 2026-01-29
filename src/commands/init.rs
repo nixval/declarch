@@ -154,25 +154,17 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
         .to_string_lossy()
         .to_string();
 
-    output::info(&format!("Resolving module '{}'...", slug.cyan()));
-
     // STRATEGY A: Hardcoded Template (Fastest, Offline)
     let content = if let Some(local_tmpl) = utils::templates::get_template_by_name(&slug) {
-        output::success("Using built-in template.");
         local_tmpl
     }
     // STRATEGY B: Remote Registry (The "Marketplace")
     else {
-        output::info("Fetching from community registry...");
         // Use the full target_path (e.g., "hyprland/niri-nico") for remote fetch
         match remote::fetch_module_content(target_path) {
-            Ok(remote_content) => {
-                output::success("Module downloaded successfully.");
-                remote_content
-            }
+            Ok(remote_content) => remote_content,
             Err(e) => {
                 output::warning(&format!("Remote fetch failed: {}", e));
-                output::info("Falling back to generic empty module.");
                 utils::templates::default_module(&slug)
             }
         }

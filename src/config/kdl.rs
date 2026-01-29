@@ -322,7 +322,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "import" | "imports" => {
                 packages::extract_strings(node, &mut config.imports);
                 // DEBUG: Show what imports were parsed
-                for import in &config.imports {
+                for _import in &config.imports {
                 }
             }
             "exclude" | "excludes" => {

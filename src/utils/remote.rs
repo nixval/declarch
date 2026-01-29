@@ -48,10 +48,11 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
     let urls = build_urls(target_path);
 
     for url in urls {
-        output::info(&format!("Trying: {}", url));
-
         match fetch_url(&client, &url) {
             Ok(content) => {
+                // Show successful fetch
+                output::info(&format!("fetch: {}", url));
+
                 // Add header comment
                 let mut final_content = String::new();
                 final_content.push_str(&format!("// Source: {}\n", target_path));

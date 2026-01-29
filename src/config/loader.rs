@@ -72,7 +72,7 @@ pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
     recursive_load(path, &mut merged, &mut visited_paths)?;
 
     // DEBUG: Show final merged config
-    for (pkg_id, sources) in &merged.packages {
+    for (_pkg_id, _sources) in &merged.packages {
     }
 
     Ok(merged)
@@ -115,7 +115,7 @@ fn recursive_load(
     let raw = parse_kdl_content(&content)?;
 
     // DEBUG: Show what packages were found
-    for pkg in &raw.packages {
+    for _pkg in &raw.packages {
     }
 
     // Detect distro for conditional package processing
@@ -383,11 +383,15 @@ fn recursive_load(
         match recursive_load(&import_path, merged, visited) {
             Ok(()) => {}
             Err(DeclarchError::ConfigNotFound { path }) => {
-                // File doesn't exist - warn and skip instead of failing
-                crate::ui::warning(&format!(
-                    "Skipping missing import: {}",
-                    path.display()
-                ));
+                // File doesn't exist - warn only if verbose mode is enabled
+                if let Ok(settings) = crate::config::settings::Settings::load() {
+                    if settings.get("verbose").map(|v| v.as_str()) == Some("true") {
+                        crate::ui::warning(&format!(
+                            "Skipping missing import: {}",
+                            path.display()
+                        ));
+                    }
+                }
             }
             Err(e) => {
                 // Other errors should still propagate
