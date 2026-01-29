@@ -89,10 +89,12 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
         if exact_match {
             // Same package, same backend - skip immediately
+            let target_backend = backend_str.unwrap_or("aur");
+
             output::warning(&format!(
                 "Package '{}' (backend: {}) already exists in config, skipping",
                 pkg_name,
-                backend_str.unwrap()
+                target_backend
             ));
             skipped_count += 1;
             continue;

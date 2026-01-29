@@ -105,7 +105,8 @@ impl ConfigEditor {
                 // Split on "/" to handle nested paths
                 let parts: Vec<&str> = mod_name.split('/').collect();
 
-                let file_name = format!("{}.{}", parts.last().unwrap(), CONFIG_EXTENSION);
+                let file_name = format!("{}.{}", parts.last()
+                    .ok_or_else(|| DeclarchError::Other("Invalid module path".to_string()))?, CONFIG_EXTENSION);
                 let dir_path = parts.iter().take(parts.len() - 1).fold(
                     modules_dir,
                     |acc, part| acc.join(part),
@@ -131,7 +132,7 @@ impl ConfigEditor {
         let module_name = path
             .file_stem()
             .and_then(|s| s.to_str())
-            .unwrap_or("module");
+            .ok_or_else(|| DeclarchError::Other("Invalid module name".to_string()))?;
 
         let default_content = format!(
             "// Declarch module: {}\n\
@@ -353,11 +354,11 @@ pub fn restore_from_backup(backup_path: &Path) -> Result<()> {
     // Pattern: "others.kdl.bak.20260129_204156.kdl" → "others.kdl"
     let original_name = file_name.split(".kdl.bak.")
         .next()
-        .unwrap_or(file_name)
+        .ok_or_else(|| DeclarchError::Other("Invalid backup filename format".to_string()))?
         .to_string() + ".kdl";
 
     let original_path = backup_path.parent()
-        .unwrap_or(backup_path)
+        .ok_or_else(|| DeclarchError::Other("Cannot determine parent directory".to_string()))?
         .join(original_name);
 
     fs::copy(backup_path, &original_path).map_err(|e| {
