@@ -1,9 +1,9 @@
 use kdl::KdlNode;
 use std::collections::HashMap;
 
-/// Extract aliases: aliases { pipewire "pipewire-jack2" } or aliases-pkg name actual
+/// Extract package mappings: aliases-pkg config_name actual_name
 pub fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
-    // Case 1: Inline format: aliases-pkg name1 name2
+    // Case 1: Inline format: aliases-pkg config_name actual_name
     let entries: Vec<_> = node
         .entries()
         .iter()
@@ -11,7 +11,7 @@ pub fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
         .collect();
 
     if entries.len() == 2 {
-        // aliases-pkg config_name actual_name
+        // Extract: aliases-pkg config_name actual_name
         target.insert(entries[0].to_string(), entries[1].to_string());
     }
 
@@ -35,14 +35,14 @@ pub fn extract_aliases(node: &KdlNode, target: &mut HashMap<String, String>) {
     }
 }
 
-/// Parse alias entry and return (alias, actual) tuple
+/// Parse package mapping entry and return (config_name, actual_name) tuple
 pub fn parse_alias_entry(node: &KdlNode) -> Option<(String, String)> {
-    let alias_name = node.name().value();
+    let config_name = node.name().value();
 
     if let Some(entry) = node.entries().first()
         && let Some(val) = entry.value().as_string()
     {
-        return Some((alias_name.to_string(), val.to_string()));
+        return Some((config_name.to_string(), val.to_string()));
     }
 
     None

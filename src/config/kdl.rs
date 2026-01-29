@@ -337,7 +337,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 }
             }
             "description" => {
-                // Parse description into meta
+                // Parse description into project_metadata
                 if let Some(entry) = node.entries().first()
                     && let Some(val) = entry.value().as_string()
                 {
@@ -1154,7 +1154,7 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
 
-        // Check meta
+        // Check project metadata
         assert_eq!(
             config.project_metadata.description,
             Some("Full workstation setup".to_string())

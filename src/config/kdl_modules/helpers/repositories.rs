@@ -2,7 +2,7 @@ use crate::error::Result;
 use kdl::KdlNode;
 use std::collections::HashMap;
 
-/// Parse repositories: repos:aur { "https://..." }
+/// Parse package sources: repos:aur { "https://..." }
 pub fn parse_repositories(
     node: &KdlNode,
     repos: &mut HashMap<String, Vec<String>>,
