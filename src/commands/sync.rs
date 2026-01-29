@@ -84,6 +84,9 @@ mod critical {
     ];
 }
 
+/// AUR package variant suffixes for smart matching
+const AUR_SUFFIXES: &[&str] = &["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+
 #[derive(Debug)]
 pub struct SyncOptions {
     pub dry_run: bool,
@@ -196,44 +199,57 @@ pub fn run(options: SyncOptions) -> Result<()> {
 // HELPER FUNCTIONS - Break down the monolithic sync function
 // ============================================================================
 
+/// Try to find an AUR package variant in the installed snapshot
+/// Returns the variant name if found, otherwise None
+fn find_aur_variant(
+    package_name: &str,
+    installed_snapshot: &HashMap<PackageId, PackageMetadata>,
+) -> Option<String> {
+    // Try each suffix variant
+    for suffix in AUR_SUFFIXES {
+        let alt_name = format!("{}{}", package_name, suffix);
+        let alt_id = PackageId {
+            name: alt_name.clone(),
+            backend: Backend::Aur,
+        };
+        if installed_snapshot.contains_key(&alt_id) {
+            return Some(alt_name);
+        }
+    }
+
+    // Try prefix match (e.g., "hyprland-git" → "hyprland")
+    if let Some((prefix, _)) = package_name.split_once('-') {
+        let alt_id = PackageId {
+            name: prefix.to_string(),
+            backend: Backend::Aur,
+        };
+        if installed_snapshot.contains_key(&alt_id) {
+            return Some(prefix.to_string());
+        }
+    }
+
+    None
+}
+
 /// Smart matching: Find the actual installed package name for a config package
 /// This handles variant matching (e.g., "hyprland" → "hyprland-git")
 fn resolve_installed_package_name(
     pkg: &PackageId,
     installed_snapshot: &HashMap<PackageId, PackageMetadata>,
 ) -> String {
-    let mut real_name = pkg.name.clone();
-
     // Try exact match first
     if installed_snapshot.contains_key(pkg) {
-        return real_name;
+        return pkg.name.clone();
     }
 
     // Try smart match based on backend
     match pkg.backend {
         Backend::Aur => {
-            let suffixes = ["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
-            for suffix in suffixes {
-                let alt_name = format!("{}{}", pkg.name, suffix);
-                let alt_id = PackageId {
-                    name: alt_name.clone(),
-                    backend: Backend::Aur,
-                };
-                if installed_snapshot.contains_key(&alt_id) {
-                    real_name = alt_name;
-                    return real_name;
-                }
+            // Use helper function for variant matching
+            if let Some(variant) = find_aur_variant(&pkg.name, installed_snapshot) {
+                return variant;
             }
-            // Try prefix match
-            if let Some((prefix, _)) = pkg.name.split_once('-') {
-                let alt_id = PackageId {
-                    name: prefix.to_string(),
-                    backend: Backend::Aur,
-                };
-                if installed_snapshot.contains_key(&alt_id) {
-                    real_name = prefix.to_string();
-                }
-            }
+            pkg.name.clone()
         }
         Backend::Flatpak => {
             let search = pkg.name.to_lowercase();
@@ -241,10 +257,10 @@ fn resolve_installed_package_name(
                 if installed_id.backend == Backend::Flatpak
                     && installed_id.name.to_lowercase().contains(&search)
                 {
-                    real_name = installed_id.name.clone();
-                    return real_name;
+                    return installed_id.name.clone();
                 }
             }
+            pkg.name.clone()
         }
         Backend::Soar
         | Backend::Npm
@@ -256,11 +272,9 @@ fn resolve_installed_package_name(
         | Backend::Brew
         | Backend::Custom(_) => {
             // These backends require exact matching - no smart matching needed
-            real_name = pkg.name.clone();
+            pkg.name.clone()
         }
     }
-
-    real_name
 }
 
 /// Display the transaction plan to the user
