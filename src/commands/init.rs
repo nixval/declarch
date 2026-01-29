@@ -196,7 +196,7 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
 fn display_module_meta(content: &str) {
     // Try to parse the content and extract meta
     if let Ok(raw_config) = parse_kdl_content(content) {
-        let meta = &raw_config.meta;
+        let meta = &raw_config.project_metadata;
 
         // Only display if we have some meta information
         let has_meta = meta.title.is_some()

@@ -1,4 +1,4 @@
-use crate::config::kdl::{ConfigMeta, ConflictEntry, LifecycleConfig, PolicyConfig, parse_kdl_content};
+use crate::config::kdl::{ProjectMetadata, ConflictEntry, LifecycleConfig, PolicyConfig, parse_kdl_content};
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::distro::DistroType;
@@ -14,8 +14,8 @@ pub struct MergedConfig {
     pub package_mappings: HashMap<String, String>,
 
     // === NEW: Additional config fields ===
-    /// Configuration metadata (merged from first config with meta)
-    pub meta: Option<ConfigMeta>,
+    /// Project metadata (merged from first config with meta)
+    pub project_metadata: Option<ProjectMetadata>,
     /// Mutually exclusive packages (accumulated from all configs)
     pub conflicts: Vec<ConflictEntry>,
     /// Backend-specific configuration options (merged)
@@ -270,12 +270,12 @@ fn recursive_load(
     // === NEW: Merge additional config fields ===
 
     // Meta: Only keep the first one (usually from root config)
-    if merged.meta.is_none()
-        && raw.meta.description.is_some()
-        && raw.meta.author.is_some()
-        && raw.meta.version.is_some()
+    if merged.project_metadata.is_none()
+        && raw.project_metadata.description.is_some()
+        && raw.project_metadata.author.is_some()
+        && raw.project_metadata.version.is_some()
     {
-        merged.meta = Some(raw.meta);
+        merged.project_metadata = Some(raw.project_metadata);
     }
 
     // Conflicts: Accumulate from all configs

@@ -1,7 +1,7 @@
 // Re-export types from kdl_modules for backward compatibility
 pub use crate::config::kdl_modules::types::{
-    ActionCondition, ActionType, ConflictEntry, ConfigMeta, ErrorBehavior,
-    LifecycleAction, LifecycleConfig, LifecyclePhase, PackageEntry, PolicyConfig, RawConfig,
+    ActionCondition, ActionType, ConflictEntry, ErrorBehavior,
+    LifecycleAction, LifecycleConfig, LifecyclePhase, PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
 };
 // Re-export BackendParser trait from parsers module
 pub use crate::config::kdl_modules::parsers::BackendParser;
@@ -304,7 +304,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         excludes: vec![],
         package_mappings: HashMap::new(),
         editor: None,
-        meta: ConfigMeta::default(),
+        project_metadata: ProjectMetadata::default(),
         conflicts: vec![],
         backend_options: HashMap::new(),
         env: HashMap::new(),
@@ -341,12 +341,12 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 if let Some(entry) = node.entries().first()
                     && let Some(val) = entry.value().as_string()
                 {
-                    config.meta.description = Some(val.to_string());
+                    config.project_metadata.description = Some(val.to_string());
                 }
             }
             // NEW: Meta block
             "meta" => {
-                meta::parse_meta_block(node, &mut config.meta)?;
+                meta::parse_meta_block(node, &mut config.project_metadata)?;
             }
             // NEW: Conflicts
             "conflicts" | "conflict" => {
@@ -940,13 +940,13 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(
-            config.meta.description,
+            config.project_metadata.description,
             Some("My Hyprland Setup".to_string())
         );
-        assert_eq!(config.meta.author, Some("nixval".to_string()));
-        assert_eq!(config.meta.version, Some("1.0.0".to_string()));
+        assert_eq!(config.project_metadata.author, Some("nixval".to_string()));
+        assert_eq!(config.project_metadata.version, Some("1.0.0".to_string()));
         assert_eq!(
-            config.meta.url,
+            config.project_metadata.url,
             Some("https://github.com/nixval/dotfiles".to_string())
         );
     }
@@ -961,10 +961,10 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.meta.tags.len(), 3);
-        assert!(config.meta.tags.contains(&"workstation".to_string()));
-        assert!(config.meta.tags.contains(&"hyprland".to_string()));
-        assert!(config.meta.tags.contains(&"development".to_string()));
+        assert_eq!(config.project_metadata.tags.len(), 3);
+        assert!(config.project_metadata.tags.contains(&"workstation".to_string()));
+        assert!(config.project_metadata.tags.contains(&"hyprland".to_string()));
+        assert!(config.project_metadata.tags.contains(&"development".to_string()));
     }
 
     // NEW: Conflicts tests
@@ -1156,11 +1156,11 @@ mod tests {
 
         // Check meta
         assert_eq!(
-            config.meta.description,
+            config.project_metadata.description,
             Some("Full workstation setup".to_string())
         );
-        assert_eq!(config.meta.author, Some("nixval".to_string()));
-        assert_eq!(config.meta.version, Some("2.0.0".to_string()));
+        assert_eq!(config.project_metadata.author, Some("nixval".to_string()));
+        assert_eq!(config.project_metadata.version, Some("2.0.0".to_string()));
 
         // Check packages
         assert_eq!(config.packages.len(), 3);

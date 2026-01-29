@@ -10,7 +10,7 @@ pub struct Transaction {
     pub to_install: Vec<PackageId>,
     pub to_prune: Vec<PackageId>,
     pub to_adopt: Vec<PackageId>,
-    pub to_update_meta: Vec<PackageId>,
+    pub to_update_project_metadata: Vec<PackageId>,
 }
 
 /// Helper to generate consistent state keys
@@ -29,7 +29,7 @@ pub fn resolve(
         to_install: vec![],
         to_prune: vec![],
         to_adopt: vec![],
-        to_update_meta: vec![],
+        to_update_project_metadata: vec![],
     };
 
     let target_packages = resolve_target_scope(config, target);
@@ -54,7 +54,7 @@ pub fn resolve(
         if let Some(meta) = found_meta {
             if let Some(stored_state) = state_pkg {
                 if stored_state.version != meta.version {
-                    tx.to_update_meta.push(pkg_id.clone());
+                    tx.to_update_project_metadata.push(pkg_id.clone());
                 }
             } else {
                 tx.to_adopt.push(pkg_id.clone());
@@ -144,7 +144,7 @@ mod tests {
             packages: map,
             excludes: vec![],
             package_mappings: std::collections::HashMap::new(),
-            meta: None,
+            project_metadata: None,
             conflicts: vec![],
             backend_options: std::collections::HashMap::new(),
             env: std::collections::HashMap::new(),

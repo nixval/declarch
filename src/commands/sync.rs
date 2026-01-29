@@ -282,7 +282,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     if tx.to_install.is_empty()
         && tx.to_adopt.is_empty()
-        && tx.to_update_meta.is_empty()
+        && tx.to_update_project_metadata.is_empty()
         && (!should_prune || tx.to_prune.is_empty())
     {
         output::success("System is in sync.");
@@ -459,9 +459,9 @@ fn display_transaction_plan(
         }
     }
 
-    if !tx.to_update_meta.is_empty() {
+    if !tx.to_update_project_metadata.is_empty() {
         println!("{}", "State Updates (Drift detected):".blue().bold());
-        for pkg in &tx.to_update_meta {
+        for pkg in &tx.to_update_project_metadata {
             let v_display = installed_snapshot
                 .get(pkg)
                 .map(|m| m.version.as_deref().unwrap_or("?"))
@@ -607,7 +607,7 @@ fn update_state_after_sync(
     // Collect all packages to upsert
     let mut to_upsert = tx.to_install.clone();
     to_upsert.extend(tx.to_adopt.clone());
-    to_upsert.extend(tx.to_update_meta.clone());
+    to_upsert.extend(tx.to_update_project_metadata.clone());
 
     // Upsert packages into state
     for pkg in to_upsert {

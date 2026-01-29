@@ -50,9 +50,9 @@ pub struct RawConfig {
     /// Syntax: editor "nvim" or editor nvim
     pub editor: Option<String>,
 
-    // === NEW: Meta block ===
-    /// Configuration metadata
-    pub meta: ConfigMeta,
+    // === NEW: Project metadata block ===
+    /// Project metadata
+    pub project_metadata: ProjectMetadata,
 
     // === NEW: Conflicts ===
     /// Mutually exclusive packages
@@ -88,9 +88,9 @@ pub struct PackageEntry {
     pub name: String,
 }
 
-/// Configuration metadata
+/// Project metadata
 #[derive(Debug, Clone, Default)]
-pub struct ConfigMeta {
+pub struct ProjectMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
     pub author: Option<String>,

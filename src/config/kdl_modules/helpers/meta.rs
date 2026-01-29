@@ -1,9 +1,9 @@
-use crate::config::kdl_modules::types::ConfigMeta;
+use crate::config::kdl_modules::types::ProjectMetadata;
 use crate::error::Result;
 use kdl::KdlNode;
 
 /// Parse meta block: meta { description "..." author "..." version "..." }
-pub fn parse_meta_block(node: &KdlNode, meta: &mut ConfigMeta) -> Result<()> {
+pub fn parse_meta_block(node: &KdlNode, project_metadata: &mut ProjectMetadata) -> Result<()> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let child_name = child.name().value();
@@ -11,35 +11,35 @@ pub fn parse_meta_block(node: &KdlNode, meta: &mut ConfigMeta) -> Result<()> {
             match child_name {
                 "title" => {
                     if let Some(val) = super::get_first_string(child) {
-                        meta.title = Some(val);
+                        project_metadata.title = Some(val);
                     }
                 }
                 "description" => {
                     if let Some(val) = super::get_first_string(child) {
-                        meta.description = Some(val);
+                        project_metadata.description = Some(val);
                     }
                 }
                 "author" => {
                     if let Some(val) = super::get_first_string(child) {
-                        meta.author = Some(val);
+                        project_metadata.author = Some(val);
                     }
                 }
                 "version" => {
                     if let Some(val) = super::get_first_string(child) {
-                        meta.version = Some(val);
+                        project_metadata.version = Some(val);
                     }
                 }
                 "tags" => {
                     // tags can be multiple: tags ["workstation" "gaming"]
                     for entry in child.entries() {
                         if let Some(val) = entry.value().as_string() {
-                            meta.tags.push(val.to_string());
+                            project_metadata.tags.push(val.to_string());
                         }
                     }
                 }
                 "url" => {
                     if let Some(val) = super::get_first_string(child) {
-                        meta.url = Some(val);
+                        project_metadata.url = Some(val);
                     }
                 }
                 _ => {}
