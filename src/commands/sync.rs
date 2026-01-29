@@ -130,23 +130,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let had_failures = failed_count > 0;
 
     if had_failures {
-        output::error(&format!(
-            "Failed to install {} out of {} package(s)",
-            failed_count,
-            tx.to_install.len()
-        ));
-
         // Find which packages failed
         let failed_packages: Vec<_> = tx.to_install
             .iter()
             .filter(|pkg| !successfully_installed.contains(pkg))
-            .map(|pkg| format!("{}:{}", pkg.backend, pkg.name))
+            .map(|pkg| format!("{} from {} not found", pkg.name, pkg.backend))
             .collect();
 
-        output::error(&format!(
-            "Failed packages: {}",
-            failed_packages.join(", ")
-        ));
+        for pkg in &failed_packages {
+            output::error(pkg);
+        }
+
+        output::error(&format!("{} package(s) failed to install", failed_count));
     }
 
     // -- REMOVAL --
@@ -164,7 +159,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // This allows adoption and state updates to complete
     if had_failures {
         return Err(crate::error::DeclarchError::Other(format!(
-            "{} package(s) failed to install. Please check the error messages above.",
+            "{} package(s) failed to install",
             failed_count
         )));
     }
@@ -259,7 +254,7 @@ fn resolve_installed_package_name(
 /// Display the transaction plan to the user
 fn display_transaction_plan(
     tx: &resolver::Transaction,
-    installed_snapshot: &HashMap<PackageId, PackageMetadata>,
+    _installed_snapshot: &HashMap<PackageId, PackageMetadata>,
     should_prune: bool,
 ) {
     output::separator();

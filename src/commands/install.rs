@@ -235,43 +235,15 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 }
             }
             Err(e) => {
-                output::error(&format!("Installation failed: {}", e));
-                output::warning("Rolling back changes...");
-
-                // Rollback all edits
+                // Rollback all edits silently
                 for edit in &all_edits {
                     if let Some(ref backup) = edit.backup_path {
                         // File existed before: restore from backup
-                        if let Err(rollback_err) = restore_from_backup(backup) {
-                            output::error(&format!(
-                                "Failed to rollback {}: {}",
-                                edit.file_path.display(),
-                                rollback_err
-                            ));
-                        } else {
-                            output::info(&format!(
-                                "Rolled back: {}",
-                                edit.file_path.display()
-                            ));
-                        }
+                        let _ = restore_from_backup(backup);
                     } else if edit.created_new_file {
                         // New file: delete it
                         let _ = std::fs::remove_file(&edit.file_path);
-                        output::info(&format!(
-                            "Removed new file: {}",
-                            edit.file_path.display()
-                        ));
                     }
-                }
-
-                // Simple, actionable message
-                if let Some(module) = options.module.as_ref() {
-                    output::info(&format!(
-                        "Run 'declarch edit {}' to fix or remove the package",
-                        module
-                    ));
-                } else {
-                    output::info("Run 'declarch edit others' to fix or remove the package");
                 }
 
                 return Err(e);
