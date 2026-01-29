@@ -148,7 +148,7 @@ mod tests {
             conflicts: vec![],
             backend_options: std::collections::HashMap::new(),
             env: std::collections::HashMap::new(),
-            repositories: std::collections::HashMap::new(),
+            package_sources: std::collections::HashMap::new(),
             policy: None,
             lifecycle_actions: None,
         }

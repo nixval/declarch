@@ -22,8 +22,8 @@ pub struct MergedConfig {
     pub backend_options: HashMap<String, HashMap<String, String>>,
     /// Environment variables for package operations (merged)
     pub env: HashMap<String, Vec<String>>,
-    /// Custom package repositories (merged)
-    pub repositories: HashMap<String, Vec<String>>,
+    /// Custom package sources (merged)
+    pub package_sources: HashMap<String, Vec<String>>,
     /// Package lifecycle policies (merged from last config)
     pub policy: Option<PolicyConfig>,
     /// Pre/post sync hooks (accumulated from all configs)
@@ -296,9 +296,9 @@ fn recursive_load(
     }
 
     // Repositories: Merge (later configs extend earlier ones)
-    for (backend, repos) in raw.repositories {
+    for (backend, repos) in raw.package_sources {
         merged
-            .repositories
+            .package_sources
             .entry(backend)
             .or_default()
             .extend(repos);

@@ -68,10 +68,10 @@ pub struct RawConfig {
     /// Syntax: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
     pub env: HashMap<String, Vec<String>>,
 
-    // === NEW: Package repositories ===
-    /// Custom package repositories
+    // === NEW: Package sources ===
+    /// Custom package sources
     /// Syntax: repos:aur { "https://..." }
-    pub repositories: HashMap<String, Vec<String>>,
+    pub package_sources: HashMap<String, Vec<String>>,
 
     // === NEW: Policy control ===
     /// Package lifecycle policies

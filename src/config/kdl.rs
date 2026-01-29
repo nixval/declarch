@@ -308,7 +308,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         conflicts: vec![],
         backend_options: HashMap::new(),
         env: HashMap::new(),
-        repositories: HashMap::new(),
+        package_sources: HashMap::new(),
         policy: PolicyConfig::default(),
         lifecycle_actions: LifecycleConfig::default(),
     };
@@ -362,7 +362,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             // NEW: Package repositories
             name if name.starts_with("repos") || name.starts_with("repositories") => {
-                repositories::parse_repositories(node, &mut config.repositories)?;
+                repositories::parse_repositories(node, &mut config.package_sources)?;
             }
             // NEW: Policy
             "policy" => {
@@ -1037,12 +1037,12 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert!(config.repositories.contains_key("aur"));
-        assert!(config.repositories.contains_key("flatpak"));
+        assert!(config.package_sources.contains_key("aur"));
+        assert!(config.package_sources.contains_key("flatpak"));
 
-        assert!(config.repositories["aur"].contains(&"https://aur.archlinux.org".to_string()));
+        assert!(config.package_sources["aur"].contains(&"https://aur.archlinux.org".to_string()));
         assert!(
-            config.repositories["flatpak"]
+            config.package_sources["flatpak"]
                 .contains(&"https://flathub.org/repo/flathub.flatpakrepo".to_string())
         );
     }
