@@ -397,6 +397,44 @@ declarch sync
 declarch sync --hooks
 ```
 
+## Internal Architecture (v0.4.4+)
+
+The `sync` command has been refactored into modular, testable components:
+
+### Main Execution Flow
+
+The `run()` function orchestrates these steps:
+
+1. **Target Resolution** - Parse and validate sync target
+2. **Config Loading** - Load root config with optional modules
+3. **Pre-sync Hooks** - Execute lifecycle actions before sync
+4. **System Update** - Run system package manager update
+5. **Manager Initialization** - Initialize available package managers
+6. **State Loading** - Load previous sync state
+7. **Transaction Resolution** - Determine packages to install/remove/update
+8. **Variant Checking** - Detect package variant transitions
+9. **Partial Upgrade Warning** - Warn if system not recently updated
+10. **Display Plan** - Show what will be done
+11. **Execution** - Install/remove packages
+12. **State Update** - Save new state
+
+### Helper Functions
+
+- `resolve_and_filter_packages()` - Filter by available backends and resolve
+- `check_variant_transitions()` - Detect AUR variant mismatches (e.g., hyprland → hyprland-git)
+- `warn_partial_upgrade()` - Display partial upgrade risk warning
+- `execute_installations()` - Install packages grouped by backend
+- `execute_pruning()` - Remove packages with safety checks
+- `initialize_managers_and_snapshot()` - Create package managers and scan system
+- `display_transaction_plan()` - Show installation/removal plan
+- `update_state_after_sync()` - Save new package state
+
+This modular design makes the code:
+- **Easier to test** - Each function has a single responsibility
+- **Easier to maintain** - Changes are localized to specific functions
+- **More readable** - The main flow is clear and concise
+- **More secure** - Security checks are isolated and verifiable
+
 ## Related Commands
 
 - [`check`](check.md) - Validate configuration before syncing
