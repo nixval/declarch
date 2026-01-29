@@ -222,7 +222,7 @@ imports {
 }
 ```
 
-### Meta Information
+### Project Metadata
 
 ```kdl
 meta {
@@ -281,9 +281,9 @@ env:aur MAKEFLAGS="-j4"
 env:aur CARGO_HOME="$HOME/.cargo"
 ```
 
-### Repositories
+### Package Sources
 
-Add custom repositories:
+Add custom package sources:
 
 ```kdl
 repos:aur {
@@ -310,22 +310,22 @@ policy {
 }
 ```
 
-### Hooks
+### Lifecycle Actions
 
 Run commands before/after sync:
 
 ```kdl
-// Pre-sync hook
+// Pre-sync action
 on-pre-sync "notify-send 'Starting sync...'"
 
-// Post-sync hook
+// Post-sync action
 on-sync "notify-send 'Packages updated'"
 
 // Post-sync with sudo
 on-sync-sudo "systemctl restart gdm"
 ```
 
-### Package Aliases
+### Package Mappings
 
 ```kdl
 aliases-pkg {
