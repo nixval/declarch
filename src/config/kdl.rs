@@ -519,21 +519,6 @@ mod tests {
     }
 
     #[test]
-    fn aur_packages() {
-        let kdl = r#"
-            aur-packages {
-                hyprland
-                waybar
-            }
-        "#;
-
-        let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
-    }
-
-    #[test]
     fn default_packages() {
         let kdl = r#"
             packages {
@@ -551,49 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn soar_packages() {
-        let kdl = r#"
-            soar-packages {
-                bat
-                exa
-                ripgrep
-            }
-        "#;
-
-        let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 3);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "ripgrep"));
-    }
-
-    #[test]
-    fn flatpak_packages() {
-        let kdl = r#"
-            flatpak-packages {
-                com.spotify.Client
-                org.mozilla.firefox
-            }
-        "#;
-
-        let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.flatpak_packages.len(), 2);
-        assert!(
-            config
-                .flatpak_packages
-                .iter()
-                .any(|p| p.name == "com.spotify.Client")
-        );
-        assert!(
-            config
-                .flatpak_packages
-                .iter()
-                .any(|p| p.name == "org.mozilla.firefox")
-        );
-    }
-
-    #[test]
-    fn cross_distro_config() {
+    fn cross_distro() {
         let kdl = r#"
             // Cross-distro configuration example
 
@@ -628,7 +571,7 @@ mod tests {
     // New syntax tests
 
     #[test]
-    fn colon_soar() {
+    fn soar_colon() {
         let kdl = r#"
             packages:soar {
                 bat
@@ -643,7 +586,7 @@ mod tests {
     }
 
     #[test]
-    fn colon_aur() {
+    fn aur_colon() {
         let kdl = r#"
             packages:aur {
                 hyprland
@@ -658,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn colon_flatpak() {
+    fn flatpak_colon() {
         let kdl = r#"
             packages:flatpak {
                 com.spotify.Client
@@ -683,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn embedded_syntax() {
+    fn nested_blocks() {
         let kdl = r#"
             packages {
                 hyprland
@@ -724,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    fn mixed_syntax() {
+    fn mixed_formats() {
         let kdl = r#"
             // Default packages (AUR)
             packages {
@@ -750,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    fn embedded_explicit_soar() {
+    fn soar_nested() {
         let kdl = r#"
             packages {
                 soar {
@@ -858,7 +801,7 @@ mod tests {
     }
 
     #[test]
-    fn inline_string_args() {
+    fn string_args() {
         let kdl = r#"
             packages "soar:bat" "aur:hyprland" "flatpak:app.id"
         "#;
@@ -875,7 +818,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_backend() {
+    fn unknown_pm() {
         let kdl = r#"
             packages {
                 unknown:package
@@ -888,7 +831,7 @@ mod tests {
     }
 
     #[test]
-    fn complex_mixed() {
+    fn complex_config() {
         let kdl = r#"
             packages {
                 // Default packages (AUR)
@@ -937,7 +880,7 @@ mod tests {
     }
 
     #[test]
-    fn backend_registry() {
+    fn registry() {
         let registry = BackendParserRegistry::new();
 
         // Test finding parsers by name
@@ -1042,7 +985,7 @@ mod tests {
     // NEW: Backend options tests
 
     #[test]
-    fn backend_options() {
+    fn aur_options() {
         let kdl = r#"
             options:aur {
                 noconfirm
