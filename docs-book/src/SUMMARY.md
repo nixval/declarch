@@ -35,7 +35,7 @@
 
 ## Advanced Topics
 
-- [Hooks System](./advanced/hooks.md)
+- [Lifecycle Actions](./advanced/lifecycle-actions.md)
 - [Remote Init](./advanced/remote-init.md)
 - [Custom Backends](./advanced/custom-backends.md)
 - [Troubleshooting](./advanced/troubleshooting.md)

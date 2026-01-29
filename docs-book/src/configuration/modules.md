@@ -136,7 +136,7 @@ modules/
 
 ## Module Features
 
-### Module Metadata
+### Project Metadata
 
 ```kdl
 // modules/development/rust.kdl
