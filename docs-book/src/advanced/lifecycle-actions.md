@@ -1,10 +1,10 @@
-# Hooks System
+# Lifecycle Actions System
 
 Run commands before and after package synchronization operations.
 
-## What Are Hooks?
+## What Are Lifecycle Actions?
 
-Hooks are shell commands that run at specific points during the `declarch sync` process. They allow you to:
+lifecycle actions are shell commands that run at specific points during the `declarch sync` process. They allow you to:
 
 - Send notifications before/after updates
 - Restart services after package installations
@@ -13,13 +13,13 @@ Hooks are shell commands that run at specific points during the `declarch sync` 
 
 ## Security Warning
 
-⚠️ **Hooks are disabled by default for security.**
+⚠️ **lifecycle actions are disabled by default for security.**
 
-Remote configurations (from `declarch init <url>`) may contain arbitrary commands. Always review hooks before enabling.
+Remote configurations (from `declarch init <url>`) may contain arbitrary commands. Always review lifecycle actions before enabling.
 
-## Hook Types (v0.4.4)
+## Action Types (v0.4.4)
 
-### Global Hooks
+### Global Actions
 
 Run at specific sync phases:
 
@@ -28,7 +28,7 @@ Run at specific sync phases:
 - **`on-success`** - After successful sync
 - **`on-failure`** - After failed sync
 
-### Package Hooks
+### Package Actions
 
 Run for specific packages:
 
@@ -40,7 +40,7 @@ Run for specific packages:
 
 ## Syntax
 
-### Global Hooks
+### Global Actions
 
 ```kdl
 hooks {
@@ -51,7 +51,7 @@ hooks {
 }
 ```
 
-### Package Hooks (Block Syntax)
+### Package Actions (Block Syntax)
 
 ```kdl
 hooks {
@@ -66,7 +66,7 @@ hooks {
 }
 ```
 
-### Package Hooks (Shorthand Syntax)
+### Package Actions (Shorthand Syntax)
 
 ```kdl
 hooks {
@@ -127,13 +127,13 @@ hooks {
 
 ### Enable Hooks
 
-Hooks are **disabled by default**. Enable with:
+lifecycle actions are **disabled by default**. Enable with:
 
 ```bash
 declarch sync --hooks
 ```
 
-### Add Global Hooks
+### Add Global Actions
 
 ```kdl
 // declarch.kdl
@@ -144,7 +144,7 @@ hooks {
 }
 ```
 
-### Add Package Hooks
+### Add Package Actions
 
 ```kdl
 // declarch.kdl
@@ -285,7 +285,7 @@ hooks {
 
 ### Hook Merging
 
-When importing modules with hooks, hooks are accumulated:
+When importing modules with hooks, lifecycle actions are accumulated:
 
 **Root config:**
 ```kdl
