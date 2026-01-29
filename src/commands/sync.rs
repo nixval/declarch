@@ -115,7 +115,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     };
 
     // Execute pre-sync hooks
-    crate::commands::hooks::execute_pre_sync(&config.hooks, options.hooks, options.dry_run)?;
+    crate::commands::hooks::execute_pre_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
     // 3. System Update
     perform_system_update(&options)?;
@@ -291,7 +291,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
             state::io::save_state(&state)?;
         }
         // Execute post-sync hooks even when system is in sync
-        crate::commands::hooks::execute_post_sync(&config.hooks, options.hooks, options.dry_run)?;
+        crate::commands::hooks::execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
         return Ok(());
     }
 
@@ -366,7 +366,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     update_state_after_sync(&mut state, &tx, &installed_snapshot, &options)?;
 
     // Execute post-sync hooks
-    crate::commands::hooks::execute_post_sync(&config.hooks, options.hooks, options.dry_run)?;
+    crate::commands::hooks::execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
     output::success("Sync complete!");
 

@@ -77,9 +77,9 @@ pub struct RawConfig {
     /// Package lifecycle policies
     pub policy: PolicyConfig,
 
-    // === NEW: Hooks ===
-    /// Pre/post sync hooks
-    pub hooks: HookConfig,
+    // === NEW: Lifecycle Actions ===
+    /// Pre/post sync lifecycle actions
+    pub lifecycle_actions: LifecycleConfig,
 }
 
 /// Package entry (version constraints skipped for now)
@@ -115,34 +115,34 @@ pub struct PolicyConfig {
     pub orphans: Option<String>,
 }
 
-/// Hook configuration
+/// Lifecycle action configuration
 #[derive(Debug, Clone, Default)]
-pub struct HookConfig {
-    /// All hooks (organized by phase during execution)
-    pub hooks: Vec<HookEntry>,
+pub struct LifecycleConfig {
+    /// All lifecycle actions (organized by phase during execution)
+    pub actions: Vec<LifecycleAction>,
 }
 
-/// Hook entry
+/// Lifecycle action entry
 #[derive(Debug, Clone)]
-pub struct HookEntry {
+pub struct LifecycleAction {
     pub command: String,
-    pub hook_type: HookType,
-    pub phase: HookPhase,
+    pub action_type: ActionType,
+    pub phase: LifecyclePhase,
     pub package: Option<String>,
-    pub conditions: Vec<HookCondition>,
+    pub conditions: Vec<ActionCondition>,
     pub error_behavior: ErrorBehavior,
 }
 
-/// Hook type (simplified from v0.4.3)
+/// Action type (simplified from v0.4.3)
 #[derive(Debug, Clone, PartialEq)]
-pub enum HookType {
+pub enum ActionType {
     User, // Run without sudo
     Root, // Run with sudo
 }
 
-/// Hook phase - when the hook should run
+/// Lifecycle phase - when the action should run
 #[derive(Debug, Clone, PartialEq)]
-pub enum HookPhase {
+pub enum LifecyclePhase {
     // Global phases
     PreSync,
     PostSync,
@@ -156,13 +156,13 @@ pub enum HookPhase {
     OnUpdate,
 }
 
-/// Hook condition - when to run the hook
+/// Action condition - when to run the action
 #[derive(Debug, Clone, PartialEq)]
-pub enum HookCondition {
+pub enum ActionCondition {
     IfInstalled(String),  // Run only if package is installed
     IfChanged(String),    // Run only if package was installed/updated
     IfBackend(String),    // Run only if this backend had changes
-    IfSuccess,            // Run only if previous hook succeeded
+    IfSuccess,            // Run only if previous action succeeded
 }
 
 /// Error behavior for hooks

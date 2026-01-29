@@ -1,4 +1,4 @@
-use crate::config::kdl::{ConfigMeta, ConflictEntry, HookConfig, PolicyConfig, parse_kdl_content};
+use crate::config::kdl::{ConfigMeta, ConflictEntry, LifecycleConfig, PolicyConfig, parse_kdl_content};
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::distro::DistroType;
@@ -27,7 +27,7 @@ pub struct MergedConfig {
     /// Package lifecycle policies (merged from last config)
     pub policy: Option<PolicyConfig>,
     /// Pre/post sync hooks (accumulated from all configs)
-    pub hooks: Option<HookConfig>,
+    pub lifecycle_actions: Option<LifecycleConfig>,
 }
 
 impl MergedConfig {
@@ -310,11 +310,11 @@ fn recursive_load(
     }
 
     // Hooks: Merge (later configs extend earlier ones)
-    if merged.hooks.is_none() && !raw.hooks.hooks.is_empty() {
-        merged.hooks = Some(raw.hooks);
-    } else if let Some(ref mut merged_hooks) = merged.hooks {
-        if !raw.hooks.hooks.is_empty() {
-            merged_hooks.hooks.extend(raw.hooks.hooks);
+    if merged.lifecycle_actions.is_none() && !raw.lifecycle_actions.actions.is_empty() {
+        merged.lifecycle_actions = Some(raw.lifecycle_actions);
+    } else if let Some(ref mut merged_hooks) = merged.lifecycle_actions {
+        if !raw.lifecycle_actions.actions.is_empty() {
+            merged_hooks.actions.extend(raw.lifecycle_actions.actions);
         }
     }
 

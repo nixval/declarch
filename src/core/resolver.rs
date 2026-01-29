@@ -150,7 +150,7 @@ mod tests {
             env: std::collections::HashMap::new(),
             repositories: std::collections::HashMap::new(),
             policy: None,
-            hooks: None,
+            lifecycle_actions: None,
         }
     }
 

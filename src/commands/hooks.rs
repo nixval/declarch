@@ -1,4 +1,4 @@
-use crate::config::kdl::{HookConfig, HookEntry, HookType, HookPhase, ErrorBehavior};
+use crate::config::kdl::{LifecycleConfig, LifecycleAction, ActionType, LifecyclePhase, ErrorBehavior};
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use crate::utils::sanitize;
@@ -7,8 +7,8 @@ use std::process::{Command, Stdio};
 
 /// Execute hooks for a specific phase
 pub fn execute_hooks_by_phase(
-    hooks: &Option<HookConfig>,
-    phase: HookPhase,
+    hooks: &Option<LifecycleConfig>,
+    phase: LifecyclePhase,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
@@ -18,7 +18,7 @@ pub fn execute_hooks_by_phase(
     };
 
     // Filter hooks by phase
-    let phase_hooks: Vec<_> = hooks.hooks.iter()
+    let phase_hooks: Vec<_> = hooks.actions.iter()
         .filter(|h| h.phase == phase)
         .collect();
 
@@ -32,7 +32,7 @@ pub fn execute_hooks_by_phase(
 
 /// Execute a list of hooks
 pub fn execute_hooks(
-    hooks: &[&HookEntry],
+    hooks: &[&LifecycleAction],
     phase_name: &str,
     hooks_enabled: bool,
     dry_run: bool,
@@ -74,7 +74,7 @@ pub fn execute_hooks(
     Ok(())
 }
 
-fn display_hooks(hooks: &[&HookEntry], title: &str, warn_mode: bool) {
+fn display_hooks(hooks: &[&LifecycleAction], title: &str, warn_mode: bool) {
     if warn_mode {
         println!("\n{}:", title.yellow().bold());
     } else {
@@ -82,7 +82,7 @@ fn display_hooks(hooks: &[&HookEntry], title: &str, warn_mode: bool) {
     }
 
     for hook in hooks {
-        let sudo_marker = matches!(hook.hook_type, HookType::Root);
+        let sudo_marker = matches!(hook.action_type, ActionType::Root);
         let package_info = if let Some(pkg) = &hook.package {
             format!(" [{}]", pkg.cyan())
         } else {
@@ -98,7 +98,7 @@ fn display_hooks(hooks: &[&HookEntry], title: &str, warn_mode: bool) {
     }
 }
 
-fn execute_single_hook(hook: &HookEntry) -> Result<()> {
+fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
     // Validate: Don't allow embedded "sudo" in command
     let trimmed = hook.command.trim();
     if trimmed.starts_with("sudo ") {
@@ -124,7 +124,7 @@ fn execute_single_hook(hook: &HookEntry) -> Result<()> {
     let program = &args[0];
     let program_args = &args[1..];
 
-    let use_sudo = matches!(hook.hook_type, HookType::Root);
+    let use_sudo = matches!(hook.action_type, ActionType::Root);
 
     let mut cmd = if use_sudo {
         output::info(&format!("Executing hook with sudo: {}", program));
@@ -194,43 +194,43 @@ fn execute_single_hook(hook: &HookEntry) -> Result<()> {
 
 /// Helper to execute pre-sync hooks
 pub fn execute_pre_sync(
-    hooks: &Option<HookConfig>,
+    hooks: &Option<LifecycleConfig>,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
-    execute_hooks_by_phase(hooks, HookPhase::PreSync, hooks_enabled, dry_run)
+    execute_hooks_by_phase(hooks, LifecyclePhase::PreSync, hooks_enabled, dry_run)
 }
 
 /// Helper to execute post-sync hooks
 pub fn execute_post_sync(
-    hooks: &Option<HookConfig>,
+    hooks: &Option<LifecycleConfig>,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
-    execute_hooks_by_phase(hooks, HookPhase::PostSync, hooks_enabled, dry_run)
+    execute_hooks_by_phase(hooks, LifecyclePhase::PostSync, hooks_enabled, dry_run)
 }
 
 /// Helper to execute on-success hooks
 pub fn execute_on_success(
-    hooks: &Option<HookConfig>,
+    hooks: &Option<LifecycleConfig>,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
-    execute_hooks_by_phase(hooks, HookPhase::OnSuccess, hooks_enabled, dry_run)
+    execute_hooks_by_phase(hooks, LifecyclePhase::OnSuccess, hooks_enabled, dry_run)
 }
 
 /// Helper to execute on-failure hooks
 pub fn execute_on_failure(
-    hooks: &Option<HookConfig>,
+    hooks: &Option<LifecycleConfig>,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
-    execute_hooks_by_phase(hooks, HookPhase::OnFailure, hooks_enabled, dry_run)
+    execute_hooks_by_phase(hooks, LifecyclePhase::OnFailure, hooks_enabled, dry_run)
 }
 
 /// Helper to execute post-install hooks for a specific package
 pub fn execute_post_install(
-    hooks: &Option<HookConfig>,
+    hooks: &Option<LifecycleConfig>,
     package_name: &str,
     hooks_enabled: bool,
     dry_run: bool,
@@ -241,8 +241,8 @@ pub fn execute_post_install(
     };
 
     // Filter hooks by phase and package
-    let package_hooks: Vec<_> = hooks.hooks.iter()
-        .filter(|h| h.phase == HookPhase::PostInstall)
+    let package_hooks: Vec<_> = hooks.actions.iter()
+        .filter(|h| h.phase == LifecyclePhase::PostInstall)
         .filter(|h| h.package.as_deref() == Some(package_name))
         .collect();
 

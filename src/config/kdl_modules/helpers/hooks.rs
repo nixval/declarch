@@ -1,4 +1,4 @@
-use crate::config::kdl_modules::types::{ErrorBehavior, HookConfig, HookEntry, HookPhase, HookType};
+use crate::config::kdl_modules::types::{ErrorBehavior, LifecycleConfig, LifecycleAction, LifecyclePhase, ActionType};
 use crate::error::{DeclarchError, Result};
 use kdl::KdlNode;
 
@@ -8,7 +8,7 @@ use kdl::KdlNode;
 /// 1. Global hooks: pre-sync "command"
 /// 2. Package hooks (block): docker { post-install "command" --sudo }
 /// 3. Package hooks (shorthand): docker:post-install "command" --sudo
-pub fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
+pub fn parse_hooks(node: &KdlNode, hooks: &mut LifecycleConfig) -> Result<()> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let child_name = child.name().value();
@@ -22,10 +22,10 @@ pub fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
                     let phase = parse_hook_phase(phase_str)?;
 
                     if let Some(command) = super::meta::get_first_string(child) {
-                        let (hook_type, error_behavior) = parse_hook_flags(child)?;
-                        hooks.hooks.push(HookEntry {
+                        let (action_type, error_behavior) = parse_hook_flags(child)?;
+                        hooks.actions.push(LifecycleAction {
                             command: command.to_string(),
-                            hook_type,
+                            action_type,
                             phase,
                             package: Some(package.to_string()),
                             conditions: vec![], // Phase 2
@@ -43,10 +43,10 @@ pub fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
             else {
                 let phase = parse_hook_phase(child_name)?;
                 if let Some(command) = super::meta::get_first_string(child) {
-                    let (hook_type, error_behavior) = parse_hook_flags(child)?;
-                    hooks.hooks.push(HookEntry {
+                    let (action_type, error_behavior) = parse_hook_flags(child)?;
+                    hooks.actions.push(LifecycleAction {
                         command: command.to_string(),
-                        hook_type,
+                        action_type,
                         phase,
                         package: None,
                         conditions: vec![], // Phase 2
@@ -60,17 +60,17 @@ pub fn parse_hooks(node: &KdlNode, hooks: &mut HookConfig) -> Result<()> {
 }
 
 /// Parse hook phase from string
-pub fn parse_hook_phase(s: &str) -> Result<HookPhase> {
+pub fn parse_hook_phase(s: &str) -> Result<LifecyclePhase> {
     match s {
-        "pre-sync" => Ok(HookPhase::PreSync),
-        "post-sync" => Ok(HookPhase::PostSync),
-        "on-success" => Ok(HookPhase::OnSuccess),
-        "on-failure" => Ok(HookPhase::OnFailure),
-        "pre-install" => Ok(HookPhase::PreInstall),
-        "post-install" => Ok(HookPhase::PostInstall),
-        "pre-remove" => Ok(HookPhase::PreRemove),
-        "post-remove" => Ok(HookPhase::PostRemove),
-        "on-update" => Ok(HookPhase::OnUpdate),
+        "pre-sync" => Ok(LifecyclePhase::PreSync),
+        "post-sync" => Ok(LifecyclePhase::PostSync),
+        "on-success" => Ok(LifecyclePhase::OnSuccess),
+        "on-failure" => Ok(LifecyclePhase::OnFailure),
+        "pre-install" => Ok(LifecyclePhase::PreInstall),
+        "post-install" => Ok(LifecyclePhase::PostInstall),
+        "pre-remove" => Ok(LifecyclePhase::PreRemove),
+        "post-remove" => Ok(LifecyclePhase::PostRemove),
+        "on-update" => Ok(LifecyclePhase::OnUpdate),
         _ => Err(DeclarchError::ConfigError(format!(
             "Invalid hook phase '{}'. Valid phases: {}",
             s,
@@ -83,16 +83,16 @@ pub fn parse_hook_phase(s: &str) -> Result<HookPhase> {
 }
 
 /// Parse hook flags from a node
-/// Returns (hook_type, error_behavior)
-pub fn parse_hook_flags(node: &KdlNode) -> Result<(HookType, ErrorBehavior)> {
-    let mut hook_type = HookType::User;
+/// Returns (action_type, error_behavior)
+pub fn parse_hook_flags(node: &KdlNode) -> Result<(ActionType, ErrorBehavior)> {
+    let mut action_type = ActionType::User;
     let mut error_behavior = ErrorBehavior::default();
 
     for entry in node.entries().iter().skip(1) {
         // Skip the first entry (command string)
         if let Some(val) = entry.value().as_string() {
             match val {
-                "--sudo" => hook_type = HookType::Root,
+                "--sudo" => action_type = ActionType::Root,
                 "--required" => error_behavior = ErrorBehavior::Required,
                 "--ignore" => error_behavior = ErrorBehavior::Ignore,
                 _ => {
@@ -102,7 +102,7 @@ pub fn parse_hook_flags(node: &KdlNode) -> Result<(HookType, ErrorBehavior)> {
         }
     }
 
-    Ok((hook_type, error_behavior))
+    Ok((action_type, error_behavior))
 }
 
 /// Check if a node is a package block (has children with hook phases)
@@ -124,7 +124,7 @@ pub fn is_package_block(node: &KdlNode) -> bool {
 pub fn parse_package_hook_block(
     node: &KdlNode,
     package: String,
-    hooks: &mut HookConfig,
+    hooks: &mut LifecycleConfig,
 ) -> Result<()> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -132,10 +132,10 @@ pub fn parse_package_hook_block(
             let phase = parse_hook_phase(phase_str)?;
 
             if let Some(command) = super::meta::get_first_string(child) {
-                let (hook_type, error_behavior) = parse_hook_flags(child)?;
-                hooks.hooks.push(HookEntry {
+                let (action_type, error_behavior) = parse_hook_flags(child)?;
+                hooks.actions.push(LifecycleAction {
                     command: command.to_string(),
-                    hook_type,
+                    action_type,
                     phase,
                     package: Some(package.clone()),
                     conditions: vec![], // Phase 2

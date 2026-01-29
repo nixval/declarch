@@ -1,7 +1,7 @@
 // Re-export types from kdl_modules for backward compatibility
 pub use crate::config::kdl_modules::types::{
-    ConflictEntry, ConfigMeta, ErrorBehavior, HookCondition, HookConfig, HookEntry,
-    HookPhase, HookType, PackageEntry, PolicyConfig, RawConfig,
+    ActionCondition, ActionType, ConflictEntry, ConfigMeta, ErrorBehavior,
+    LifecycleAction, LifecycleConfig, LifecyclePhase, PackageEntry, PolicyConfig, RawConfig,
 };
 // Re-export BackendParser trait from parsers module
 pub use crate::config::kdl_modules::parsers::BackendParser;
@@ -310,7 +310,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         env: HashMap::new(),
         repositories: HashMap::new(),
         policy: PolicyConfig::default(),
-        hooks: HookConfig::default(),
+        lifecycle_actions: LifecycleConfig::default(),
     };
 
     let registry = BackendParserRegistry::new();
@@ -370,15 +370,15 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             // NEW: Hooks
             "hooks" => {
-                hooks::parse_hooks(node, &mut config.hooks)?;
+                hooks::parse_hooks(node, &mut config.lifecycle_actions)?;
             }
             // NEW: Simplified flat hooks (backward compatibility)
             "on-sync" => {
                 if let Some(val) = meta::get_first_string(node) {
-                    config.hooks.hooks.push(HookEntry {
+                    config.lifecycle_actions.actions.push(LifecycleAction {
                         command: val,
-                        hook_type: HookType::User,
-                        phase: HookPhase::PostSync,
+                        action_type: ActionType::User,
+                        phase: LifecyclePhase::PostSync,
                         package: None,
                         conditions: vec![],
                         error_behavior: ErrorBehavior::default(),
@@ -387,10 +387,10 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             "on-sync-sudo" => {
                 if let Some(val) = meta::get_first_string(node) {
-                    config.hooks.hooks.push(HookEntry {
+                    config.lifecycle_actions.actions.push(LifecycleAction {
                         command: val,
-                        hook_type: HookType::Root,
-                        phase: HookPhase::PostSync,
+                        action_type: ActionType::Root,
+                        phase: LifecyclePhase::PostSync,
                         package: None,
                         conditions: vec![],
                         error_behavior: ErrorBehavior::default(),
@@ -399,10 +399,10 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             "on-pre-sync" => {
                 if let Some(val) = meta::get_first_string(node) {
-                    config.hooks.hooks.push(HookEntry {
+                    config.lifecycle_actions.actions.push(LifecycleAction {
                         command: val,
-                        hook_type: HookType::User,
-                        phase: HookPhase::PreSync,
+                        action_type: ActionType::User,
+                        phase: LifecyclePhase::PreSync,
                         package: None,
                         conditions: vec![],
                         error_behavior: ErrorBehavior::default(),
@@ -1084,8 +1084,8 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Filter post-sync hooks
-        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
 
         assert_eq!(post_sync_hooks.len(), 3);
@@ -1094,16 +1094,16 @@ mod tests {
             post_sync_hooks[0].command,
             "notify-send 'Packages updated'"
         );
-        assert_eq!(post_sync_hooks[0].hook_type, HookType::User);
+        assert_eq!(post_sync_hooks[0].action_type, ActionType::User);
 
         assert_eq!(post_sync_hooks[1].command, "systemctl restart gdm");
-        assert_eq!(post_sync_hooks[1].hook_type, HookType::Root);
+        assert_eq!(post_sync_hooks[1].action_type, ActionType::Root);
 
         assert_eq!(
             post_sync_hooks[2].command,
             "~/.config/declarch/post-sync.sh"
         );
-        assert_eq!(post_sync_hooks[2].hook_type, HookType::User);
+        assert_eq!(post_sync_hooks[2].action_type, ActionType::User);
     }
 
     // NEW: Comprehensive integration test
@@ -1183,8 +1183,8 @@ mod tests {
         assert_eq!(config.policy.orphans, Some("keep".to_string()));
 
         // Check hooks
-        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
         assert_eq!(post_sync_hooks.len(), 1);
     }
@@ -1202,25 +1202,25 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Check pre-sync hooks
-        let pre_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PreSync)
+        let pre_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PreSync)
             .collect();
         assert_eq!(pre_sync_hooks.len(), 1);
         assert_eq!(pre_sync_hooks[0].command, "echo 'Starting sync...'");
-        assert_eq!(pre_sync_hooks[0].hook_type, HookType::User);
+        assert_eq!(pre_sync_hooks[0].action_type, ActionType::User);
 
         // Check post-sync hooks
-        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
         assert_eq!(post_sync_hooks.len(), 2);
         assert_eq!(
             post_sync_hooks[0].command,
             "notify-send 'Packages updated'"
         );
-        assert_eq!(post_sync_hooks[0].hook_type, HookType::User);
+        assert_eq!(post_sync_hooks[0].action_type, ActionType::User);
         assert_eq!(post_sync_hooks[1].command, "systemctl restart gdm");
-        assert_eq!(post_sync_hooks[1].hook_type, HookType::Root);
+        assert_eq!(post_sync_hooks[1].action_type, ActionType::Root);
     }
 
     // NEW: Mixed hooks (flat syntax + hooks block)
@@ -1238,8 +1238,8 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Filter post-sync hooks
-        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
 
         // Should have both flat and nested hooks
@@ -1291,38 +1291,38 @@ hooks {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Test pre-sync hooks
-        let pre_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PreSync)
+        let pre_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PreSync)
             .collect();
         assert_eq!(pre_sync_hooks.len(), 1);
         assert_eq!(pre_sync_hooks[0].command, "echo 'Pre-sync'");
         assert!(pre_sync_hooks[0].package.is_none());
 
         // Test post-sync hooks
-        let post_sync_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
         assert_eq!(post_sync_hooks.len(), 2);
         assert!(post_sync_hooks.iter().any(|h| h.command == "echo 'Post-sync'"));
         assert!(post_sync_hooks.iter().any(|h| h.command == "echo 'AUR synced'"));
 
         // Test on-success hooks
-        let on_success_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::OnSuccess)
+        let on_success_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::OnSuccess)
             .collect();
         assert_eq!(on_success_hooks.len(), 1);
         assert_eq!(on_success_hooks[0].command, "echo 'Success'");
 
         // Test on-failure hooks
-        let on_failure_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::OnFailure)
+        let on_failure_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::OnFailure)
             .collect();
         assert_eq!(on_failure_hooks.len(), 1);
         assert_eq!(on_failure_hooks[0].command, "echo 'Failed'");
 
         // Test post-install hooks
-        let post_install_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostInstall)
+        let post_install_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostInstall)
             .collect();
         assert_eq!(post_install_hooks.len(), 1);
         assert_eq!(post_install_hooks[0].command, "echo 'Bat installed'");
@@ -1342,26 +1342,26 @@ hooks {
 
         let config = parse_kdl_content(kdl).unwrap();
 
-        let all_hooks = &config.hooks.hooks;
+        let all_hooks = &config.lifecycle_actions.actions;
 
         // Regular hook (no sudo)
         let regular = all_hooks.iter()
             .find(|h| h.command.contains("Regular hook"))
             .unwrap();
-        assert_eq!(regular.hook_type, HookType::User);
+        assert_eq!(regular.action_type, ActionType::User);
         assert_eq!(regular.error_behavior, ErrorBehavior::Warn);
 
         // Sudo hook
         let sudo = all_hooks.iter()
             .find(|h| h.command.contains("systemctl restart gdm"))
             .unwrap();
-        assert_eq!(sudo.hook_type, HookType::Root);
+        assert_eq!(sudo.action_type, ActionType::Root);
 
         // Required hook
         let required = all_hooks.iter()
             .find(|h| h.command.contains("mkinitcpio"))
             .unwrap();
-        assert_eq!(required.hook_type, HookType::Root);
+        assert_eq!(required.action_type, ActionType::Root);
         assert_eq!(required.error_behavior, ErrorBehavior::Required);
 
         // Ignore hook
@@ -1393,28 +1393,28 @@ hooks {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Test package shorthand
-        let docker_hooks: Vec<_> = config.hooks.hooks.iter()
+        let docker_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
             .filter(|h| h.package.as_deref() == Some("docker"))
             .collect();
         assert_eq!(docker_hooks.len(), 1);
-        assert_eq!(docker_hooks[0].phase, HookPhase::PostInstall);
-        assert_eq!(docker_hooks[0].hook_type, HookType::Root);
+        assert_eq!(docker_hooks[0].phase, LifecyclePhase::PostInstall);
+        assert_eq!(docker_hooks[0].action_type, ActionType::Root);
 
-        let waybar_hooks: Vec<_> = config.hooks.hooks.iter()
+        let waybar_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
             .filter(|h| h.package.as_deref() == Some("waybar"))
             .collect();
         assert_eq!(waybar_hooks.len(), 1);
-        assert_eq!(waybar_hooks[0].phase, HookPhase::PostInstall);
+        assert_eq!(waybar_hooks[0].phase, LifecyclePhase::PostInstall);
 
         // Test backend shorthand (should be detected by post-sync phase)
-        let aur_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let aur_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .filter(|h| h.command.contains("AUR"))
             .collect();
         assert_eq!(aur_hooks.len(), 1);
 
-        let flatpak_hooks: Vec<_> = config.hooks.hooks.iter()
-            .filter(|h| h.phase == HookPhase::PostSync)
+        let flatpak_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+            .filter(|h| h.phase == LifecyclePhase::PostSync)
             .filter(|h| h.command.contains("Flatpak"))
             .collect();
         assert_eq!(flatpak_hooks.len(), 1);
