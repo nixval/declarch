@@ -43,9 +43,9 @@ pub struct RawConfig {
     pub custom_packages: HashMap<String, Vec<PackageEntry>>,
 
     pub excludes: Vec<String>,
-    /// Package aliases: config_name -> actual_package_name
+    /// Package mappings: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
-    pub aliases: HashMap<String, String>,
+    pub package_mappings: HashMap<String, String>,
     /// Editor to use for edit command
     /// Syntax: editor "nvim" or editor nvim
     pub editor: Option<String>,

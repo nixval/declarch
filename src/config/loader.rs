@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 pub struct MergedConfig {
     pub packages: HashMap<PackageId, Vec<PathBuf>>,
     pub excludes: Vec<String>,
-    /// Package aliases: config_name -> actual_package_name
-    pub aliases: HashMap<String, String>,
+    /// Package mappings: config_name -> actual_package_name
+    pub package_mappings: HashMap<String, String>,
 
     // === NEW: Additional config fields ===
     /// Configuration metadata (merged from first config with meta)
@@ -265,7 +265,7 @@ fn recursive_load(
     }
 
     merged.excludes.extend(raw.excludes);
-    merged.aliases.extend(raw.aliases);
+    merged.package_mappings.extend(raw.package_mappings);
 
     // === NEW: Merge additional config fields ===
 

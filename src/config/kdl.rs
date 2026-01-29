@@ -7,7 +7,7 @@ pub use crate::config::kdl_modules::types::{
 pub use crate::config::kdl_modules::parsers::BackendParser;
 // Re-export helper functions for backward compatibility
 pub use crate::config::kdl_modules::helpers::{
-    aliases, conflicts, env, hooks, meta, packages, policy, repositories,
+    package_mappings, conflicts, env, hooks, meta, packages, policy, repositories,
 };
 
 use crate::error::Result;
@@ -302,7 +302,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         brew_packages: vec![],
         custom_packages: HashMap::new(),
         excludes: vec![],
-        aliases: HashMap::new(),
+        package_mappings: HashMap::new(),
         editor: None,
         meta: ConfigMeta::default(),
         conflicts: vec![],
@@ -326,7 +326,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 packages::extract_mixed_values(node, &mut config.excludes);
             }
             "aliases-pkg" | "alias-pkg" => {
-                aliases::extract_aliases(node, &mut config.aliases);
+                package_mappings::extract_aliases(node, &mut config.package_mappings);
             }
             "editor" => {
                 // Extract editor from first string argument
@@ -453,13 +453,13 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.aliases.len(), 2);
+        assert_eq!(config.package_mappings.len(), 2);
         assert_eq!(
-            config.aliases.get("pipewire"),
+            config.package_mappings.get("pipewire"),
             Some(&"pipewire-jack2".to_string())
         );
         assert_eq!(
-            config.aliases.get("python-poetry"),
+            config.package_mappings.get("python-poetry"),
             Some(&"python-poetry-core".to_string())
         );
     }
@@ -474,13 +474,13 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.aliases.len(), 2);
+        assert_eq!(config.package_mappings.len(), 2);
         assert_eq!(
-            config.aliases.get("pipewire"),
+            config.package_mappings.get("pipewire"),
             Some(&"pipewire-jack2".to_string())
         );
         assert_eq!(
-            config.aliases.get("python-poetry"),
+            config.package_mappings.get("python-poetry"),
             Some(&"python-poetry-core".to_string())
         );
     }
@@ -500,10 +500,10 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.aliases.len(), 1);
+        assert_eq!(config.package_mappings.len(), 1);
         assert_eq!(config.excludes.len(), 1);
         assert_eq!(
-            config.aliases.get("pipewire"),
+            config.package_mappings.get("pipewire"),
             Some(&"pipewire-jack2".to_string())
         );
     }
@@ -515,7 +515,7 @@ mod tests {
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert!(config.aliases.is_empty());
+        assert!(config.package_mappings.is_empty());
     }
 
     #[test]

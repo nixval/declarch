@@ -1,4 +1,4 @@
-pub mod aliases;
+pub mod package_mappings;
 pub mod conflicts;
 pub mod env;
 pub mod hooks;
