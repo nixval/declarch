@@ -818,7 +818,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_pm() {
+    fn unknown_backend() {
         let kdl = r#"
             packages {
                 unknown:package
@@ -880,7 +880,7 @@ mod tests {
     }
 
     #[test]
-    fn registry() {
+    fn backend_registry() {
         let registry = BackendParserRegistry::new();
 
         // Test finding parsers by name
@@ -985,7 +985,7 @@ mod tests {
     // NEW: Backend options tests
 
     #[test]
-    fn aur_options() {
+    fn backend_options() {
         let kdl = r#"
             options:aur {
                 noconfirm
