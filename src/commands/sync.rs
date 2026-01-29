@@ -53,12 +53,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
         // Check if this is selective sync (single module, no target specified)
         // or loading additional modules
         if options.modules.len() == 1 && options.target.is_none() {
-            // Selective sync: load ONLY this module
-            output::info(&format!("Syncing module: {}", options.modules[0]));
+            // Selective sync: load ONLY this module (no verbose message)
             load_single_module(&config_path, &options.modules[0])?
         } else {
-            // Load additional modules (existing behavior)
-            output::info(&format!("Loading additional modules: {:?}", options.modules));
+            // Load additional modules
             load_config_with_modules(&config_path, &options.modules)?
         }
     } else {
@@ -266,54 +264,63 @@ fn display_transaction_plan(
 ) {
     output::separator();
 
-    if !tx.to_install.is_empty() {
-        println!("{}", "To Install:".green().bold());
-        for pkg in &tx.to_install {
-            println!("  + {} ({})", pkg.name, pkg.backend);
-        }
+    // Compact display: Show all actions inline
+    let mut all_items = Vec::new();
+
+    // Collect installs
+    for pkg in &tx.to_install {
+        all_items.push(format!("+ {} ({})", pkg.name, pkg.backend));
     }
 
-    if !tx.to_update_project_metadata.is_empty() {
-        println!("{}", "State Updates (Drift detected):".blue().bold());
-        for pkg in &tx.to_update_project_metadata {
-            let v_display = installed_snapshot
-                .get(pkg)
-                .map(|m| m.version.as_deref().unwrap_or("?"))
-                .unwrap_or("smart-match");
-            println!("  ~ {} ({}) (v{})", pkg.name, pkg.backend, v_display);
-        }
+    // Collect adoptions
+    for pkg in &tx.to_adopt {
+        all_items.push(format!("~ {} ({})", pkg.name, pkg.backend));
     }
 
-    if !tx.to_adopt.is_empty() {
-        println!("{}", "To Adopt (Track in State):".yellow().bold());
-        for pkg in &tx.to_adopt {
-            println!("  ~ {} ({})", pkg.name, pkg.backend);
-        }
-    }
-
+    // Collect removals
     if !tx.to_prune.is_empty() {
-        let header = if should_prune {
-            "To Remove:".red().bold()
-        } else {
-            "To Remove (Skipped):".dimmed()
-        };
-        println!("{}", header);
         for pkg in &tx.to_prune {
             let is_critical = CRITICAL_PACKAGES.contains(&pkg.name.as_str());
             if should_prune {
                 if is_critical {
-                    println!(
-                        "  - {} ({}) {}",
-                        pkg.name.yellow(),
-                        pkg.backend,
-                        "(Protected - Detaching from State)".italic()
-                    );
+                    all_items.push(format!("- {} ({}) [protected]", pkg.name, pkg.backend));
                 } else {
-                    println!("  - {} ({})", pkg.name, pkg.backend);
+                    all_items.push(format!("- {} ({})", pkg.name, pkg.backend));
                 }
-            } else {
-                println!("  - {} ({})", pkg.name.dimmed(), pkg.backend);
             }
+        }
+    }
+
+    // Display in compact format
+    if !all_items.is_empty() {
+        println!("{}", "Changes:".green().bold());
+
+        // Group by type for better readability
+        if !tx.to_install.is_empty() {
+            println!("  Install: {}", tx.to_install.iter()
+                .map(|p| format!("{} ({})", p.name, p.backend))
+                .collect::<Vec<_>>()
+                .join(", "));
+        }
+
+        if !tx.to_adopt.is_empty() {
+            println!("  Adopt:   {}", tx.to_adopt.iter()
+                .map(|p| format!("{} ({})", p.name, p.backend))
+                .collect::<Vec<_>>()
+                .join(", "));
+        }
+
+        if !tx.to_prune.is_empty() && should_prune {
+            println!("  Remove:  {}", tx.to_prune.iter()
+                .map(|p| {
+                    if CRITICAL_PACKAGES.contains(&p.name.as_str()) {
+                        format!("{} ({}) [keep]", p.name, p.backend)
+                    } else {
+                        format!("{} ({})", p.name, p.backend)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(", "));
         }
     }
 }
@@ -371,8 +378,10 @@ fn execute_installations(
     }
 
     // Refresh snapshot after installations
-    if !tx.to_install.is_empty() {
-        output::info("Refreshing package state...");
+    if !tx.to_install.is_empty() && !successfully_installed.is_empty() {
+        // Only show message if packages were actually installed
+        output::info(&format!("Installed {} package(s)", successfully_installed.len()));
+
         for (backend, mgr) in managers {
             if !mgr.is_available() {
                 continue;

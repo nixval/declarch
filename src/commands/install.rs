@@ -156,7 +156,11 @@ pub fn run(options: InstallOptions) -> Result<()> {
         return Ok(());
     }
 
-    // Step 3: Show what was edited and auto-import new modules
+    // Step 3: Show summary of edits
+    let mut files_created = Vec::new();
+    let mut files_updated = Vec::new();
+    let mut all_packages = Vec::new();
+
     for edit in &all_edits {
         // Track modified module for selective sync
         if let Some(module_name) = edit.file_path.file_stem() {
@@ -168,27 +172,33 @@ pub fn run(options: InstallOptions) -> Result<()> {
         }
 
         if edit.created_new_file {
-            output::success(&format!(
-                "Created {}",
-                edit.file_path.display()
-            ));
+            files_created.push(edit.file_path.display().to_string());
 
             // Auto-import new module to declarch.kdl
             let module_path = edit.file_path.strip_prefix(&paths::config_dir()?)
                 .unwrap_or(&edit.file_path);
             inject_import_to_root(module_path)?;
         } else {
-            output::success(&format!(
-                "Updated {}",
-                edit.file_path.display()
-            ));
+            files_updated.push(edit.file_path.display().to_string());
         }
 
-        if !edit.packages_added.is_empty() {
-            output::info(&format!(
-                "Added: {}",
-                edit.packages_added.join(", ")
-            ));
+        all_packages.extend(edit.packages_added.iter().cloned());
+    }
+
+    // Compact summary
+    if !files_created.is_empty() || !files_updated.is_empty() || !all_packages.is_empty() {
+        output::separator();
+
+        if !files_created.is_empty() {
+            output::success(&format!("Created: {}", files_created.join(", ")));
+        }
+
+        if !files_updated.is_empty() {
+            output::success(&format!("Updated: {}", files_updated.join(", ")));
+        }
+
+        if !all_packages.is_empty() {
+            output::info(&format!("Packages: {}", all_packages.join(", ")));
         }
     }
 
@@ -304,17 +314,13 @@ fn prompt_yes_no(question: &str, default: bool) -> bool {
 /// Helper to inject the import statement into main config file
 /// Auto-imports newly created modules so they're picked up by sync
 fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
-    eprintln!("[DEBUG] inject_import_to_root called with: {}", module_path.display());
 
     let config_path = paths::config_file()?;
     let import_path = module_path.to_string_lossy().replace("\\", "/");
 
-    eprintln!("[DEBUG] Config path: {}", config_path.display());
-    eprintln!("[DEBUG] Import path to add: {}", import_path);
 
     // Skip if config file doesn't exist
     if !config_path.exists() {
-        eprintln!("[DEBUG] Config file doesn't exist, skipping");
         return Ok(());
     }
 
@@ -322,28 +328,24 @@ fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
 
     // Check if it already exists
     if content.contains(&import_path) {
-        eprintln!("[DEBUG] Import already exists, skipping");
         return Ok(());
     }
 
     // Normalize path to use forward slashes and remove .kdl extension for import
     let import_line = format!("    {:?}", import_path);
 
-    eprintln!("[DEBUG] Import line to add: {}", import_line);
 
     // Regex Magic - same as init.rs
     let re = Regex::new(r#"(?m)^(.*imports\s*\{)"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
 
     let new_content = if re.is_match(&content) {
-        eprintln!("[DEBUG] Found imports block, injecting import");
         // INJECT: Insert right after the opening brace
         re.replace(&content, |caps: &regex::Captures| {
             format!("{}\n{}", &caps[0], import_line)
         })
         .to_string()
     } else {
-        eprintln!("[DEBUG] No imports block found, creating new one");
         // FALLBACK: Append new block if not found
         format!(
             "{}\n\nimports {{\n{}\n}}\n",
@@ -353,7 +355,6 @@ fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
     };
 
     fs::write(&config_path, new_content)?;
-    eprintln!("[DEBUG] Wrote updated config to: {}", config_path.display());
 
     output::success(&format!(
         "Auto-imported: added '{}' to declarch.kdl",
