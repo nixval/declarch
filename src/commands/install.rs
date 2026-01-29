@@ -215,7 +215,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             Ok(()) => {
                 // Show success message with module name
                 if let Some(module) = modified_modules.first() {
-                    output::success(&format!("Sync completed, added to '{}'", module));
+                    output::success(&format!("Sync completed, added to '{}.kdl'", module));
                 } else {
                     output::success("Sync completed");
                 }

@@ -42,8 +42,6 @@ pub struct SyncOptions {
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
-    output::header("Synchronizing Packages");
-
     // 1. Target Resolution
     let sync_target = resolve_target(&options.target);
 
@@ -164,8 +162,6 @@ pub fn run(options: SyncOptions) -> Result<()> {
         )));
     }
 
-    output::success("Sync complete!");
-
     Ok(())
 }
 
@@ -257,8 +253,6 @@ fn display_transaction_plan(
     _installed_snapshot: &HashMap<PackageId, PackageMetadata>,
     should_prune: bool,
 ) {
-    output::separator();
-
     // Compact display: Show all actions inline
     let mut all_items = Vec::new();
 
@@ -561,7 +555,6 @@ fn initialize_managers_and_snapshot(
     options: &SyncOptions,
     sync_target: &SyncTarget,
 ) -> Result<(InstalledSnapshot, ManagerMap)> {
-    output::info("Scanning system state...");
     let mut installed_snapshot: InstalledSnapshot = HashMap::new();
     let mut managers: ManagerMap = HashMap::new();
 

@@ -105,14 +105,12 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
 
     // Auto-initialize root if not exists
     if !root_dir.exists() {
-        output::warning("Root config not found. Auto-initializing...");
         let hostname = hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| "unknown".to_string());
 
         // Create root directory
         fs::create_dir_all(&root_dir)?;
-        output::success(&format!("Created config directory: {}", root_dir.display()));
 
         // Create default config
         let config_file = paths::config_file()?;
@@ -122,7 +120,6 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
 
         // Initialize state
         let _state = state::io::init_state(hostname.clone())?;
-        output::success(&format!("Initialized state for host: {}", hostname.green()));
     }
 
     // 1. Resolve Path - preserve directory structure
@@ -175,12 +172,13 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
 
     // 4. Write File
     fs::write(&full_path, &content)?;
-    output::success(&format!("Created module: {}", full_path.display()));
 
     // 5. AUTO INJECT IMPORT
     let root_config_path = paths::config_file()?;
     let import_path = modules_path.to_string_lossy().replace("\\", "/");
     inject_import_to_root(&root_config_path, &import_path, force)?;
+
+    output::success("Done");
 
     Ok(())
 }
@@ -295,10 +293,6 @@ fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> 
     };
 
     fs::write(config_path, new_content)?;
-    output::success(&format!(
-        "Auto-imported: added '{}' to {}",
-        import_path.green(), CONFIG_FILE_NAME
-    ));
 
     Ok(())
 }
