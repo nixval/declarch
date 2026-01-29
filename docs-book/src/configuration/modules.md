@@ -537,6 +537,68 @@ $ declarch check --duplicates
 
 **Solution:** Remove from one module or create a shared module.
 
+### Path Traversal Blocked
+
+```bash
+$ declarch check
+✗ Path traversal blocked: import paths cannot contain '..'
+  Import: ../../../etc/passwd
+```
+
+**Solution:** Remove malicious imports from configuration. Path traversal is blocked for security.
+
+```bash
+$ declarch check
+✗ Absolute path not allowed in relative import
+  Import: /etc/malicious.kdl
+```
+
+**Solution:** Use relative paths without `..` or use absolute paths explicitly starting with `/` or `~/`.
+
+## Security
+
+### Import Path Validation (v0.4.4+)
+
+Module imports are validated to prevent path traversal attacks:
+
+1. **Relative imports** (e.g., `modules/base`):
+   - Cannot contain `..` (parent directory references)
+   - Cannot use absolute paths
+   - Must be within the config directory
+
+2. **Absolute/home imports** (e.g., `/path/to/config` or `~/config`):
+   - Allowed but should be used carefully
+   - Always review before enabling with remote configs
+
+**Blocked imports:**
+```kdl
+// ❌ BLOCKED: Path traversal
+imports {
+    ../../../etc/passwd
+    ../../malicious.kdl
+}
+
+// ❌ BLOCKED: Absolute path in relative syntax
+imports {
+    /etc/config.kdl
+}
+```
+
+**Allowed imports:**
+```kdl
+// ✅ ALLOWED: Relative paths
+imports {
+    modules/base
+    modules/desktop/hyprland
+}
+
+// ✅ ALLOWED: Explicit absolute/home paths
+imports {
+    ~/other-config/modules/shared
+    /absolute/path/to/config
+}
+```
+
 ## Module Management Workflow
 
 ### Add New Module

@@ -328,9 +328,28 @@ fn recursive_load(
     })?;
 
     for import_str in raw.imports {
+        // Security: Validate import path to prevent path traversal attacks
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
+            // Absolute paths or home paths: allow but validate
             PathBuf::from(import_str)
         } else {
+            // Relative paths: must be relative to current config directory
+            // Security check: Block path traversal attempts
+            if import_str.contains("..") {
+                return Err(DeclarchError::ConfigError(format!(
+                    "Path traversal blocked: import paths cannot contain '..'\n  Import: {}",
+                    import_str
+                )));
+            }
+
+            // Security check: Block absolute paths in relative import syntax
+            if import_str.starts_with("/") {
+                return Err(DeclarchError::ConfigError(format!(
+                    "Absolute path not allowed in relative import\n  Import: {}",
+                    import_str
+                )));
+            }
+
             parent_dir.join(import_str)
         };
 
