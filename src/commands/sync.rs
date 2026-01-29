@@ -376,16 +376,18 @@ fn update_state_after_sync(
     installed_snapshot: &HashMap<PackageId, PackageMetadata>,
     options: &SyncOptions,
 ) -> Result<()> {
-    // Collect all packages to upsert
-    let mut to_upsert = tx.to_install.clone();
-    to_upsert.extend(tx.to_adopt.clone());
-    to_upsert.extend(tx.to_update_project_metadata.clone());
+    // Collect all packages to upsert (avoid cloning entire vectors)
+    // Use iterators to chain the package collections
+    let packages_to_upsert = tx.to_install
+        .iter()
+        .chain(tx.to_adopt.iter())
+        .chain(tx.to_update_project_metadata.iter());
 
     // Upsert packages into state
-    for pkg in to_upsert {
-        let meta = find_package_metadata(&pkg, installed_snapshot);
+    for pkg in packages_to_upsert {
+        let meta = find_package_metadata(pkg, installed_snapshot);
         let version = meta.and_then(|m| m.version.clone());
-        let key = resolver::make_state_key(&pkg);
+        let key = resolver::make_state_key(pkg);
 
         // Discover actual AUR package name if applicable
         let aur_package_name = if pkg.backend == Backend::Aur {
