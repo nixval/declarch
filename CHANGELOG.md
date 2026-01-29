@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2025-01-29
+
+### Security
+- **CRITICAL**: Tightened hook command validation regex to prevent command injection attacks.
+  - Old: `^[\w\s\-\./@:=\$~\{\}]+$` (too permissive)
+  - New: `^[a-zA-Z0-9_\-\.\s/:]+$` (more restrictive)
+  - Removed dangerous characters: `$`, `{`, `}`, `~`, `=`, `@`
+- Documented safety rationale for `unsafe` block in info.rs (required by Rust 1.92+)
+- Added documentation about state rollback limitations in switch.rs
+
+### Fixed
+- Improved error messages in hook validation to show allowed characters
+- Added comprehensive safety comments for atomic state operations
+
 ## [Unreleased]
 
 ### Security

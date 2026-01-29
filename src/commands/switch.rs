@@ -142,7 +142,10 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     // PHASE 3: EXECUTION WITH ROLLBACK
     // ==========================================
 
-    // Create backup before changing anything
+    // Create in-memory backup before changing anything
+    // Note: This provides rollback protection within this process only.
+    // For concurrent process protection, file-level locking would be needed.
+    // TODO: Implement proper transaction support with file locking for multi-process safety.
     let state_backup = state.clone();
     output::info("Created state backup");
 

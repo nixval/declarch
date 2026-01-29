@@ -17,12 +17,13 @@ lifecycle actions are shell commands that run at specific points during the `dec
 
 Remote configurations (from `declarch init <url>`) may contain arbitrary commands. Always review lifecycle actions before enabling.
 
-### Security Features (v0.4.4+)
+### Security Features (v0.5.1+)
 
 The following security measures are in place to protect against malicious commands:
 
 1. **No Embedded Sudo**: Commands containing `sudo` are rejected. Use the `--sudo` flag instead.
-2. **Character Validation**: Only safe characters are allowed (alphanumeric, spaces, slashes, dots, hyphens, underscores, @, :, =, $, ~, {, })
+2. **Character Validation**: Only safe characters are allowed (alphanumeric, spaces, slashes, dots, hyphens, underscores, colons)
+   - **Removed in v0.5.1**: `@`, `=`, `$`, `~`, `{`, `}` for improved security
 3. **Safe Parsing**: Commands are parsed using `shlex` (not `shell-words`) for better security
 4. **No Shell Expansion**: Commands execute directly without shell interpretation
 

@@ -109,11 +109,12 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
     }
 
     // Security: Validate command contains only safe characters before parsing
-    // Allow: alphanumeric, spaces, tabs, slashes, dots, hyphens, underscores, @, :, =, $, ~
-    let safe_char_regex = regex::Regex::new(r"^[\w\s\-\./@:=\$~\{\}]+$").unwrap();
+    // Allow: alphanumeric, spaces, slashes, dots, hyphens, underscores, colons
+    // More restrictive to prevent command injection attempts
+    let safe_char_regex = regex::Regex::new(r"^[a-zA-Z0-9_\-\.\s/:]+$").unwrap();
     if !safe_char_regex.is_match(&hook.command) {
         return Err(DeclarchError::ConfigError(format!(
-            "Hook command contains unsafe characters.\n  Command: {}",
+            "Hook command contains unsafe characters.\n  Command: {}\n  Allowed: a-zA-Z0-9_-./: and whitespace",
             sanitize::sanitize_for_display(&hook.command)
         )));
     }

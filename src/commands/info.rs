@@ -8,6 +8,9 @@ use std::process::Command;
 
 pub fn run(doctor: bool, debug: bool) -> Result<()> {
     // Handle --debug flag (must be set early)
+    // Note: std::env::set_var is unsafe in Rust 1.92+ for safety reasons.
+    // This is safe here because we're setting the variable before any threads are spawned
+    // and we're only setting it at process startup.
     if debug {
         unsafe { std::env::set_var("RUST_LOG", "debug") };
         output::info("Debug logging enabled");
