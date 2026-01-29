@@ -307,7 +307,41 @@ impl ConfigEditor {
 /// parse_package_string("npm:nodejs")  // (Some("npm"), "nodejs")
 /// ```
 pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
-    if let Some((backend, package)) = input.split_once(':') {
+    let trimmed = input.trim();
+
+    // Check for empty string
+    if trimmed.is_empty() {
+        return Err(DeclarchError::Other(
+            "Package name cannot be empty".to_string()
+        ));
+    }
+
+    // Check for multiple colons (e.g., "::package" or "backend::package")
+    if trimmed.matches(':').count() > 1 {
+        return Err(DeclarchError::Other(format!(
+            "Invalid package format '{}'. Use 'backend:package' or 'package'",
+            input
+        )));
+    }
+
+    if let Some((backend, package)) = trimmed.split_once(':') {
+        // Check for empty backend (":package")
+        let backend = backend.trim();
+        let package = package.trim();
+
+        if backend.is_empty() {
+            return Err(DeclarchError::Other(
+                "Backend cannot be empty (use 'package' without colon)".to_string()
+            ));
+        }
+
+        // Check for empty package ("backend:")
+        if package.is_empty() {
+            return Err(DeclarchError::Other(
+                "Package name cannot be empty (use 'backend:' without package)".to_string()
+            ));
+        }
+
         // Validate backend is known
         if is_valid_backend(backend) {
             Ok((Some(backend.to_string()), package.to_string()))
@@ -318,8 +352,13 @@ pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
             )))
         }
     } else {
-        // No backend specified
-        Ok((None, input.to_string()))
+        // No backend specified - validate package name is not empty
+        if trimmed.is_empty() {
+            return Err(DeclarchError::Other(
+                "Package name cannot be empty".to_string()
+            ));
+        }
+        Ok((None, trimmed.to_string()))
     }
 }
 
@@ -400,6 +439,45 @@ mod tests {
     fn test_parse_package_string_invalid_backend() {
         let result = parse_package_string("invalid:package");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_string() {
+        assert!(parse_package_string("").is_err());
+    }
+
+    #[test]
+    fn test_validate_whitespace_only() {
+        assert!(parse_package_string("   ").is_err());
+    }
+
+    #[test]
+    fn test_validate_colon_only() {
+        assert!(parse_package_string(":").is_err());
+    }
+
+    #[test]
+    fn test_validate_multiple_colons() {
+        assert!(parse_package_string("aur::bat").is_err());
+        assert!(parse_package_string("::bat").is_err());
+        assert!(parse_package_string("aur::").is_err());
+    }
+
+    #[test]
+    fn test_validate_backend_empty() {
+        assert!(parse_package_string(":bat").is_err());
+    }
+
+    #[test]
+    fn test_validate_package_empty() {
+        assert!(parse_package_string("aur:").is_err());
+    }
+
+    #[test]
+    fn test_validate_trims_whitespace() {
+        let (backend, package) = parse_package_string("  aur:bat  ").unwrap();
+        assert_eq!(backend, Some("aur".to_string()));
+        assert_eq!(package, "bat");
     }
 
     #[test]
