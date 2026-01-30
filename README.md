@@ -316,7 +316,7 @@ sudo install target/release/declarch /usr/local/bin/
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please see the [full documentation](https://nixval.github.io/declarch/) for development guidelines, or check [CONTRIBUTING.md](CONTRIBUTING.md) for quick start instructions.
 
 ## License
 
