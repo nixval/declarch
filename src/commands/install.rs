@@ -179,12 +179,11 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
     for edit in &all_edits {
         // Track modified module for selective sync
-        if let Some(module_name) = edit.file_path.file_stem() {
-            if let Some(module_str) = module_name.to_str() {
-                if !modified_modules.contains(&module_str.to_string()) {
-                    modified_modules.push(module_str.to_string());
-                }
-            }
+        if let Some(module_name) = edit.file_path.file_stem()
+            && let Some(module_str) = module_name.to_str()
+            && !modified_modules.iter().any(|m| m == module_str)
+        {
+            modified_modules.push(module_str.to_string());
         }
 
         if edit.created_new_file {
@@ -244,10 +243,11 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
                 // Clean up backups on successful install
                 for edit in &all_edits {
-                    if let Some(ref backup) = edit.backup_path {
-                        if let Err(e) = std::fs::remove_file(backup) {
-                            output::warning(&format!("Failed to cleanup backup file: {}", e));
-                        }
+                    let Some(ref backup) = edit.backup_path else {
+                        continue;
+                    };
+                    if let Err(e) = std::fs::remove_file(backup) {
+                        output::warning(&format!("Failed to cleanup backup file: {}", e));
                     }
                 }
             }

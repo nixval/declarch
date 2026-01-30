@@ -163,15 +163,10 @@ pub enum ActionCondition {
 }
 
 /// Error behavior for hooks
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum ErrorBehavior {
+    #[default]
     Warn,     // Default: warn on error (from v0.4.3)
     Required, // Fail sync if hook fails (new in v0.4.4)
     Ignore,   // Silently ignore errors (new in v0.4.4)
-}
-
-impl Default for ErrorBehavior {
-    fn default() -> Self {
-        Self::Warn
-    }
 }

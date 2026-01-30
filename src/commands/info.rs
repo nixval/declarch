@@ -51,10 +51,11 @@ fn run_info(options: &InfoOptions) -> Result<()> {
                     let name = extract_package_name(key);
 
                     // Filter by package name if specified
-                    if let Some(filter_pkg) = package_filter {
-                        if !name.contains(filter_pkg) {
-                            return false;
-                        }
+                    let Some(filter_pkg) = package_filter else {
+                        return true;
+                    };
+                    if !name.contains(filter_pkg) {
+                        return false;
                     }
 
                     // Filter by backend if specified
@@ -91,7 +92,8 @@ fn run_info(options: &InfoOptions) -> Result<()> {
     match format_str {
         "json" => output_json_filtered(&filtered_packages, &state),
         "yaml" => output_yaml_filtered(&filtered_packages, &state),
-        "table" | _ => output_table_filtered(&state, &filtered_packages),
+        "table" => output_table_filtered(&state, &filtered_packages),
+        _ => output_table_filtered(&state, &filtered_packages),
     }
 }
 
@@ -129,10 +131,11 @@ fn output_table_filtered(
     ];
 
     for (backend_key, backend_name) in backends_to_show {
-        if let Some(&count) = backend_counts.get(backend_key) {
-            if count > 0 {
-                output::indent(&format!("• {}: {}", backend_name, count), 2);
-            }
+        let Some(&count) = backend_counts.get(backend_key) else {
+            continue;
+        };
+        if count > 0 {
+            output::indent(&format!("• {}: {}", backend_name, count), 2);
         }
     }
 
@@ -251,35 +254,35 @@ fn run_doctor() -> Result<()> {
                 ));
 
                 // Check for orphans
-                if config_path.exists() {
-                    if let Ok(config) = loader::load_root_config(&config_path) {
-                        use crate::core::types::PackageId;
-                        use std::collections::HashSet;
+                if config_path.exists()
+                    && let Ok(config) = loader::load_root_config(&config_path)
+                {
+                    use crate::core::types::PackageId;
+                    use std::collections::HashSet;
 
-                        let config_set: HashSet<PackageId> =
-                            config.packages.keys().cloned().collect();
-                        let mut orphan_count = 0;
+                    let config_set: HashSet<PackageId> =
+                        config.packages.keys().cloned().collect();
+                    let mut orphan_count = 0;
 
-                        for (_key, pkg_state) in &state.packages {
-                            let pkg_id = PackageId {
-                                backend: pkg_state.backend.clone(),
-                                name: pkg_state.config_name.clone(),
-                            };
-                            if !config_set.contains(&pkg_id) {
-                                orphan_count += 1;
-                            }
+                    for pkg_state in state.packages.values() {
+                        let pkg_id = PackageId {
+                            backend: pkg_state.backend.clone(),
+                            name: pkg_state.config_name.clone(),
+                        };
+                        if !config_set.contains(&pkg_id) {
+                            orphan_count += 1;
                         }
+                    }
 
-                        if orphan_count > 0 {
-                            output::warning(&format!(
-                                "Found {} orphan packages (not in config)",
-                                orphan_count
-                            ));
-                            output::info("Run 'dcl list --orphans' to see them");
-                            output::info("Run 'dcl sync --prune' to remove orphans");
-                        } else {
-                            output::success("No orphan packages found");
-                        }
+                    if orphan_count > 0 {
+                        output::warning(&format!(
+                            "Found {} orphan packages (not in config)",
+                            orphan_count
+                        ));
+                        output::info("Run 'dcl list --orphans' to see them");
+                        output::info("Run 'dcl sync --prune' to remove orphans");
+                    } else {
+                        output::success("No orphan packages found");
                     }
                 }
             }
@@ -317,27 +320,27 @@ fn run_doctor() -> Result<()> {
 
     // Check 4: State consistency
     output::info("Checking state consistency...");
-    if state_path.exists() {
-        if let Ok(state) = state::io::load_state() {
-            // Check for duplicate keys
-            let keys: Vec<_> = state.packages.keys().collect();
-            let unique_keys: std::collections::HashSet<_> = keys.iter().collect();
-            if keys.len() != unique_keys.len() {
-                output::warning("State has duplicate keys - consider running sync to fix");
-            } else {
-                output::success("State consistency: OK");
-            }
+    let Some(state) = state_path.exists().then(state::io::load_state).transpose()? else {
+        return Ok(());
+    };
 
-            // Check last sync time
-            let now = chrono::Utc::now();
-            let days_since_sync = (now - state.meta.last_sync).num_days();
-            if days_since_sync > 7 {
-                output::warning(&format!("Last sync was {} days ago", days_since_sync));
-                output::info("Consider running 'dcl sync' to update");
-            } else {
-                output::success(&format!("Last sync: {} day(s) ago", days_since_sync));
-            }
-        }
+    // Check for duplicate keys
+    let keys: Vec<_> = state.packages.keys().collect();
+    let unique_keys: std::collections::HashSet<_> = keys.iter().collect();
+    if keys.len() != unique_keys.len() {
+        output::warning("State has duplicate keys - consider running sync to fix");
+    } else {
+        output::success("State consistency: OK");
+    }
+
+    // Check last sync time
+    let now = chrono::Utc::now();
+    let days_since_sync = (now - state.meta.last_sync).num_days();
+    if days_since_sync > 7 {
+        output::warning(&format!("Last sync was {} days ago", days_since_sync));
+        output::info("Consider running 'dcl sync' to update");
+    } else {
+        output::success(&format!("Last sync: {} day(s) ago", days_since_sync));
     }
 
     // Summary
@@ -375,7 +378,7 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
         let backend_name = pkg_state.backend.to_string();
         grouped
             .entry(backend_name)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(pkg_state.config_name.clone());
     }
 
@@ -386,14 +389,15 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
 
     // Display each backend group
     for backend in &backend_order {
-        if let Some(pkg_names) = grouped.get(*backend) {
-            if !pkg_names.is_empty() {
-                println!(
-                    "  {}: {}",
-                    backend.bold().cyan(),
-                    format_packages_inline(pkg_names, term_width)
-                );
-            }
+        let Some(pkg_names) = grouped.get(*backend) else {
+            continue;
+        };
+        if !pkg_names.is_empty() {
+            println!(
+                "  {}: {}",
+                backend.bold().cyan(),
+                format_packages_inline(pkg_names, term_width)
+            );
         }
     }
 
@@ -450,7 +454,7 @@ fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
 
     // Join lines with proper indentation
     if lines.len() > 1 {
-        lines.join(&format!("\n      ")) // Indent continuation lines
+        lines.join("\n      ") // Indent continuation lines
     } else {
         lines.join("  ")
     }

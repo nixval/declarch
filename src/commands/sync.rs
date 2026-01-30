@@ -17,6 +17,7 @@ use crate::utils::paths;
 use chrono::Utc;
 use colored::Colorize;
 use std::collections::HashMap;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 // Type aliases to reduce complexity
@@ -911,7 +912,7 @@ fn execute_pruning(
 /// Load a single module file (for selective sync)
 /// Loads ONLY the specified module, not the entire config
 fn load_single_module(
-    _config_path: &std::path::PathBuf,
+    _config_path: &Path,
     module_name: &str,
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
@@ -954,7 +955,7 @@ fn load_single_module(
 }
 
 fn load_config_with_modules(
-    config_path: &std::path::PathBuf,
+    config_path: &Path,
     extra_modules: &[String],
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;

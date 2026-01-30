@@ -74,7 +74,7 @@ pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
     recursive_load(path, &mut merged, &mut visited_paths)?;
 
     // DEBUG: Show final merged config
-    for (_pkg_id, _sources) in &merged.packages {}
+    let _ = merged.packages.values().map(|_| ());
 
     Ok(merged)
 }
@@ -288,12 +288,14 @@ fn recursive_load(
     // === NEW: Merge additional config fields ===
 
     // Meta: Only keep the first one (usually from root config)
-    if merged.project_metadata.is_none()
-        && raw.project_metadata.description.is_some()
-        && raw.project_metadata.author.is_some()
-        && raw.project_metadata.version.is_some()
-    {
-        merged.project_metadata = Some(raw.project_metadata);
+    if merged.project_metadata.is_none() {
+        let has_description = raw.project_metadata.description.is_some();
+        let has_author = raw.project_metadata.author.is_some();
+        let has_version = raw.project_metadata.version.is_some();
+
+        if has_description && has_author && has_version {
+            merged.project_metadata = Some(raw.project_metadata);
+        }
     }
 
     // Conflicts: Accumulate from all configs
@@ -330,10 +332,10 @@ fn recursive_load(
     // Hooks: Merge (later configs extend earlier ones)
     if merged.lifecycle_actions.is_none() && !raw.lifecycle_actions.actions.is_empty() {
         merged.lifecycle_actions = Some(raw.lifecycle_actions);
-    } else if let Some(ref mut merged_hooks) = merged.lifecycle_actions {
-        if !raw.lifecycle_actions.actions.is_empty() {
-            merged_hooks.actions.extend(raw.lifecycle_actions.actions);
-        }
+    } else if let Some(ref mut merged_hooks) = merged.lifecycle_actions
+        && !raw.lifecycle_actions.actions.is_empty()
+    {
+        merged_hooks.actions.extend(raw.lifecycle_actions.actions);
     }
 
     // Get parent directory safely - canonicalized paths should always have a parent
@@ -373,9 +375,7 @@ fn recursive_load(
             // Relative paths are relative to current config directory
             // Examples: "modules/base.kdl", "others.kdl", "linux/notes.kdl"
             // Just join with parent_dir - no stripping needed
-            let result = parent_dir.join(import_str);
-            // DEBUG: Show resolved path
-            result
+            parent_dir.join(import_str)
         };
 
         // Try to load the import, but gracefully skip if file doesn't exist
@@ -383,10 +383,14 @@ fn recursive_load(
             Ok(()) => {}
             Err(DeclarchError::ConfigNotFound { path }) => {
                 // File doesn't exist - warn only if verbose mode is enabled
-                if let Ok(settings) = crate::config::settings::Settings::load() {
-                    if settings.get("verbose").map(|v| v.as_str()) == Some("true") {
-                        crate::ui::warning(&format!("Skipping missing import: {}", path.display()));
-                    }
+                let Ok(settings) = crate::config::settings::Settings::load() else {
+                    return Ok(());
+                };
+                let Some(verbose) = settings.get("verbose") else {
+                    return Ok(());
+                };
+                if verbose.as_str() == "true" {
+                    crate::ui::warning(&format!("Skipping missing import: {}", path.display()));
                 }
             }
             Err(e) => {

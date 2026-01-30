@@ -6,6 +6,7 @@ use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashSet;
+use std::path::Path;
 
 /// Parse backend string to Backend enum
 fn parse_backend(backend_str: &str) -> Result<Backend> {
@@ -242,7 +243,7 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
     let config_set: HashSet<PackageId> = config.packages.keys().cloned().collect();
     let mut state_set: HashSet<PackageId> = HashSet::new();
 
-    for (_key, pkg_state) in &state.packages {
+    for pkg_state in state.packages.values() {
         let pkg_id = PackageId {
             backend: pkg_state.backend.clone(),
             name: pkg_state.config_name.clone(),
@@ -300,7 +301,7 @@ fn show_benchmarks(config_time: std::time::Duration, total_time: std::time::Dura
 
 /// Load config with additional modules
 fn load_config_with_modules(
-    config_path: &std::path::PathBuf,
+    config_path: &Path,
     extra_modules: &[String],
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;

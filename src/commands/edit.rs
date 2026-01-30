@@ -188,12 +188,11 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
 /// 4. "nano" (default fallback)
 fn get_editor_from_config() -> Result<String> {
     // Priority 1: Settings system (NEW)
-    if let Ok(settings) = crate::config::settings::Settings::load() {
-        if let Some(editor) = settings.get("editor") {
-            if !editor.is_empty() {
-                return Ok(editor.clone());
-            }
-        }
+    if let Ok(settings) = crate::config::settings::Settings::load()
+        && let Some(editor) = settings.get("editor")
+        && !editor.is_empty()
+    {
+        return Ok(editor.clone());
     }
 
     // Priority 2: Check environment variables

@@ -76,7 +76,7 @@ pub fn parse_hook_phase(s: &str) -> Result<LifecyclePhase> {
         _ => Err(DeclarchError::ConfigError(format!(
             "Invalid hook phase '{}'. Valid phases: {}",
             s,
-            vec![
+            [
                 "pre-sync",
                 "post-sync",
                 "on-success",

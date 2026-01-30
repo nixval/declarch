@@ -37,7 +37,7 @@ pub fn run(options: ListOptions) -> Result<()> {
     // Filter by backend if specified
     if let Some(backend_str) = &options.backend {
         let backend = parse_backend(backend_str)?;
-        packages.retain(|p| &p.backend == &backend);
+        packages.retain(|p| p.backend == backend);
     }
 
     // Filter orphans
@@ -64,7 +64,12 @@ pub fn run(options: ListOptions) -> Result<()> {
     match format_str {
         "json" => output_json(&packages),
         "yaml" => output_yaml(&packages),
-        "table" | _ => {
+        "table" => {
+            let total = packages.len();
+            display_packages(&packages, options.orphans, total);
+            Ok(())
+        }
+        _ => {
             let total = packages.len();
             display_packages(&packages, options.orphans, total);
             Ok(())
@@ -136,7 +141,7 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
     let mut grouped: HashMap<Backend, Vec<&state::types::PackageState>> = HashMap::new();
     for pkg in packages.iter() {
         grouped
-            .entry((*pkg).backend.clone())
+            .entry(pkg.backend.clone())
             .or_default()
             .push(*pkg);
     }

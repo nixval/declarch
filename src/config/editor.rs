@@ -22,6 +22,12 @@ pub struct ModuleEdit {
 /// Config editor for programmatically editing KDL files
 pub struct ConfigEditor;
 
+impl Default for ConfigEditor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConfigEditor {
     /// Create a new config editor
     pub fn new() -> Self {
@@ -177,14 +183,14 @@ impl ConfigEditor {
 
         // Check if package already exists in the target node
         for node in doc.nodes() {
-            if node.name().value() == node_name {
-                if let Some(children) = node.children() {
-                    // Check if package already exists
-                    for child in children.nodes() {
-                        if child.name().value() == package {
-                            // Already exists, return unchanged
-                            return Ok((content.to_string(), Vec::new()));
-                        }
+            if node.name().value() == node_name
+                && let Some(children) = node.children()
+            {
+                // Check if package already exists
+                for child in children.nodes() {
+                    if child.name().value() == package {
+                        // Already exists, return unchanged
+                        return Ok((content.to_string(), Vec::new()));
                     }
                 }
             }
@@ -194,7 +200,7 @@ impl ConfigEditor {
         let target_node_idx = doc
             .nodes()
             .iter()
-            .position(|n| n.name().value() == &node_name);
+            .position(|n| n.name().value() == node_name);
 
         if let Some(idx) = target_node_idx {
             // Node exists, add package as child
@@ -378,7 +384,7 @@ fn is_valid_backend(backend: &str) -> bool {
 /// Create a backup of a KDL file before modification
 pub fn backup_kdl_file(file_path: &Path) -> Result<PathBuf> {
     let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-    let backup_path = file_path.with_extension(&format!("kdl.bak.{}", timestamp));
+    let backup_path = file_path.with_extension(format!("kdl.bak.{}", timestamp));
 
     fs::copy(file_path, &backup_path).map_err(|e| {
         DeclarchError::Other(format!("Failed to backup {}: {}", file_path.display(), e))

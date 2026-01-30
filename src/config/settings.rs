@@ -224,9 +224,7 @@ fn parse_settings(path: &PathBuf) -> Result<HashMap<String, String>> {
     // Merge with defaults to ensure all keys exist
     let defaults = Settings::defaults();
     for (key, default_value) in defaults {
-        if !values.contains_key(&key) {
-            values.insert(key, default_value);
-        }
+        values.entry(key).or_insert(default_value);
     }
 
     Ok(values)
