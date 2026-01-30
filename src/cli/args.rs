@@ -35,6 +35,14 @@ pub struct GlobalFlags {
     /// Force operations
     #[arg(short = 'f', long, global = true)]
     pub force: bool,
+
+    /// Preview changes without executing
+    #[arg(long, global = true)]
+    pub dry_run: bool,
+
+    /// Output format (table, json, yaml)
+    #[arg(long, value_name = "FORMAT", global = true)]
+    pub format: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -116,10 +124,6 @@ pub enum Command {
 
     /// Verify configuration syntax and imports
     Check {
-        /// Verbose output (list resolved packages)
-        #[arg(long)]
-        verbose: bool,
-
         /// Check for duplicate package declarations
         #[arg(long)]
         duplicates: bool,
@@ -127,6 +131,14 @@ pub enum Command {
         /// Check for cross-backend package name conflicts
         #[arg(long)]
         conflicts: bool,
+
+        /// Only check for duplicate package declarations
+        #[arg(long)]
+        only_duplicates: bool,
+
+        /// Only check for cross-backend package name conflicts
+        #[arg(long)]
+        only_conflicts: bool,
 
         /// Validate specific backend only (e.g., aur, flatpak, npm, cargo, pip)
         #[arg(long, value_name = "BACKEND")]
@@ -158,6 +170,14 @@ pub enum Command {
         /// Enable verbose logging
         #[arg(long)]
         debug: bool,
+
+        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Filter by package name
+        #[arg(long, value_name = "PACKAGE")]
+        package: Option<String>,
     },
 
     /// List installed packages

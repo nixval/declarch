@@ -22,6 +22,10 @@ pub struct InstallOptions {
     pub module: Option<String>,
     /// Don't sync after editing config
     pub no_sync: bool,
+    /// Skip confirmation prompts
+    pub yes: bool,
+    /// Preview changes without executing
+    pub dry_run: bool,
 }
 
 /// Convert backend string to Backend enum
@@ -43,6 +47,21 @@ fn parse_backend(backend_str: &str) -> Backend {
 
 /// Run the install command
 pub fn run(options: InstallOptions) -> Result<()> {
+    if options.dry_run {
+        output::header("Dry Run: Installing Packages");
+        output::info("Would install the following packages:");
+        for pkg in &options.packages {
+            let module = options.module.as_deref().unwrap_or("others");
+            output::indent(&format!("• {} → module: {}", pkg, module), 2);
+        }
+        if !options.no_sync {
+            output::info("Would sync after installation");
+        } else {
+            output::info("Would NOT sync (no-sync flag set)");
+        }
+        return Ok(());
+    }
+
     output::header("Installing Packages");
 
     // Step 1: Load existing config to check for duplicates
@@ -205,7 +224,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             gc: false,
             dry_run: false,
             target: None,
-            yes: false,
+            yes: options.yes,
             force: false,
             noconfirm: false,
             hooks: true,  // Always run hooks during install

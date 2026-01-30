@@ -67,20 +67,22 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             modules: modules.clone(),
         }),
         Some(Command::Check {
-            verbose,
             duplicates,
             conflicts,
+            only_duplicates,
+            only_conflicts,
             backend,
             diff,
             validate,
             benchmark,
             modules,
         }) => {
-            let is_verbose = *verbose || args.global.verbose;
             commands::check::run(
-                is_verbose,
+                args.global.verbose,
                 *duplicates,
                 *conflicts,
+                *only_duplicates,
+                *only_conflicts,
                 backend.clone(),
                 *diff,
                 *validate,
@@ -88,8 +90,14 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
                 modules.clone(),
             )
         }
-        Some(Command::Info { doctor, debug }) => {
-            commands::info::run(*doctor, *debug)
+        Some(Command::Info { doctor, debug, backend, package }) => {
+            commands::info::run(commands::info::InfoOptions {
+                doctor: *doctor,
+                debug: *debug,
+                format: args.global.format.clone(),
+                backend: backend.clone(),
+                package: package.clone(),
+            })
         }
         Some(Command::List {
             backend,
@@ -99,6 +107,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             backend: backend.clone(),
             orphans: *orphans,
             synced: *synced,
+            format: args.global.format.clone(),
         }),
         Some(Command::Switch {
             old_package,
@@ -115,6 +124,7 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         }),
         Some(Command::Edit { target }) => commands::edit::run(commands::edit::EditOptions {
             target: target.clone(),
+            dry_run: args.global.dry_run,
         }),
         Some(Command::Install {
             packages,
@@ -126,6 +136,8 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             backend: backend.clone(),
             module: module.clone(),
             no_sync: *no_sync,
+            yes: args.global.yes,
+            dry_run: args.global.dry_run,
         }),
         Some(Command::Settings { command }) => {
             // Convert CLI SettingsCommand to command SettingsCommand

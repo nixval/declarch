@@ -12,6 +12,7 @@ pub struct ListOptions {
     pub backend: Option<String>,
     pub orphans: bool,
     pub synced: bool,
+    pub format: Option<String>,
 }
 
 pub fn run(options: ListOptions) -> Result<()> {
@@ -57,11 +58,18 @@ pub fn run(options: ListOptions) -> Result<()> {
         }
     }
 
-    // Display results
-    let total = packages.len();
-    display_packages(&packages, options.orphans, total);
+    // Determine output format
+    let format_str = options.format.as_deref().unwrap_or("table");
 
-    Ok(())
+    match format_str {
+        "json" => output_json(&packages),
+        "yaml" => output_yaml(&packages),
+        "table" | _ => {
+            let total = packages.len();
+            display_packages(&packages, options.orphans, total);
+            Ok(())
+        }
+    }
 }
 
 /// Parse backend string to Backend enum
@@ -196,4 +204,19 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
         output::info("Orphan packages are not managed by declarch");
         output::info("Add them to your config or use 'dcl sync --prune' to remove");
     }
+}
+
+/// Output packages as JSON
+fn output_json(packages: &[&state::types::PackageState]) -> Result<()> {
+    let json = serde_json::to_string_pretty(packages)?;
+    println!("{}", json);
+    Ok(())
+}
+
+/// Output packages as YAML
+fn output_yaml(packages: &[&state::types::PackageState]) -> Result<()> {
+    let json_value = serde_json::to_value(packages)?;
+    let yaml = serde_yaml::to_string(&json_value)?;
+    println!("{}", yaml);
+    Ok(())
 }

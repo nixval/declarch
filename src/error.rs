@@ -37,6 +37,9 @@ pub enum DeclarchError {
     #[error(transparent)]
     JsonError(#[from] serde_json::Error),
 
+    #[error(transparent)]
+    YamlError(#[from] serde_yaml::Error),
+
     #[error("Config file not found at: {path}")]
     ConfigNotFound { path: PathBuf },
 

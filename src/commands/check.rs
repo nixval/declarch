@@ -29,6 +29,8 @@ pub fn run(
     verbose: bool,
     check_duplicates: bool,
     check_conflicts: bool,
+    only_duplicates: bool,
+    only_conflicts: bool,
     backend_filter: Option<String>,
     diff: bool,
     validate_only: bool,
@@ -128,7 +130,19 @@ pub fn run(
             }
         }
     }
-    if check_duplicates {
+
+    // Handle selective validation flags
+    let check_dups = check_duplicates || only_duplicates;
+    let check_confs = check_conflicts || only_conflicts;
+
+    // Skip these checks if both only flags are set (mutually exclusive)
+    if only_duplicates && only_conflicts {
+        output::warning("Cannot specify both --only-duplicates and --only-conflicts");
+        output::info("Use --duplicates --conflicts to check both");
+        return Ok(());
+    }
+
+    if check_dups {
         output::separator();
         output::info("Checking for duplicates...");
 
@@ -156,7 +170,8 @@ pub fn run(
         }
     }
 
-    if check_conflicts {
+    // Skip conflicts check if only_duplicates is set
+    if !only_duplicates && check_confs {
         output::separator();
         output::info("Checking for cross-backend conflicts...");
 

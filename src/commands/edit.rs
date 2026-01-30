@@ -9,6 +9,7 @@ use std::process::Command;
 #[derive(Debug)]
 pub struct EditOptions {
     pub target: Option<String>,
+    pub dry_run: bool,
 }
 
 pub fn run(options: EditOptions) -> Result<()> {
@@ -36,6 +37,15 @@ pub fn run(options: EditOptions) -> Result<()> {
             "File not found: {}\nHint: Use 'declarch init' first or check the module path",
             file_to_edit.display()
         )));
+    }
+
+    // Handle dry-run mode
+    if options.dry_run {
+        output::header("Dry Run: Edit Configuration");
+        let editor = get_editor_from_config()?;
+        output::info(&format!("Would open: {}", file_to_edit.display().to_string().cyan()));
+        output::info(&format!("With editor: {}", editor.green()));
+        return Ok(());
     }
 
     // Get editor from config file or environment
