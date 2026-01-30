@@ -1,339 +1,142 @@
 # Basic Concepts
 
-Understanding the core concepts behind declarch's declarative package management.
+Understanding how declarch works.
 
-## Imperative vs Declarative
+## The Main Idea
 
-### Imperative Package Management (Traditional)
-
-You run commands to install packages:
-
+**Traditional way (imperative):**
 ```bash
-# Day 1
 paru -S bat exa ripgrep
-npm install -g typescript prettier
-flatpak install com.spotify.Client
-
-# Month later...
-# Why did I install this?
-# Where did this come from?
-# Do I still need it?
+# Oops, why did I install these again?
 ```
 
-**Problems:**
-- No record of why packages were installed
-- Hard to reproduce setups on new machines
-- Difficult to share configurations
-- System becomes a "package graveyard"
+**Declarch way (declarative):**
+```bash
+# Add to config file
+declarch install bat exa ripgrep
 
-### Declarative Package Management (Declarch)
+# Your system is now in sync with config
+```
 
-You declare what you want in a config file:
+## How It Works
+
+### 1. Declare What You Want
+
+Edit `~/.config/declarch/declarch.kdl`:
 
 ```kdl
-// ~/.config/declarch/declarch.kdl
-
 packages {
     bat
     exa
     ripgrep
 }
+```
 
+Or use the install command:
+```bash
+declarch install bat exa ripgrep
+```
+
+### 2. Sync Your System
+
+```bash
+declarch sync
+```
+
+Declarch will:
+- ✅ Install missing packages
+- ✅ Track already-installed packages
+- ✅ Remove packages you deleted from config (with `--prune`)
+
+## One File, Many Backends
+
+Single config, multiple package managers:
+
+```kdl
+// AUR packages
+packages {
+    neovim
+}
+
+// Node.js packages
 packages:npm {
     typescript
-    prettier
 }
 
+// Python packages
+packages:pip {
+    black
+}
+
+// Flatpak apps
 packages:flatpak {
     com.spotify.Client
 }
 ```
 
-Then run one command:
+All managed with one command: `declarch sync`
 
-```bash
-declarch sync
-```
+## Modules: Keep It Organized
 
-**Benefits:**
-- Clear record of all installed packages
-- Easy to reproduce on new machines
-- Simple to share with others
-- System stays clean and organized
-
-## How Declarch Works
-
-### 1. Configuration (Desired State)
-
-You define your desired state in `~/.config/declarch/declarch.kdl`:
+Split packages into logical groups:
 
 ```kdl
-packages {
-    vim
-    bat
-}
-```
-
-### 2. State Tracking (Actual State)
-
-Declarch tracks installed packages in `~/.local/state/declarch/state.json`:
-
-```json
-{
-  "packages": {
-    "aur": ["vim", "bat"]
-  }
-}
-```
-
-### 3. Synchronization
-
-When you run `declarch sync`:
-
-| Config Has | System Has | Action |
-|------------|------------|--------|
-| ✅ vim | ❌ missing | **Install** vim |
-| ✅ bat | ✅ installed | **Adopt** (track) |
-| ❌ (removed) | ✅ old-pkg | **Keep** (unless `--prune`) |
-
-## Key Behaviors
-
-### Adoption, Not Reinstallation
-
-If a package is already installed, declarch doesn't reinstall it:
-
-```bash
-# You already have bat installed manually
-declarch sync
-
-# Output:
-✓ bat (aur) - already installed, adopted
-```
-
-This makes declarch safe to adopt existing systems.
-
-### Safe Default: No Deletion
-
-By default, declarch **only adds**, never removes:
-
-```kdl
-// Remove from config
-packages {
-    // bat removed
-}
-```
-
-```bash
-declarch sync
-# bat stays installed! Not removed without --prune flag
-```
-
-To remove, use `--prune`:
-
-```bash
-declarch sync --prune
-# Now bat will be removed
-```
-
-### Only Manages What It Knows
-
-Declarch only removes packages it explicitly manages:
-
-```bash
-# You manually: paru -S random-tool
-# Not in declarch config
-
-declarch sync --prune
-# random-tool stays! Declarch doesn't know about it
-```
-
-## The Configuration File
-
-### Location
-
-- Main config: `~/.config/declarch/declarch.kdl`
-- Modules: `~/.config/declarch/modules/*.kdl`
-
-### Format: KDL (Key Definition Language)
-
-KDL is a human-readable configuration language:
-
-```kdl
-// Comments start with //
-
-// Simple list
-packages {
-    bat
-    exa
-    ripgrep
-}
-
-// With backends
-packages:flatpak {
-    com.spotify.Client
-}
-
-// Advanced features
-meta {
-    description "My Workstation"
-    author "nixval"
-}
-
-conflicts {
-    vim neovim  // Can't have both
-}
-
-policy {
-    protected {
-        linux  // Never remove
-    }
-}
-```
-
-## Backends Architecture
-
-Declarch supports multiple package managers through **backends**:
-
-| Backend | Description | Syntax | Scope |
-|---------|-------------|--------|-------|
-| **aur** | Arch User Repository (default on Arch) | `packages { pkg }` | Arch-only |
-| **soar** | Static binary registry | `packages:soar { pkg }` | All Linux |
-| **flatpak** | Universal apps | `packages:flatpak { app }` | All Linux |
-| **npm** | Node.js packages | `packages:npm { pkg }` | All Linux |
-| **python** | Python packages | `packages:pip { pkg }` | All Linux |
-| **cargo** | Rust crates | `packages:cargo { crate }` | All Linux |
-| **brew** | Homebrew | `packages:brew { pkg }` | Linux/macOS |
-
-### Default Backend
-
-If you don't specify a backend, declarch uses the default for your system:
-
-- **Arch-based**: AUR
-- **Other**: Soar (if available)
-
-## Module System
-
-Break your config into reusable pieces:
-
-**Main config** (`declarch.kdl`):
-```kdl
+// declarch.kdl
 imports {
-    modules/base
-    modules/desktop
-    modules/development
+    "modules/base.kdl"
+    "modules/dev.kdl"
+    "modules/gaming.kdl"
 }
 ```
 
-**Module** (`modules/development.kdl`):
 ```kdl
-meta {
-    description "Development tools"
-}
-
-packages:npm {
-    typescript
-    prettier
-}
-
-packages:cargo {
+// modules/base.kdl
+packages {
+    bat
+    exa
     ripgrep
+}
+```
+
+```kdl
+// modules/dev.kdl
+packages:npm {
+    nodejs
+    typescript
 }
 ```
 
 Benefits:
-- Organize by category (desktop, development, gaming)
-- Share across machines
-- Mix and match configurations
+- 📁 Organized by purpose
+- 🔄 Easy to enable/disable modules
+- 📦 Share specific setups with others
 
-## Remote Init
+## Why Use Declarch?
 
-Fetch configs from Git repositories:
-
+**Reproducibility:**
 ```bash
-# GitHub
-declarch init username/dotfiles
-
-# GitLab
-declarch init gitlab.com/username/dotfiles
-
-# Specific variant
-declarch init username/dotfiles:hyprland
-
-# Official registry
-declarch init hyprland/niri-nico
+# Get a new machine
+git clone my-dotfiles.git
+# Copy declarch config to ~/.config/declarch/
+declarch sync
+# Done! All packages installed
 ```
 
-Similar to:
-- **Go**: `import "github.com/user/repo"`
-- **Nix**: Importing flake inputs
-
-## Safety Features
-
-### Dry Run Mode
-
-Always preview before applying:
-
+**Clarity:**
 ```bash
-declarch sync --dry-run
+# See what you have
+declarch info
+
+# See what's in a module
+declarch info --module base
 ```
 
-### Protected Packages
+**Safety:**
+- Config file is your documentation
+- Easy to review and edit
+- No mysterious packages
 
-Critical system packages are never removed:
+## Next Steps
 
-```kdl
-policy {
-    protected {
-        linux
-        systemd
-        base-devel
-    }
-}
-```
-
-### State Backups
-
-Automatic backup before every state change:
-
-```bash
-~/.local/state/declarch/state.json.backup
-```
-
-### Hooks Security
-
-Hooks (commands that run before/after sync) are **disabled by default**:
-
-```bash
-# Must explicitly enable
-declarch sync --hooks
-```
-
-## Comparison: Traditional vs Declarch
-
-| Task | Traditional | Declarch |
-|------|-------------|----------|
-| Install package | `paru -S bat` | Add to config, `declarch sync` |
-| Remove package | `paru -R bat` | Remove from config, `declarch sync --prune` |
-| Update system | `paru -Syu` | `declarch sync -u` |
-| List installed | `paru -Qe` | `declarch info` |
-| Share setup | Copy commands manually | Share config file |
-| Reproduce setup | Run many commands | `declarch init <url>` |
-
-## Summary
-
-**Declarch = Git for Packages**
-
-Just as Git tracks file changes, declarch tracks package changes:
-
-| Git | Declarch |
-|-----|----------|
-| `git add` | Add to config |
-| `git status` | `declarch check` |
-| `git commit` | `declarch sync` |
-| `git push` | Push config to GitHub |
-| `git pull` | `declarch init <url>` |
-
-Ready to dive deeper?
-- [Commands Reference](../commands/)
-- [Configuration Guide](../configuration/)
-- [Advanced Topics](../advanced/)
+- [Quick Start](quick-start.md) - Get started now
+- [Modules Guide](../configuration/modules.md) - Organize your config
