@@ -21,26 +21,23 @@ yay -S declarch
 **Quick install (one-liner):**
 
 ```bash
-curl -L https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz | tar xz && sudo install declarch /usr/local/bin/
+curl -sSL https://raw.githubusercontent.com/nixval/declarch/v0.5.1/install.sh | sh
 ```
+
+This script automatically detects your architecture (x86_64 or aarch64) and installs declarch.
 
 **Manual download:**
 
 ```bash
-# Download
+# Download (x86_64)
 wget https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz
-
-# Extract
 tar xzf declarch-x86_64-unknown-linux-gnu.tar.gz
-
-# Install
 sudo install declarch /usr/local/bin/
-```
 
-**For ARM64 (aarch64):**
-
-```bash
-curl -L https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-aarch64-unknown-linux-gnu.tar.gz | tar xz && sudo install declarch /usr/local/bin/
+# Or for ARM64 (aarch64)
+wget https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-aarch64-unknown-linux-gnu.tar.gz
+tar xzf declarch-aarch64-unknown-linux-gnu.tar.gz
+sudo install declarch /usr/local/bin/
 ```
 
 ## From Source
