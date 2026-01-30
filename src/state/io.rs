@@ -162,8 +162,15 @@ pub fn save_state(state: &State) -> Result<()> {
     }
     // ----------------------------------------------------
 
-    let content = serde_json::to_string_pretty(state)?;
+    // 1. Serialize to string first
+    let content = serde_json::to_string_pretty(state)
+        .map_err(|e| DeclarchError::Other(format!("Failed to serialize state: {}", e)))?;
 
+    // 2. Validate JSON is well-formed by parsing it back
+    let _: State = serde_json::from_str(&content)
+        .map_err(|e| DeclarchError::Other(format!("Generated invalid JSON: {}", e)))?;
+
+    // 3. Write to temp file
     let tmp_path = dir.join("state.tmp");
     let mut tmp_file = fs::File::create(&tmp_path).map_err(|e| DeclarchError::IoError {
         path: tmp_path.clone(),

@@ -225,7 +225,12 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 // Clean up backups on successful install
                 for edit in &all_edits {
                     if let Some(ref backup) = edit.backup_path {
-                        let _ = std::fs::remove_file(backup);
+                        if let Err(e) = std::fs::remove_file(backup) {
+                            output::warning(&format!(
+                                "Failed to cleanup backup file: {}",
+                                e
+                            ));
+                        }
                     }
                 }
             }
@@ -283,8 +288,13 @@ fn prompt_yes_no(question: &str, default: bool) -> bool {
 fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
 
     let config_path = paths::config_file()?;
-    let import_path = module_path.to_string_lossy().replace("\\", "/");
 
+    // Normalize path to use forward slashes in KDL (cross-platform)
+    let import_path = module_path
+        .components()
+        .map(|comp| comp.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/");
 
     // Skip if config file doesn't exist
     if !config_path.exists() {
