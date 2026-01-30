@@ -84,114 +84,73 @@ pub enum Command {
 
     /// Synchronize system state with configuration
     Sync {
-        /// Preview changes without executing
-        #[arg(long)]
+        #[command(subcommand)]
+        command: Option<SyncCommand>,
+
+        /// [DEPRECATED] Use `declarch sync preview` instead
+        #[arg(long, hide = true)]
         dry_run: bool,
 
-        /// Remove packages not defined in config (Strict Mode)
-        #[arg(long)]
+        /// [DEPRECATED] Use `declarch sync prune` instead
+        #[arg(long, hide = true)]
         prune: bool,
 
-        /// Update system (paru -Syu) before syncing
-        #[arg(short = 'u', long)]
+        /// [DEPRECATED] Use `declarch sync update` instead
+        #[arg(short = 'u', long, hide = true)]
         update: bool,
 
         /// Garbage collect system orphans after sync
-        #[arg(long)]
+        #[arg(long, help_heading = "Advanced")]
         gc: bool,
-
-        // --- Advanced Options Group ---
-        /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
-        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
-        target: Option<String>,
-
-        /// Skip package manager confirmation prompts (CI/CD)
-        #[arg(long, help_heading = "Advanced")]
-        noconfirm: bool,
-
-        /// Enable hooks (disabled by default for security)
-        #[arg(long, help_heading = "Advanced")]
-        hooks: bool,
-
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
     },
 
     /// Verify configuration syntax and imports
     Check {
-        /// Check for duplicate package declarations
-        #[arg(long)]
+        #[command(subcommand)]
+        command: Option<CheckCommand>,
+
+        /// [DEPRECATED] Use subcommand instead (e.g., `declarch check duplicates`)
+        #[arg(long, hide = true)]
         duplicates: bool,
 
-        /// Check for cross-backend package name conflicts
-        #[arg(long)]
+        /// [DEPRECATED] Use subcommand instead (e.g., `declarch check conflicts`)
+        #[arg(long, hide = true)]
         conflicts: bool,
 
-        /// Only check for duplicate package declarations
-        #[arg(long)]
+        /// [DEPRECATED] Use `declarch check duplicates` instead
+        #[arg(long, hide = true)]
         only_duplicates: bool,
 
-        /// Only check for cross-backend package name conflicts
-        #[arg(long)]
+        /// [DEPRECATED] Use `declarch check conflicts` instead
+        #[arg(long, hide = true)]
         only_conflicts: bool,
 
-        /// Validate specific backend only (e.g., aur, flatpak, npm, cargo, pip)
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Show planned changes without executing
-        #[arg(long)]
-        diff: bool,
-
-        /// Validate config only, don't sync
-        #[arg(long)]
+        /// [DEPRECATED] Use `declarch check validate` instead
+        #[arg(long, hide = true)]
         validate: bool,
-
-        /// Show performance metrics
-        #[arg(long)]
-        benchmark: bool,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES")]
-        modules: Vec<String>,
     },
 
     /// Show system status and managed packages
     Info {
-        /// Diagnose system issues
-        #[arg(long)]
+        #[command(subcommand)]
+        command: Option<InfoCommand>,
+
+        /// [DEPRECATED] Use `declarch info doctor` instead
+        #[arg(long, hide = true)]
         doctor: bool,
-
-        /// Enable verbose logging
-        #[arg(long)]
-        debug: bool,
-
-        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Filter by package name
-        #[arg(long, value_name = "PACKAGE")]
-        package: Option<String>,
     },
 
     /// List installed packages
     List {
-        /// Filter by backend (e.g., aur, flatpak, cargo, npm)
-        #[arg(short, long, value_name = "BACKEND")]
-        backend: Option<String>,
+        #[command(subcommand)]
+        command: Option<ListCommand>,
 
-        /// Show orphan packages (not in config)
-        #[arg(long)]
+        /// [DEPRECATED] Use `declarch list orphans` instead
+        #[arg(long, hide = true)]
         orphans: bool,
 
-        /// Show packages that match config
-        #[arg(long)]
+        /// [DEPRECATED] Use `declarch list synced` instead
+        #[arg(long, hide = true)]
         synced: bool,
     },
 
@@ -279,6 +238,264 @@ pub enum Command {
         /// The shell to generate completions for
         #[arg(value_enum)]
         shell: Shell,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum SyncCommand {
+    /// Full sync (default)
+    ///
+    /// Synchronizes packages without updating the system or removing packages.
+    /// Use `update` to run system updates, or `prune` to remove undefined packages.
+    Sync {
+        /// Garbage collect system orphans after sync
+        #[arg(long, help_heading = "Advanced")]
+        gc: bool,
+
+        /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
+        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
+        target: Option<String>,
+
+        /// Skip package manager confirmation prompts (CI/CD)
+        #[arg(long, help_heading = "Advanced")]
+        noconfirm: bool,
+
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+    },
+
+    /// Preview changes without executing
+    ///
+    /// Shows what would be installed, updated, or removed without making changes.
+    Preview {
+        /// Garbage collect system orphans after sync
+        #[arg(long, help_heading = "Advanced")]
+        gc: bool,
+
+        /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
+        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
+        target: Option<String>,
+
+        /// Skip package manager confirmation prompts (CI/CD)
+        #[arg(long, help_heading = "Advanced")]
+        noconfirm: bool,
+
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+    },
+
+    /// Sync with system update
+    ///
+    /// Runs system package manager update (e.g., paru -Syu) before syncing packages.
+    Update {
+        /// Garbage collect system orphans after sync
+        #[arg(long, help_heading = "Advanced")]
+        gc: bool,
+
+        /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
+        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
+        target: Option<String>,
+
+        /// Skip package manager confirmation prompts (CI/CD)
+        #[arg(long, help_heading = "Advanced")]
+        noconfirm: bool,
+
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+    },
+
+    /// Sync with package removal
+    ///
+    /// Removes packages that are not defined in your configuration (Strict Mode).
+    Prune {
+        /// Garbage collect system orphans after sync
+        #[arg(long, help_heading = "Advanced")]
+        gc: bool,
+
+        /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
+        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
+        target: Option<String>,
+
+        /// Skip package manager confirmation prompts (CI/CD)
+        #[arg(long, help_heading = "Advanced")]
+        noconfirm: bool,
+
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
+        /// Skip automatic Soar installation
+        #[arg(long, help_heading = "Advanced")]
+        skip_soar_install: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum InfoCommand {
+    /// Show system status (default)
+    ///
+    /// Displays information about managed packages and system state.
+    /// This is the default behavior when no subcommand is specified.
+    Status {
+        /// Enable verbose logging
+        #[arg(long)]
+        debug: bool,
+
+        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Filter by package name
+        #[arg(long, value_name = "PACKAGE")]
+        package: Option<String>,
+    },
+
+    /// Diagnose system issues
+    ///
+    /// Runs diagnostic checks to identify configuration issues,
+    /// missing dependencies, and other system problems.
+    Doctor {
+        /// Enable verbose logging
+        #[arg(long)]
+        debug: bool,
+
+        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Filter by package name
+        #[arg(long, value_name = "PACKAGE")]
+        package: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum ListCommand {
+    /// List all packages (default)
+    ///
+    /// Lists all installed packages managed by declarch.
+    /// This is the default behavior when no subcommand is specified.
+    All {
+        /// Filter by backend (e.g., aur, flatpak, cargo, npm)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Option<String>,
+    },
+
+    /// List orphan packages
+    ///
+    /// Lists packages that are installed on the system but not
+    /// defined in your declarch configuration.
+    Orphans {
+        /// Filter by backend (e.g., aur, flatpak, cargo, npm)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Option<String>,
+    },
+
+    /// List synced packages
+    ///
+    /// Lists packages that are both defined in your configuration
+    /// and currently installed on the system.
+    Synced {
+        /// Filter by backend (e.g., aur, flatpak, cargo, npm)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum CheckCommand {
+    /// Run all checks (default)
+    ///
+    /// Checks configuration syntax, imports, duplicates, and conflicts.
+    /// This is the default behavior when no subcommand is specified.
+    All {
+        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Show planned changes without executing
+        #[arg(long)]
+        diff: bool,
+
+        /// Show performance metrics
+        #[arg(long)]
+        benchmark: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES")]
+        modules: Vec<String>,
+    },
+
+    /// Check for duplicate package declarations
+    ///
+    /// Finds packages that are declared multiple times across your configuration.
+    /// Duplicates are automatically deduplicated during sync.
+    Duplicates {
+        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Show planned changes without executing
+        #[arg(long)]
+        diff: bool,
+    },
+
+    /// Check for cross-backend package name conflicts
+    ///
+    /// Finds packages with the same name in different backends.
+    /// This can cause PATH conflicts when multiple backends install binaries with the same name.
+    Conflicts {
+        /// Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Show planned changes without executing
+        #[arg(long)]
+        diff: bool,
+    },
+
+    /// Validate syntax only
+    ///
+    /// Checks configuration file syntax and imports without checking for duplicates or conflicts.
+    Validate {
+        /// Show performance metrics
+        #[arg(long)]
+        benchmark: bool,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES")]
+        modules: Vec<String>,
     },
 }
 
