@@ -1,8 +1,10 @@
 # Installation
 
-Install declarch on Arch Linux.
+Install declarch on your system.
 
-## From AUR (Recommended)
+## From AUR (Arch Linux)
+
+**Recommended method for Arch Linux users:**
 
 ```bash
 paru -S declarch
@@ -12,6 +14,33 @@ or
 
 ```bash
 yay -S declarch
+```
+
+## Binary Release (Any Linux)
+
+**Quick install (one-liner):**
+
+```bash
+curl -L https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz | tar xz && sudo install declarch /usr/local/bin/
+```
+
+**Manual download:**
+
+```bash
+# Download
+wget https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz
+
+# Extract
+tar xzf declarch-x86_64-unknown-linux-gnu.tar.gz
+
+# Install
+sudo install declarch /usr/local/bin/
+```
+
+**For ARM64 (aarch64):**
+
+```bash
+curl -L https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-aarch64-unknown-linux-gnu.tar.gz | tar xz && sudo install declarch /usr/local/bin/
 ```
 
 ## From Source
@@ -39,9 +68,9 @@ declarch 0.5.1
 
 ## Requirements
 
-- Arch Linux or Arch-based distribution
-- An AUR helper (`paru` or `yay`)
-- Rust toolchain (for building from source)
+- **Arch Linux**: An AUR helper (`paru` or `yay`)
+- **Other Linux**: curl or wget for downloading binaries
+- **From Source**: Rust toolchain (1.92.0 or later)
 
 ## What's Next?
 

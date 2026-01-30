@@ -17,7 +17,16 @@ paru -S declarch
 ### Any Linux (Binary)
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://nixval.github.io/declarch/install.sh | sh
+# One-liner install
+curl -L https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz | tar xz && sudo install declarch /usr/local/bin/
+```
+
+Or download manually:
+
+```bash
+wget https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz
+tar xzf declarch-x86_64-unknown-linux-gnu.tar.gz
+sudo install declarch /usr/local/bin/
 ```
 
 ### From Source
