@@ -1,4 +1,3 @@
-use crate::config::kdl::parse_kdl_content;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use crate::utils::paths;
@@ -167,14 +166,13 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
     Ok(full_path)
 }
 
-/// Get editor to use from config file or environment
+/// Get editor to use from settings or environment
 ///
 /// Priority:
 /// 1. Settings (declarch settings set editor nvim)
-/// 2. editor "nvim" in declarch.kdl
-/// 3. $EDITOR environment variable
-/// 4. $VISUAL environment variable
-/// 5. "nano" (default fallback)
+/// 2. $EDITOR environment variable
+/// 3. $VISUAL environment variable
+/// 4. "nano" (default fallback)
 fn get_editor_from_config() -> Result<String> {
     // Priority 1: Settings system (NEW)
     if let Ok(settings) = crate::config::settings::Settings::load() {
@@ -185,19 +183,7 @@ fn get_editor_from_config() -> Result<String> {
         }
     }
 
-    // Priority 2: Try to load and parse the root config file
-    let config_file = paths::config_file()?;
-
-    if config_file.exists()
-        && let Ok(content) = std::fs::read_to_string(&config_file)
-        && let Ok(config) = parse_kdl_content(&content)
-        && let Some(editor) = config.editor
-        && !editor.is_empty()
-    {
-        return Ok(editor);
-    }
-
-    // Priority 3: Check environment variables
+    // Priority 2: Check environment variables
     if let Ok(ed) = std::env::var("EDITOR")
         && !ed.is_empty()
     {
@@ -209,6 +195,6 @@ fn get_editor_from_config() -> Result<String> {
         return Ok(ed);
     }
 
-    // Priority 4: Fallback to nano
+    // Priority 3: Fallback to nano
     Ok("nano".to_string())
 }

@@ -46,9 +46,6 @@ pub struct RawConfig {
     /// Package mappings: config_name -> actual_package_name
     /// Example: "pipewire" -> "pipewire-jack2"
     pub package_mappings: HashMap<String, String>,
-    /// Editor to use for edit command
-    /// Syntax: editor "nvim" or editor nvim
-    pub editor: Option<String>,
 
     // === NEW: Project metadata block ===
     /// Project metadata

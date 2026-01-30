@@ -303,7 +303,6 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         custom_packages: HashMap::new(),
         excludes: vec![],
         package_mappings: HashMap::new(),
-        editor: None,
         project_metadata: ProjectMetadata::default(),
         conflicts: vec![],
         backend_options: HashMap::new(),
@@ -330,14 +329,6 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             }
             "aliases-pkg" | "alias-pkg" => {
                 package_mappings::extract_aliases(node, &mut config.package_mappings);
-            }
-            "editor" => {
-                // Extract editor from first string argument
-                if let Some(entry) = node.entries().first()
-                    && let Some(val) = entry.value().as_string()
-                {
-                    config.editor = Some(val.to_string());
-                }
             }
             "description" => {
                 // Parse description into project_metadata
