@@ -10,8 +10,8 @@ meta {
 }
 
 // === EDITOR ===
-// Sets editor for 'declarch edit' command
-editor "nano"
+// Configure via: declarch settings set editor nano
+// Or set $EDITOR environment variable
 
 // === PACKAGES ===
 // Default backend (AUR on Arch)
@@ -40,7 +40,7 @@ packages {
 //     prettier
 // }
 //
-// packages:python {
+// packages:pip {
 //     black
 //     ruff
 // }

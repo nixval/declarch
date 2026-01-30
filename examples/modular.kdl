@@ -20,14 +20,14 @@ imports {
     // Development tools
     // "modules/development/rust"
     // "modules/development/node"
-    // "modules/development/python"
+    // "modules/development/pip"
 
     // Optional: Gaming
     // "modules/gaming/steam"
 }
 
 // === EDITOR ===
-editor "nvim"
+// Configure via: declarch settings set editor nvim
 
 // === PACKAGES ===
 // Add host-specific packages not in modules
@@ -126,7 +126,7 @@ on-sync "notify-send 'Desktop' 'Packages updated for $(hostname)'"
 //   imports {
 //       "modules/base"
 //       "modules/desktop/hyprland"
-//       "modules/development"
+//       "modules/development/pip"
 //   }
 //
 // Laptop: declarch-laptop.kdl

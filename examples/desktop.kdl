@@ -15,9 +15,6 @@ imports {
     "modules/desktop/hyprland"
 }
 
-// === EDITOR ===
-editor "nvim"
-
 // === CONFLICTS ===
 // Prevent installing competing packages
 conflicts {
@@ -147,8 +144,8 @@ packages:npm {
     @types/node
 }
 
-// Python ecosystem
-packages:python {
+// Python ecosystem (via pip)
+packages:pip {
     black
     ruff
     jupyter
