@@ -24,18 +24,17 @@ declarch edit dev/rust
 ## How It Works
 
 The editor is chosen in this order:
-1. `editor "name"` in your `declarch.kdl`
+1. Settings: `declarch settings set editor nvim`
 2. `$EDITOR` environment variable
 3. `$VISUAL` environment variable
 4. `nano` (default)
 
 ## Examples
 
-### Set Editor in Config
+### Set Editor via Settings
 
-```kdl
-// In declarch.kdl
-editor "nvim"
+```bash
+declarch settings set editor nvim
 ```
 
 ### Set Editor via Environment
@@ -43,15 +42,6 @@ editor "nvim"
 ```bash
 export EDITOR="code"
 export VISUAL="code"
-```
-
-### Common Editors
-
-```kdl
-editor "nvim"     // Neovim
-editor "vim"      // Vim
-editor "code"     // VS Code (use --wait for GUI)
-editor "hx"       // Helix
 ```
 
 ## What It Opens

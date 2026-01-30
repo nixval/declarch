@@ -234,14 +234,6 @@ meta {
 }
 ```
 
-### Editor
-
-```kdl
-editor "nvim"
-```
-
-Used by `declarch edit` command.
-
 ### Conflicts
 
 Define mutually exclusive packages:
@@ -535,9 +527,6 @@ meta {
     version "1.0.0"
     tags "workstation" "hyprland" "development"
 }
-
-// === EDITOR ===
-editor "nvim"
 
 // === IMPORTS ===
 imports {
