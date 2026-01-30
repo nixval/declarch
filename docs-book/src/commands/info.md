@@ -5,15 +5,19 @@ Show system status and managed packages.
 ## Usage
 
 ```bash
-declarch info [OPTIONS]
+declarch info [SUBCOMMAND] [OPTIONS]
 ```
+
+## Subcommands
+
+- `status` - Show system status (default)
+- `doctor` - Diagnose system issues
 
 ## Options
 
 - `--backend <BACKEND>` - Filter by backend (e.g., aur, flatpak, npm, cargo, pip)
 - `--package <PACKAGE>` - Filter by package name
 - `--format <FORMAT>` - Output format (table, json, yaml)
-- `--doctor` - Diagnose system issues
 - `--debug` - Enable verbose logging
 
 ## Quick Start
@@ -21,6 +25,12 @@ declarch info [OPTIONS]
 ```bash
 # Show all packages
 declarch info
+
+# Explicit status command
+declarch info status
+
+# Diagnose system issues
+declarch info doctor
 
 # Filter by backend
 declarch info --backend aur
@@ -123,7 +133,7 @@ Useful for configuration management and parsing.
 ## Doctor Mode
 
 ```bash
-declarch info --doctor
+declarch info doctor
 ```
 
 Diagnoses:
@@ -170,8 +180,21 @@ declarch info --backend npm
 declarch info --package git
 ```
 
+## Migration from Flags
+
+Old flag-based syntax is deprecated but still works:
+
+```bash
+# Old (deprecated, will be removed in v0.7.0)
+declarch info --doctor
+
+# New (recommended)
+declarch info doctor
+```
+
 ## Related
 
 - [`check`](check.md) - Validate configuration
 - [`sync`](sync.md) - Install packages
 - [`list`](list.md) - List installed packages
+
