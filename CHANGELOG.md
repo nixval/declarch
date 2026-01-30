@@ -34,6 +34,20 @@ All notable changes to this project will be documented in this file.
   - Install: Shows package list with backend in one line
   - Sync: Direct to changes, no intermediate headers
 
+### Removed
+- **Deprecated KDL editor syntax**: `editor "nvim"` in declarch.kdl files
+  - Use `declarch settings set editor nvim` instead
+  - Or set `$EDITOR` / `$VISUAL` environment variables
+  - Settings system was already taking precedence, this removes the old syntax
+  - Removed KDL parsing code for editor node
+  - Removed editor field from RawConfig struct
+  - Updated editor resolution to only use settings and environment variables
+- **Obsolete documentation files**:
+  - RELEASE.md (use CHANGELOG.md instead)
+  - HOOKS-BRAINSTORM.md, HOOKS-SYNTAX-PROPOSAL.md, HOOKS-SYNTAX-FINAL.md (hooks system is implemented and documented in docs-book)
+  - Simplified CONTRIBUTING.md to reference full documentation
+  - Updated release workflow to use CHANGELOG.md
+
 ### Fixed
 - **CRITICAL**: Fixed panic when package exists in multiple backends without --backend flag
   - install.rs:95 - Backend unwrap now defaults to "aur" instead of panicking
@@ -43,6 +57,10 @@ All notable changes to this project will be documented in this file.
 - **CRITICAL**: Added state JSON validation before write
   - Validates JSON structure before writing to prevent corruption
   - Prevents truncated state files from crashes
+- **Python backend naming**: Changed `packages:python` to `packages:pip` in examples
+  - Backend is named `PipParser` in code, syntax should match
+  - No functional change, just naming consistency
+  - Updated all example files to use `packages:pip`
 - **Fixed Windows path handling**: Cross-platform path normalization
   - Uses Path components instead of simple string replace
   - Handles mixed path separators correctly
