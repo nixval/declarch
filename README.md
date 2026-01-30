@@ -1,336 +1,20 @@
 # declarch
 
-**Declarative Package Manager for Linux**
+> **Declarative Package Manager for Linux**
 
-[![CI/CD](https://github.com/nixval/declarch/actions/workflows/ci.yml/badge.svg)](https://github.com/nixval/declarch/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+Define your packages once in config files, then sync your system with one command.
 
-declarch is a declarative package management system for Linux that allows you to define your installed packages in KDL configuration files and sync your system to match.
-
-## Features
-
-- **Declarative Configuration**: Define packages in KDL files instead of running ad-hoc commands
-- **Multi-Backend Support**: AUR, Soar, Flatpak, npm, yarn, pnpm, bun, pip, cargo, Homebrew
-- **Automatic Dependency Resolution**: Handles cross-backend dependencies
-- **Conflict Detection**: Prevents conflicting packages from being installed
-- **Hooks System**: Run custom scripts before/after sync operations
-- **Modular Configuration**: Organize packages into logical modules (base, gaming, work, etc.)
-- **Selective Sync**: Install packages to specific modules without syncing everything
-- **Automatic Rollback**: Failed installations restore your config files automatically
-
-## Cross-Distribution Support
-
-declarch works across multiple Linux distributions! While optimized for Arch Linux, it also supports Debian-based, Fedora-based, and other distributions.
-
-**Available backends by distribution:**
-
-| Backend | Arch | Debian | Fedora | Other |
-|---------|------|--------|--------|-------|
-| AUR     | ✓    | ✗      | ✗      | ✗     |
-| Soar    | ✓    | ✓      | ✓      | ✓     |
-| Flatpak | ✓    | ✓      | ✓      | ✓     |
-| npm     | ✓    | ✓      | ✓      | ✓     |
-| Others  | ✓    | ✓      | ✓      | ✓     |
-
-**Key points:**
-- AUR packages only work on Arch-based systems
-- Soar and Flatpak work on all distributions
-- AUR packages are silently ignored on non-Arch systems
-- **Custom backends** available for distro-specific package managers (nala, dnf5, zypper, etc.)
-- Perfect for portable dotfiles across different distros
-
-See [Cross-Distribution Support](docs-book/src/cross-distro-support.md) for detailed information including custom backends.
-
-## Quick Start
-
-```bash
-# Install declarch
-paru -S declarch
-
-# Initialize with a community module
-declarch init shell/dms
-
-# Install packages (automatically adds to modules/others.kdl)
-declarch install bat fzf ripgrep
-
-# Install to specific module
-declarch install brave --module browsers
-
-# Sync your system
-declarch sync
-
-# Update system and sync packages
-declarch sync --update
-```
-
-## Selective Module Sync
-
-Install packages to specific modules and sync only that module:
-
-```bash
-# Install to 'base' module only
-declarch install bat --module base
-
-# Install to 'others' module only
-declarch install vim --module others
-
-# Multiple packages to same module
-declarch install bat fzf ripgrep --module base
-```
-
-This is more efficient - only the specified module is synced, not your entire configuration.
-
-## Automatic Rollback
-
-If installation fails, declarch automatically restores KDL files:
-
-```bash
-# Attempted installation fails
-declarch install soar:nonexistent --module others
-
-# ✓ KDL file automatically restored
-# ✓ No manual cleanup needed
-# ✓ Clear error message shown
-```
-
-## Configuration
-
-### Module Structure
-
-```
-~/.config/declarch/
-├── declarch.kdl          # Root configuration
-├── state.json            # Installed package state
-└── modules/              # Package modules
-    ├── base.kdl          # Base system packages
-    ├── gaming.kdl        # Gaming packages
-    └── work.kdl          # Work-related packages
-```
-
-### Example KDL Module
-
-```kdl
-// modules/base.kdl
-packages {
-  bat
-  fzf
-  ripgrep
-  fd
-  exa
-}
-
-// Environment variables
-env "EDITOR" {
-  nvim
-}
-
-// Hooks
-hooks pre-sync {
-  echo "Starting sync..."
-}
-```
-
-## Commands
-
-### install
-
-Add packages to your configuration:
-
-```bash
-# Basic install (adds to modules/others.kdl)
-declarch install <package>
-
-# Install specific backend
-declarch install soar:bat
-
-# Install to specific module
-declarch install bat --module base
-
-# Multiple packages
-declarch install bat fzf ripgrep
-
-# Install without syncing
-declarch install bat --no-sync
-```
-
-### sync
-
-Synchronize your system with the configuration:
-
-```bash
-# Sync all modules
-declarch sync
-
-# Sync with system update
-declarch sync --update
-
-# Sync specific module
-declarch sync --modules base
-
-# Dry run (preview changes)
-declarch sync --dry-run
-
-# Force package removal
-declarch sync --prune
-```
-
-### init
-
-Initialize a new configuration:
-
-```bash
-# Initialize from community module
-declarch init shell/dms
-
-# Initialize empty config
-declarch init
-
-# Force overwrite existing
-declarch init --force
-```
-
-### info
-
-Show package information (grouped by backend):
-
-```bash
-# Show all packages
-declarch info
-
-# Output example:
-# Managed Packages:
-#   aur:       bat  fzf  ripgrep  hyprland
-#   flatpak:   com.spotify.Client  org.mozilla.franslate
-#   npm:       nodejs  npm-check-updates
-
-# Show specific module
-declarch info --module base
-
-# Show backend info
-declarch info --backend aur
-```
-
-### list
-
-List available modules and packages:
-
-```bash
-# List all modules
-declarch list modules
-
-# List packages in module
-declarch list packages --module base
-
-# List all packages
-declarch list packages
-```
-
-### check
-
-Validate configuration:
-
-```bash
-# Check for conflicts
-declarch check
-
-# Check specific module
-declarch check --module base
-
-# Verbose output
-declarch check --verbose
-```
-
-### hooks
-
-Manage hooks:
-
-```bash
-# List all hooks
-declarch hooks list
-
-# Run hooks manually
-declarch hooks run
-
-# Test hooks
-declarch hooks test
-```
-
-### switch
-
-Switch between configurations:
-
-```bash
-# Switch host profile
-declarch switch endeavour
-
-# Dry run
-declarch switch --dry-run laptop
-```
-
-### settings
-
-Manage configuration:
-
-```bash
-# Show all settings
-declarch settings show
-
-# Get setting
-declarch settings get color
-
-# Set setting
-declarch settings set color always
-
-# Enable compact mode
-declarch settings set compact true
-
-# Reset setting
-declarch settings reset color
-```
-
-## Output Examples
-
-### Before (Verbose)
-
-```bash
-$ declarch install bat
-
-Installing Packages
-⚠ Skipping missing import: /path/to/base.kdl
-✓ Created: modules/others.kdl
-ℹ Packages: bat
-ℹ Syncing system...
-
-Synchronizing Packages
-ℹ Scanning system state...
-────────────────────────────────────────────────────────────
-Changes:
-  Adopt:   bat (aur)
-? Proceed? [Y/n] ✓ Sync complete!
-```
-
-### After (Concise)
-
-```bash
-$ declarch install bat
-
-Installing Packages
-ℹ Syncing packages: bat (aur) ...
-
-Changes:
-  Adopt:   bat (aur)
-? Proceed? [Y/n] ✓ Sync completed, added to 'others.kdl'
-```
+---
 
 ## Installation
 
-### From AUR (Arch Linux)
+### Arch Linux (AUR)
 
 ```bash
 paru -S declarch
 ```
 
-### Quick Install (Any Linux)
+### Any Linux (Binary)
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://nixval.github.io/declarch/install.sh | sh
@@ -339,27 +23,126 @@ curl --proto '=https' --tlsv1.2 -sSf https://nixval.github.io/declarch/install.s
 ### From Source
 
 ```bash
-git clone https://github.com/nixval/declarch.git
-cd declarch
-cargo build --release
-sudo install target/release/declarch /usr/local/bin/
+cargo install declarch --git https://github.com/nixval/declarch
 ```
+
+---
+
+## Quick Start
+
+```bash
+# Initialize config
+declarch init
+
+# Add packages
+declarch install bat fzf ripgrep
+
+# Sync system
+declarch sync
+```
+
+---
+
+## Configuration
+
+Your config lives in `~/.config/declarch/`:
+
+```
+~/.config/declarch/
+├── declarch.kdl       # Main config
+├── state.json         # Installed packages
+└── modules/           # Package modules
+    ├── base.kdl
+    ├── gaming.kdl
+    └── work.kdl
+```
+
+### Example Config
+
+```kdl
+// modules/base.kdl
+packages {
+  bat          # Better cat
+  fzf          # Fuzzy finder
+  ripgrep      # Fast grep
+  fd           # Better find
+}
+
+// Environment variables
+env "EDITOR" {
+  nvim
+}
+
+// Different package managers
+packages:flatpak {
+  com.spotify.Client
+}
+
+packages:npm {
+  nodejs
+}
+```
+
+---
+
+## Common Commands
+
+```bash
+# Add packages to config
+declarch install <package>
+
+# Install specific backend
+declarch install npm:nodejs
+
+# Install to specific module
+declarch install firefox --module browsers
+
+# Sync system (install/remove packages)
+declarch sync
+
+# Sync with system update
+declarch sync --update
+
+# Show installed packages
+declarch info
+
+# Preview changes
+declarch sync --dry-run
+```
+
+---
+
+## Features
+
+- **Declarative** - Define packages in KDL files
+- **Multi-Backend** - AUR, Flatpak, npm, yarn, pnpm, bun, pip, cargo, brew
+- **Modular** - Organize packages by purpose (base, gaming, work, etc.)
+- **Cross-Distro** - Works on Arch, Debian, Fedora, and more
+- **Git-Friendly** - Track configs in version control
+
+---
+
+## Cross-Distribution
+
+| Backend | Arch | Debian | Fedora |
+|---------|------|--------|--------|
+| AUR     | ✓    | ✗      | ✗      |
+| Flatpak | ✓    | ✓      | ✓      |
+| npm     | ✓    | ✓      | ✓      |
+| Custom  | ✓    | ✓      | ✓      |
+
+For custom backends (nala, dnf, zypper, etc.), see [Cross-Distribution Support](https://nixval.github.io/declarch/cross-distro-support.html).
+
+---
 
 ## Documentation
 
-- [Full Documentation](docs-book/)
-- [Hooks Guide](docs-book/guide/hooks.md)
-- [Module System](docs-book/guide/modules.md)
-- [Configuration Reference](docs-book/reference/config.md)
+- **[Full Documentation](https://nixval.github.io/declarch/)** - Complete guide
+- **[Getting Started](https://nixval.github.io/declarch/getting-started/quick-start.html)** - Detailed setup
+- **[All Commands](https://nixval.github.io/declarch/commands/)** - Command reference
 
-## Contributing
-
-Contributions are welcome! Please see the [full documentation](https://nixval.github.io/declarch/) for development guidelines, or check [CONTRIBUTING.md](CONTRIBUTING.md) for quick start instructions.
+---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+MIT - see [LICENSE](LICENSE)
