@@ -42,7 +42,7 @@ impl ConfigEditor {
     /// * `module` - Optional module name (e.g., "base", "linux/notes")
     ///
     /// # Examples
-    /// ```
+    /// ```rust,no_run
     /// # use declarch::config::editor::ConfigEditor;
     /// # use declarch::error::Result;
     /// # fn main() -> Result<()> {
