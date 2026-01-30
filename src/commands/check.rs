@@ -46,8 +46,6 @@ pub fn run(
         return Err(crate::error::DeclarchError::ConfigNotFound { path: config_path });
     }
 
-    output::info(&format!("Entry point: {}", config_path.display()));
-
     // Handle --modules flag (load additional modules)
     let config = if !extra_modules.is_empty() {
         output::info(&format!("Loading additional modules: {:?}", extra_modules));
@@ -252,15 +250,9 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
     }
 
     // Calculate differences
-    let to_install: Vec<_> = config_set
-        .difference(&state_set)
-        .cloned()
-        .collect();
+    let to_install: Vec<_> = config_set.difference(&state_set).cloned().collect();
 
-    let to_remove: Vec<_> = state_set
-        .difference(&config_set)
-        .cloned()
-        .collect();
+    let to_remove: Vec<_> = state_set.difference(&config_set).cloned().collect();
 
     // Display results
     if to_install.is_empty() && to_remove.is_empty() {
@@ -270,7 +262,10 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
 
     if !to_install.is_empty() {
         println!();
-        println!("{}", format!("To Install ({}):", to_install.len()).bold().green());
+        println!(
+            "{}",
+            format!("To Install ({}):", to_install.len()).bold().green()
+        );
         for pkg_id in &to_install {
             println!("  + {} {}", pkg_id.backend, pkg_id.name);
         }
@@ -278,7 +273,10 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
 
     if !to_remove.is_empty() {
         println!();
-        println!("{}", format!("To Remove ({}):", to_remove.len()).bold().red());
+        println!(
+            "{}",
+            format!("To Remove ({}):", to_remove.len()).bold().red()
+        );
         for pkg_id in &to_remove {
             println!("  - {} {}", pkg_id.backend, pkg_id.name);
         }
@@ -292,17 +290,11 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
 
 /// Show benchmark metrics
 fn show_benchmarks(config_time: std::time::Duration, total_time: std::time::Duration) {
-    output::separator();
+    println!();
     println!("{}", "Performance Metrics:".bold());
 
-    println!(
-        "  Config loading:     {:>8} ms",
-        config_time.as_millis()
-    );
-    println!(
-        "  Total time:         {:>8} ms",
-        total_time.as_millis()
-    );
+    println!("  Config loading:     {:>8} ms", config_time.as_millis());
+    println!("  Total time:         {:>8} ms", total_time.as_millis());
 }
 
 /// Load config with additional modules

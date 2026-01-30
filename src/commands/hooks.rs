@@ -1,4 +1,6 @@
-use crate::config::kdl::{LifecycleConfig, LifecycleAction, ActionType, LifecyclePhase, ErrorBehavior};
+use crate::config::kdl::{
+    ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
+};
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use crate::utils::sanitize;
@@ -18,9 +20,7 @@ pub fn execute_hooks_by_phase(
     };
 
     // Filter hooks by phase
-    let phase_hooks: Vec<_> = hooks.actions.iter()
-        .filter(|h| h.phase == phase)
-        .collect();
+    let phase_hooks: Vec<_> = hooks.actions.iter().filter(|h| h.phase == phase).collect();
 
     if phase_hooks.is_empty() {
         return Ok(());
@@ -161,15 +161,11 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
         Ok(status) => {
             // Handle based on error_behavior
             match hook.error_behavior {
-                ErrorBehavior::Required => {
-                    Err(DeclarchError::Other(format!(
-                        "Required hook failed with status: {}",
-                        status
-                    )))
-                }
-                ErrorBehavior::Ignore => {
-                    Ok(())
-                }
+                ErrorBehavior::Required => Err(DeclarchError::Other(format!(
+                    "Required hook failed with status: {}",
+                    status
+                ))),
+                ErrorBehavior::Ignore => Ok(()),
                 ErrorBehavior::Warn => {
                     output::warning(&format!("Hook exited with status: {}", status));
                     Ok(())
@@ -179,15 +175,11 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
         Err(e) => {
             // Handle based on error_behavior
             match hook.error_behavior {
-                ErrorBehavior::Required => {
-                    Err(DeclarchError::Other(format!(
-                        "Failed to execute hook: {}",
-                        e
-                    )))
-                }
-                ErrorBehavior::Ignore => {
-                    Ok(())
-                }
+                ErrorBehavior::Required => Err(DeclarchError::Other(format!(
+                    "Failed to execute hook: {}",
+                    e
+                ))),
+                ErrorBehavior::Ignore => Ok(()),
                 ErrorBehavior::Warn => {
                     // If binary not found, helpful error
                     if e.kind() == std::io::ErrorKind::NotFound {
@@ -251,7 +243,9 @@ pub fn execute_post_install(
     };
 
     // Filter hooks by phase and package
-    let package_hooks: Vec<_> = hooks.actions.iter()
+    let package_hooks: Vec<_> = hooks
+        .actions
+        .iter()
         .filter(|h| h.phase == LifecyclePhase::PostInstall)
         .filter(|h| h.package.as_deref() == Some(package_name))
         .collect();
@@ -260,5 +254,10 @@ pub fn execute_post_install(
         return Ok(());
     }
 
-    execute_hooks(&package_hooks, &format!("Post-install ({})", package_name), hooks_enabled, dry_run)
+    execute_hooks(
+        &package_hooks,
+        &format!("Post-install ({})", package_name),
+        hooks_enabled,
+        dry_run,
+    )
 }

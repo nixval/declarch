@@ -1,13 +1,13 @@
 // Re-export types from kdl_modules for backward compatibility
 pub use crate::config::kdl_modules::types::{
-    ActionCondition, ActionType, ConflictEntry, ErrorBehavior,
-    LifecycleAction, LifecycleConfig, LifecyclePhase, PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
+    ActionCondition, ActionType, ConflictEntry, ErrorBehavior, LifecycleAction, LifecycleConfig,
+    LifecyclePhase, PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
 };
 // Re-export BackendParser trait from parsers module
 pub use crate::config::kdl_modules::parsers::BackendParser;
 // Re-export helper functions for backward compatibility
 pub use crate::config::kdl_modules::helpers::{
-    package_mappings, conflicts, env, hooks, meta, packages, policy, repositories,
+    conflicts, env, hooks, meta, package_mappings, packages, policy, repositories,
 };
 
 use crate::error::Result;
@@ -16,8 +16,8 @@ use std::collections::HashMap;
 
 // Import individual parsers
 use crate::config::kdl_modules::parsers::{
-    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser, NpmParser,
-    PipParser, PnpmParser, SoarParser, YarnParser,
+    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser, NpmParser, PipParser, PnpmParser,
+    SoarParser, YarnParser,
 };
 
 /// Registry for backend parsers
@@ -321,8 +321,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "import" | "imports" => {
                 packages::extract_strings(node, &mut config.imports);
                 // DEBUG: Show what imports were parsed
-                for _import in &config.imports {
-                }
+                for _import in &config.imports {}
             }
             "exclude" | "excludes" => {
                 packages::extract_mixed_values(node, &mut config.excludes);
@@ -956,9 +955,24 @@ mod tests {
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.project_metadata.tags.len(), 3);
-        assert!(config.project_metadata.tags.contains(&"workstation".to_string()));
-        assert!(config.project_metadata.tags.contains(&"hyprland".to_string()));
-        assert!(config.project_metadata.tags.contains(&"development".to_string()));
+        assert!(
+            config
+                .project_metadata
+                .tags
+                .contains(&"workstation".to_string())
+        );
+        assert!(
+            config
+                .project_metadata
+                .tags
+                .contains(&"hyprland".to_string())
+        );
+        assert!(
+            config
+                .project_metadata
+                .tags
+                .contains(&"development".to_string())
+        );
     }
 
     // NEW: Conflicts tests
@@ -1078,16 +1092,16 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Filter post-sync hooks
-        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let post_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
 
         assert_eq!(post_sync_hooks.len(), 3);
 
-        assert_eq!(
-            post_sync_hooks[0].command,
-            "notify-send 'Packages updated'"
-        );
+        assert_eq!(post_sync_hooks[0].command, "notify-send 'Packages updated'");
         assert_eq!(post_sync_hooks[0].action_type, ActionType::User);
 
         assert_eq!(post_sync_hooks[1].command, "systemctl restart gdm");
@@ -1177,7 +1191,10 @@ mod tests {
         assert_eq!(config.policy.orphans, Some("keep".to_string()));
 
         // Check hooks
-        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let post_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
         assert_eq!(post_sync_hooks.len(), 1);
@@ -1196,7 +1213,10 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Check pre-sync hooks
-        let pre_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let pre_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PreSync)
             .collect();
         assert_eq!(pre_sync_hooks.len(), 1);
@@ -1204,14 +1224,14 @@ mod tests {
         assert_eq!(pre_sync_hooks[0].action_type, ActionType::User);
 
         // Check post-sync hooks
-        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let post_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
         assert_eq!(post_sync_hooks.len(), 2);
-        assert_eq!(
-            post_sync_hooks[0].command,
-            "notify-send 'Packages updated'"
-        );
+        assert_eq!(post_sync_hooks[0].command, "notify-send 'Packages updated'");
         assert_eq!(post_sync_hooks[0].action_type, ActionType::User);
         assert_eq!(post_sync_hooks[1].command, "systemctl restart gdm");
         assert_eq!(post_sync_hooks[1].action_type, ActionType::Root);
@@ -1232,7 +1252,10 @@ mod tests {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Filter post-sync hooks
-        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let post_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
 
@@ -1285,7 +1308,10 @@ hooks {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Test pre-sync hooks
-        let pre_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let pre_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PreSync)
             .collect();
         assert_eq!(pre_sync_hooks.len(), 1);
@@ -1293,29 +1319,49 @@ hooks {
         assert!(pre_sync_hooks[0].package.is_none());
 
         // Test post-sync hooks
-        let post_sync_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let post_sync_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .collect();
         assert_eq!(post_sync_hooks.len(), 2);
-        assert!(post_sync_hooks.iter().any(|h| h.command == "echo 'Post-sync'"));
-        assert!(post_sync_hooks.iter().any(|h| h.command == "echo 'AUR synced'"));
+        assert!(
+            post_sync_hooks
+                .iter()
+                .any(|h| h.command == "echo 'Post-sync'")
+        );
+        assert!(
+            post_sync_hooks
+                .iter()
+                .any(|h| h.command == "echo 'AUR synced'")
+        );
 
         // Test on-success hooks
-        let on_success_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let on_success_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::OnSuccess)
             .collect();
         assert_eq!(on_success_hooks.len(), 1);
         assert_eq!(on_success_hooks[0].command, "echo 'Success'");
 
         // Test on-failure hooks
-        let on_failure_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let on_failure_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::OnFailure)
             .collect();
         assert_eq!(on_failure_hooks.len(), 1);
         assert_eq!(on_failure_hooks[0].command, "echo 'Failed'");
 
         // Test post-install hooks
-        let post_install_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let post_install_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostInstall)
             .collect();
         assert_eq!(post_install_hooks.len(), 1);
@@ -1339,27 +1385,31 @@ hooks {
         let all_hooks = &config.lifecycle_actions.actions;
 
         // Regular hook (no sudo)
-        let regular = all_hooks.iter()
+        let regular = all_hooks
+            .iter()
             .find(|h| h.command.contains("Regular hook"))
             .unwrap();
         assert_eq!(regular.action_type, ActionType::User);
         assert_eq!(regular.error_behavior, ErrorBehavior::Warn);
 
         // Sudo hook
-        let sudo = all_hooks.iter()
+        let sudo = all_hooks
+            .iter()
             .find(|h| h.command.contains("systemctl restart gdm"))
             .unwrap();
         assert_eq!(sudo.action_type, ActionType::Root);
 
         // Required hook
-        let required = all_hooks.iter()
+        let required = all_hooks
+            .iter()
             .find(|h| h.command.contains("mkinitcpio"))
             .unwrap();
         assert_eq!(required.action_type, ActionType::Root);
         assert_eq!(required.error_behavior, ErrorBehavior::Required);
 
         // Ignore hook
-        let ignore = all_hooks.iter()
+        let ignore = all_hooks
+            .iter()
             .find(|h| h.command.contains("cleanup.sh"))
             .unwrap();
         assert_eq!(ignore.error_behavior, ErrorBehavior::Ignore);
@@ -1387,27 +1437,39 @@ hooks {
         let config = parse_kdl_content(kdl).unwrap();
 
         // Test package shorthand
-        let docker_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let docker_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.package.as_deref() == Some("docker"))
             .collect();
         assert_eq!(docker_hooks.len(), 1);
         assert_eq!(docker_hooks[0].phase, LifecyclePhase::PostInstall);
         assert_eq!(docker_hooks[0].action_type, ActionType::Root);
 
-        let waybar_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let waybar_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.package.as_deref() == Some("waybar"))
             .collect();
         assert_eq!(waybar_hooks.len(), 1);
         assert_eq!(waybar_hooks[0].phase, LifecyclePhase::PostInstall);
 
         // Test backend shorthand (should be detected by post-sync phase)
-        let aur_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let aur_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .filter(|h| h.command.contains("AUR"))
             .collect();
         assert_eq!(aur_hooks.len(), 1);
 
-        let flatpak_hooks: Vec<_> = config.lifecycle_actions.actions.iter()
+        let flatpak_hooks: Vec<_> = config
+            .lifecycle_actions
+            .actions
+            .iter()
             .filter(|h| h.phase == LifecyclePhase::PostSync)
             .filter(|h| h.command.contains("Flatpak"))
             .collect();

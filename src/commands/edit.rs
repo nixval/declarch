@@ -43,7 +43,10 @@ pub fn run(options: EditOptions) -> Result<()> {
     if options.dry_run {
         output::header("Dry Run: Edit Configuration");
         let editor = get_editor_from_config()?;
-        output::info(&format!("Would open: {}", file_to_edit.display().to_string().cyan()));
+        output::info(&format!(
+            "Would open: {}",
+            file_to_edit.display().to_string().cyan()
+        ));
         output::info(&format!("With editor: {}", editor.green()));
         return Ok(());
     }
@@ -157,7 +160,7 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
         return Err(DeclarchError::Other(format!(
             "Module '{}' not found\n  Tried: {}\n  Hint: Use 'declarch info' to list available modules",
             target,
-            full_path.display()  // Use full_path which already includes modules/
+            full_path.display() // Use full_path which already includes modules/
         )));
     }
 

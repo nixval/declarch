@@ -3,10 +3,7 @@ use kdl::KdlNode;
 use std::collections::HashMap;
 
 /// Parse package sources: repos:aur { "https://..." }
-pub fn parse_repositories(
-    node: &KdlNode,
-    repos: &mut HashMap<String, Vec<String>>,
-) -> Result<()> {
+pub fn parse_repositories(node: &KdlNode, repos: &mut HashMap<String, Vec<String>>) -> Result<()> {
     // Check for colon syntax: repos:aur
     let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
         backend.to_string()

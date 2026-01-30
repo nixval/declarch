@@ -1,4 +1,6 @@
-use crate::config::kdl_modules::types::{ErrorBehavior, LifecycleConfig, LifecycleAction, LifecyclePhase, ActionType};
+use crate::config::kdl_modules::types::{
+    ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
+};
 use crate::error::{DeclarchError, Result};
 use kdl::KdlNode;
 
@@ -75,9 +77,17 @@ pub fn parse_hook_phase(s: &str) -> Result<LifecyclePhase> {
             "Invalid hook phase '{}'. Valid phases: {}",
             s,
             vec![
-                "pre-sync", "post-sync", "on-success", "on-failure",
-                "pre-install", "post-install", "pre-remove", "post-remove", "on-update"
-            ].join(", ")
+                "pre-sync",
+                "post-sync",
+                "on-success",
+                "on-failure",
+                "pre-install",
+                "post-install",
+                "pre-remove",
+                "post-remove",
+                "on-update"
+            ]
+            .join(", ")
         ))),
     }
 }
@@ -110,7 +120,8 @@ pub fn is_package_block(node: &KdlNode) -> bool {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let name = child.name().value();
-            if matches!(name,
+            if matches!(
+                name,
                 "pre-install" | "post-install" | "pre-remove" | "post-remove" | "on-update"
             ) {
                 return true;

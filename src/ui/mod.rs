@@ -20,7 +20,7 @@ pub fn init_colors() {
         let mode = match settings.get("color").map(|s| s.as_str()) {
             Some("always") => ColorMode::Always,
             Some("never") => ColorMode::Never,
-            _ => ColorMode::Auto,  // default
+            _ => ColorMode::Auto, // default
         };
         COLOR_MODE.get_or_init(|| mode);
     } else {
@@ -56,13 +56,11 @@ pub fn header(title: &str) {
 }
 
 pub fn success(msg: &str) {
-    let symbol = color_str("✓", |s| s.green().bold());
-    println!("{} {}", symbol, msg);
+    println!("{}", color_str(msg, |s| s.green()));
 }
 
 pub fn info(msg: &str) {
-    let symbol = color_str("ℹ", |s| s.blue().bold());
-    println!("{} {}", symbol, msg);
+    println!("{}", color_str(msg, |s| s.blue()));
 }
 
 pub fn warning(msg: &str) {

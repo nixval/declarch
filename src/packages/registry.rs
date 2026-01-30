@@ -51,8 +51,8 @@
 //! 3. Register in `BackendRegistry::register_defaults()` using `GenericManager`
 
 use crate::backends::{GenericManager, get_builtin_backends};
-use crate::constants::BACKENDS_FILE_NAME;
 use crate::config::types::GlobalConfig;
+use crate::constants::BACKENDS_FILE_NAME;
 use crate::core::types::Backend;
 use crate::packages::PackageManager;
 use crate::utils::distro::DistroType;

@@ -1,6 +1,8 @@
 use clap::Parser;
 use colored::Colorize;
-use declarch::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand, SyncCommand};
+use declarch::cli::args::{
+    CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand, SyncCommand,
+};
 use declarch::commands;
 use declarch::ui as output;
 use std::process::exit;
@@ -53,45 +55,59 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         }) => {
             // Handle deprecated flags
             let (has_deprecated_flags, deprecated_command) = if *dry_run {
-                (true, SyncCommand::Preview {
-                    gc: *gc,
-                    target: None,
-                    noconfirm: false,
-                    hooks: false,
-                    skip_soar_install: false,
-                    modules: vec![],
-                })
+                (
+                    true,
+                    SyncCommand::Preview {
+                        gc: *gc,
+                        target: None,
+                        noconfirm: false,
+                        hooks: false,
+                        skip_soar_install: false,
+                        modules: vec![],
+                    },
+                )
             } else if *update {
-                (true, SyncCommand::Update {
-                    gc: *gc,
-                    target: None,
-                    noconfirm: false,
-                    hooks: false,
-                    skip_soar_install: false,
-                    modules: vec![],
-                })
+                (
+                    true,
+                    SyncCommand::Update {
+                        gc: *gc,
+                        target: None,
+                        noconfirm: false,
+                        hooks: false,
+                        skip_soar_install: false,
+                        modules: vec![],
+                    },
+                )
             } else if *prune {
-                (true, SyncCommand::Prune {
-                    gc: *gc,
-                    target: None,
-                    noconfirm: false,
-                    hooks: false,
-                    skip_soar_install: false,
-                    modules: vec![],
-                })
+                (
+                    true,
+                    SyncCommand::Prune {
+                        gc: *gc,
+                        target: None,
+                        noconfirm: false,
+                        hooks: false,
+                        skip_soar_install: false,
+                        modules: vec![],
+                    },
+                )
             } else {
-                (false, SyncCommand::Sync {
-                    gc: *gc,
-                    target: None,
-                    noconfirm: false,
-                    hooks: false,
-                    skip_soar_install: false,
-                    modules: vec![],
-                })
+                (
+                    false,
+                    SyncCommand::Sync {
+                        gc: *gc,
+                        target: None,
+                        noconfirm: false,
+                        hooks: false,
+                        skip_soar_install: false,
+                        modules: vec![],
+                    },
+                )
             };
 
             // Use the command from subcommand if provided, otherwise use deprecated flags
-            let sync_cmd = command.clone().unwrap_or_else(|| deprecated_command.clone());
+            let sync_cmd = command
+                .clone()
+                .unwrap_or_else(|| deprecated_command.clone());
 
             // Show deprecation warning if old flags were used
             if has_deprecated_flags {
@@ -110,66 +126,86 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
 
             // Map SyncCommand to sync::run parameters
             match sync_cmd {
-                SyncCommand::Sync { gc, target, noconfirm, hooks, skip_soar_install, modules } => {
-                    commands::sync::run(commands::sync::SyncOptions {
-                        dry_run: false,
-                        prune: false,
-                        gc,
-                        update: false,
-                        yes: args.global.yes,
-                        force: args.global.force,
-                        target,
-                        noconfirm,
-                        hooks,
-                        skip_soar_install,
-                        modules,
-                    })
-                }
-                SyncCommand::Preview { gc, target, noconfirm, hooks, skip_soar_install, modules } => {
-                    commands::sync::run(commands::sync::SyncOptions {
-                        dry_run: true,
-                        prune: false,
-                        gc,
-                        update: false,
-                        yes: args.global.yes,
-                        force: args.global.force,
-                        target,
-                        noconfirm,
-                        hooks,
-                        skip_soar_install,
-                        modules,
-                    })
-                }
-                SyncCommand::Update { gc, target, noconfirm, hooks, skip_soar_install, modules } => {
-                    commands::sync::run(commands::sync::SyncOptions {
-                        dry_run: false,
-                        prune: false,
-                        gc,
-                        update: true,
-                        yes: args.global.yes,
-                        force: args.global.force,
-                        target,
-                        noconfirm,
-                        hooks,
-                        skip_soar_install,
-                        modules,
-                    })
-                }
-                SyncCommand::Prune { gc, target, noconfirm, hooks, skip_soar_install, modules } => {
-                    commands::sync::run(commands::sync::SyncOptions {
-                        dry_run: false,
-                        prune: true,
-                        gc,
-                        update: false,
-                        yes: args.global.yes,
-                        force: args.global.force,
-                        target,
-                        noconfirm,
-                        hooks,
-                        skip_soar_install,
-                        modules,
-                    })
-                }
+                SyncCommand::Sync {
+                    gc,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                } => commands::sync::run(commands::sync::SyncOptions {
+                    dry_run: false,
+                    prune: false,
+                    gc,
+                    update: false,
+                    yes: args.global.yes,
+                    force: args.global.force,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                }),
+                SyncCommand::Preview {
+                    gc,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                } => commands::sync::run(commands::sync::SyncOptions {
+                    dry_run: true,
+                    prune: false,
+                    gc,
+                    update: false,
+                    yes: args.global.yes,
+                    force: args.global.force,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                }),
+                SyncCommand::Update {
+                    gc,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                } => commands::sync::run(commands::sync::SyncOptions {
+                    dry_run: false,
+                    prune: false,
+                    gc,
+                    update: true,
+                    yes: args.global.yes,
+                    force: args.global.force,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                }),
+                SyncCommand::Prune {
+                    gc,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                } => commands::sync::run(commands::sync::SyncOptions {
+                    dry_run: false,
+                    prune: true,
+                    gc,
+                    update: false,
+                    yes: args.global.yes,
+                    force: args.global.force,
+                    target,
+                    noconfirm,
+                    hooks,
+                    skip_soar_install,
+                    modules,
+                }),
             }
         }
         Some(Command::Check {
@@ -182,21 +218,61 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         }) => {
             // Handle deprecated flags
             let (has_deprecated_flags, deprecated_command) = if *duplicates {
-                (true, CheckCommand::Duplicates { backend: None, diff: false })
+                (
+                    true,
+                    CheckCommand::Duplicates {
+                        backend: None,
+                        diff: false,
+                    },
+                )
             } else if *conflicts {
-                (true, CheckCommand::Conflicts { backend: None, diff: false })
+                (
+                    true,
+                    CheckCommand::Conflicts {
+                        backend: None,
+                        diff: false,
+                    },
+                )
             } else if *only_duplicates {
-                (true, CheckCommand::Duplicates { backend: None, diff: false })
+                (
+                    true,
+                    CheckCommand::Duplicates {
+                        backend: None,
+                        diff: false,
+                    },
+                )
             } else if *only_conflicts {
-                (true, CheckCommand::Conflicts { backend: None, diff: false })
+                (
+                    true,
+                    CheckCommand::Conflicts {
+                        backend: None,
+                        diff: false,
+                    },
+                )
             } else if *validate {
-                (true, CheckCommand::Validate { benchmark: false, modules: vec![] })
+                (
+                    true,
+                    CheckCommand::Validate {
+                        benchmark: false,
+                        modules: vec![],
+                    },
+                )
             } else {
-                (false, CheckCommand::All { backend: None, diff: false, benchmark: false, modules: vec![] })
+                (
+                    false,
+                    CheckCommand::All {
+                        backend: None,
+                        diff: false,
+                        benchmark: false,
+                        modules: vec![],
+                    },
+                )
             };
 
             // Use the command from subcommand if provided, otherwise use deprecated flags
-            let check_cmd = command.clone().unwrap_or_else(|| deprecated_command.clone());
+            let check_cmd = command
+                .clone()
+                .unwrap_or_else(|| deprecated_command.clone());
 
             // Show deprecation warning if old flags were used
             if has_deprecated_flags {
@@ -215,7 +291,12 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
 
             // Map CheckCommand to check::run parameters
             match check_cmd {
-                CheckCommand::All { backend, diff, benchmark, modules } => {
+                CheckCommand::All {
+                    backend,
+                    diff,
+                    benchmark,
+                    modules,
+                } => {
                     commands::check::run(
                         args.global.verbose,
                         true,  // check_duplicates
@@ -276,21 +357,29 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         Some(Command::Info { command, doctor }) => {
             // Handle deprecated flag
             let (has_deprecated_flag, deprecated_command) = if *doctor {
-                (true, InfoCommand::Doctor {
-                    debug: false,
-                    backend: None,
-                    package: None,
-                })
+                (
+                    true,
+                    InfoCommand::Doctor {
+                        debug: false,
+                        backend: None,
+                        package: None,
+                    },
+                )
             } else {
-                (false, InfoCommand::Status {
-                    debug: false,
-                    backend: None,
-                    package: None,
-                })
+                (
+                    false,
+                    InfoCommand::Status {
+                        debug: false,
+                        backend: None,
+                        package: None,
+                    },
+                )
             };
 
             // Use the command from subcommand if provided, otherwise use deprecated flag
-            let info_cmd = command.clone().unwrap_or_else(|| deprecated_command.clone());
+            let info_cmd = command
+                .clone()
+                .unwrap_or_else(|| deprecated_command.clone());
 
             // Show deprecation warning if old flag was used
             if has_deprecated_flag {
@@ -303,24 +392,28 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
 
             // Map InfoCommand to info::run parameters
             match info_cmd {
-                InfoCommand::Status { debug, backend, package } => {
-                    commands::info::run(commands::info::InfoOptions {
-                        doctor: false,
-                        debug,
-                        format: args.global.format.clone(),
-                        backend,
-                        package,
-                    })
-                }
-                InfoCommand::Doctor { debug, backend, package } => {
-                    commands::info::run(commands::info::InfoOptions {
-                        doctor: true,
-                        debug,
-                        format: args.global.format.clone(),
-                        backend,
-                        package,
-                    })
-                }
+                InfoCommand::Status {
+                    debug,
+                    backend,
+                    package,
+                } => commands::info::run(commands::info::InfoOptions {
+                    doctor: false,
+                    debug,
+                    format: args.global.format.clone(),
+                    backend,
+                    package,
+                }),
+                InfoCommand::Doctor {
+                    debug,
+                    backend,
+                    package,
+                } => commands::info::run(commands::info::InfoOptions {
+                    doctor: true,
+                    debug,
+                    format: args.global.format.clone(),
+                    backend,
+                    package,
+                }),
             }
         }
         Some(Command::List {
@@ -338,7 +431,9 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
             };
 
             // Use the command from subcommand if provided, otherwise use deprecated flags
-            let list_cmd = command.clone().unwrap_or_else(|| deprecated_command.clone());
+            let list_cmd = command
+                .clone()
+                .unwrap_or_else(|| deprecated_command.clone());
 
             // Show deprecation warning if old flags were used
             if has_deprecated_flags {
@@ -356,14 +451,12 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
 
             // Map ListCommand to list::run parameters
             match list_cmd {
-                ListCommand::All { backend } => {
-                    commands::list::run(commands::list::ListOptions {
-                        backend,
-                        orphans: false,
-                        synced: false,
-                        format: args.global.format.clone(),
-                    })
-                }
+                ListCommand::All { backend } => commands::list::run(commands::list::ListOptions {
+                    backend,
+                    orphans: false,
+                    synced: false,
+                    format: args.global.format.clone(),
+                }),
                 ListCommand::Orphans { backend } => {
                     commands::list::run(commands::list::ListOptions {
                         backend,
@@ -415,22 +508,16 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
         Some(Command::Settings { command }) => {
             // Convert CLI SettingsCommand to command SettingsCommand
             let cmd = match command {
-                SettingsCommand::Set { key, value } => {
-                    commands::settings::SettingsCommand::Set {
-                        key: key.clone(),
-                        value: value.clone(),
-                    }
-                }
+                SettingsCommand::Set { key, value } => commands::settings::SettingsCommand::Set {
+                    key: key.clone(),
+                    value: value.clone(),
+                },
                 SettingsCommand::Get { key } => {
-                    commands::settings::SettingsCommand::Get {
-                        key: key.clone(),
-                    }
+                    commands::settings::SettingsCommand::Get { key: key.clone() }
                 }
                 SettingsCommand::Show => commands::settings::SettingsCommand::Show,
                 SettingsCommand::Reset { key } => {
-                    commands::settings::SettingsCommand::Reset {
-                        key: key.clone(),
-                    }
+                    commands::settings::SettingsCommand::Reset { key: key.clone() }
                 }
             };
 

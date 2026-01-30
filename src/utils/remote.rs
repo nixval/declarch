@@ -83,7 +83,9 @@ fn build_urls(target: &str) -> Vec<String> {
     }
 
     // Strip .kdl extension if present (for cleaner URL building)
-    let clean_target = target.strip_suffix(&format!(".{}", CONFIG_EXTENSION)).unwrap_or(target);
+    let clean_target = target
+        .strip_suffix(&format!(".{}", CONFIG_EXTENSION))
+        .unwrap_or(target);
 
     // 2. Config variant syntax: user/repo:variant or user/repo/branch:variant
     // Examples:
@@ -220,14 +222,20 @@ fn build_urls(target: &str) -> Vec<String> {
             }
 
             // Also try modules/ path for default registry (without .kdl)
-            urls.push(format!("{}/modules/{}.{}", DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION));
+            urls.push(format!(
+                "{}/modules/{}.{}",
+                DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION
+            ));
         }
 
         return urls;
     }
 
     // 6. Flat name → try default registry
-    urls.push(format!("{}/modules/{}.{}", DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION));
+    urls.push(format!(
+        "{}/modules/{}.{}",
+        DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION
+    ));
 
     urls
 }

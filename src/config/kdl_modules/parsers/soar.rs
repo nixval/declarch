@@ -1,6 +1,6 @@
+use crate::config::kdl_modules::helpers::packages::extract_packages_to;
 use crate::config::kdl_modules::types::RawConfig;
 use crate::error::Result;
-use crate::config::kdl_modules::helpers::packages::extract_packages_to;
 use kdl::KdlNode;
 
 /// Soar (static binaries) backend parser

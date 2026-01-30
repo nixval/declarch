@@ -1,4 +1,7 @@
-use crate::constants::{CONFIG_EXTENSION, CONFIG_FILE_NAME, DECLARCH_DIR_NAME, BACKENDS_FILE_NAME, MODULES_DIR_NAME, PROJECT_QUALIFIER, PROJECT_ORG};
+use crate::constants::{
+    BACKENDS_FILE_NAME, CONFIG_EXTENSION, CONFIG_FILE_NAME, DECLARCH_DIR_NAME, MODULES_DIR_NAME,
+    PROJECT_ORG, PROJECT_QUALIFIER,
+};
 use crate::error::{DeclarchError, Result};
 use directories::{ProjectDirs, UserDirs};
 use std::path::{Path, PathBuf};

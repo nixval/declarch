@@ -6,6 +6,7 @@ use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
 use std::process::Command;
+use terminal_size::{Width, terminal_size};
 
 pub struct InfoOptions {
     pub doctor: bool,
@@ -38,48 +39,51 @@ fn run_info(options: &InfoOptions) -> Result<()> {
     let state = state::io::load_state()?;
 
     // Apply filters
-    let filtered_packages: Vec<(&String, &state::types::PackageState)> = if options.backend.is_some() || options.package.is_some() {
-        let backend_filter = options.backend.as_deref();
-        let package_filter = options.package.as_deref();
+    let filtered_packages: Vec<(&String, &state::types::PackageState)> =
+        if options.backend.is_some() || options.package.is_some() {
+            let backend_filter = options.backend.as_deref();
+            let package_filter = options.package.as_deref();
 
-        state
-            .packages
-            .iter()
-            .filter(|(key, pkg_state)| {
-                let name = extract_package_name(key);
+            state
+                .packages
+                .iter()
+                .filter(|(key, pkg_state)| {
+                    let name = extract_package_name(key);
 
-                // Filter by package name if specified
-                if let Some(filter_pkg) = package_filter {
-                    if !name.contains(filter_pkg) {
-                        return false;
+                    // Filter by package name if specified
+                    if let Some(filter_pkg) = package_filter {
+                        if !name.contains(filter_pkg) {
+                            return false;
+                        }
                     }
-                }
 
-                // Filter by backend if specified
-                if let Some(filter_backend) = backend_filter {
-                    // Check if package backend matches filter
-                    match (&pkg_state.backend, filter_backend) {
-                        (crate::state::types::Backend::Aur, "aur") => true,
-                        (crate::state::types::Backend::Flatpak, "flatpak") => true,
-                        (crate::state::types::Backend::Soar, "soar") => true,
-                        (crate::state::types::Backend::Npm, "npm") => true,
-                        (crate::state::types::Backend::Yarn, "yarn") => true,
-                        (crate::state::types::Backend::Pnpm, "pnpm") => true,
-                        (crate::state::types::Backend::Bun, "bun") => true,
-                        (crate::state::types::Backend::Pip, "pip") => true,
-                        (crate::state::types::Backend::Cargo, "cargo") => true,
-                        (crate::state::types::Backend::Brew, "brew") => true,
-                        (crate::state::types::Backend::Custom(pkg_name), filter_name) => pkg_name == filter_name,
-                        _ => false,
+                    // Filter by backend if specified
+                    if let Some(filter_backend) = backend_filter {
+                        // Check if package backend matches filter
+                        match (&pkg_state.backend, filter_backend) {
+                            (crate::state::types::Backend::Aur, "aur") => true,
+                            (crate::state::types::Backend::Flatpak, "flatpak") => true,
+                            (crate::state::types::Backend::Soar, "soar") => true,
+                            (crate::state::types::Backend::Npm, "npm") => true,
+                            (crate::state::types::Backend::Yarn, "yarn") => true,
+                            (crate::state::types::Backend::Pnpm, "pnpm") => true,
+                            (crate::state::types::Backend::Bun, "bun") => true,
+                            (crate::state::types::Backend::Pip, "pip") => true,
+                            (crate::state::types::Backend::Cargo, "cargo") => true,
+                            (crate::state::types::Backend::Brew, "brew") => true,
+                            (crate::state::types::Backend::Custom(pkg_name), filter_name) => {
+                                pkg_name == filter_name
+                            }
+                            _ => false,
+                        }
+                    } else {
+                        true
                     }
-                } else {
-                    true
-                }
-            })
-            .collect()
-    } else {
-        state.packages.iter().collect()
-    };
+                })
+                .collect()
+        } else {
+            state.packages.iter().collect()
+        };
 
     // Determine output format
     let format_str = options.format.as_deref().unwrap_or("table");
@@ -109,16 +113,28 @@ fn output_table_filtered(
 
     println!();
     output::tag("Total Managed", &pkg_count.to_string());
-    output::indent(&format!("• AUR/Repo:  {}", backend_counts.get("aur").unwrap_or(&0)), 2);
-    output::indent(&format!("• Flatpak:   {}", backend_counts.get("flatpak").unwrap_or(&0)), 2);
-    output::indent(&format!("• Soar:      {}", backend_counts.get("soar").unwrap_or(&0)), 2);
-    output::indent(&format!("• NPM:       {}", backend_counts.get("npm").unwrap_or(&0)), 2);
-    output::indent(&format!("• Yarn:      {}", backend_counts.get("yarn").unwrap_or(&0)), 2);
-    output::indent(&format!("• Pnpm:      {}", backend_counts.get("pnpm").unwrap_or(&0)), 2);
-    output::indent(&format!("• Bun:       {}", backend_counts.get("bun").unwrap_or(&0)), 2);
-    output::indent(&format!("• Pip:       {}", backend_counts.get("pip").unwrap_or(&0)), 2);
-    output::indent(&format!("• Cargo:     {}", backend_counts.get("cargo").unwrap_or(&0)), 2);
-    output::indent(&format!("• Brew:      {}", backend_counts.get("brew").unwrap_or(&0)), 2);
+
+    // Only show backends that have packages
+    let backends_to_show = vec![
+        ("aur", "AUR/Repo"),
+        ("flatpak", "Flatpak"),
+        ("soar", "Soar"),
+        ("npm", "NPM"),
+        ("yarn", "Yarn"),
+        ("pnpm", "Pnpm"),
+        ("bun", "Bun"),
+        ("pip", "Pip"),
+        ("cargo", "Cargo"),
+        ("brew", "Brew"),
+    ];
+
+    for (backend_key, backend_name) in backends_to_show {
+        if let Some(&count) = backend_counts.get(backend_key) {
+            if count > 0 {
+                output::indent(&format!("• {}: {}", backend_name, count), 2);
+            }
+        }
+    }
 
     if pkg_count > 0 {
         output::separator();
@@ -126,54 +142,11 @@ fn output_table_filtered(
 
         // Sort by name using helper function
         let mut sorted_packages: Vec<_> = filtered_packages.to_vec();
-        sorted_packages.sort_by(|(k1, _), (k2, _)| {
-            extract_package_name(k1).cmp(extract_package_name(k2))
-        });
+        sorted_packages
+            .sort_by(|(k1, _), (k2, _)| extract_package_name(k1).cmp(extract_package_name(k2)));
 
-        for (key, pkg_state) in sorted_packages {
-            let name = extract_package_name(key);
-
-            match &pkg_state.backend {
-                crate::state::types::Backend::Aur => {
-                    println!("  {} {}", "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Flatpak => {
-                    println!("  {} {} {}", "flt".green(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Soar => {
-                    println!("  {} {} {}", "soar".blue(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Npm => {
-                    println!("  {} {} {}", "npm".cyan(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Yarn => {
-                    println!("  {} {} {}", "yarn".cyan(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Pnpm => {
-                    println!("  {} {} {}", "pnpm".cyan(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Bun => {
-                    println!("  {} {} {}", "bun".cyan(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Pip => {
-                    println!("  {} {} {}", "pip".blue(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Cargo => {
-                    println!("  {} {} {}", "cargo".red(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Brew => {
-                    println!("  {} {} {}", "brew".purple(), "→".dimmed(), name);
-                }
-                crate::state::types::Backend::Custom(backend_name) => {
-                    println!(
-                        "  {} {} {}",
-                        backend_name.white().dimmed(),
-                        "→".dimmed(),
-                        name
-                    );
-                }
-            };
-        }
+        // Display packages horizontally with backend prefix
+        print_packages_horizontally(sorted_packages);
     }
 
     Ok(())
@@ -247,7 +220,10 @@ fn run_doctor() -> Result<()> {
         // Try to parse it
         match loader::load_root_config(&config_path) {
             Ok(config) => {
-                output::success(&format!("Config valid: {} packages defined", config.packages.len()));
+                output::success(&format!(
+                    "Config valid: {} packages defined",
+                    config.packages.len()
+                ));
             }
             Err(e) => {
                 output::error(&format!("Config parse error: {}", e));
@@ -269,7 +245,10 @@ fn run_doctor() -> Result<()> {
         // Try to load it
         match state::io::load_state() {
             Ok(state) => {
-                output::success(&format!("State valid: {} packages tracked", state.packages.len()));
+                output::success(&format!(
+                    "State valid: {} packages tracked",
+                    state.packages.len()
+                ));
 
                 // Check for orphans
                 if config_path.exists() {
@@ -277,7 +256,8 @@ fn run_doctor() -> Result<()> {
                         use crate::core::types::PackageId;
                         use std::collections::HashSet;
 
-                        let config_set: HashSet<PackageId> = config.packages.keys().cloned().collect();
+                        let config_set: HashSet<PackageId> =
+                            config.packages.keys().cloned().collect();
                         let mut orphan_count = 0;
 
                         for (_key, pkg_state) in &state.packages {
@@ -291,7 +271,10 @@ fn run_doctor() -> Result<()> {
                         }
 
                         if orphan_count > 0 {
-                            output::warning(&format!("Found {} orphan packages (not in config)", orphan_count));
+                            output::warning(&format!(
+                                "Found {} orphan packages (not in config)",
+                                orphan_count
+                            ));
                             output::info("Run 'dcl list --orphans' to see them");
                             output::info("Run 'dcl sync --prune' to remove orphans");
                         } else {
@@ -361,12 +344,116 @@ fn run_doctor() -> Result<()> {
     output::separator();
     if all_ok {
         output::success("All checks passed!");
-        output::info(&format!("Available backends: {}/{}", available_backends, backends_to_check.len()));
+        output::info(&format!(
+            "Available backends: {}/{}",
+            available_backends,
+            backends_to_check.len()
+        ));
     } else {
         output::warning("Some issues found - see details above");
     }
 
     Ok(())
+}
+
+/// Print packages grouped by backend with horizontal display per group
+fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageState)>) {
+    if packages.is_empty() {
+        return;
+    }
+
+    // Get terminal width, default to 80 if detection fails
+    let term_width = terminal_size()
+        .map(|(Width(w), _)| w as usize)
+        .unwrap_or(80);
+
+    // Group by backend
+    let mut grouped: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+
+    for (_, pkg_state) in &packages {
+        let backend_name = pkg_state.backend.to_string();
+        grouped
+            .entry(backend_name)
+            .or_insert_with(Vec::new)
+            .push(pkg_state.config_name.clone());
+    }
+
+    // Define order for known backends
+    let backend_order = vec![
+        "aur", "soar", "flatpak", "npm", "yarn", "pnpm", "bun", "pip", "cargo", "brew",
+    ];
+
+    // Display each backend group
+    for backend in &backend_order {
+        if let Some(pkg_names) = grouped.get(*backend) {
+            if !pkg_names.is_empty() {
+                println!(
+                    "  {}: {}",
+                    backend.bold().cyan(),
+                    format_packages_inline(pkg_names, term_width)
+                );
+            }
+        }
+    }
+
+    // Display any custom backends (not in predefined order)
+    for (backend, pkg_names) in grouped {
+        if !backend_order.contains(&backend.as_str()) && !pkg_names.is_empty() {
+            println!(
+                "  {}: {}",
+                backend.bold().cyan(),
+                format_packages_inline(&pkg_names, term_width)
+            );
+        }
+    }
+}
+
+/// Format package names inline with auto-wrapping
+fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
+    // Calculate available space (subtract "backend: " prefix and indentation)
+    let prefix_len = 10; // "backend: " is roughly 10 chars with colors
+    let available_width = term_width.saturating_sub(prefix_len + 4); // +4 for margin
+
+    if available_width < 20 {
+        // Too narrow, just return comma-separated
+        return pkg_names.join(" ");
+    }
+
+    let mut lines = Vec::new();
+    let mut current_line = String::new();
+    let mut line_length = 0;
+
+    for pkg_name in pkg_names {
+        let item_length = pkg_name.len() + 2; // +2 for spacing between items
+
+        // Check if we need to wrap to next line
+        if line_length + item_length > available_width && !current_line.is_empty() {
+            lines.push(current_line.trim().to_string());
+            current_line.clear();
+            line_length = 0;
+        }
+
+        // Add spacing between items
+        if !current_line.is_empty() {
+            current_line.push_str("  ");
+        }
+
+        current_line.push_str(pkg_name);
+        line_length += item_length;
+    }
+
+    // Add remaining items
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+
+    // Join lines with proper indentation
+    if lines.len() > 1 {
+        lines.join(&format!("\n      ")) // Indent continuation lines
+    } else {
+        lines.join("  ")
+    }
 }
 
 fn is_command_available(cmd: &str) -> bool {

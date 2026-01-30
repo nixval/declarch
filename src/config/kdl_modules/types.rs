@@ -156,10 +156,10 @@ pub enum LifecyclePhase {
 /// Action condition - when to run the action
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActionCondition {
-    IfInstalled(String),  // Run only if package is installed
-    IfChanged(String),    // Run only if package was installed/updated
-    IfBackend(String),    // Run only if this backend had changes
-    IfSuccess,            // Run only if previous action succeeded
+    IfInstalled(String), // Run only if package is installed
+    IfChanged(String),   // Run only if package was installed/updated
+    IfBackend(String),   // Run only if this backend had changes
+    IfSuccess,           // Run only if previous action succeeded
 }
 
 /// Error behavior for hooks

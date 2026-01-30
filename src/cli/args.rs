@@ -8,7 +8,8 @@ use clap_complete::Shell;
     long_about = "Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends under one declarative config.",
     version,
     next_line_help = false,
-    term_width = 80
+    term_width = 120,
+    max_term_width = 120
 )]
 pub struct Cli {
     #[command(flatten)]

@@ -112,8 +112,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
             output::warning(&format!(
                 "Package '{}' (backend: {}) already exists in config, skipping",
-                pkg_name,
-                target_backend
+                pkg_name, target_backend
             ));
             skipped_count += 1;
             continue;
@@ -148,7 +147,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             // Prompt user
             let should_continue = prompt_yes_no(
                 &format!("Install {} from {}?", pkg_name, target_backend),
-                false,  // Default: no
+                false, // Default: no
             );
 
             if !should_continue {
@@ -162,11 +161,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         }
 
         // Add package to config
-        let edit = editor.add_package(
-            &pkg_name,
-            backend_str,
-            options.module.as_deref(),
-        )?;
+        let edit = editor.add_package(&pkg_name, backend_str, options.module.as_deref())?;
 
         all_edits.push(edit);
     }
@@ -196,7 +191,9 @@ pub fn run(options: InstallOptions) -> Result<()> {
             files_created.push(edit.file_path.display().to_string());
 
             // Auto-import new module to declarch.kdl
-            let module_path = edit.file_path.strip_prefix(&paths::config_dir()?)
+            let module_path = edit
+                .file_path
+                .strip_prefix(&paths::config_dir()?)
                 .unwrap_or(&edit.file_path);
             inject_import_to_root(module_path)?;
         } else {
@@ -209,11 +206,15 @@ pub fn run(options: InstallOptions) -> Result<()> {
     // Step 4: Auto-sync (unless --no-sync)
     if !options.no_sync {
         // Show sync message with package details
-        let packages_with_backend: Vec<String> = all_packages.iter()
+        let packages_with_backend: Vec<String> = all_packages
+            .iter()
             .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("aur")))
             .collect();
 
-        output::info(&format!("Syncing packages: {} ...", packages_with_backend.join(", ")));
+        output::info(&format!(
+            "Syncing packages: {} ...",
+            packages_with_backend.join(", ")
+        ));
 
         // Import sync command at top to avoid circular dependency
         use crate::commands::sync::{self, SyncOptions};
@@ -227,9 +228,9 @@ pub fn run(options: InstallOptions) -> Result<()> {
             yes: options.yes,
             force: false,
             noconfirm: false,
-            hooks: true,  // Always run hooks during install
+            hooks: true, // Always run hooks during install
             skip_soar_install: false,
-            modules: modified_modules.clone(),  // Sync only modified modules
+            modules: modified_modules.clone(), // Sync only modified modules
         });
 
         match sync_result {
@@ -245,10 +246,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 for edit in &all_edits {
                     if let Some(ref backup) = edit.backup_path {
                         if let Err(e) = std::fs::remove_file(backup) {
-                            output::warning(&format!(
-                                "Failed to cleanup backup file: {}",
-                                e
-                            ));
+                            output::warning(&format!("Failed to cleanup backup file: {}", e));
                         }
                     }
                 }
@@ -305,7 +303,6 @@ fn prompt_yes_no(question: &str, default: bool) -> bool {
 /// Helper to inject the import statement into main config file
 /// Auto-imports newly created modules so they're picked up by sync
 fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
-
     let config_path = paths::config_file()?;
 
     // Normalize path to use forward slashes in KDL (cross-platform)
@@ -329,7 +326,6 @@ fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
 
     // Normalize path to use forward slashes and remove .kdl extension for import
     let import_line = format!("    {:?}", import_path);
-
 
     // Regex Magic - same as init.rs
     let re = Regex::new(r#"(?m)^(.*imports\s*\{)"#)

@@ -1,9 +1,12 @@
 /target/
 **/*.rs.bk
 
+# Editor files
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 .DS_Store
 .dev/
 
@@ -11,12 +14,20 @@
 _declarch
 .claude/
 
+# Backup files (created by install/edit commands)
+*.kdl.bak.*
+*.kdl.backup
+state.json.backup*
+state.json.*
+
 # Release documentation (personal reference)
 personal-docs/
 .obsidian/
+
 # AUR publish scripts (personal reference)
 .aur/publish*.sh
 
+# Config and state files
 config.decl
 state.json
 package.sh
@@ -24,6 +35,7 @@ deploy-aur.sh
 release-wizard.sh
 *.log
 
+# Release artifacts
 declarch-*.tar.gz
 declarch-*.zip
 package.sh
@@ -36,3 +48,9 @@ repomix-output.xml
 
 # Release scripts (private reference)
 release-*.sh
+
+# Test and temporary files
+*.tmp
+*.temp
+tests/temp/
+tests/.temp/

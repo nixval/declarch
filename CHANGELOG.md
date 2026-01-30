@@ -4,7 +4,38 @@ All notable changes to this project will be documented in this file.
 
 ## [0.5.1] - 2026-01-30
 
+### Security
+- **CRITICAL**: Tightened hook command validation regex to prevent command injection attacks
+  - Old: `^[\w\s\-\./@:=\$~\{\}]+$` (too permissive)
+  - New: `^[a-zA-Z0-9_\-\.\s/:]+$` (more restrictive)
+  - Removed dangerous characters: `$`, `{`, `}`, `~`, `=`, `@`
+- **CRITICAL**: Added state JSON validation before write
+  - Validates JSON structure before writing to prevent corruption
+  - Prevents truncated state files from crashes
+- State file corruption protection with JSON validation
+- Improved backup integrity checks
+- Documented safety rationale for `unsafe` block in info.rs (required by Rust 1.92+)
+- Added documentation about state rollback limitations in switch.rs
+
+### Performance
+- Reduced memory allocations in `sync.rs` by using iterators instead of cloning vectors
+  - Optimized `update_state_after_sync` to chain iterators instead of cloning Vec<PackageId>
+  - Eliminated 3 vector clones per sync operation
+
 ### Added
+- **Horizontal package display**: Packages grouped by backend with auto-wrap
+  - `aur: bat hyprland waybar`
+  - `flatpak: com.spotify.Client org.mozilla.firefox`
+  - Auto-wraps based on terminal width for better readability
+- **Custom backend documentation**: Comprehensive guide for distro-specific backends
+  - Explains how to use nala, dnf5, zypper, and other distro-specific package managers
+  - Warnings that custom backends are unofficial and fragile
+  - Complete examples and setup instructions
+- **Cross-distro support documentation**: Matrix of backend availability across distributions
+  - Documents which backends work on Arch, Debian, Fedora, and other distros
+  - Explains AUR limitations on non-Arch systems
+- **Compact mode setting**: User preference for compact output
+  - `declarch settings set compact true` for concise output
 - **Selective module sync**: `--module` flag now syncs only specified module
   - `declarch install bat --module base` - Installs and syncs only base module
   - More efficient: No longer syncs all modules when installing to specific one
@@ -25,14 +56,19 @@ All notable changes to this project will be documented in this file.
   - Clear error messages for invalid formats
 
 ### Changed
-- **Error messages simplified**: Only essential information shown
-  - "missing import" warnings now respect verbose setting
-  - Removed verbose rollback messages
-  - Removed "Please check error messages above" suffix
-- **UI is more concise**: Less overwhelming technical text
+- **UI is more concise**: Less overwhelming output
+  - Removed "Entry point" messages in check command
+  - Removed ✓/ℹ symbols from success/info messages (kept ⚠/✗ for attention)
+  - Reduced separator usage throughout
   - Init: "fetch: URL" instead of multiple "Trying:" messages
   - Install: Shows package list with backend in one line
   - Sync: Direct to changes, no intermediate headers
+  - Error messages simplified: Only essential information shown
+- **README title**: Changed from "Declarative Package Manager for Arch Linux" to "for Linux"
+- **Cross-distro clarity**: Custom backends now documented in README and dedicated guide
+- "missing import" warnings now respect verbose setting
+- Removed verbose rollback messages
+- Removed "Please check error messages above" suffix
 
 ### Removed
 - **Deprecated KDL editor syntax**: `editor "nvim"` in declarch.kdl files
@@ -54,9 +90,6 @@ All notable changes to this project will be documented in this file.
 - **CRITICAL**: Fixed 4 panic risks in editor.rs path operations
   - Invalid module paths now return proper errors instead of panicking
   - Invalid backup paths now handled gracefully
-- **CRITICAL**: Added state JSON validation before write
-  - Validates JSON structure before writing to prevent corruption
-  - Prevents truncated state files from crashes
 - **Python backend naming**: Changed `packages:python` to `packages:pip` in examples
   - Backend is named `PipParser` in code, syntax should match
   - No functional change, just naming consistency
@@ -67,27 +100,6 @@ All notable changes to this project will be documented in this file.
 - **Added cleanup error logging**: Failed cleanup operations now show warnings
   - No more silent failures when removing backup files
 - All compiler warnings resolved (unused variables)
-
-### Security
-- State file corruption protection with JSON validation
-- Improved backup integrity checks
-
-## [0.5.1] - 2025-01-29
-
-### Security
-- **CRITICAL**: Tightened hook command validation regex to prevent command injection attacks.
-  - Old: `^[\w\s\-\./@:=\$~\{\}]+$` (too permissive)
-  - New: `^[a-zA-Z0-9_\-\.\s/:]+$` (more restrictive)
-  - Removed dangerous characters: `$`, `{`, `}`, `~`, `=`, `@`
-- Documented safety rationale for `unsafe` block in info.rs (required by Rust 1.92+)
-- Added documentation about state rollback limitations in switch.rs
-
-### Performance
-- Reduced memory allocations in `sync.rs` by using iterators instead of cloning vectors
-  - Optimized `update_state_after_sync` to chain iterators instead of cloning Vec<PackageId>
-  - Eliminated 3 vector clones per sync operation
-
-### Fixed
 - Improved error messages in hook validation to show allowed characters
 - Added comprehensive safety comments for atomic state operations
 

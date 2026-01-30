@@ -1,11 +1,11 @@
 # declarch
 
-**Declarative Package Manager for Arch Linux**
+**Declarative Package Manager for Linux**
 
 [![CI/CD](https://github.com/nixval/declarch/actions/workflows/ci.yml/badge.svg)](https://github.com/nixval/declarch/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-declarch is a declarative package management system for Arch Linux that allows you to define your installed packages in KDL configuration files and sync your system to match.
+declarch is a declarative package management system for Linux that allows you to define your installed packages in KDL configuration files and sync your system to match.
 
 ## Features
 
@@ -17,6 +17,29 @@ declarch is a declarative package management system for Arch Linux that allows y
 - **Modular Configuration**: Organize packages into logical modules (base, gaming, work, etc.)
 - **Selective Sync**: Install packages to specific modules without syncing everything
 - **Automatic Rollback**: Failed installations restore your config files automatically
+
+## Cross-Distribution Support
+
+declarch works across multiple Linux distributions! While optimized for Arch Linux, it also supports Debian-based, Fedora-based, and other distributions.
+
+**Available backends by distribution:**
+
+| Backend | Arch | Debian | Fedora | Other |
+|---------|------|--------|--------|-------|
+| AUR     | ✓    | ✗      | ✗      | ✗     |
+| Soar    | ✓    | ✓      | ✓      | ✓     |
+| Flatpak | ✓    | ✓      | ✓      | ✓     |
+| npm     | ✓    | ✓      | ✓      | ✓     |
+| Others  | ✓    | ✓      | ✓      | ✓     |
+
+**Key points:**
+- AUR packages only work on Arch-based systems
+- Soar and Flatpak work on all distributions
+- AUR packages are silently ignored on non-Arch systems
+- **Custom backends** available for distro-specific package managers (nala, dnf5, zypper, etc.)
+- Perfect for portable dotfiles across different distros
+
+See [Cross-Distribution Support](docs-book/src/cross-distro-support.md) for detailed information including custom backends.
 
 ## Quick Start
 

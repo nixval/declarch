@@ -74,11 +74,8 @@ impl ConfigEditor {
         let content = fs::read_to_string(&target_file)?;
 
         // Add package to content
-        let (updated_content, packages_added) = self.add_package_to_content(
-            &content,
-            package,
-            backend,
-        )?;
+        let (updated_content, packages_added) =
+            self.add_package_to_content(&content, package, backend)?;
 
         // Save updated content
         fs::write(&target_file, updated_content)?;
@@ -105,12 +102,17 @@ impl ConfigEditor {
                 // Split on "/" to handle nested paths
                 let parts: Vec<&str> = mod_name.split('/').collect();
 
-                let file_name = format!("{}.{}", parts.last()
-                    .ok_or_else(|| DeclarchError::Other("Invalid module path".to_string()))?, CONFIG_EXTENSION);
-                let dir_path = parts.iter().take(parts.len() - 1).fold(
-                    modules_dir,
-                    |acc, part| acc.join(part),
+                let file_name = format!(
+                    "{}.{}",
+                    parts
+                        .last()
+                        .ok_or_else(|| DeclarchError::Other("Invalid module path".to_string()))?,
+                    CONFIG_EXTENSION
                 );
+                let dir_path = parts
+                    .iter()
+                    .take(parts.len() - 1)
+                    .fold(modules_dir, |acc, part| acc.join(part));
 
                 // Ensure parent directory exists
                 if !dir_path.exists() {
@@ -162,9 +164,9 @@ impl ConfigEditor {
         use std::iter::Iterator;
 
         // Parse existing content to AST
-        let mut doc: KdlDocument = content.parse().map_err(|e| {
-            DeclarchError::Other(format!("KDL parsing error: {}", e))
-        })?;
+        let mut doc: KdlDocument = content
+            .parse()
+            .map_err(|e| DeclarchError::Other(format!("KDL parsing error: {}", e)))?;
 
         // Determine target node name
         let node_name = if let Some(backend_name) = backend {
@@ -189,7 +191,10 @@ impl ConfigEditor {
         }
 
         // Find or create target node
-        let target_node_idx = doc.nodes().iter().position(|n| n.name().value() == &node_name);
+        let target_node_idx = doc
+            .nodes()
+            .iter()
+            .position(|n| n.name().value() == &node_name);
 
         if let Some(idx) = target_node_idx {
             // Node exists, add package as child
@@ -312,7 +317,7 @@ pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
     // Check for empty string
     if trimmed.is_empty() {
         return Err(DeclarchError::Other(
-            "Package name cannot be empty".to_string()
+            "Package name cannot be empty".to_string(),
         ));
     }
 
@@ -331,14 +336,14 @@ pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
 
         if backend.is_empty() {
             return Err(DeclarchError::Other(
-                "Backend cannot be empty (use 'package' without colon)".to_string()
+                "Backend cannot be empty (use 'package' without colon)".to_string(),
             ));
         }
 
         // Check for empty package ("backend:")
         if package.is_empty() {
             return Err(DeclarchError::Other(
-                "Package name cannot be empty (use 'backend:' without package)".to_string()
+                "Package name cannot be empty (use 'backend:' without package)".to_string(),
             ));
         }
 
@@ -355,7 +360,7 @@ pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
         // No backend specified - validate package name is not empty
         if trimmed.is_empty() {
             return Err(DeclarchError::Other(
-                "Package name cannot be empty".to_string()
+                "Package name cannot be empty".to_string(),
             ));
         }
         Ok((None, trimmed.to_string()))
@@ -386,22 +391,31 @@ pub fn backup_kdl_file(file_path: &Path) -> Result<PathBuf> {
 pub fn restore_from_backup(backup_path: &Path) -> Result<()> {
     // Extract original path from backup path
     // Backup format: "filename.kdl.bak.TIMESTAMP.kdl" → "filename.kdl"
-    let file_name = backup_path.file_name().and_then(|s| s.to_str())
+    let file_name = backup_path
+        .file_name()
+        .and_then(|s| s.to_str())
         .ok_or_else(|| DeclarchError::Other("Invalid backup path".to_string()))?;
 
     // Remove ".bak.TIMESTAMP.kdl" suffix to get original name
     // Pattern: "others.kdl.bak.20260129_204156.kdl" → "others.kdl"
-    let original_name = file_name.split(".kdl.bak.")
+    let original_name = file_name
+        .split(".kdl.bak.")
         .next()
         .ok_or_else(|| DeclarchError::Other("Invalid backup filename format".to_string()))?
-        .to_string() + ".kdl";
+        .to_string()
+        + ".kdl";
 
-    let original_path = backup_path.parent()
+    let original_path = backup_path
+        .parent()
         .ok_or_else(|| DeclarchError::Other("Cannot determine parent directory".to_string()))?
         .join(original_name);
 
     fs::copy(backup_path, &original_path).map_err(|e| {
-        DeclarchError::Other(format!("Failed to restore {}: {}", original_path.display(), e))
+        DeclarchError::Other(format!(
+            "Failed to restore {}: {}",
+            original_path.display(),
+            e
+        ))
     })?;
 
     // Clean up backup file
@@ -493,11 +507,7 @@ mod tests {
     fn test_add_package_to_empty_content() {
         let editor = ConfigEditor::new();
         let content = "";
-        let result = editor.add_package_to_content(
-            content,
-            "bat",
-            Some("soar"),
-        );
+        let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
         let (updated, added) = result.unwrap();
@@ -515,11 +525,7 @@ mod tests {
     fn test_add_package_to_existing_block() {
         let editor = ConfigEditor::new();
         let content = "packages:soar {\n  vim\n}\n";
-        let result = editor.add_package_to_content(
-            content,
-            "bat",
-            Some("soar"),
-        );
+        let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
         let (updated, added) = result.unwrap();
@@ -536,11 +542,7 @@ mod tests {
     fn test_prevent_duplicates() {
         let editor = ConfigEditor::new();
         let content = "packages:soar {\n  bat\n}\n";
-        let result = editor.add_package_to_content(
-            content,
-            "bat",
-            Some("soar"),
-        );
+        let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
         let (updated, added) = result.unwrap();
@@ -554,11 +556,7 @@ mod tests {
     fn test_add_to_default_packages_block() {
         let editor = ConfigEditor::new();
         let content = "packages {\n  nano\n}\n";
-        let result = editor.add_package_to_content(
-            content,
-            "vim",
-            None,
-        );
+        let result = editor.add_package_to_content(content, "vim", None);
 
         assert!(result.is_ok());
         let (updated, added) = result.unwrap();
@@ -585,13 +583,16 @@ mod tests {
         let result = editor.add_package_to_content(content, "bat", Some("soar"));
         assert!(result.is_ok());
         let (updated, _) = result.unwrap();
-        content = &updated;
 
         // Verify both blocks exist (KDL library may format differently)
         assert!(updated.contains("packages"));
         assert!(updated.contains("packages:soar"));
         // Verify bat appears in the output at least twice (once per backend)
         let bat_count = updated.matches("bat").count();
-        assert!(bat_count >= 2, "Expected 'bat' to appear at least twice, found {} times", bat_count);
+        assert!(
+            bat_count >= 2,
+            "Expected 'bat' to appear at least twice, found {} times",
+            bat_count
+        );
     }
 }

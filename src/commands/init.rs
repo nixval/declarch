@@ -1,9 +1,9 @@
+use crate::config::kdl::parse_kdl_content;
 use crate::constants::{CONFIG_EXTENSION, CONFIG_FILE_NAME};
 use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
 use crate::utils::{self, install, paths, remote};
-use crate::config::kdl::parse_kdl_content;
 use colored::Colorize;
 use regex::Regex;
 use std::fs;

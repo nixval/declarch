@@ -62,7 +62,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
     };
 
     // Execute pre-sync hooks
-    crate::commands::hooks::execute_pre_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    crate::commands::hooks::execute_pre_sync(
+        &config.lifecycle_actions,
+        options.hooks,
+        options.dry_run,
+    )?;
 
     // 3. System Update
     perform_system_update(&options)?;
@@ -80,11 +84,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
         &state,
         &installed_snapshot,
         &managers,
-        &sync_target
+        &sync_target,
     )?;
 
     // Check for variant mismatches
-    check_variant_transitions(&config, &installed_snapshot, &state, &tx, &sync_target, &options)?;
+    check_variant_transitions(
+        &config,
+        &installed_snapshot,
+        &state,
+        &tx,
+        &sync_target,
+        &options,
+    )?;
 
     // Warn about partial upgrades
     warn_partial_upgrade(&state, &tx, &options);
@@ -106,7 +117,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
             state::io::save_state(&state)?;
         }
         // Execute post-sync hooks even when system is in sync
-        crate::commands::hooks::execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+        crate::commands::hooks::execute_post_sync(
+            &config.lifecycle_actions,
+            options.hooks,
+            options.dry_run,
+        )?;
         return Ok(());
     }
 
@@ -129,7 +144,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     if had_failures {
         // Find which packages failed
-        let failed_packages: Vec<_> = tx.to_install
+        let failed_packages: Vec<_> = tx
+            .to_install
             .iter()
             .filter(|pkg| !successfully_installed.contains(pkg))
             .map(|pkg| format!("{} from {} not found", pkg.name, pkg.backend))
@@ -151,7 +167,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
     update_state_after_sync(&mut state, &tx, &installed_snapshot, &options)?;
 
     // Execute post-sync hooks
-    crate::commands::hooks::execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    crate::commands::hooks::execute_post_sync(
+        &config.lifecycle_actions,
+        options.hooks,
+        options.dry_run,
+    )?;
 
     // If there were installation failures, return error after everything else is done
     // This allows adoption and state updates to complete
@@ -286,30 +306,42 @@ fn display_transaction_plan(
 
         // Group by type for better readability
         if !tx.to_install.is_empty() {
-            println!("  Install: {}", tx.to_install.iter()
-                .map(|p| format!("{} ({})", p.name, p.backend))
-                .collect::<Vec<_>>()
-                .join(", "));
+            println!(
+                "  Install: {}",
+                tx.to_install
+                    .iter()
+                    .map(|p| format!("{} ({})", p.name, p.backend))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
 
         if !tx.to_adopt.is_empty() {
-            println!("  Adopt:   {}", tx.to_adopt.iter()
-                .map(|p| format!("{} ({})", p.name, p.backend))
-                .collect::<Vec<_>>()
-                .join(", "));
+            println!(
+                "  Adopt:   {}",
+                tx.to_adopt
+                    .iter()
+                    .map(|p| format!("{} ({})", p.name, p.backend))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
 
         if !tx.to_prune.is_empty() && should_prune {
-            println!("  Remove:  {}", tx.to_prune.iter()
-                .map(|p| {
-                    if CRITICAL_PACKAGES.contains(&p.name.as_str()) {
-                        format!("{} ({}) [keep]", p.name, p.backend)
-                    } else {
-                        format!("{} ({})", p.name, p.backend)
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(", "));
+            println!(
+                "  Remove:  {}",
+                tx.to_prune
+                    .iter()
+                    .map(|p| {
+                        if CRITICAL_PACKAGES.contains(&p.name.as_str()) {
+                            format!("{} ({}) [keep]", p.name, p.backend)
+                        } else {
+                            format!("{} ({})", p.name, p.backend)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
     }
 }
@@ -339,18 +371,12 @@ fn execute_installations(
             output::info(&format!("Installing {} packages...", backend));
 
             // Track which packages exist before installation
-            let pre_install_snapshot: HashSet<_> = mgr.list_installed()?
-                .keys()
-                .cloned()
-                .collect();
+            let pre_install_snapshot: HashSet<_> = mgr.list_installed()?.keys().cloned().collect();
 
             mgr.install(&pkgs)?;
 
             // Check which packages exist after installation
-            let post_install_snapshot: HashSet<_> = mgr.list_installed()?
-                .keys()
-                .cloned()
-                .collect();
+            let post_install_snapshot: HashSet<_> = mgr.list_installed()?.keys().cloned().collect();
 
             // Find newly installed packages
             for pkg_name in &pkgs {
@@ -369,7 +395,10 @@ fn execute_installations(
     // Refresh snapshot after installations
     if !tx.to_install.is_empty() && !successfully_installed.is_empty() {
         // Only show message if packages were actually installed
-        output::info(&format!("Installed {} package(s)", successfully_installed.len()));
+        output::info(&format!(
+            "Installed {} package(s)",
+            successfully_installed.len()
+        ));
 
         for (backend, mgr) in managers {
             if !mgr.is_available() {
@@ -448,7 +477,8 @@ fn update_state_after_sync(
 ) -> Result<()> {
     // Collect all packages to upsert (avoid cloning entire vectors)
     // Use iterators to chain the package collections
-    let packages_to_upsert = tx.to_install
+    let packages_to_upsert = tx
+        .to_install
         .iter()
         .chain(tx.to_adopt.iter())
         .chain(tx.to_update_project_metadata.iter());
@@ -709,8 +739,10 @@ fn check_variant_transitions(
     // Only check for variant transitions in full sync or when targeting specific backends
     if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
         // Re-filter packages for variant checking
-        let available_backends: std::collections::HashSet<Backend> =
-            installed_snapshot.keys().map(|pkg_id| pkg_id.backend.clone()).collect();
+        let available_backends: std::collections::HashSet<Backend> = installed_snapshot
+            .keys()
+            .map(|pkg_id| pkg_id.backend.clone())
+            .collect();
 
         for pkg_id in config
             .packages

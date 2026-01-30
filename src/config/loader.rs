@@ -1,4 +1,6 @@
-use crate::config::kdl::{ProjectMetadata, ConflictEntry, LifecycleConfig, PolicyConfig, parse_kdl_content};
+use crate::config::kdl::{
+    ConflictEntry, LifecycleConfig, PolicyConfig, ProjectMetadata, parse_kdl_content,
+};
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::distro::DistroType;
@@ -72,8 +74,7 @@ pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
     recursive_load(path, &mut merged, &mut visited_paths)?;
 
     // DEBUG: Show final merged config
-    for (_pkg_id, _sources) in &merged.packages {
-    }
+    for (_pkg_id, _sources) in &merged.packages {}
 
     Ok(merged)
 }
@@ -94,13 +95,12 @@ fn recursive_load(
         abs_path.clone()
     };
 
-    let canonical_path =
-        std::fs::canonicalize(&path_with_ext).map_err(|_e| {
-            // DEBUG: File not found
-            DeclarchError::ConfigNotFound {
-                path: path_with_ext.clone(),
-            }
-        })?;
+    let canonical_path = std::fs::canonicalize(&path_with_ext).map_err(|_e| {
+        // DEBUG: File not found
+        DeclarchError::ConfigNotFound {
+            path: path_with_ext.clone(),
+        }
+    })?;
 
     // DEBUG: Show canonical path
 
@@ -115,8 +115,7 @@ fn recursive_load(
     let raw = parse_kdl_content(&content)?;
 
     // DEBUG: Show what packages were found
-    for _pkg in &raw.packages {
-    }
+    for _pkg in &raw.packages {}
 
     // Detect distro for conditional package processing
     let distro = DistroType::detect();
@@ -386,10 +385,7 @@ fn recursive_load(
                 // File doesn't exist - warn only if verbose mode is enabled
                 if let Ok(settings) = crate::config::settings::Settings::load() {
                     if settings.get("verbose").map(|v| v.as_str()) == Some("true") {
-                        crate::ui::warning(&format!(
-                            "Skipping missing import: {}",
-                            path.display()
-                        ));
+                        crate::ui::warning(&format!("Skipping missing import: {}", path.display()));
                     }
                 }
             }
