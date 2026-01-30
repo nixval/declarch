@@ -76,11 +76,11 @@ impl RemoteUrlBuilder {
     /// Build URLs to try for a given target path
     ///
     /// # Examples
-    /// ```rust
-    /// use crate::constants::urls::RemoteUrlBuilder;
-    ///
+    /// ```
+    /// # use declarch::constants::urls::RemoteUrlBuilder;
     /// let builder = RemoteUrlBuilder::default();
     /// let urls = builder.build_urls("myuser/dotfiles");
+    /// assert!(!urls.is_empty()); // Should generate at least one URL
     /// ```
     pub fn build_urls(&self, target_path: &str) -> Vec<String> {
         let mut urls = Vec::new();

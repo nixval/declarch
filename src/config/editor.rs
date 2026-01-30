@@ -43,6 +43,11 @@ impl ConfigEditor {
     ///
     /// # Examples
     /// ```
+    /// # use declarch::config::editor::ConfigEditor;
+    /// # use declarch::error::Result;
+    /// # fn main() -> Result<()> {
+    /// let editor = ConfigEditor::new();
+    ///
     /// // Add to default module (others.kdl)
     /// editor.add_package("hyprland", None, None)?;
     ///
@@ -51,6 +56,8 @@ impl ConfigEditor {
     ///
     /// // Add to specific module
     /// editor.add_package("nano", None, Some("base"))?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn add_package(
         &self,
@@ -313,9 +320,14 @@ impl ConfigEditor {
 ///
 /// # Examples
 /// ```
-/// parse_package_string("vim")          // (None, "vim")
-/// parse_package_string("soar:bat")     // (Some("soar"), "bat")
-/// parse_package_string("npm:nodejs")  // (Some("npm"), "nodejs")
+/// # use declarch::config::editor::parse_package_string;
+/// # use declarch::error::Result;
+/// # fn main() -> Result<()> {
+/// assert_eq!(parse_package_string("vim")?, (None, "vim".to_string()));
+/// assert_eq!(parse_package_string("soar:bat")?, (Some("soar".to_string()), "bat".to_string()));
+/// assert_eq!(parse_package_string("npm:nodejs")?, (Some("npm".to_string()), "nodejs".to_string()));
+/// # Ok(())
+/// # }
 /// ```
 pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
     let trimmed = input.trim();

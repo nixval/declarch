@@ -27,12 +27,13 @@ pub fn build_variants(base_name: &str) -> Vec<String> {
 /// Check if a package name is a variant of base package
 ///
 /// # Example
-/// ```rust
-/// use crate::constants::package_suffixes::is_variant;
-///
+/// ```
+/// # use declarch::constants::package_suffixes::is_variant;
+/// // hyprland-git is a variant of hyprland
 /// assert!(is_variant("hyprland-git", "hyprland")); // true
-/// assert!(is_variant("hyprland", "hyprland-git"));   // false
-/// assert!(is_variant("bat", "exa"));               // false
+/// // hyprland is NOT a variant of hyprland-git (reverse is false)
+/// assert!(!is_variant("hyprland", "hyprland-git")); // false
+/// assert!(!is_variant("bat", "exa"));               // false
 /// ```
 pub fn is_variant(package_name: &str, base_name: &str) -> bool {
     if package_name == base_name {

@@ -41,12 +41,14 @@
 //! ## Usage
 //!
 //! ```rust,no_run
-//! use declarch::packages::{create_manager, Backend};
+//! use declarch::packages::create_manager;
+//! use declarch::core::types::Backend;
 //! use declarch::config::types::GlobalConfig;
 //!
 //! let config = GlobalConfig::default();
 //! let manager = create_manager(&Backend::Aur, &config, false)?;
-//! manager.install(&["hyprland"])?;
+//! manager.install(&vec!["hyprland".to_string()])?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 pub mod aur;
