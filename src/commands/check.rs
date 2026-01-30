@@ -25,6 +25,7 @@ fn parse_backend(backend_str: &str) -> Result<Backend> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     verbose: bool,
     check_duplicates: bool,

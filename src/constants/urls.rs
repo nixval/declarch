@@ -10,7 +10,7 @@
 /// - Easy to change default registry
 /// - Reusable for docs generation
 /// - Consistent URL patterns
-
+///
 /// Default remote registry for declarch configurations
 ///
 /// Used by `declarch init <target>` when no URL is provided.

@@ -72,7 +72,7 @@ impl Settings {
 
     /// Validate setting key
     fn validate_key(&self, key: &str) -> Result<()> {
-        let valid_keys = vec![
+        let valid_keys = [
             "color", "progress", "format", "verbose", "editor", "compact",
         ];
 
@@ -91,7 +91,7 @@ impl Settings {
     fn validate_value(&self, key: &str, value: &str) -> Result<()> {
         match key {
             "color" => {
-                let valid = vec!["auto", "always", "never"];
+                let valid = ["auto", "always", "never"];
                 if !valid.contains(&value) {
                     return Err(DeclarchError::Other(format!(
                         "Invalid value for '{}': '{}'. Valid: {}",
@@ -102,7 +102,7 @@ impl Settings {
                 }
             }
             "progress" => {
-                let valid = vec!["on", "off"];
+                let valid = ["on", "off"];
                 if !valid.contains(&value) {
                     return Err(DeclarchError::Other(format!(
                         "Invalid value for '{}': '{}'. Valid: {}",
@@ -113,7 +113,7 @@ impl Settings {
                 }
             }
             "format" => {
-                let valid = vec!["table", "json", "yaml"];
+                let valid = ["table", "json", "yaml"];
                 if !valid.contains(&value) {
                     return Err(DeclarchError::Other(format!(
                         "Invalid value for '{}': '{}'. Valid: {}",
@@ -124,7 +124,7 @@ impl Settings {
                 }
             }
             "verbose" => {
-                let valid = vec!["true", "false"];
+                let valid = ["true", "false"];
                 if !valid.contains(&value) {
                     return Err(DeclarchError::Other(format!(
                         "Invalid value for '{}': '{}'. Valid: {}",
@@ -141,7 +141,7 @@ impl Settings {
                 }
             }
             "compact" => {
-                let valid = vec!["true", "false"];
+                let valid = ["true", "false"];
                 if !valid.contains(&value) {
                     return Err(DeclarchError::Other(format!(
                         "Invalid value for '{}': '{}'. Valid: {}",
