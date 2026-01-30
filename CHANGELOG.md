@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-01-30
+
+### Added
+- **Selective module sync**: `--module` flag now syncs only specified module
+  - `declarch install bat --module base` - Installs and syncs only base module
+  - More efficient: No longer syncs all modules when installing to specific one
+- **Automatic rollback on failure**: Failed installations restore KDL files from backup
+  - Creates timestamped backup before modifying KDL files
+  - Automatically restores on sync failure
+  - Cleans up backups on successful install
+- **Package backend display**: Transaction plans now show `(backend)` info
+  - Example: `Changes: Install: bat (aur), vim (soar)`
+  - Clear visibility into which backend packages come from
+- **Compact UI output**: Simplified init and install messages
+  - Removed verbose "Trying:" messages during module fetch
+  - Removed "Synchronizing Packages" and "Scanning system state" headers
+  - Removed separator lines for cleaner output
+  - Clearer success messages: "Sync completed, added to 'module.kdl'"
+- **Comprehensive package string validation**: Prevents malformed inputs
+  - Validates: Empty strings, multiple colons, empty backend/package
+  - Clear error messages for invalid formats
+
+### Changed
+- **Error messages simplified**: Only essential information shown
+  - "missing import" warnings now respect verbose setting
+  - Removed verbose rollback messages
+  - Removed "Please check error messages above" suffix
+- **UI is more concise**: Less overwhelming technical text
+  - Init: "fetch: URL" instead of multiple "Trying:" messages
+  - Install: Shows package list with backend in one line
+  - Sync: Direct to changes, no intermediate headers
+
+### Fixed
+- **CRITICAL**: Fixed panic when package exists in multiple backends without --backend flag
+  - install.rs:95 - Backend unwrap now defaults to "aur" instead of panicking
+- **CRITICAL**: Fixed 4 panic risks in editor.rs path operations
+  - Invalid module paths now return proper errors instead of panicking
+  - Invalid backup paths now handled gracefully
+- **CRITICAL**: Added state JSON validation before write
+  - Validates JSON structure before writing to prevent corruption
+  - Prevents truncated state files from crashes
+- **Fixed Windows path handling**: Cross-platform path normalization
+  - Uses Path components instead of simple string replace
+  - Handles mixed path separators correctly
+- **Added cleanup error logging**: Failed cleanup operations now show warnings
+  - No more silent failures when removing backup files
+- All compiler warnings resolved (unused variables)
+
+### Security
+- State file corruption protection with JSON validation
+- Improved backup integrity checks
+
 ## [0.5.1] - 2025-01-29
 
 ### Security
