@@ -31,6 +31,30 @@ The default config includes example syntax (commented out) for reference.
 
 ## Step 3: Add Your First Packages
 
+**NEW: Use the install command (recommended)**
+
+```bash
+# Add packages to modules/others.kdl
+declarch install bat exa ripgrep fd
+
+# Add to specific module
+declarch install brave --module browsers
+
+# Install from specific backend
+declarch install soar:bat
+
+# Multiple packages at once
+declarch install bat fzf ripgrep --module base
+```
+
+The install command:
+- Automatically adds packages to your KDL configuration
+- Syncs only the specified module (efficient!)
+- Shows backend information: `bat (aur)`
+- Auto-rolls back on failure
+
+**Or edit manually**:
+
 Edit the configuration:
 
 ```bash
@@ -60,6 +84,44 @@ packages:flatpak {
     com.spotify.Client
     org.mozilla.firefox
 }
+```
+
+## Selective Module Sync
+
+With the `--module` flag, you can install packages to specific modules without syncing your entire configuration:
+
+```bash
+# Install only to 'base' module
+declarch install bat fzf --module base
+
+# Install only to 'browsers' module
+declarch install brave firefox --module browsers
+
+# Install only to 'dev' module
+declarch install nodejs python --module dev
+```
+
+This is more efficient - only the specified module is synced, not all modules.
+
+## Automatic Rollback
+
+If installation fails, declarch automatically restores your configuration:
+
+```bash
+$ declarch install soar:nonexistent --module others
+
+Installing Packages
+ℹ Syncing packages: nonexistent (soar) ...
+
+Changes:
+  Install: nonexistent (soar)
+? Proceed? [Y/n] y
+✗ nonexistent from soar not found
+✗ 1 package(s) failed to install
+
+# ✓ modules/others.kdl automatically restored
+# ✓ No invalid entries left behind
+# ✓ No manual cleanup needed
 ```
 
 ## Step 4: Preview Changes

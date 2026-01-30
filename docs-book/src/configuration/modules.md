@@ -197,6 +197,108 @@ hooks {
 }
 ```
 
+## Installing Packages to Modules
+
+### The `install` Command (v0.5.1+)
+
+Instead of manually editing KDL files, use the `install` command:
+
+```bash
+# Add to modules/others.kdl (default)
+declarch install bat fzf ripgrep
+
+# Add to specific module
+declarch install brave --module browsers
+
+# Install from specific backend
+declarch install soar:bat
+
+# Multiple packages to specific module
+declarch install bat fzf ripgrep --module base
+```
+
+**Benefits:**
+- ✅ Automatically creates KDL files if they don't exist
+- ✅ Automatically imports new modules to `declarch.kdl`
+- ✅ Shows backend information: `bat (aur)`
+- ✅ Validates package strings (prevents typos)
+- ✅ Cross-backend duplicate detection (prompts before installing)
+
+**Output Example:**
+
+```bash
+$ declarch install bat --module base
+
+Installing Packages
+ℹ Syncing packages: bat (aur) ...
+
+Changes:
+  Adopt:   bat (aur)
+? Proceed? [Y/n] y
+✓ Sync completed, added to 'base.kdl'
+```
+
+### Selective Module Sync
+
+With the `--module` flag, only the specified module is synced:
+
+```bash
+# Only sync 'base' module
+declarch install bat --module base
+
+# Only sync 'browsers' module
+declarch install firefox --module browsers
+
+# Multiple packages, single module sync
+declarch install bat fzf ripgrep --module base
+```
+
+**Why use selective sync?**
+- ⚡ **Faster**: Only processes one module instead of all modules
+- 🎯 **Precise**: Know exactly which module you're working on
+- 🔒 **Safe**: Less risk of affecting other modules
+
+**Without selective sync (old behavior):**
+```bash
+declarch install bat --module base
+# Syncs ALL modules: base, desktop, gaming, work, etc.
+# Slow and inefficient for large configs
+```
+
+**With selective sync (new behavior):**
+```bash
+declarch install bat --module base
+# Syncs ONLY modules/base.kdl
+# Fast and efficient!
+```
+
+### Automatic Rollback on Failure
+
+If installation fails, your KDL files are automatically restored:
+
+```bash
+$ declarch install soar:nonexistent --module others
+
+Installing Packages
+ℹ Syncing packages: nonexistent (soar) ...
+
+Changes:
+  Install: nonexistent (soar)
+? Proceed? [Y/n] y
+✗ nonexistent from soar not found
+✗ 1 package(s) failed to install
+
+# ✓ modules/others.kdl automatically restored
+# ✓ No invalid entries in your config
+# ✓ No manual cleanup needed
+```
+
+**How it works:**
+1. Creates backup before modifying KDL files
+2. Attempts to install packages
+3. If sync fails → restores from backup
+4. If sync succeeds → removes backup
+
 ## Advanced Module Features
 
 ### Module Merging Behavior

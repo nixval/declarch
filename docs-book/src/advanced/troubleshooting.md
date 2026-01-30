@@ -242,6 +242,83 @@ declarch sync -y
 ping -c 3 aur.archlinux.org
 ```
 
+### "Installation failed but package is still in config"
+
+**Symptoms:**
+```bash
+$ declarch install soar:nonexistent
+
+Installing Packages
+ℹ Syncing packages: nonexistent (soar) ...
+
+Changes:
+  Install: nonexistent (soar)
+? Proceed? [Y/n] y
+✗ nonexistent from soar not found
+✗ 1 package(s) failed to install
+
+# User worries: Is 'nonexistent' stuck in my config?
+```
+
+**Solution:** Automatic Rollback (v0.5.1+)
+
+Starting with v0.5.1, declarch automatically restores your KDL files if installation fails:
+
+```bash
+# ✓ No manual cleanup needed
+# ✓ Config files automatically restored from backup
+# ✓ No invalid entries left behind
+```
+
+**What happens behind the scenes:**
+1. Before modifying KDL files, declarch creates a timestamped backup
+2. Packages are added to config
+3. Sync is attempted
+4. If sync fails:
+   - Original KDL files are restored from backup
+   - Backup is cleaned up
+5. If sync succeeds:
+   - Backup is cleaned up
+
+**Manual cleanup (if needed):**
+
+If you're using an older version or need manual cleanup:
+
+```bash
+# Check what's in the module
+cat ~/.config/declarch/modules/others.kdl
+
+# Edit to remove invalid package
+declarch edit others
+
+# Or manually edit
+nano ~/.config/declarch/modules/others.kdl
+```
+
+### "Multiple packages with same name"
+
+**Symptoms:**
+```bash
+$ declarch install bat
+⚠ Package 'bat' already exists from: aur. Install from 'aur' anyway?
+```
+
+**Cause:** Cross-backend duplicate detection
+
+**Solution:**
+
+1. Check if you want it from a different backend:
+```bash
+# Install from Soar instead of AUR
+declarch install soar:bat
+```
+
+2. Or keep existing package:
+```bash
+# Press 'n' when prompted
+# Package will be skipped
+```
+
 ### "--prune removes too much"
 
 **Symptoms:**
