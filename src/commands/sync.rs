@@ -911,10 +911,7 @@ fn execute_pruning(
 /// Load config with additional modules
 /// Load a single module file (for selective sync)
 /// Loads ONLY the specified module, not the entire config
-fn load_single_module(
-    _config_path: &Path,
-    module_name: &str,
-) -> Result<loader::MergedConfig> {
+fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
     // Try as module name (e.g., "gaming" -> modules/gaming.kdl)

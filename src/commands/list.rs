@@ -140,10 +140,7 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
     // Group by backend
     let mut grouped: HashMap<Backend, Vec<&state::types::PackageState>> = HashMap::new();
     for pkg in packages.iter() {
-        grouped
-            .entry(pkg.backend.clone())
-            .or_default()
-            .push(*pkg);
+        grouped.entry(pkg.backend.clone()).or_default().push(*pkg);
     }
 
     output::header(&format!("Installed Packages ({})", total));

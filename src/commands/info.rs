@@ -260,8 +260,7 @@ fn run_doctor() -> Result<()> {
                     use crate::core::types::PackageId;
                     use std::collections::HashSet;
 
-                    let config_set: HashSet<PackageId> =
-                        config.packages.keys().cloned().collect();
+                    let config_set: HashSet<PackageId> = config.packages.keys().cloned().collect();
                     let mut orphan_count = 0;
 
                     for pkg_state in state.packages.values() {
@@ -320,7 +319,11 @@ fn run_doctor() -> Result<()> {
 
     // Check 4: State consistency
     output::info("Checking state consistency...");
-    let Some(state) = state_path.exists().then(state::io::load_state).transpose()? else {
+    let Some(state) = state_path
+        .exists()
+        .then(state::io::load_state)
+        .transpose()?
+    else {
         return Ok(());
     };
 
