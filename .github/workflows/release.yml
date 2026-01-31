@@ -77,11 +77,21 @@ jobs:
         run: |
           TAG=${{ github.ref_name }}
           VERSION=${TAG#v}
-          
-          gh release create "${TAG}" \
-            --title "Declarch ${VERSION}" \
-            --notes-file CHANGELOG.md \
-            artifacts/*/declarch-*.tar.gz
+
+          # Check if release already exists
+          if gh release view "${TAG}" &>/dev/null; then
+            echo "Release ${TAG} already exists, uploading artifacts..."
+            # Upload artifacts to existing release
+            gh release upload "${TAG}" artifacts/*/declarch-*.tar.gz --clobber
+          else
+            echo "Creating new release ${TAG}..."
+            # Create new release with artifacts
+            gh release create "${TAG}" \
+              --title "Declarch ${VERSION}" \
+              --notes-file CHANGELOG.md
+            # Upload artifacts
+            gh release upload "${TAG}" artifacts/*/declarch-*.tar.gz
+          fi
 
       - name: Publish info
         run: |
