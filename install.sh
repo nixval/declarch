@@ -19,13 +19,19 @@ esac
 URL="https://github.com/${REPO}/releases/download/v${VERSION}/${BINARY}.tar.gz"
 
 echo "Downloading declarch ${VERSION} (${ARCH})..."
-curl -sSL "$URL" | tar xz
+curl -fSL "$URL" -o /tmp/declarch.tar.gz
+tar xzf /tmp/declarch.tar.gz
+
+if [ ! -f "declarch" ]; then
+    echo "Error: Failed to extract declarch binary"
+    exit 1
+fi
 
 echo "Installing to /usr/local/bin/..."
 sudo install -m 755 declarch /usr/local/bin/
 
-echo "✓ Installed declarch $(declarch --version)"
+echo "✓ Installed declarch $(/usr/local/bin/declarch --version)"
 
 # Cleanup downloaded files
-rm -f declarch dcl
+rm -f declarch dcl /tmp/declarch.tar.gz
 echo "✓ Cleanup complete"
