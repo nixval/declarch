@@ -28,6 +28,9 @@ personal-docs/
 .aur/scripts/
 .aur/work/
 
+# Keep AUR templates tracked
+!.aur/templates/
+
 # Config and state files
 config.decl
 state.json
