@@ -1,7 +1,7 @@
 # Maintainer: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch-bin
-pkgver=0.4.3
+pkgver=0.5.1
 pkgrel=1
 pkgdesc="Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends (pre-built binary)"
 arch=('x86_64')
@@ -20,9 +20,8 @@ source=("declarch-$pkgver-x86_64-unknown-linux-gnu.tar.gz::$url/releases/downloa
 sha256sums=('SKIP')  # Update after creating release
 
 package() {
-  # Install binaries
+  # Install binary
   install -Dm755 declarch "$pkgdir/usr/bin/declarch"
-  install -Dm755 dcl "$pkgdir/usr/bin/dcl"
 
   # Install documentation
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
