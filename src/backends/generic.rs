@@ -291,7 +291,7 @@ impl GenericManager {
             if let Some(obj) = item.as_object() {
                 let name = obj.get(name_key).and_then(|v| v.as_str()).ok_or_else(|| {
                     DeclarchError::PackageManagerError(
-                        "Missing or invalid 'name' field in search result".to_string()
+                        "Missing or invalid 'name' field in search result".to_string(),
                     )
                 })?;
 
