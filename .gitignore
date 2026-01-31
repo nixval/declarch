@@ -1,7 +1,12 @@
+# =============================================================================
+# Build artifacts
+# =============================================================================
 /target/
 **/*.rs.bk
 
+# =============================================================================
 # Editor files
+# =============================================================================
 .vscode/
 .idea/
 *.swp
@@ -10,58 +15,66 @@
 .DS_Store
 .dev/
 
+# =============================================================================
 # Generated files
+# =============================================================================
 _declarch
 .claude/
 
+# =============================================================================
 # Backup files (created by install/edit commands)
+# =============================================================================
 *.kdl.bak.*
 *.kdl.backup
 state.json.backup*
 state.json.*
 
-# Release documentation (personal reference)
+# =============================================================================
+# Personal documentation & scripts
+# =============================================================================
 personal-docs/
 .obsidian/
-
-# AUR publish scripts (personal reference)
 .aur/scripts/
 .aur/work/
 
 # Keep AUR templates tracked
 !.aur/templates/
 
-# Config and state files
+# =============================================================================
+# Config and state files (runtime)
+# =============================================================================
 config.decl
 state.json
-package.sh
-deploy-aur.sh
-release-wizard.sh
-*.log
 
+# =============================================================================
 # Release artifacts
+# =============================================================================
 declarch-*.tar.gz
 declarch-*.zip
 declarch
 artifacts/
+
+# =============================================================================
+# Release scripts (obsolete/private)
+# =============================================================================
 package.sh
 deploy-aur.sh
 release-wizard.sh
+release-*.sh
+install-remote.sh
 repomix-output.xml
 
-# AUR release automation (private)
-# .aur/ (keep templates tracked!)
-
-# Release scripts (private reference)
-release-*.sh
-
+# =============================================================================
 # Test and temporary files
+# =============================================================================
 *.tmp
 *.temp
 tests/temp/
 tests/.temp/
+*.log
 
+# =============================================================================
 # AUR build artifacts
+# =============================================================================
 PKGBUILD
 .SRCINFO
-
