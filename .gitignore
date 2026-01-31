@@ -42,6 +42,8 @@ release-wizard.sh
 # Release artifacts
 declarch-*.tar.gz
 declarch-*.zip
+declarch
+artifacts/
 package.sh
 deploy-aur.sh
 release-wizard.sh
