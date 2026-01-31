@@ -84,15 +84,21 @@ impl PackageManager for PnpmManager {
             cmd.arg("--silent");
         }
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "pnpm add -g".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "pnpm add -g".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("pnpm install failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "pnpm install failed".into(),
+            ));
         }
 
         Ok(())
@@ -108,15 +114,21 @@ impl PackageManager for PnpmManager {
         let mut cmd = Command::new("pnpm");
         cmd.args(["remove", "-g"]);
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "pnpm remove -g".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "pnpm remove -g".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("pnpm remove failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "pnpm remove failed".into(),
+            ));
         }
 
         Ok(())
@@ -155,8 +167,7 @@ impl PackageManager for PnpmManager {
             description: Option<String>,
         }
 
-        let results: Vec<NpmSearchResult> = serde_json::from_str(&stdout)
-            .unwrap_or_default();
+        let results: Vec<NpmSearchResult> = serde_json::from_str(&stdout).unwrap_or_default();
 
         let package_results = results
             .into_iter()

@@ -64,8 +64,14 @@ fn show_all_settings(settings: &Settings) {
 
     // Display in a consistent order (all 8 valid settings)
     let keys = vec![
-        "color", "progress", "format", "verbose", "editor", "compact",
-        "backends", "backend_mode",
+        "color",
+        "progress",
+        "format",
+        "verbose",
+        "editor",
+        "compact",
+        "backends",
+        "backend_mode",
     ];
 
     for key in keys {

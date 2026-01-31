@@ -73,8 +73,14 @@ impl Settings {
     /// Validate setting key
     fn validate_key(&self, key: &str) -> Result<()> {
         let valid_keys = [
-            "color", "progress", "format", "verbose", "editor", "compact",
-            "backends", "backend_mode",
+            "color",
+            "progress",
+            "format",
+            "verbose",
+            "editor",
+            "compact",
+            "backends",
+            "backend_mode",
         ];
 
         if !valid_keys.contains(&key) {
@@ -154,8 +160,7 @@ impl Settings {
             }
             "backends" => {
                 let valid_backends = [
-                    "aur", "flatpak", "soar", "npm", "yarn", "pnpm",
-                    "bun", "pip", "cargo", "brew",
+                    "aur", "flatpak", "soar", "npm", "yarn", "pnpm", "bun", "pip", "cargo", "brew",
                 ];
                 for backend in value.split(',') {
                     let backend = backend.trim();

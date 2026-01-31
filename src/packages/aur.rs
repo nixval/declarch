@@ -178,9 +178,8 @@ impl PackageManager for AurManager {
             urlencoding::encode(query)
         );
 
-        let resp = reqwest::blocking::get(&url).map_err(|e| {
-            DeclarchError::Other(format!("AUR search request failed: {}", e))
-        })?;
+        let resp = reqwest::blocking::get(&url)
+            .map_err(|e| DeclarchError::Other(format!("AUR search request failed: {}", e)))?;
 
         if !resp.status().is_success() {
             return Err(DeclarchError::Other(format!(
@@ -189,9 +188,9 @@ impl PackageManager for AurManager {
             )));
         }
 
-        let body = resp.text().map_err(|e| {
-            DeclarchError::Other(format!("Failed to read AUR response: {}", e))
-        })?;
+        let body = resp
+            .text()
+            .map_err(|e| DeclarchError::Other(format!("Failed to read AUR response: {}", e)))?;
 
         // Parse AUR RPC response
         #[derive(serde::Deserialize)]
@@ -209,9 +208,8 @@ impl PackageManager for AurManager {
             description: Option<String>,
         }
 
-        let aur_resp: AurResponse = serde_json::from_str(&body).map_err(|e| {
-            DeclarchError::Other(format!("Failed to parse AUR response: {}", e))
-        })?;
+        let aur_resp: AurResponse = serde_json::from_str(&body)
+            .map_err(|e| DeclarchError::Other(format!("Failed to parse AUR response: {}", e)))?;
 
         let results = aur_resp
             .results

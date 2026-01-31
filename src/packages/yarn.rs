@@ -87,15 +87,21 @@ impl PackageManager for YarnManager {
             cmd.arg("--silent");
         }
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "yarn global add".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "yarn global add".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("yarn install failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "yarn install failed".into(),
+            ));
         }
 
         Ok(())
@@ -111,15 +117,21 @@ impl PackageManager for YarnManager {
         let mut cmd = Command::new("yarn");
         cmd.args(["global", "remove"]);
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "yarn global remove".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "yarn global remove".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("yarn remove failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "yarn remove failed".into(),
+            ));
         }
 
         Ok(())
@@ -158,8 +170,7 @@ impl PackageManager for YarnManager {
             description: Option<String>,
         }
 
-        let results: Vec<NpmSearchResult> = serde_json::from_str(&stdout)
-            .unwrap_or_default();
+        let results: Vec<NpmSearchResult> = serde_json::from_str(&stdout).unwrap_or_default();
 
         let package_results = results
             .into_iter()

@@ -223,7 +223,9 @@ impl BackendRegistry {
 
         // Register cargo backend (custom implementation with search support)
         self.register(Backend::Cargo, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::cargo::CargoManager::new(noconfirm)))
+            Ok(Box::new(crate::packages::cargo::CargoManager::new(
+                noconfirm,
+            )))
         });
     }
 

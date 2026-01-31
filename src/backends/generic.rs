@@ -246,18 +246,14 @@ impl GenericManager {
         let stdout_str = String::from_utf8_lossy(stdout);
 
         match format {
-            crate::backends::config::OutputFormat::Json => {
-                self.parse_search_json(&stdout_str)
-            }
+            crate::backends::config::OutputFormat::Json => self.parse_search_json(&stdout_str),
             crate::backends::config::OutputFormat::SplitWhitespace => {
                 self.parse_search_whitespace(&stdout_str)
             }
             crate::backends::config::OutputFormat::TabSeparated => {
                 self.parse_search_tab(&stdout_str)
             }
-            crate::backends::config::OutputFormat::Regex => {
-                self.parse_search_regex(&stdout_str)
-            }
+            crate::backends::config::OutputFormat::Regex => self.parse_search_regex(&stdout_str),
             crate::backends::config::OutputFormat::Custom => {
                 // Custom format - not supported for search
                 Ok(Vec::new())
@@ -269,7 +265,9 @@ impl GenericManager {
     fn parse_search_json(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
         let json_path = self.config.search_json_path.as_deref().unwrap_or("");
         let name_key = self.config.search_name_key.as_ref().ok_or_else(|| {
-            DeclarchError::PackageManagerError("search_name_key not configured for JSON search".into())
+            DeclarchError::PackageManagerError(
+                "search_name_key not configured for JSON search".into(),
+            )
         })?;
 
         // Get the results array
@@ -291,13 +289,11 @@ impl GenericManager {
         let mut results = Vec::new();
         for item in results_array {
             if let Some(obj) = item.as_object() {
-                let name = obj.get(name_key)
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        DeclarchError::PackageManagerError(format!(
-                            "Missing or invalid 'name' field in search result"
-                        ))
-                    })?;
+                let name = obj.get(name_key).and_then(|v| v.as_str()).ok_or_else(|| {
+                    DeclarchError::PackageManagerError(format!(
+                        "Missing or invalid 'name' field in search result"
+                    ))
+                })?;
 
                 let version = version_key
                     .and_then(|key| obj.get(key))
@@ -322,7 +318,11 @@ impl GenericManager {
     }
 
     /// Navigate JSON path (simple implementation)
-    fn navigate_json_path(&self, value: &serde_json::Value, path: &str) -> Result<serde_json::Value> {
+    fn navigate_json_path(
+        &self,
+        value: &serde_json::Value,
+        path: &str,
+    ) -> Result<serde_json::Value> {
         let mut current = value;
         for key in path.split('.') {
             current = current.get(key).ok_or_else(|| {
@@ -416,16 +416,16 @@ impl GenericManager {
         let mut results = Vec::new();
         for line in stdout.lines() {
             if let Some(captures) = regex.captures(line) {
-                let name = captures.get(name_group)
+                let name = captures
+                    .get(name_group)
                     .map(|m| m.as_str().to_string())
                     .ok_or_else(|| {
                         DeclarchError::PackageManagerError(
-                            "Regex name group didn't capture anything".into()
+                            "Regex name group didn't capture anything".into(),
                         )
                     })?;
 
-                let description = captures.get(desc_group)
-                    .map(|m| m.as_str().to_string());
+                let description = captures.get(desc_group).map(|m| m.as_str().to_string());
 
                 results.push(PackageSearchResult {
                     name,

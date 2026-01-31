@@ -55,7 +55,13 @@ impl PackageManager for BunManager {
                         name.to_string(),
                         PackageMetadata {
                             variant: None,
-                            version: Some(version.split_whitespace().next().unwrap_or(version).to_string()),
+                            version: Some(
+                                version
+                                    .split_whitespace()
+                                    .next()
+                                    .unwrap_or(version)
+                                    .to_string(),
+                            ),
                             installed_at: chrono::Utc::now(),
                             source_file: None,
                         },
@@ -81,15 +87,21 @@ impl PackageManager for BunManager {
             // Bun is non-interactive by default
         }
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "bun install -g".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "bun install -g".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("bun install failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "bun install failed".into(),
+            ));
         }
 
         Ok(())
@@ -105,15 +117,21 @@ impl PackageManager for BunManager {
         let mut cmd = Command::new("bun");
         cmd.args(["remove", "-g"]);
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "bun remove -g".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "bun remove -g".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("bun remove failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "bun remove failed".into(),
+            ));
         }
 
         Ok(())
@@ -152,8 +170,7 @@ impl PackageManager for BunManager {
             description: Option<String>,
         }
 
-        let results: Vec<NpmSearchResult> = serde_json::from_str(&stdout)
-            .unwrap_or_default();
+        let results: Vec<NpmSearchResult> = serde_json::from_str(&stdout).unwrap_or_default();
 
         let package_results = results
             .into_iter()

@@ -170,4 +170,3 @@ impl PackageManager for FlatpakManager {
         Ok(results)
     }
 }
-

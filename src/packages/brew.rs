@@ -78,15 +78,21 @@ impl PackageManager for BrewManager {
             // Homebrew doesn't have a --noconfirm flag, it's non-interactive by default
         }
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "brew install".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "brew install".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("brew install failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "brew install failed".into(),
+            ));
         }
 
         Ok(())
@@ -102,15 +108,21 @@ impl PackageManager for BrewManager {
         let mut cmd = Command::new("brew");
         cmd.arg("uninstall");
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "brew uninstall".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "brew uninstall".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("brew uninstall failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "brew uninstall failed".into(),
+            ));
         }
 
         Ok(())

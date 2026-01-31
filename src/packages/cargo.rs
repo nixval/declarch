@@ -85,15 +85,21 @@ impl PackageManager for CargoManager {
             // Cargo doesn't have a noconfirm flag, it's non-interactive by default
         }
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "cargo install".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "cargo install".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("cargo install failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "cargo install failed".into(),
+            ));
         }
 
         Ok(())
@@ -109,15 +115,21 @@ impl PackageManager for CargoManager {
         let mut cmd = Command::new("cargo");
         cmd.arg("uninstall");
 
-        cmd.args(packages).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+        cmd.args(packages)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit());
 
-        let status = cmd.status().map_err(|e| DeclarchError::SystemCommandFailed {
-            command: "cargo uninstall".into(),
-            reason: e.to_string(),
-        })?;
+        let status = cmd
+            .status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: "cargo uninstall".into(),
+                reason: e.to_string(),
+            })?;
 
         if !status.success() {
-            return Err(DeclarchError::PackageManagerError("cargo uninstall failed".into()));
+            return Err(DeclarchError::PackageManagerError(
+                "cargo uninstall failed".into(),
+            ));
         }
 
         Ok(())

@@ -4,7 +4,7 @@
 
 use crate::core::types::{Backend, PackageId};
 use crate::error::Result;
-use crate::packages::traits::{PackageSearchResult, PackageManager};
+use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
@@ -28,7 +28,10 @@ fn parse_backend_query(query: &str) -> (Option<String>, String) {
 
             // Check if it looks like a backend name (no spaces, alphanumeric)
             if !potential_backend.contains(' ') && !potential_backend.is_empty() {
-                return (Some(potential_backend.to_string()), actual_query.to_string());
+                return (
+                    Some(potential_backend.to_string()),
+                    actual_query.to_string(),
+                );
             }
         }
     }
@@ -75,7 +78,9 @@ pub fn run(options: SearchOptions) -> Result<()> {
             if std::env::var("DECLARCH_AUTO_CONFIRM").is_ok() {
                 output::info("Auto-confirm enabled via DECLARCH_AUTO_CONFIRM");
             } else {
-                output::info("Tip: Use --backends flag to specify other backends (flatpak, brew, npm, cargo, etc.)");
+                output::info(
+                    "Tip: Use --backends flag to specify other backends (flatpak, brew, npm, cargo, etc.)",
+                );
             }
         }
     }
@@ -188,24 +193,24 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
     // CLI flag overrides everything (intentional design)
     if options.backends.is_some() {
         let backend_list = options.backends.as_ref().unwrap();
-        return backend_list
-            .iter()
-            .map(|b| parse_backend(b))
-            .collect();
+        return backend_list.iter().map(|b| parse_backend(b)).collect();
     }
 
     // Otherwise, respect backend settings
-    let settings = Settings::load()
-        .map_err(|e| crate::error::DeclarchError::Other(format!("Failed to load settings: {}", e)))?;
+    let settings = Settings::load().map_err(|e| {
+        crate::error::DeclarchError::Other(format!("Failed to load settings: {}", e))
+    })?;
 
-    let backend_mode = settings.get("backend_mode")
+    let backend_mode = settings
+        .get("backend_mode")
         .unwrap_or(&"auto".to_string())
         .clone();
 
     match backend_mode.as_str() {
         "enabled-only" => {
             // Only search backends listed in settings
-            let backend_list = settings.get("backends")
+            let backend_list = settings
+                .get("backends")
                 .unwrap_or(&"aur".to_string())
                 .clone();
 
@@ -247,11 +252,19 @@ fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManage
     let global_config = crate::config::types::GlobalConfig::default();
 
     create_manager(backend, &global_config, false).map_err(|e| {
-        crate::error::DeclarchError::Other(format!("Failed to create manager for {}: {}", backend, e))
+        crate::error::DeclarchError::Other(format!(
+            "Failed to create manager for {}: {}",
+            backend, e
+        ))
     })
 }
 
-fn display_results(results: &[PackageSearchResult], query: &str, total_count: usize, limit: Option<usize>) {
+fn display_results(
+    results: &[PackageSearchResult],
+    query: &str,
+    total_count: usize,
+    limit: Option<usize>,
+) {
     if results.is_empty() {
         output::info(&format!("No packages found matching '{}'", query.cyan()));
         return;
@@ -299,11 +312,13 @@ fn display_results(results: &[PackageSearchResult], query: &str, total_count: us
 
         for pkg in packages {
             let name = pkg.name.green();
-            let version = pkg.version
+            let version = pkg
+                .version
                 .as_ref()
                 .map(|v| v.dimmed().to_string())
                 .unwrap_or_default();
-            let description = pkg.description
+            let description = pkg
+                .description
                 .as_ref()
                 .map(|d| format!(" - {}", d))
                 .unwrap_or_default();

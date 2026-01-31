@@ -543,7 +543,9 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
 
             commands::search::run(commands::search::SearchOptions {
                 query: query.clone(),
-                backends: backends.as_ref().map(|b| b.split(',').map(|s| s.to_string()).collect()),
+                backends: backends
+                    .as_ref()
+                    .map(|b| b.split(',').map(|s| s.to_string()).collect()),
                 limit: parsed_limit,
                 installed_only: *installed_only,
                 available_only: *available_only,
