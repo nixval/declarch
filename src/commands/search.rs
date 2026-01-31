@@ -120,10 +120,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
                         total_count += results.len();
 
                         // Apply result limiting (always applies with default of 10)
-                        if let Some(limit_value) = effective_limit {
-                            if results.len() > limit_value {
-                                results.truncate(limit_value);
-                            }
+                        if let Some(limit_value) = effective_limit
+                            && results.len() > limit_value
+                        {
+                            results.truncate(limit_value);
                         }
 
                         // Mark installed packages
@@ -191,8 +191,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
     use crate::config::settings::Settings;
 
     // CLI flag overrides everything (intentional design)
-    if options.backends.is_some() {
-        let backend_list = options.backends.as_ref().unwrap();
+    if let Some(backend_list) = &options.backends {
         return backend_list.iter().map(|b| parse_backend(b)).collect();
     }
 
@@ -218,10 +217,10 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
                 .split(',')
                 .map(|b| b.trim())
                 .filter(|b| !b.is_empty())
-                .map(|b| parse_backend(b))
+                .map(parse_backend)
                 .collect()
         }
-        "auto" | _ => {
+        _ => {
             // Auto mode: search AUR only by default
             // Use backend:query syntax or --backends flag to search other backends
             Ok(vec![Backend::Aur])

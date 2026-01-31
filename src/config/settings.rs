@@ -174,7 +174,7 @@ impl Settings {
                 }
             }
             "backend_mode" => {
-                let valid = vec!["auto", "enabled-only"];
+                let valid = ["auto", "enabled-only"];
                 if !valid.contains(&value) {
                     return Err(DeclarchError::Other(format!(
                         "Invalid value for '{}': '{}'. Valid: {}",

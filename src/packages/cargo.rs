@@ -181,11 +181,7 @@ impl PackageManager for CargoManager {
                     let version = &rest[..quote_end];
 
                     // Extract description after #
-                    let description = if let Some(hash_pos) = rest.find('#') {
-                        Some(rest[hash_pos + 1..].trim().to_string())
-                    } else {
-                        None
-                    };
+                    let description = rest.find('#').map(|hash_pos| rest[hash_pos + 1..].trim().to_string());
 
                     results.push(PackageSearchResult {
                         name: name.to_string(),

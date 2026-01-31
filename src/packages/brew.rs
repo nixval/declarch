@@ -161,7 +161,7 @@ impl PackageManager for BrewManager {
         let mut current_name: Option<String> = None;
         for line in stdout.lines() {
             let line = line.trim();
-            if line.starts_with("==> ") {
+            if let Some(name_part) = line.strip_prefix("==> ") {
                 // Save previous package if exists
                 if let Some(name) = current_name.take() {
                     results.push(PackageSearchResult {
@@ -172,7 +172,7 @@ impl PackageManager for BrewManager {
                     });
                 }
                 // Extract new package name
-                current_name = Some(line[4..].to_string());
+                current_name = Some(name_part.to_string());
             } else if !line.is_empty() && current_name.is_some() {
                 // This is likely a description line
                 // We could capture it, but for now just move on

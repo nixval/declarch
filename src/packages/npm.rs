@@ -53,19 +53,19 @@ impl PackageManager for NpmManager {
             version: String,
         }
 
-        if let Ok(list_output) = serde_json::from_str::<NpmListOutput>(&stdout) {
-            if let Some(deps) = list_output.dependencies {
-                for (name, pkg) in deps {
-                    installed.insert(
-                        name.clone(),
-                        PackageMetadata {
-                            variant: None,
-                            version: Some(pkg.version),
-                            installed_at: chrono::Utc::now(),
-                            source_file: None,
-                        },
-                    );
-                }
+        if let Ok(list_output) = serde_json::from_str::<NpmListOutput>(&stdout)
+            && let Some(deps) = list_output.dependencies
+        {
+            for (name, pkg) in deps {
+                installed.insert(
+                    name.clone(),
+                    PackageMetadata {
+                        variant: None,
+                        version: Some(pkg.version),
+                        installed_at: chrono::Utc::now(),
+                        source_file: None,
+                    },
+                );
             }
         }
 

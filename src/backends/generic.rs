@@ -290,9 +290,9 @@ impl GenericManager {
         for item in results_array {
             if let Some(obj) = item.as_object() {
                 let name = obj.get(name_key).and_then(|v| v.as_str()).ok_or_else(|| {
-                    DeclarchError::PackageManagerError(format!(
-                        "Missing or invalid 'name' field in search result"
-                    ))
+                    DeclarchError::PackageManagerError(
+                        "Missing or invalid 'name' field in search result".to_string()
+                    )
                 })?;
 
                 let version = version_key
