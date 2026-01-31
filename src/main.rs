@@ -523,6 +523,32 @@ fn run(args: &Cli) -> declarch::error::Result<()> {
 
             commands::settings::run(cmd)
         }
+        Some(Command::Search {
+            query,
+            backends,
+            limit,
+            installed_only,
+            available_only,
+        }) => {
+            // Parse limit option: "all" or "0" means unlimited, otherwise parse as number
+            let parsed_limit = if let Some(limit_str) = limit {
+                if limit_str == "all" || limit_str == "0" {
+                    None // Unlimited
+                } else {
+                    Some(limit_str.parse::<usize>().unwrap_or(10))
+                }
+            } else {
+                Some(10) // Default 10
+            };
+
+            commands::search::run(commands::search::SearchOptions {
+                query: query.clone(),
+                backends: backends.as_ref().map(|b| b.split(',').map(|s| s.to_string()).collect()),
+                limit: parsed_limit,
+                installed_only: *installed_only,
+                available_only: *available_only,
+            })
+        }
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
         None => {
             output::info("No command provided. Use --help.");

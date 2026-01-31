@@ -21,7 +21,9 @@
 - [check](./commands/check.md)
 - [info](./commands/info.md)
 - [switch](./commands/switch.md)
+- [search](./commands/search.md)
 - [edit](./commands/edit.md)
+- [settings](./commands/settings.md)
 
 ---
 

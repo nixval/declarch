@@ -64,6 +64,42 @@ pub struct BackendConfig {
 
     /// Whether to use the Rust implementation instead of generic
     pub use_rust_fallback: bool,
+
+    /// ===== SEARCH SUPPORT =====
+    /// Optional: Search command template
+    /// Use {query} as placeholder for search term
+    /// Example: "my-pm search {query} --json"
+    pub search_cmd: Option<String>,
+
+    /// How to parse the output of search_cmd
+    pub search_format: Option<OutputFormat>,
+
+    /// JSON path to results array (for Json format)
+    pub search_json_path: Option<String>,
+
+    /// Key name for package name in search results
+    pub search_name_key: Option<String>,
+
+    /// Key name for package version in search results
+    pub search_version_key: Option<String>,
+
+    /// Key name for package description in search results
+    pub search_desc_key: Option<String>,
+
+    /// Column index for package name in search results (for SplitWhitespace/TabSeparated)
+    pub search_name_col: Option<usize>,
+
+    /// Column index for package description in search results
+    pub search_desc_col: Option<usize>,
+
+    /// Regex pattern to extract search results
+    pub search_regex: Option<String>,
+
+    /// Capture group index for package name in search regex
+    pub search_regex_name_group: Option<usize>,
+
+    /// Capture group index for package description in search regex
+    pub search_regex_desc_group: Option<usize>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -144,6 +180,18 @@ impl Default for BackendConfig {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search support - all optional
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         }
     }
 }

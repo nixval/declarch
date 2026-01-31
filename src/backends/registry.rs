@@ -130,6 +130,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search - using custom implementation, not generic
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
@@ -156,6 +168,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search - using custom implementation, not generic
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
@@ -182,6 +206,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search - using custom implementation, not generic
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
@@ -208,6 +244,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search - using custom implementation, not generic
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
@@ -234,6 +282,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search - pip search is deprecated, no support
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
@@ -260,6 +320,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false, // Now uses generic parser
+            // Search - using custom implementation, not generic
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
@@ -286,6 +358,18 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            // Search - using custom implementation, not generic
+            search_cmd: None,
+            search_format: None,
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: None,
+            search_desc_key: None,
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
         },
     );
 
