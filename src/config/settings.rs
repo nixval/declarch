@@ -74,6 +74,7 @@ impl Settings {
     fn validate_key(&self, key: &str) -> Result<()> {
         let valid_keys = vec![
             "color", "progress", "format", "verbose", "editor", "compact",
+            "backends", "backend_mode",
         ];
 
         if !valid_keys.contains(&key) {
@@ -151,6 +152,33 @@ impl Settings {
                     )));
                 }
             }
+            "backends" => {
+                let valid_backends = [
+                    "aur", "flatpak", "soar", "npm", "yarn", "pnpm",
+                    "bun", "pip", "cargo", "brew",
+                ];
+                for backend in value.split(',') {
+                    let backend = backend.trim();
+                    if !valid_backends.contains(&backend) {
+                        return Err(DeclarchError::Other(format!(
+                            "Invalid backend: '{}'. Valid backends: {}",
+                            backend,
+                            valid_backends.join(", ")
+                        )));
+                    }
+                }
+            }
+            "backend_mode" => {
+                let valid = vec!["auto", "enabled-only"];
+                if !valid.contains(&value) {
+                    return Err(DeclarchError::Other(format!(
+                        "Invalid value for '{}': '{}'. Valid: {}",
+                        key,
+                        value,
+                        valid.join(", ")
+                    )));
+                }
+            }
             _ => {}
         }
 
@@ -192,6 +220,19 @@ impl Settings {
         defaults.insert("verbose".to_string(), "false".to_string());
         defaults.insert("editor".to_string(), "".to_string()); // Empty = use system default
         defaults.insert("compact".to_string(), "false".to_string()); // Compact mode disabled by default
+
+        // Distro-aware backend defaults
+        let distro = crate::utils::distro::DistroType::detect();
+        let backend_list = if distro.supports_aur() {
+            // Arch-based: include AUR
+            "aur,flatpak,soar,npm,cargo,pip,brew".to_string()
+        } else {
+            // Non-Arch: exclude AUR
+            "flatpak,soar,npm,cargo,pip,brew".to_string()
+        };
+        defaults.insert("backends".to_string(), backend_list);
+
+        defaults.insert("backend_mode".to_string(), "auto".to_string());
         defaults
     }
 }

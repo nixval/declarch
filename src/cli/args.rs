@@ -234,6 +234,37 @@ pub enum Command {
         command: SettingsCommand,
     },
 
+    /// Search for packages across backends
+    ///
+    /// Search for packages in AUR and other supported backends.
+    ///
+    /// Examples:
+    ///   dcl search firefox               Search for firefox in all backends
+    ///   dcl search firefox --backends aur  Search in AUR only
+    ///   dcl search bat --installed-only   Show only installed matches
+    ///   dcl search npm:prettier           Search in specific backend (alternative syntax)
+    Search {
+        /// Search query (can use "backend:query" syntax for specific backend)
+        #[arg(value_name = "QUERY")]
+        query: String,
+
+        /// Filter by backends (comma-separated)
+        #[arg(short = 'b', long, value_name = "BACKENDS", help_heading = "Filtering")]
+        backends: Option<String>,
+
+        /// Limit results per backend (default: 10, use "all" or 0 for unlimited)
+        #[arg(long, value_name = "NUM", help_heading = "Filtering")]
+        limit: Option<String>,
+
+        /// Show only installed packages
+        #[arg(long, help_heading = "Filtering")]
+        installed_only: bool,
+
+        /// Show only available packages (not installed)
+        #[arg(long, help_heading = "Filtering")]
+        available_only: bool,
+    },
+
     /// Generate shell completions
     Completions {
         /// The shell to generate completions for

@@ -1,6 +1,6 @@
 use crate::core::types::{Backend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
-use crate::packages::traits::PackageManager;
+use crate::packages::traits::{PackageManager, PackageSearchResult};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
@@ -166,5 +166,61 @@ impl PackageManager for AurManager {
 
         // No "Required By" field found
         Ok(Vec::new())
+    }
+
+    fn supports_search(&self) -> bool {
+        true
+    }
+
+    fn search(&self, query: &str) -> Result<Vec<PackageSearchResult>> {
+        let url = format!(
+            "https://aur.archlinux.org/rpc?v=5&type=search&arg={}",
+            urlencoding::encode(query)
+        );
+
+        let resp = reqwest::blocking::get(&url).map_err(|e| {
+            DeclarchError::Other(format!("AUR search request failed: {}", e))
+        })?;
+
+        if !resp.status().is_success() {
+            return Err(DeclarchError::Other(format!(
+                "AUR search returned status: {}",
+                resp.status()
+            )));
+        }
+
+        let body = resp.text().map_err(|e| {
+            DeclarchError::Other(format!("Failed to read AUR response: {}", e))
+        })?;
+
+        // Parse AUR RPC response
+        #[derive(serde::Deserialize)]
+        struct AurResponse {
+            results: Vec<AurPackage>,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct AurPackage {
+            Name: String,
+            Version: String,
+            Description: Option<String>,
+        }
+
+        let aur_resp: AurResponse = serde_json::from_str(&body).map_err(|e| {
+            DeclarchError::Other(format!("Failed to parse AUR response: {}", e))
+        })?;
+
+        let results = aur_resp
+            .results
+            .into_iter()
+            .map(|pkg| PackageSearchResult {
+                name: pkg.Name,
+                version: Some(pkg.Version),
+                description: pkg.Description,
+                backend: Backend::Aur,
+            })
+            .collect();
+
+        Ok(results)
     }
 }
