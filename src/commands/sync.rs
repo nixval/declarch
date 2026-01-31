@@ -115,7 +115,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
         output::success("System is in sync.");
         if options.update {
             state.meta.last_update = Some(Utc::now());
-            state::io::save_state(&state)?;
+            state::io::save_state_locked(&state)?;
         }
         // Execute post-sync hooks even when system is in sync
         crate::commands::hooks::execute_post_sync(
@@ -539,7 +539,7 @@ fn update_state_after_sync(
         state.meta.last_update = Some(Utc::now());
     }
 
-    state::io::save_state(state)?;
+    state::io::save_state_locked(state)?;
 
     Ok(())
 }
