@@ -27,11 +27,8 @@ package() {
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
-  # Install shell completions
-  install -Dm644 <(declarch completions bash) \
-    "$pkgdir/usr/share/bash-completion/completions/declarch"
-  install -Dm644 <(declarch completions fish) \
-    "$pkgdir/usr/share/fish/vendor_completions.d/declarch".fish
-  install -Dm644 <(declarch completions zsh) \
-    "$pkgdir/usr/share/zsh/site-functions/_declarch"
+  # Install shell completions (use output redirection for fakeroot compatibility)
+  declarch completions bash > "$pkgdir/usr/share/bash-completion/completions/declarch"
+  declarch completions fish > "$pkgdir/usr/share/fish/vendor_completions.d/declarch".fish
+  declarch completions zsh > "$pkgdir/usr/share/zsh/site-functions/_declarch"
 }
