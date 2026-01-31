@@ -1,7 +1,8 @@
 use crate::error::{DeclarchError, Result};
 use crate::state::types::State;
 use directories::ProjectDirs;
-use std::fs;
+use fs2::FileExt;
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
