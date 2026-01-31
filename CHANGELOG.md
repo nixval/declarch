@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2026-01-31
+
+### Added
+- **Multi-backend search**: Comprehensive search support across all package managers
+  - AUR, Flatpak, Soar, npm, yarn, pnpm, bun, cargo, brew - all with search!
+  - Real package count with limit notation: "Found 42 packages matching 'rust' --limit 10 (showing 10):"
+  - Default limit of 10 results per backend (configurable with --limit)
+  - Unlimited results with `--limit all` or `--limit 0`
+- **Custom backend search**: Configure search in backends.kdl with 4 format types
+  - JSON format: Parse API responses with json_path, name_key, desc_key
+  - Tab-separated format: For CLI tools with tab output
+  - Whitespace-separated format: For space-separated output
+  - Regex format: Extract info with custom regex patterns
+- **Non-Arch distro detection**: Warn users when searching AUR from non-Arch systems
+  - Auto-detects distro from /etc/os-release
+  - Shows warning: "You are using a non-Arch based distro (Debian). Searching AUR may not work..."
+  - Provides helpful tips to use other backends
+- **Backend-specific search syntax**: `declarch search npm:prettier` to search specific backend
+- **Search result limiting**: Centralized limiting for consistent behavior across backends
+
+### Changed
+- **Auto mode default**: Now searches AUR only by default (not all backends)
+  - Use `--backends` flag or `backend:query` syntax for other backends
+  - More predictable and focused default behavior
+- **Error messages**: Better warnings for backends without search support
+  - Custom backends: "Search from custom backend 'my-pm' is not working. Add 'search' configuration..."
+  - Built-in backends: Clear list of supported backends
+
+### Fixed
+- **Result count display**: Now shows actual total count before limiting
+  - Previously: Always showed "Found 10 packages" (wrong)
+  - Now: "Found 42 packages matching 'rust' --limit 10 (showing 10):" (correct)
+
 ## [0.5.1] - 2026-01-30
 
 ### Security

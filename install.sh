@@ -2,7 +2,7 @@
 # Quick install declarch
 set -e
 
-VERSION="0.5.1"
+VERSION="0.5.2"
 REPO="nixval/declarch"
 ARCH=$(uname -m)
 
