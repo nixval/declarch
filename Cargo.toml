@@ -31,6 +31,9 @@ hostname = "0.4.1"
 directories = "6.0.0"
 which = "8.0.0"
 
+# File locking for concurrent state access
+fs2 = "0.4.3"
+
 # UX / UI
 ctrlc = "3.5.1"
 colored = "3.0.0"
@@ -69,3 +72,4 @@ strip = true         # Still strip debug symbols
 tempfile = "3.23.0"
 assert_cmd = "2.1.1"
 predicates = "3.1.3"
+wiremock = "0.6"
