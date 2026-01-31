@@ -53,6 +53,7 @@ declarch-*.tar.gz
 declarch-*.zip
 declarch
 artifacts/
+release/
 
 # =============================================================================
 # Release scripts (obsolete/private)
