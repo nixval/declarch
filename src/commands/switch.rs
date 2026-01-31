@@ -191,8 +191,8 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             // Update metadata
             state.meta.last_sync = Utc::now();
 
-            // Save state
-            state::io::save_state(&state)?;
+            // Save state with file locking
+            state::io::save_state_locked(&state)?;
 
             output::separator();
             output::success(&format!(
@@ -212,8 +212,8 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             output::error(&format!("Transition failed: {}", e));
             output::warning("Rolling back state changes...");
 
-            // Restore state from backup
-            if let Err(e2) = state::io::save_state(&state_backup) {
+            // Restore state from backup (with locking)
+            if let Err(e2) = state::io::save_state_locked(&state_backup) {
                 output::error(&format!("Failed to restore state: {}", e2));
                 return Err(DeclarchError::Other(format!(
                     "Transition failed and state rollback failed: {} - {}",
