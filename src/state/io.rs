@@ -132,17 +132,8 @@ fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
     Ok(State::default())
 }
 
-pub fn save_state(state: &State) -> Result<()> {
-    let path = get_state_path()?;
-
-    // Get parent directory - state paths should always have a parent
-    let dir = path.parent().ok_or_else(|| {
-        DeclarchError::Other(format!(
-            "Invalid state path (no parent directory): {}",
-            path.display()
-        ))
-    })?;
-
+/// Rotate backup files, keeping last 3 versions
+fn rotate_backups(dir: &PathBuf, path: &PathBuf) -> Result<()> {
     // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
     // Shift: .bak.2 -> .bak.3
     // Shift: .bak.1 -> .bak.2
@@ -162,6 +153,23 @@ pub fn save_state(state: &State) -> Result<()> {
         let _ = fs::copy(&path, &first_bak);
     }
     // ----------------------------------------------------
+
+    Ok(())
+}
+
+pub fn save_state(state: &State) -> Result<()> {
+    let path = get_state_path()?;
+
+    // Get parent directory - state paths should always have a parent
+    let dir = path.parent().ok_or_else(|| {
+        DeclarchError::Other(format!(
+            "Invalid state path (no parent directory): {}",
+            path.display()
+        ))
+    })?;
+
+    // Perform backup rotation
+    rotate_backups(dir, &path)?;
 
     // 1. Serialize to string first
     let content = serde_json::to_string_pretty(state)
@@ -185,6 +193,63 @@ pub fn save_state(state: &State) -> Result<()> {
         path: path.clone(),
         source: e,
     })?;
+
+    Ok(())
+}
+
+/// Save state with file locking to prevent concurrent access corruption
+/// This is the preferred method for saving state in production
+pub fn save_state_locked(state: &State) -> Result<()> {
+    let path = get_state_path()?;
+    let dir = path.parent().ok_or(DeclarchError::Other(
+        "Could not determine state directory".into(),
+    ))?;
+
+    // Open file with locking
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&path)
+        .map_err(|e| DeclarchError::IoError {
+            path: path.clone(),
+            source: e,
+        })?;
+
+    // Acquire exclusive lock - blocks other processes
+    file.lock_exclusive().map_err(|e| DeclarchError::Other(format!(
+        "Failed to lock state file: {}. Another declarch process may be running.",
+        e
+    )))?;
+
+    // Perform backup rotation (same as save_state)
+    rotate_backups(dir, &path)?;
+
+    // Serialize to string
+    let content = serde_json::to_string_pretty(state)
+        .map_err(|e| DeclarchError::Other(format!("Failed to serialize state: {}", e)))?;
+
+    // Validate JSON
+    let _: State = serde_json::from_str(&content)
+        .map_err(|e| DeclarchError::Other(format!("Generated invalid JSON: {}", e)))?;
+
+    // Write to temp file
+    let tmp_path = dir.join("state.tmp");
+    let mut tmp_file = fs::File::create(&tmp_path).map_err(|e| DeclarchError::IoError {
+        path: tmp_path.clone(),
+        source: e,
+    })?;
+
+    tmp_file.write_all(content.as_bytes())?;
+    tmp_file.sync_all()?;
+
+    // Atomic rename
+    fs::rename(&tmp_path, &path).map_err(|e| DeclarchError::IoError {
+        path: path.clone(),
+        source: e,
+    })?;
+
+    // Release lock (happens automatically when file is dropped)
+    drop(file);
 
     Ok(())
 }
