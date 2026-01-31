@@ -36,6 +36,11 @@ fn parse_backend_query(query: &str) -> (Option<String>, String) {
 }
 
 pub fn run(options: SearchOptions) -> Result<()> {
+    // Detect distro for AUR warning
+    use crate::utils::distro::DistroType;
+    let distro = DistroType::detect();
+    let is_arch = distro.supports_aur();
+
     // Load state to check installed packages
     let state = state::io::load_state()?;
 
@@ -49,6 +54,31 @@ pub fn run(options: SearchOptions) -> Result<()> {
     } else {
         options.backends.clone()
     };
+
+    // Check if user is trying to search AUR on non-Arch system
+    if !is_arch {
+        let check_aur = if let Some(ref backend_list) = final_backends {
+            // User specified backends via flag or prefix
+            backend_list.iter().any(|b| b.to_lowercase() == "aur")
+        } else {
+            // Auto mode - defaults to AUR
+            options.backends.is_none()
+        };
+
+        if check_aur {
+            output::warning(&format!(
+                "You are using a non-Arch based distro ({:?}). Searching AUR may not work as expected.",
+                distro
+            ));
+
+            // Check for confirmation from environment (non-interactive for scripts)
+            if std::env::var("DECLARCH_AUTO_CONFIRM").is_ok() {
+                output::info("Auto-confirm enabled via DECLARCH_AUTO_CONFIRM");
+            } else {
+                output::info("Tip: Use --backends flag to specify other backends (flatpak, brew, npm, cargo, etc.)");
+            }
+        }
+    }
 
     // Create updated options for internal use
     let updated_options = SearchOptions {
@@ -69,6 +99,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     // Search across backends and collect results
     let mut all_results: Vec<PackageSearchResult> = Vec::new();
+    let mut total_count = 0;
+
+    // Default limit is 10 if not specified
+    let effective_limit = updated_options.limit.or(Some(10));
 
     for backend in backends_to_search {
         match create_manager_for_backend(&backend) {
@@ -77,8 +111,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
                 match manager.search(&actual_query) {
                     Ok(mut results) => {
-                        // Apply result limiting
-                        if let Some(limit_value) = updated_options.limit {
+                        // Track total count before limiting
+                        total_count += results.len();
+
+                        // Apply result limiting (always applies with default of 10)
+                        if let Some(limit_value) = effective_limit {
                             if results.len() > limit_value {
                                 results.truncate(limit_value);
                             }
@@ -106,7 +143,23 @@ pub fn run(options: SearchOptions) -> Result<()> {
                 }
             }
             Ok(_) => {
-                output::info(&format!("Backend {} does not support search", backend));
+                // Backend doesn't support search - check if it's a custom backend
+                match backend {
+                    Backend::Custom(name) => {
+                        output::warning(&format!(
+                            "Search from custom backend '{}' is not working. Add 'search' configuration to ~/.config/declarch/backends.kdl",
+                            name
+                        ));
+                        output::info("See documentation for custom backend search syntax examples");
+                    }
+                    _ => {
+                        output::warning(&format!(
+                            "Backend '{}' does not support search. Supported backends: AUR, Flatpak, Soar, npm, yarn, pnpm, bun, cargo, brew",
+                            backend
+                        ));
+                        output::info("Tip: Use --backends flag to specify supported backends");
+                    }
+                }
             }
             Err(e) => {
                 output::warning(&format!("Failed to initialize {}: {}", backend, e));
@@ -123,8 +176,8 @@ pub fn run(options: SearchOptions) -> Result<()> {
         all_results.retain(|r| !r.name.contains('✓'));
     }
 
-    // Display results
-    display_results(&all_results, &actual_query);
+    // Display results with count information
+    display_results(&all_results, &actual_query, total_count, effective_limit);
 
     Ok(())
 }
@@ -164,8 +217,8 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
                 .collect()
         }
         "auto" | _ => {
-            // Auto mode: search all backends that support search
-            // Currently only AUR has search implemented
+            // Auto mode: search AUR only by default
+            // Use backend:query syntax or --backends flag to search other backends
             Ok(vec![Backend::Aur])
         }
     }
@@ -198,7 +251,7 @@ fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManage
     })
 }
 
-fn display_results(results: &[PackageSearchResult], query: &str) {
+fn display_results(results: &[PackageSearchResult], query: &str, total_count: usize, limit: Option<usize>) {
     if results.is_empty() {
         output::info(&format!("No packages found matching '{}'", query.cyan()));
         return;
@@ -215,11 +268,30 @@ fn display_results(results: &[PackageSearchResult], query: &str) {
             .push(result);
     }
 
-    output::success(&format!(
-        "Found {} package(s) matching '{}':\n",
-        results.len(),
-        query.cyan()
-    ));
+    // Display count with limit note if applicable
+    if let Some(limit_val) = limit {
+        if total_count > results.len() {
+            output::success(&format!(
+                "Found {} packages matching '{}' --limit {} (showing {}):\n",
+                total_count,
+                query.cyan(),
+                limit_val,
+                results.len()
+            ));
+        } else {
+            output::success(&format!(
+                "Found {} package(s) matching '{}':\n",
+                results.len(),
+                query.cyan()
+            ));
+        }
+    } else {
+        output::success(&format!(
+            "Found {} package(s) matching '{}':\n",
+            results.len(),
+            query.cyan()
+        ));
+    }
 
     // Display by backend
     for (backend, packages) in by_backend {

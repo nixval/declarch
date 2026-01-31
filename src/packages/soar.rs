@@ -1,6 +1,6 @@
 use crate::core::types::{Backend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
-use crate::packages::traits::PackageManager;
+use crate::packages::traits::{PackageManager, PackageSearchResult};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::Path;
@@ -248,6 +248,54 @@ impl PackageManager for SoarManager {
         // Soar is a standalone binary manager and doesn't track reverse dependencies
         // Packages are installed independently without tracking what depends on them
         Ok(Vec::new())
+    }
+
+    fn supports_search(&self) -> bool {
+        true
+    }
+
+    fn search(&self, query: &str) -> Result<Vec<PackageSearchResult>> {
+        // Use soar search with JSON output (no limit - let search.rs handle limiting)
+        let mut cmd = self.build_command();
+        cmd.args(["search", "--json", query]);
+
+        let output = cmd
+            .output()
+            .map_err(|e| DeclarchError::Other(format!("soar search failed: {}", e)))?;
+
+        if !output.status.success() {
+            return Ok(Vec::new());
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut results = Vec::new();
+
+        // Parse soar JSON output (each line is a separate JSON object)
+        for line in stdout.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            // Parse JSON line
+            #[derive(serde::Deserialize)]
+            struct SoarSearchResult {
+                pkg_name: String,
+                version: String,
+                description: String,
+            }
+
+            if let Ok(pkg) = serde_json::from_str::<SoarSearchResult>(line) {
+                results.push(PackageSearchResult {
+                    name: pkg.pkg_name,
+                    version: Some(pkg.version),
+                    description: Some(pkg.description),
+                    backend: Backend::Soar,
+                });
+            }
+        }
+
+        Ok(results)
     }
 }
 
