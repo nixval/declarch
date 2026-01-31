@@ -70,6 +70,17 @@
 //!         needs_sudo: false,
 //!         preinstall_env: None,
 //!         use_rust_fallback: false,
+//!         search_cmd: None,
+//!         search_format: None,
+//!         search_json_path: None,
+//!         search_name_key: None,
+//!         search_version_key: None,
+//!         search_desc_key: None,
+//!         search_name_col: None,
+//!         search_desc_col: None,
+//!         search_regex: None,
+//!         search_regex_name_group: None,
+//!         search_regex_desc_group: None,
 //!     },
 //! );
 //! ```
