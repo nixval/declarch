@@ -25,11 +25,7 @@ echo "Installing to /usr/local/bin/..."
 sudo install -m 755 declarch /usr/local/bin/
 
 echo "✓ Installed declarch $(declarch --version)"
-echo "Remove downloaded files? (y/n)"
-read -r answer
-case "$answer" in
-    [Yy]*)
-        rm -f declarch dcl
-        echo "✓ Cleanup complete"
-        ;;
-esac
+
+# Cleanup downloaded files
+rm -f declarch dcl
+echo "✓ Cleanup complete"
