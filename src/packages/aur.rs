@@ -201,9 +201,12 @@ impl PackageManager for AurManager {
 
         #[derive(serde::Deserialize)]
         struct AurPackage {
-            Name: String,
-            Version: String,
-            Description: Option<String>,
+            #[serde(alias = "Name")]
+            name: String,
+            #[serde(alias = "Version")]
+            version: String,
+            #[serde(alias = "Description")]
+            description: Option<String>,
         }
 
         let aur_resp: AurResponse = serde_json::from_str(&body).map_err(|e| {
@@ -214,9 +217,9 @@ impl PackageManager for AurManager {
             .results
             .into_iter()
             .map(|pkg| PackageSearchResult {
-                name: pkg.Name,
-                version: Some(pkg.Version),
-                description: pkg.Description,
+                name: pkg.name,
+                version: Some(pkg.version),
+                description: pkg.description,
                 backend: Backend::Aur,
             })
             .collect();

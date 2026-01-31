@@ -62,8 +62,11 @@ fn show_all_settings(settings: &Settings) {
 
     let all = settings.all();
 
-    // Display in a consistent order
-    let keys = vec!["color", "progress", "format", "verbose", "editor"];
+    // Display in a consistent order (all 8 valid settings)
+    let keys = vec![
+        "color", "progress", "format", "verbose", "editor", "compact",
+        "backends", "backend_mode",
+    ];
 
     for key in keys {
         if let Some(value) = all.get(key) {
@@ -78,9 +81,12 @@ fn show_all_settings(settings: &Settings) {
 
     println!();
     output::info("Valid values:");
-    println!("  color:    auto, always, never");
-    println!("  progress: on, off");
-    println!("  format:   table, json, yaml");
-    println!("  verbose:  true, false");
-    println!("  editor:   <editor-command> (e.g., nvim, code, vim)");
+    println!("  color:        auto, always, never");
+    println!("  progress:     on, off");
+    println!("  format:       table, json, yaml");
+    println!("  verbose:      true, false");
+    println!("  editor:       <editor-command> (e.g., nvim, code, vim)");
+    println!("  compact:      true, false");
+    println!("  backends:     comma-separated list (aur,flatpak,soar,npm,cargo,pip,brew,etc)");
+    println!("  backend_mode: auto, enabled-only");
 }
