@@ -25,7 +25,8 @@ personal-docs/
 .obsidian/
 
 # AUR publish scripts (personal reference)
-.aur/publish*.sh
+.aur/scripts/
+.aur/work/
 
 # Config and state files
 config.decl
@@ -44,7 +45,7 @@ release-wizard.sh
 repomix-output.xml
 
 # AUR release automation (private)
-.aur/
+# .aur/ (keep templates tracked!)
 
 # Release scripts (private reference)
 release-*.sh
@@ -54,3 +55,8 @@ release-*.sh
 *.temp
 tests/temp/
 tests/.temp/
+
+# AUR build artifacts
+PKGBUILD
+.SRCINFO
+

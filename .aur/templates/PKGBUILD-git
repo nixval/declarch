@@ -1,0 +1,60 @@
+# Maintainer: nixval <nicovaliantoku@gmail.com>
+
+_pkgname=declarch
+pkgname=declarch-git
+pkgver=r76.148ae43
+pkgrel=1
+pkgver() {
+  cd "$_pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+pkgdesc="Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends (git version)"
+arch=('x86_64')
+url="https://github.com/nixval/declarch"
+license=('MIT')
+depends=('pacman' 'git')
+makedepends=('cargo')
+optdepends=(
+  'paru: AUR backend for syncing'
+  'yay: Alternative AUR helper'
+  'flatpak: For managing Flatpak applications'
+)
+provides=('declarch')
+conflicts=('declarch' 'declarch-bin')
+
+source=("git+$url.git")
+sha256sums=('SKIP')
+
+build() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo build --release --frozen
+}
+
+check() {
+  cd "$_pkgname"
+  cargo test --frozen
+}
+
+package() {
+  cd "$_pkgname"
+
+  # Strip binaries
+  strip --strip-all "target/release/$_pkgname"
+  strip --strip-all "target/release/dcl"
+
+  # Install binaries
+  install -Dm755 "target/release/$_pkgname" "$pkgdir/usr/bin/$_pkgname"
+  install -Dm755 "target/release/dcl" "$pkgdir/usr/bin/dcl"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # Install shell completions
+  install -Dm644 <(target/release/$_pkgname completions bash) \
+    "$pkgdir/usr/share/bash-completion/completions/$_pkgname"
+  install -Dm644 <(target/release/$_pkgname completions fish) \
+    "$pkgdir/usr/share/fish/vendor_completions.d/$_pkgname".fish
+  install -Dm644 <(target/release/$_pkgname completions zsh) \
+    "$pkgdir/usr/share/zsh/site-functions/_$_pkgname"
+}
