@@ -2,22 +2,86 @@
 //!
 //! Handles AUR package variant matching (-bin, -git, etc.)
 
-use crate::core::types::SyncTarget;
-use crate::error::Result;
-use crate::state::types::State;
+use crate::core::types::{Backend, PackageId};
 use super::InstalledSnapshot;
 
-/// Detect and resolve variant transitions
-///
-/// When a package is installed as a different variant than specified
-/// in config (e.g., config says "bat" but "bat-bin" is installed),
-/// this detects and tracks that transition.
-pub fn detect_and_resolve_variant_transitions(
-    state: &mut State,
+/// AUR package variant suffixes for smart matching
+const AUR_SUFFIXES: &[&str] = &["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+
+/// Try to find an AUR package variant in the installed snapshot
+/// Returns the variant name if found, otherwise None
+pub fn find_aur_variant(
+    package_name: &str,
     installed_snapshot: &InstalledSnapshot,
-    sync_target: &SyncTarget,
-) -> Result<Vec<String>> {
-    // TODO: Extract variant matching logic from sync.rs
-    // Lines 194-269 contain complex variant handling
-    Ok(Vec::new())
+) -> Option<String> {
+    // Try each suffix variant
+    for suffix in AUR_SUFFIXES {
+        let alt_name = format!("{}{}", package_name, suffix);
+        let alt_id = PackageId {
+            name: alt_name.clone(),
+            backend: Backend::Aur,
+        };
+        if installed_snapshot.contains_key(&alt_id) {
+            return Some(alt_name);
+        }
+    }
+
+    // Try prefix match (e.g., "hyprland-git" → "hyprland")
+    if let Some((prefix, _)) = package_name.split_once('-') {
+        let alt_id = PackageId {
+            name: prefix.to_string(),
+            backend: Backend::Aur,
+        };
+        if installed_snapshot.contains_key(&alt_id) {
+            return Some(prefix.to_string());
+        }
+    }
+
+    None
+}
+
+/// Smart matching: Find the actual installed package name for a config package
+/// This handles variant matching (e.g., "hyprland" → "hyprland-git")
+pub fn resolve_installed_package_name(
+    pkg: &PackageId,
+    installed_snapshot: &InstalledSnapshot,
+) -> String {
+    // Try exact match first
+    if installed_snapshot.contains_key(pkg) {
+        return pkg.name.clone();
+    }
+
+    // Try smart match based on backend
+    match pkg.backend {
+        Backend::Aur => {
+            // Use helper function for variant matching
+            if let Some(variant) = find_aur_variant(&pkg.name, installed_snapshot) {
+                return variant;
+            }
+            pkg.name.clone()
+        }
+        Backend::Flatpak => {
+            let search = pkg.name.to_lowercase();
+            for installed_id in installed_snapshot.keys() {
+                if installed_id.backend == Backend::Flatpak
+                    && installed_id.name.to_lowercase().contains(&search)
+                {
+                    return installed_id.name.clone();
+                }
+            }
+            pkg.name.clone()
+        }
+        Backend::Soar
+        | Backend::Npm
+        | Backend::Yarn
+        | Backend::Pnpm
+        | Backend::Bun
+        | Backend::Pip
+        | Backend::Cargo
+        | Backend::Brew
+        | Backend::Custom(_) => {
+            // These backends require exact matching - no smart matching needed
+            pkg.name.clone()
+        }
+    }
 }

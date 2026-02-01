@@ -7,7 +7,8 @@ use crate::constants::CRITICAL_PACKAGES;
 use crate::core::{resolver, types::{Backend, PackageId, PackageMetadata}};
 use crate::error::Result;
 use crate::ui as output;
-use super::{ManagerMap, SyncOptions, InstalledSnapshot, resolve_installed_package_name};
+use super::{ManagerMap, SyncOptions, InstalledSnapshot};
+use super::variants::resolve_installed_package_name;
 use colored::Colorize;
 use std::collections::{HashMap, HashSet};
 
