@@ -374,66 +374,6 @@ fn initialize_managers_and_snapshot(
     Ok((installed_snapshot, managers))
 }
 
-/// Execute package pruning with safety checks
-fn execute_pruning(
-    config: &loader::MergedConfig,
-    tx: &resolver::Transaction,
-    managers: &ManagerMap,
-    installed_snapshot: &InstalledSnapshot,
-) -> Result<()> {
-    // Build protected list - collect all actual installed package names from config
-    let mut protected_physical_names: Vec<String> = Vec::new();
-
-    for pkg in config.packages.keys() {
-        // Skip if user excluded this package
-        if config.excludes.contains(&pkg.name) {
-            continue;
-        }
-
-        let real_name = resolve_installed_package_name(pkg, installed_snapshot);
-        protected_physical_names.push(real_name);
-    }
-
-    // Build removal list
-    let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
-
-    for pkg in tx.to_prune.iter() {
-        // 1. GHOST MODE (Static Check) - Skip critical packages
-        if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) {
-            continue;
-        }
-
-        // 2. REAL ID RESOLUTION (using helper function)
-        let real_name = resolve_installed_package_name(pkg, installed_snapshot);
-
-        // 3. FRATRICIDE CHECK (Dynamic Runtime Check) - Don't remove if protected
-        if protected_physical_names.contains(&real_name) {
-            println!(
-                "  ℹ Keeping physical package '{}' (claimed by active config)",
-                real_name.dimmed()
-            );
-            continue;
-        }
-
-        removes
-            .entry(pkg.backend.clone())
-            .or_default()
-            .push(real_name);
-    }
-
-    // Execute removals
-    for (backend, pkgs) in removes {
-        if !pkgs.is_empty()
-            && let Some(mgr) = managers.get(&backend)
-        {
-            output::info(&format!("Removing {} packages...", backend));
-            mgr.remove(&pkgs)?;
-        }
-    }
-
-    Ok(())
-}
-
 /// Load config with additional modules
 /// Load a single module file (for selective sync)
 /// Loads ONLY the specified module, not the entire config
