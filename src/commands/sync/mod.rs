@@ -38,7 +38,7 @@ use crate::core::{
 use crate::packages::{PackageManager, create_manager};
 use crate::state::{
     self,
-    types::{Backend, PackageState, State},
+    types::{Backend, State},
 };
 use chrono::Utc;
 use colored::Colorize;

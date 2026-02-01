@@ -169,7 +169,7 @@ pub fn save_state(state: &State) -> Result<()> {
     })?;
 
     // Perform backup rotation
-    rotate_backups(dir, path)?;
+    rotate_backups(dir, &path)?;
 
     // 1. Serialize to string first
     let content = serde_json::to_string_pretty(state)
@@ -222,7 +222,7 @@ pub fn save_state_locked(state: &State) -> Result<()> {
     )))?;
 
     // Perform backup rotation (same as save_state)
-    rotate_backups(dir, path)?;
+    rotate_backups(dir, &path)?;
 
     // Serialize to string
     let content = serde_json::to_string_pretty(state)

@@ -2,7 +2,7 @@
 //!
 //! Installs, adopts, and prunes packages based on transaction plan.
 
-use crate::config::types::GlobalConfig;
+use crate::config::loader;
 use crate::error::Result;
 use super::{Transaction, ManagerMap, SyncOptions};
 
@@ -10,7 +10,7 @@ use super::{Transaction, ManagerMap, SyncOptions};
 pub fn execute_transaction(
     transaction: &Transaction,
     managers: &ManagerMap,
-    config: &GlobalConfig,
+    config: &loader::MergedConfig,
     options: &SyncOptions,
 ) -> Result<()> {
     // TODO: Extract execution logic from sync.rs

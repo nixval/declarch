@@ -2,9 +2,9 @@
 //!
 //! Determines what packages to install, adopt, prune, and update.
 
-use crate::config::types::GlobalConfig;
+use crate::config::loader;
 use crate::core::types::SyncTarget;
-use crate::error::{DeclarchError, Result};
+use crate::error::Result;
 use crate::state::types::State;
 use super::{InstalledSnapshot, SyncOptions};
 
@@ -23,7 +23,7 @@ pub struct Transaction {
 
 /// Create transaction from current state and desired config
 pub fn create_transaction(
-    config: &GlobalConfig,
+    config: &loader::MergedConfig,
     state: &State,
     installed_snapshot: &InstalledSnapshot,
     sync_target: &SyncTarget,
