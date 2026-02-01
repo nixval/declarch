@@ -2,9 +2,9 @@ use crate::error::{DeclarchError, Result};
 use crate::state::types::State;
 use directories::ProjectDirs;
 use fs2::FileExt;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn get_state_path() -> Result<PathBuf> {
     let proj_dirs = ProjectDirs::from("com", "declarch", "declarch").ok_or(
@@ -133,7 +133,7 @@ fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
 }
 
 /// Rotate backup files, keeping last 3 versions
-fn rotate_backups(dir: &PathBuf, path: &PathBuf) -> Result<()> {
+fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
     // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
     // Shift: .bak.2 -> .bak.3
     // Shift: .bak.1 -> .bak.2
@@ -169,7 +169,7 @@ pub fn save_state(state: &State) -> Result<()> {
     })?;
 
     // Perform backup rotation
-    rotate_backups(dir, &path)?;
+    rotate_backups(dir, path)?;
 
     // 1. Serialize to string first
     let content = serde_json::to_string_pretty(state)
@@ -222,7 +222,7 @@ pub fn save_state_locked(state: &State) -> Result<()> {
     )))?;
 
     // Perform backup rotation (same as save_state)
-    rotate_backups(dir, &path)?;
+    rotate_backups(dir, path)?;
 
     // Serialize to string
     let content = serde_json::to_string_pretty(state)
