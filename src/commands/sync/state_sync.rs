@@ -2,14 +2,15 @@
 //!
 //! Updates state.json with new package information.
 
+use crate::core::resolver;
 use crate::error::Result;
 use crate::state::types::State;
-use super::{Transaction, InstalledSnapshot, SyncOptions};
+use super::{InstalledSnapshot, SyncOptions};
 
 /// Update state based on transaction execution results
 pub fn update_state(
     state: &State,
-    transaction: &Transaction,
+    transaction: &resolver::Transaction,
     installed_snapshot: &InstalledSnapshot,
     options: &SyncOptions,
 ) -> Result<State> {
