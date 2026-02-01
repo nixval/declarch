@@ -132,6 +132,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
         return Ok(());
     }
 
+    // Display transaction plan before execution
+    display_transaction_plan(&tx, options.prune);
+
     if options.dry_run {
         output::info("Dry run mode - no changes will be made");
         return Ok(());
@@ -143,6 +146,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // PHASE 5: UPDATE STATE
     // ==========================================
     let _state = update_state(&state, &tx, &installed_snapshot, &options)?;
+    state::io::save_state_locked(&_state)?;
 
     // ==========================================
     // PHASE 6: POST-SYNC HOOKS

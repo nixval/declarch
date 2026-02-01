@@ -30,5 +30,6 @@ pub fn execute_sync_hooks(
     enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
+    execute_pre_sync(lifecycle_actions, enabled, dry_run)?;
     execute_post_sync(lifecycle_actions, enabled, dry_run)
 }
