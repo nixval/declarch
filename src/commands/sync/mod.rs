@@ -30,18 +30,15 @@ use crate::utils::paths;
 use std::path::Path;
 
 // Import remaining dependencies from original sync.rs
-use crate::constants::CRITICAL_PACKAGES;
 use crate::core::{
-    resolver,
     types::{PackageId, PackageMetadata},
 };
 use crate::packages::{PackageManager, create_manager};
 use crate::state::{
     self,
-    types::{Backend, State},
+    types::Backend,
 };
 use chrono::Utc;
-use colored::Colorize;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
@@ -91,7 +88,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     perform_system_update(&options)?;
 
     // 4. Initialize Managers & Snapshot
-    let (mut installed_snapshot, managers) =
+    let (installed_snapshot, managers) =
         initialize_managers_and_snapshot(&config, &options, &sync_target)?;
 
     // 5. Load State & Resolve
@@ -145,7 +142,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // ==========================================
     // PHASE 5: UPDATE STATE
     // ==========================================
-    let state = update_state(&state, &tx, &installed_snapshot, &options)?;
+    let _state = update_state(&state, &tx, &installed_snapshot, &options)?;
 
     // ==========================================
     // PHASE 6: POST-SYNC HOOKS

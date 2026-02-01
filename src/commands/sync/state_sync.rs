@@ -7,7 +7,6 @@ use crate::error::Result;
 use crate::state::types::{State, PackageState};
 use super::{InstalledSnapshot, SyncOptions};
 use chrono::Utc;
-use std::collections::HashMap;
 use std::process::Command;
 
 /// Update state based on transaction execution results

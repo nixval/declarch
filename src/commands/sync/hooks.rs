@@ -6,6 +6,7 @@ use crate::config::kdl_modules::types::LifecycleConfig;
 use crate::error::Result;
 
 /// Execute pre-sync hooks
+#[allow(dead_code)]
 pub fn execute_pre_sync(
     lifecycle_actions: &Option<LifecycleConfig>,
     enabled: bool,

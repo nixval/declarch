@@ -4,7 +4,7 @@
 
 use crate::config::loader;
 use crate::constants::CRITICAL_PACKAGES;
-use crate::core::{resolver, types::{Backend, PackageId, PackageMetadata}};
+use crate::core::{resolver, types::{Backend, PackageId}};
 use crate::error::Result;
 use crate::ui as output;
 use super::{ManagerMap, SyncOptions, InstalledSnapshot};
