@@ -1,41 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
+/// Empty vector constant for default returns
+static EMPTY_VEC: Vec<PackageEntry> = Vec::new();
+
 #[derive(Debug, Clone)]
 pub struct RawConfig {
-    // === Existing fields ===
     pub imports: Vec<String>,
-    /// Packages from AUR (Arch Linux specific)
-    /// Syntax: packages { ... } or packages:aur { ... }
-    pub packages: Vec<PackageEntry>,
-    /// Packages from Soar registry (cross-distro static binaries)
-    /// Syntax: packages:soar { ... } or soar:package in packages block
-    pub soar_packages: Vec<PackageEntry>,
-    /// Flatpak packages
-    /// Syntax: packages:flatpak { ... } or flatpak:package in packages block
-    pub flatpak_packages: Vec<PackageEntry>,
 
-    // === New language ecosystem backends ===
-    /// npm packages (Node.js global packages)
-    /// Syntax: packages:npm { ... } or npm:package in packages block
-    pub npm_packages: Vec<PackageEntry>,
-    /// Yarn packages
-    /// Syntax: packages:yarn { ... }
-    pub yarn_packages: Vec<PackageEntry>,
-    /// pnpm packages
-    /// Syntax: packages:pnpm { ... }
-    pub pnpm_packages: Vec<PackageEntry>,
-    /// Bun packages
-    /// Syntax: packages:bun { ... }
-    pub bun_packages: Vec<PackageEntry>,
-    /// pip packages (Python)
-    /// Syntax: packages:pip { ... }
-    pub pip_packages: Vec<PackageEntry>,
-    /// Cargo packages (Rust)
-    /// Syntax: packages:cargo { ... }
-    pub cargo_packages: Vec<PackageEntry>,
-    /// Homebrew packages
-    /// Syntax: packages:brew { ... }
-    pub brew_packages: Vec<PackageEntry>,
+    /// All built-in backend packages stored in a single HashMap
+    /// Key: Backend enum, Value: Vector of package entries
+    /// This replaces the individual *_packages fields
+    pub packages: HashMap<Backend, Vec<PackageEntry>>,
 
     /// Custom backend packages (user-defined)
     /// Syntax: packages:nala { ... } where nala is defined in backends.kdl
@@ -47,37 +22,158 @@ pub struct RawConfig {
     /// Example: "pipewire" -> "pipewire-jack2"
     pub package_mappings: HashMap<String, String>,
 
-    // === NEW: Project metadata block ===
     /// Project metadata
     pub project_metadata: ProjectMetadata,
 
-    // === NEW: Conflicts ===
     /// Mutually exclusive packages
     pub conflicts: Vec<ConflictEntry>,
 
-    // === NEW: Backend options ===
     /// Backend-specific configuration options
     /// Syntax: options:aur { noconfirm true }
     pub backend_options: HashMap<String, HashMap<String, String>>,
 
-    // === NEW: Environment variables ===
     /// Environment variables for package operations
     /// Syntax: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
     pub env: HashMap<String, Vec<String>>,
 
-    // === NEW: Package sources ===
     /// Custom package sources
     /// Syntax: repos:aur { "https://..." }
     pub package_sources: HashMap<String, Vec<String>>,
 
-    // === NEW: Policy control ===
     /// Package lifecycle policies
     pub policy: PolicyConfig,
 
-    // === NEW: Lifecycle Actions ===
     /// Pre/post sync lifecycle actions
     pub lifecycle_actions: LifecycleConfig,
 }
+
+impl RawConfig {
+    /// Create a new empty RawConfig with all backends initialized
+    pub fn new() -> Self {
+        let mut packages = HashMap::new();
+        packages.insert(Backend::Aur, Vec::new());
+        packages.insert(Backend::Flatpak, Vec::new());
+        packages.insert(Backend::Soar, Vec::new());
+        packages.insert(Backend::Npm, Vec::new());
+        packages.insert(Backend::Yarn, Vec::new());
+        packages.insert(Backend::Pnpm, Vec::new());
+        packages.insert(Backend::Bun, Vec::new());
+        packages.insert(Backend::Pip, Vec::new());
+        packages.insert(Backend::Cargo, Vec::new());
+        packages.insert(Backend::Brew, Vec::new());
+
+        Self {
+            imports: Vec::new(),
+            packages,
+            custom_packages: HashMap::new(),
+            excludes: Vec::new(),
+            package_mappings: HashMap::new(),
+            project_metadata: ProjectMetadata::default(),
+            conflicts: Vec::new(),
+            backend_options: HashMap::new(),
+            env: HashMap::new(),
+            package_sources: HashMap::new(),
+            policy: PolicyConfig::default(),
+            lifecycle_actions: LifecycleConfig::default(),
+        }
+    }
+
+    // === Backward compatibility accessors ===
+
+    /// Get AUR packages (backward compatibility)
+    pub fn aur_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Aur).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get Flatpak packages (backward compatibility)
+    pub fn flatpak_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Flatpak).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get Soar packages (backward compatibility)
+    pub fn soar_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Soar).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get npm packages (backward compatibility)
+    pub fn npm_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Npm).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get Yarn packages (backward compatibility)
+    pub fn yarn_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Yarn).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get pnpm packages (backward compatibility)
+    pub fn pnpm_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Pnpm).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get Bun packages (backward compatibility)
+    pub fn bun_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Bun).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get pip packages (backward compatibility)
+    pub fn pip_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Pip).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get Cargo packages (backward compatibility)
+    pub fn cargo_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Cargo).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get Homebrew packages (backward compatibility)
+    pub fn brew_packages(&self) -> &Vec<PackageEntry> {
+        self.packages.get(&Backend::Brew).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get packages for a specific backend
+    pub fn packages_for(&self, backend: &Backend) -> &Vec<PackageEntry> {
+        self.packages.get(backend).unwrap_or(&EMPTY_VEC)
+    }
+
+    /// Get mutable packages for a specific backend
+    pub fn packages_for_mut(&mut self, backend: &Backend) -> &mut Vec<PackageEntry> {
+        self.packages.entry(backend.clone()).or_default()
+    }
+
+    /// Add packages to a specific backend
+    pub fn add_packages(&mut self, backend: &Backend, entries: Vec<PackageEntry>) {
+        self.packages
+            .entry(backend.clone())
+            .or_default()
+            .extend(entries);
+    }
+
+    /// Iterate over all packages grouped by backend
+    pub fn all_packages(&self) -> impl Iterator<Item = (&Backend, &Vec<PackageEntry>)> {
+        self.packages.iter()
+    }
+
+    /// Check if there are any packages configured
+    pub fn has_packages(&self) -> bool {
+        self.packages.values().any(|v| !v.is_empty()) || !self.custom_packages.is_empty()
+    }
+
+    /// Get total package count across all backends
+    pub fn total_package_count(&self) -> usize {
+        let builtin: usize = self.packages.values().map(|v| v.len()).sum();
+        let custom: usize = self.custom_packages.values().map(|v| v.len()).sum();
+        builtin + custom
+    }
+}
+
+impl Default for RawConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Backend enum imported from core::types
+pub use crate::core::types::Backend;
 
 /// Package entry (version constraints skipped for now)
 #[derive(Debug, Clone)]

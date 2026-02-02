@@ -55,7 +55,7 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
+        assert_eq!(config.aur_packages().len(), 2);
         assert_eq!(config.package_mappings.len(), 1);
         assert_eq!(config.excludes.len(), 1);
         assert_eq!(
@@ -85,10 +85,10 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 3);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
-        assert!(config.packages.iter().any(|p| p.name == "swww"));
+        assert_eq!(config.aur_packages().len(), 3);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "waybar"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "swww"));
     }
 
     #[test]
@@ -119,9 +119,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 3);
-        assert_eq!(config.soar_packages.len(), 4);
-        assert_eq!(config.flatpak_packages.len(), 2);
+        assert_eq!(config.aur_packages().len(), 3);
+        assert_eq!(config.soar_packages().len(), 4);
+        assert_eq!(config.flatpak_packages().len(), 2);
     }
 
     // New syntax tests
@@ -136,9 +136,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.soar_packages().len(), 2);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages().iter().any(|p| p.name == "exa"));
     }
 
     #[test]
@@ -151,9 +151,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
+        assert_eq!(config.aur_packages().len(), 2);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "waybar"));
     }
 
     #[test]
@@ -166,16 +166,16 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.flatpak_packages.len(), 2);
+        assert_eq!(config.flatpak_packages().len(), 2);
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "org.mozilla.firefox")
         );
@@ -199,24 +199,24 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
+        assert_eq!(config.aur_packages().len(), 2);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "waybar"));
 
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.soar_packages().len(), 2);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages().iter().any(|p| p.name == "exa"));
 
-        assert_eq!(config.flatpak_packages.len(), 2);
+        assert_eq!(config.flatpak_packages().len(), 2);
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "org.mozilla.firefox")
         );
@@ -243,9 +243,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.soar_packages.len(), 1);
-        assert_eq!(config.flatpak_packages.len(), 1);
+        assert_eq!(config.aur_packages().len(), 2);
+        assert_eq!(config.soar_packages().len(), 1);
+        assert_eq!(config.flatpak_packages().len(), 1);
     }
 
     #[test]
@@ -263,14 +263,14 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.soar_packages().len(), 2);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages().iter().any(|p| p.name == "exa"));
 
-        assert_eq!(config.flatpak_packages.len(), 1);
+        assert_eq!(config.flatpak_packages().len(), 1);
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
@@ -287,8 +287,8 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 1);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert_eq!(config.soar_packages().len(), 1);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
     }
 
     #[test]
@@ -305,18 +305,18 @@
 
         let config = parse_kdl_content(kdl).unwrap();
         // Default (hyprland) + aur:waybar
-        assert_eq!(config.packages.len(), 2);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
+        assert_eq!(config.aur_packages().len(), 2);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "waybar"));
 
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.soar_packages().len(), 2);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages().iter().any(|p| p.name == "exa"));
 
-        assert_eq!(config.flatpak_packages.len(), 1);
+        assert_eq!(config.flatpak_packages().len(), 1);
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
@@ -336,9 +336,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2); // hyprland + waybar
-        assert_eq!(config.soar_packages.len(), 1); // bat
-        assert_eq!(config.flatpak_packages.len(), 1); // com.spotify.Client
+        assert_eq!(config.aur_packages().len(), 2); // hyprland + waybar
+        assert_eq!(config.soar_packages().len(), 1); // bat
+        assert_eq!(config.flatpak_packages().len(), 1); // com.spotify.Client
     }
 
     #[test]
@@ -351,9 +351,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.soar_packages().len(), 2);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages().iter().any(|p| p.name == "exa"));
     }
 
     #[test]
@@ -363,14 +363,14 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 1);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert_eq!(config.soar_packages().len(), 1);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
 
-        assert_eq!(config.packages.len(), 1);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
+        assert_eq!(config.aur_packages().len(), 1);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
 
-        assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "app.id"));
+        assert_eq!(config.flatpak_packages().len(), 1);
+        assert!(config.flatpak_packages().iter().any(|p| p.name == "app.id"));
     }
 
     #[test]
@@ -383,7 +383,7 @@
 
         let config = parse_kdl_content(kdl).unwrap();
         // Unknown backend should be treated as package name with default backend
-        assert!(config.packages.iter().any(|p| p.name == "unknown:package"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "unknown:package"));
     }
 
     #[test]
@@ -414,22 +414,22 @@
         let config = parse_kdl_content(kdl).unwrap();
 
         // AUR packages: hyprland, waybar, swww, rofi
-        assert_eq!(config.packages.len(), 4);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
-        assert!(config.packages.iter().any(|p| p.name == "swww"));
-        assert!(config.packages.iter().any(|p| p.name == "rofi"));
+        assert_eq!(config.aur_packages().len(), 4);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "waybar"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "swww"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "rofi"));
 
         // Soar packages: bat, exa
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.soar_packages().len(), 2);
+        assert!(config.soar_packages().iter().any(|p| p.name == "bat"));
+        assert!(config.soar_packages().iter().any(|p| p.name == "exa"));
 
         // Flatpak packages: com.spotify.Client
-        assert_eq!(config.flatpak_packages.len(), 1);
+        assert_eq!(config.flatpak_packages().len(), 1);
         assert!(
             config
-                .flatpak_packages
+                .flatpak_packages()
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
@@ -476,9 +476,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.soar_packages.len(), 2); // bat + exa
-        assert_eq!(config.flatpak_packages.len(), 2);
+        assert_eq!(config.aur_packages().len(), 2);
+        assert_eq!(config.soar_packages().len(), 2); // bat + exa
+        assert_eq!(config.flatpak_packages().len(), 2);
     }
 
     // NEW: Meta block tests
@@ -734,10 +734,10 @@
         assert_eq!(config.project_metadata.version, Some("2.0.0".to_string()));
 
         // Check packages
-        assert_eq!(config.packages.len(), 3);
-        assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-        assert!(config.packages.iter().any(|p| p.name == "neovim"));
-        assert!(config.packages.iter().any(|p| p.name == "waybar"));
+        assert_eq!(config.aur_packages().len(), 3);
+        assert!(config.aur_packages().iter().any(|p| p.name == "hyprland"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "neovim"));
+        assert!(config.aur_packages().iter().any(|p| p.name == "waybar"));
 
         // Check conflicts (1 conflict entry with 4 packages all mutually exclusive)
         assert_eq!(config.conflicts.len(), 1);

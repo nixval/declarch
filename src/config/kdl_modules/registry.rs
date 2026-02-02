@@ -3,15 +3,15 @@
 //! Manages all available backend parsers and provides
 //! a unified interface for parsing packages from KDL nodes.
 
-use crate::config::kdl_modules::types::{PackageEntry, RawConfig};
 use crate::config::kdl_modules::parsers::BackendParser;
+use crate::config::kdl_modules::types::{Backend, PackageEntry, RawConfig};
 use crate::error::Result;
 use kdl::KdlNode;
 
 // Import individual parsers
 use crate::config::kdl_modules::parsers::{
-    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser,
-    NpmParser, PipParser, PnpmParser, SoarParser, YarnParser,
+    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser, NpmParser, PipParser, PnpmParser,
+    SoarParser, YarnParser,
 };
 
 /// Registry for backend parsers
@@ -64,27 +64,27 @@ impl BackendParserRegistry {
 
                 // Directly add to the appropriate config vector based on backend
                 match backend {
-                    "aur" => config.packages.push(entry),
-                    "soar" | "app" => config.soar_packages.push(entry),
-                    "flatpak" => config.flatpak_packages.push(entry),
-                    "npm" => config.npm_packages.push(entry),
-                    "yarn" => config.yarn_packages.push(entry),
-                    "pnpm" => config.pnpm_packages.push(entry),
-                    "bun" => config.bun_packages.push(entry),
-                    "pip" => config.pip_packages.push(entry),
-                    "cargo" => config.cargo_packages.push(entry),
-                    "brew" => config.brew_packages.push(entry),
-                    _ => config.packages.push(entry),
+                    "aur" => config.packages_for_mut(&Backend::Aur).push(entry),
+                    "soar" | "app" => config.packages_for_mut(&Backend::Soar).push(entry),
+                    "flatpak" => config.packages_for_mut(&Backend::Flatpak).push(entry),
+                    "npm" => config.packages_for_mut(&Backend::Npm).push(entry),
+                    "yarn" => config.packages_for_mut(&Backend::Yarn).push(entry),
+                    "pnpm" => config.packages_for_mut(&Backend::Pnpm).push(entry),
+                    "bun" => config.packages_for_mut(&Backend::Bun).push(entry),
+                    "pip" => config.packages_for_mut(&Backend::Pip).push(entry),
+                    "cargo" => config.packages_for_mut(&Backend::Cargo).push(entry),
+                    "brew" => config.packages_for_mut(&Backend::Brew).push(entry),
+                    _ => config.packages_for_mut(&Backend::Aur).push(entry),
                 }
             } else {
                 // Unknown backend - treat the whole string as package name with default backend
-                config.packages.push(PackageEntry {
+                config.packages_for_mut(&Backend::Aur).push(PackageEntry {
                     name: package_str.to_string(),
                 });
             }
         } else {
             // No prefix - use default backend (AUR)
-            config.packages.push(PackageEntry {
+            config.packages_for_mut(&Backend::Aur).push(PackageEntry {
                 name: package_str.to_string(),
             });
         }
@@ -127,7 +127,7 @@ impl BackendParserRegistry {
                         self.parse_inline_prefix(child_name, config)?;
                     } else {
                         // No backend prefix - use default backend
-                        config.packages.push(PackageEntry {
+                        config.packages_for_mut(&Backend::Aur).push(PackageEntry {
                             name: child_name.to_string(),
                         });
                     }
@@ -138,7 +138,7 @@ impl BackendParserRegistry {
                             if val.contains(':') {
                                 self.parse_inline_prefix(val, config)?;
                             } else {
-                                config.packages.push(PackageEntry {
+                                config.packages_for_mut(&Backend::Aur).push(PackageEntry {
                                     name: val.to_string(),
                                 });
                             }
@@ -154,7 +154,7 @@ impl BackendParserRegistry {
                 if val.contains(':') {
                     self.parse_inline_prefix(val, config)?;
                 } else {
-                    config.packages.push(PackageEntry {
+                    config.packages_for_mut(&Backend::Aur).push(PackageEntry {
                         name: val.to_string(),
                     });
                 }

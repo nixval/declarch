@@ -120,15 +120,18 @@ fn recursive_load(
     // Detect distro for conditional package processing
     let distro = DistroType::detect();
 
-    // Process AUR packages (default, Arch-only)
-    if distro.supports_aur() {
-        for pkg_entry in raw.packages {
-            let pkg_id = PackageId {
-                name: pkg_entry.name,
-                backend: Backend::Aur,
-            };
+    // Process all built-in backends using the unified HashMap-based API
+    for (backend, packages) in raw.all_packages() {
+        // Skip AUR on non-Arch systems
+        if *backend == Backend::Aur && !distro.supports_aur() {
+            continue;
+        }
 
-            // DEBUG: Show package being added
+        for pkg_entry in packages {
+            let pkg_id = PackageId {
+                name: pkg_entry.name.clone(),
+                backend: backend.clone(),
+            };
 
             merged
                 .packages
@@ -136,134 +139,6 @@ fn recursive_load(
                 .or_default()
                 .push(canonical_path.clone());
         }
-    }
-
-    // Process Soar packages (cross-distro static binaries)
-    for pkg_entry in raw.soar_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Soar,
-        };
-
-        // DEBUG: Show Soar package being added
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process Flatpak packages (cross-distro)
-    for pkg_entry in raw.flatpak_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Flatpak,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process npm packages (Node.js)
-    for pkg_entry in raw.npm_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Npm,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process Yarn packages
-    for pkg_entry in raw.yarn_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Yarn,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process pnpm packages
-    for pkg_entry in raw.pnpm_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Pnpm,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process Bun packages
-    for pkg_entry in raw.bun_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Bun,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process pip packages (Python)
-    for pkg_entry in raw.pip_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Pip,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process Cargo packages (Rust)
-    for pkg_entry in raw.cargo_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Cargo,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
-    }
-
-    // Process Homebrew packages
-    for pkg_entry in raw.brew_packages {
-        let pkg_id = PackageId {
-            name: pkg_entry.name,
-            backend: Backend::Brew,
-        };
-
-        merged
-            .packages
-            .entry(pkg_id)
-            .or_default()
-            .push(canonical_path.clone());
     }
 
     // Process custom backend packages (user-defined)
@@ -359,7 +234,7 @@ fn recursive_load(
             // Security check: Block path traversal attempts
             if import_str.contains("..") {
                 return Err(DeclarchError::ConfigError(format!(
-                    "Path traversal blocked: import paths cannot contain '..'\n  Import: {}",
+                    "Path traversal blocked: import paths cannot contain '..\n  Import: {}",
                     import_str
                 )));
             }

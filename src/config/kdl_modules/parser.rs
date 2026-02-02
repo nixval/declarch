@@ -3,8 +3,8 @@
 //! Main parsing logic for KDL configuration files.
 
 use crate::config::kdl_modules::types::{
-    ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
-    PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
+    ActionType, Backend, ErrorBehavior, LifecycleAction, LifecyclePhase,
+    PackageEntry, RawConfig,
 };
 use crate::config::kdl_modules::registry::BackendParserRegistry;
 use crate::config::kdl_modules::helpers::{
@@ -83,29 +83,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         crate::error::DeclarchError::ConfigError(format!("KDL parsing error: {}{}", err_msg, hint))
     })?;
 
-    let mut config = RawConfig {
-        imports: vec![],
-        packages: vec![],
-        soar_packages: vec![],
-        flatpak_packages: vec![],
-        npm_packages: vec![],
-        yarn_packages: vec![],
-        pnpm_packages: vec![],
-        bun_packages: vec![],
-        pip_packages: vec![],
-        cargo_packages: vec![],
-        brew_packages: vec![],
-        custom_packages: HashMap::new(),
-        excludes: vec![],
-        package_mappings: HashMap::new(),
-        project_metadata: ProjectMetadata::default(),
-        conflicts: vec![],
-        backend_options: HashMap::new(),
-        env: HashMap::new(),
-        package_sources: HashMap::new(),
-        policy: PolicyConfig::default(),
-        lifecycle_actions: LifecycleConfig::default(),
-    };
+    let mut config = RawConfig::new();
 
     let registry = BackendParserRegistry::new();
 
@@ -205,19 +183,19 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "aur-packages" | "aur-package" => {
                 let packages = packages::extract_mixed_values_return(node);
                 config
-                    .packages
+                    .packages_for_mut(&Backend::Aur)
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             "soar-packages" | "soar-package" => {
                 let packages = packages::extract_mixed_values_return(node);
                 config
-                    .soar_packages
+                    .packages_for_mut(&Backend::Soar)
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             "flatpak-packages" | "flatpak-package" => {
                 let packages = packages::extract_mixed_values_return(node);
                 config
-                    .flatpak_packages
+                    .packages_for_mut(&Backend::Flatpak)
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             _ => {}
