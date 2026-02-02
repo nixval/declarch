@@ -1,17 +1,26 @@
-/// Common package suffix patterns for variant matching
+/// Common AUR package variant suffixes for smart matching
 ///
 /// Used for:
 /// - Switch command (hyprland → hyprland-git)
 /// - Sync command (variant detection for hooks)
 /// - Package name resolution
 ///
+/// Covers most common AUR naming patterns:
+/// - Version control: -git, -hg
+/// - Release types: -nightly, -daily, -beta, -alpha, -rc, -pre
+/// - Binaries: -bin, -binary
+/// - Variants: -minimal, -lite, -full, -wayland, -fs
+///
 /// Example matching:
 /// - "hyprland" → match if package is "hyprland-git"
 /// - "ripgrep" → match if package is "ripgrep-bin"
 pub const VARIANTS: &[&str] = &[
     "-git", "-hg", "-nightly", "-daily", "-beta", "-alpha", "-bin", "-binary", "-minimal", "-lite",
-    "-full",
+    "-full", "-wayland", "-fs", "-rc", "-pre",
 ];
+
+/// AUR suffix aliases for backward compatibility
+pub const AUR_SUFFIXES: &[&str] = VARIANTS;
 
 /// Build suffix patterns for package switching
 ///

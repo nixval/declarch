@@ -9,5 +9,5 @@ pub use common::{
     STATE_FILE_NAME,
 };
 pub use critical::ALL as CRITICAL_PACKAGES;
-pub use package_suffixes::{VARIANTS, build_variants, is_variant};
-pub use urls::{DEFAULT_REGISTRY, RemoteUrlBuilder};
+pub use package_suffixes::{build_variants, is_variant, AUR_SUFFIXES, VARIANTS};
+pub use urls::{RemoteUrlBuilder, DEFAULT_REGISTRY};

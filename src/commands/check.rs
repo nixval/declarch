@@ -5,7 +5,7 @@ use crate::state;
 use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// Parse backend string to Backend enum
@@ -59,6 +59,38 @@ pub fn run(
     let config_time = start_time.elapsed();
 
     output::success("Syntax & Imports: OK");
+
+    // Show validation details
+    output::separator();
+    println!("{}", "Validation Details:".bold());
+    println!("  Config file path: {}", config_path.display());
+    println!("  Packages defined: {}", config.packages.len());
+    println!("  Excludes: {}", config.excludes.len());
+    let has_extra_modules = !extra_modules.is_empty();
+    println!(
+        "  Extra modules: {}",
+        if has_extra_modules { "Yes" } else { "No" }
+    );
+
+    if verbose {
+        println!("\n{}", "Backend Distribution:".bold());
+        let mut backend_counts: Vec<_> = config
+            .packages
+            .iter()
+            .map(|(pkg_id, _)| pkg_id.backend.clone())
+            .fold(std::collections::HashMap::new(), |mut acc, backend| {
+                *acc.entry(backend).or_insert(0) += 1;
+                acc
+            })
+            .into_iter()
+            .collect();
+        backend_counts.sort_by(|a, b| b.1.cmp(&a.1));
+        for (backend, count) in backend_counts {
+            println!("  {}: {}", backend, count);
+        }
+    }
+
+    println!("\n{}", "✓ Configuration syntax is valid".green());
 
     // Handle --validate flag (exit early after validation)
     if validate_only {
@@ -229,10 +261,25 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
     if !state_path.exists() {
         output::warning("No state found. All packages will be installed.");
         output::separator();
-        println!("{}", "Packages to Install:".bold().green());
-
+        println!(
+            "{}",
+            format!("To Install ({}):", config.packages.len())
+                .bold()
+                .green()
+        );
+        // Group by backend
+        let mut backend_groups: HashMap<Backend, Vec<&PackageId>> = HashMap::new();
         for pkg_id in config.packages.keys() {
-            println!("  + {} {}", pkg_id.backend, pkg_id.name);
+            backend_groups
+                .entry(pkg_id.backend.clone())
+                .or_default()
+                .push(pkg_id);
+        }
+        for (backend, pkgs) in &backend_groups {
+            println!("  [{}]", backend);
+            for pkg_id in pkgs {
+                println!("    + {}", pkg_id.name);
+            }
         }
         return Ok(());
     }
@@ -253,7 +300,6 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
 
     // Calculate differences
     let to_install: Vec<_> = config_set.difference(&state_set).cloned().collect();
-
     let to_remove: Vec<_> = state_set.difference(&config_set).cloned().collect();
 
     // Display results
@@ -268,8 +314,19 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
             "{}",
             format!("To Install ({}):", to_install.len()).bold().green()
         );
+        // Group by backend
+        let mut backend_groups: HashMap<Backend, Vec<PackageId>> = HashMap::new();
         for pkg_id in &to_install {
-            println!("  + {} {}", pkg_id.backend, pkg_id.name);
+            backend_groups
+                .entry(pkg_id.backend.clone())
+                .or_default()
+                .push(pkg_id.clone());
+        }
+        for (backend, pkgs) in &backend_groups {
+            println!("  [{}]", backend);
+            for pkg_id in pkgs {
+                println!("    + {}", pkg_id.name);
+            }
         }
     }
 
@@ -279,11 +336,33 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
             "{}",
             format!("To Remove ({}):", to_remove.len()).bold().red()
         );
+        // Group by backend
+        let mut backend_groups: HashMap<Backend, Vec<PackageId>> = HashMap::new();
         for pkg_id in &to_remove {
-            println!("  - {} {}", pkg_id.backend, pkg_id.name);
+            backend_groups
+                .entry(pkg_id.backend.clone())
+                .or_default()
+                .push(pkg_id.clone());
+        }
+        for (backend, pkgs) in &backend_groups {
+            println!("  [{}]", backend);
+            for pkg_id in pkgs {
+                println!("    - {}", pkg_id.name);
+            }
         }
     }
 
+    // Show summary
+    output::separator();
+    println!("{}", "Summary:".bold());
+    println!(
+        "  {} packages to install",
+        to_install.len().to_string().green().bold()
+    );
+    println!(
+        "  {} packages to remove",
+        to_remove.len().to_string().red().bold()
+    );
     println!();
     output::info("Run 'declarch sync' to apply these changes");
 

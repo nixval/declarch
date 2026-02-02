@@ -18,13 +18,9 @@
 //! 3. Prefix matching (strip suffixes)
 //! 4. Fuzzy matching (for Flatpak)
 
+use crate::constants::AUR_SUFFIXES;
 use crate::core::types::{Backend, PackageId, PackageMetadata};
 use std::collections::HashMap;
-
-/// Common AUR package suffixes
-const AUR_SUFFIXES: &[&str] = &[
-    "-bin", "-git", "-hg", "-nightly", "-beta", "-wayland", "-fs", "-alpha", "-rc", "-pre",
-];
 
 /// Smart matcher for finding packages across variants
 pub struct PackageMatcher {

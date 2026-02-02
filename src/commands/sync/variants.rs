@@ -2,11 +2,9 @@
 //!
 //! Handles AUR package variant matching (-bin, -git, etc.)
 
-use crate::core::types::{Backend, PackageId};
 use super::InstalledSnapshot;
-
-/// AUR package variant suffixes for smart matching
-const AUR_SUFFIXES: &[&str] = &["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+use crate::constants::AUR_SUFFIXES;
+use crate::core::types::{Backend, PackageId};
 
 /// Try to find an AUR package variant in the installed snapshot
 /// Returns the variant name if found, otherwise None
