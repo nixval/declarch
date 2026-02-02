@@ -6,6 +6,7 @@
 
 use clap::Parser;
 use declarch::cli::args::Cli;
+use declarch::error_suggestions::ErrorSuggestions;
 use declarch::ui as output;
 use std::process::exit;
 
@@ -25,7 +26,8 @@ fn main() {
     let args = Cli::parse();
 
     if let Err(e) = declarch::cli::dispatcher::dispatch(&args) {
-        output::error(&format!("{}", e));
+        // Display error with helpful suggestion
+        eprintln!("{}", e.display_with_suggestion());
         exit(1);
     }
 }

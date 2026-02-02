@@ -5,6 +5,7 @@ pub mod config;
 pub mod constants;
 pub mod core;
 pub mod error;
+pub mod error_suggestions;
 pub mod packages;
 pub mod state;
 pub mod ui;
