@@ -7,67 +7,6 @@ use crate::cli::args::{CheckCommand, InfoCommand, ListCommand, SyncCommand};
 use crate::ui as output;
 use colored::Colorize;
 
-/// Convert deprecated sync flags to SyncCommand with deprecation warning
-///
-/// Returns (has_deprecated_flags, sync_command, new_command_string)
-pub fn handle_deprecated_sync_flags(
-    dry_run: bool,
-    update: bool,
-    prune: bool,
-    gc: bool,
-) -> (bool, SyncCommand, &'static str) {
-    let deprecated_command = if dry_run {
-        SyncCommand::Sync {
-            gc,
-            target: None,
-            noconfirm: false,
-            hooks: false,
-            skip_soar_install: false,
-            modules: vec![],
-            dry_run: true,
-        }
-    } else if update {
-        SyncCommand::Update {
-            gc,
-            target: None,
-            noconfirm: false,
-            hooks: false,
-            skip_soar_install: false,
-            modules: vec![],
-        }
-    } else if prune {
-        SyncCommand::Prune {
-            gc,
-            target: None,
-            noconfirm: false,
-            hooks: false,
-            skip_soar_install: false,
-            modules: vec![],
-        }
-    } else {
-        SyncCommand::Sync {
-            gc,
-            target: None,
-            noconfirm: false,
-            hooks: false,
-            skip_soar_install: false,
-            modules: vec![],
-            dry_run: false,
-        }
-    };
-
-    let new_cmd = match deprecated_command {
-        SyncCommand::Update { .. } => "declarch sync update",
-        SyncCommand::Prune { .. } => "declarch sync prune",
-        SyncCommand::Sync { dry_run: true, .. } => "declarch sync --dry-run",
-        SyncCommand::Sync { .. } => "declarch sync",
-    };
-
-    // Only show deprecation warning if actual deprecated flags were used
-    let has_deprecated = dry_run || update || prune;
-    (has_deprecated, deprecated_command, new_cmd)
-}
-
 /// Convert deprecated check flags to CheckCommand
 pub fn handle_deprecated_check_flags(
     duplicates: bool,

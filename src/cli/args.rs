@@ -88,18 +88,6 @@ pub enum Command {
         #[command(subcommand)]
         command: Option<SyncCommand>,
 
-        /// [DEPRECATED] Use `declarch sync --dry-run` instead
-        #[arg(long, hide = true)]
-        dry_run: bool,
-
-        /// [DEPRECATED] Use `declarch sync --prune` instead
-        #[arg(long, hide = true)]
-        prune: bool,
-
-        /// [DEPRECATED] Use `declarch sync --update` instead
-        #[arg(short = 'u', long, hide = true)]
-        update: bool,
-
         /// Garbage collect system orphans after sync
         #[arg(long, help_heading = "Advanced")]
         gc: bool,

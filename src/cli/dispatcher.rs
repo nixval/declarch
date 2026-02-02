@@ -3,14 +3,16 @@
 //! Routes CLI commands to their appropriate handlers and manages
 //! deprecated flag handling.
 
-use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand};
+use crate::cli::args::{
+    CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand, SyncCommand,
+};
 use crate::commands;
 use crate::error::Result;
 use crate::ui as output;
 
 use super::deprecated::{
     handle_deprecated_check_flags, handle_deprecated_info_flags, handle_deprecated_list_flags,
-    handle_deprecated_sync_flags, show_deprecation_warning, sync_command_to_options,
+    show_deprecation_warning, sync_command_to_options,
 };
 
 /// Dispatch the parsed CLI command to the appropriate handler
@@ -27,28 +29,17 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             skip_soar_install: *skip_soar_install,
         }),
 
-        Some(Command::Sync {
-            command,
-            dry_run,
-            prune,
-            gc,
-            update,
-        }) => {
-            // Handle deprecated flags
-            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_sync_flags(*dry_run, *update, *prune, *gc);
+        Some(Command::Sync { command, gc }) => {
+            let sync_cmd = command.clone().unwrap_or_else(|| SyncCommand::Sync {
+                gc: *gc,
+                target: None,
+                noconfirm: false,
+                hooks: false,
+                skip_soar_install: false,
+                modules: vec![],
+                dry_run: false,
+            });
 
-            // Use the command from subcommand if provided, otherwise use deprecated flags
-            let sync_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
-
-            // Show deprecation warning if old flags were used
-            if has_deprecated_flags {
-                show_deprecation_warning(new_cmd_str);
-            }
-
-            // Convert and execute
             let options = sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
             commands::sync::run(options)
         }
