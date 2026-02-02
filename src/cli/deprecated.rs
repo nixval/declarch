@@ -138,7 +138,6 @@ pub fn handle_deprecated_info_flags(doctor: bool) -> (bool, InfoCommand) {
                 debug: false,
                 backend: None,
                 package: None,
-                summary: false,
             },
         )
     }

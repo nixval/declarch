@@ -159,14 +159,12 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     debug,
                     backend,
                     package,
-                    summary,
                 } => commands::info::run(commands::info::InfoOptions {
                     doctor: false,
                     debug,
                     format: args.global.format.clone(),
                     backend,
                     package,
-                    summary,
                 }),
                 InfoCommand::Doctor {
                     debug,
@@ -178,7 +176,6 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     format: args.global.format.clone(),
                     backend,
                     package,
-                    summary: false,
                 }),
             }
         }

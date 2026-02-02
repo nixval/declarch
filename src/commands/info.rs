@@ -1,5 +1,3 @@
-mod summary;
-
 use crate::config::loader;
 use crate::error::Result;
 use crate::state;
@@ -10,13 +8,77 @@ use std::collections::HashMap;
 use std::process::Command;
 use terminal_size::{Width, terminal_size};
 
+/// Calculate system health score based on sync age and package state
+fn calculate_system_health(
+    state: &state::types::State,
+    time_since_sync: std::time::Duration,
+) -> u8 {
+    let mut score = 100i32;
+    let days_since_sync = time_since_sync.as_secs_f64() / 86400.0;
+
+    if days_since_sync > 7.0 {
+        score -= 30;
+    } else if days_since_sync > 3.0 {
+        score -= 15;
+    } else if days_since_sync > 1.0 {
+        score -= 5;
+    }
+
+    if state.packages.is_empty() {
+        score -= 20;
+    }
+
+    score.clamp(0, 100) as u8
+}
+
+/// Detect drift between config and state
+fn detect_drift(state: &state::types::State) -> Option<String> {
+    let config_path = paths::config_file().ok()?;
+    let config = loader::load_root_config(&config_path).ok()?;
+
+    let config_packages: std::collections::HashSet<_> = config
+        .packages
+        .keys()
+        .map(|id| format!("{}:{}", id.backend, id.name))
+        .collect();
+    let state_packages: std::collections::HashSet<_> = state.packages.keys().cloned().collect();
+
+    let in_config_not_state: Vec<_> = config_packages
+        .difference(&state_packages)
+        .map(|s| s.to_string())
+        .collect();
+    let in_state_not_config: Vec<_> = state_packages
+        .difference(&config_packages)
+        .map(|s| s.to_string())
+        .collect();
+
+    if in_config_not_state.is_empty() && in_state_not_config.is_empty() {
+        return Some("No drift detected - system is in sync".to_string());
+    }
+
+    let mut drift = String::new();
+    for pkg in in_config_not_state {
+        if let Some((backend, name)) = pkg.split_once(':') {
+            drift.push_str(&format!("+ {} ({})", name, backend));
+            drift.push('\n');
+        }
+    }
+    for pkg in in_state_not_config {
+        if let Some((backend, name)) = pkg.split_once(':') {
+            drift.push_str(&format!("- {} ({})", name, backend));
+            drift.push('\n');
+        }
+    }
+
+    Some(drift.trim().to_string())
+}
+
 pub struct InfoOptions {
     pub doctor: bool,
     pub debug: bool,
     pub format: Option<String>,
     pub backend: Option<String>,
     pub package: Option<String>,
-    pub summary: bool,
 }
 
 pub fn run(options: InfoOptions) -> Result<()> {
@@ -39,11 +101,6 @@ pub fn run(options: InfoOptions) -> Result<()> {
 }
 
 fn run_info(options: &InfoOptions) -> Result<()> {
-    // Handle --summary flag for quick overview
-    if options.summary {
-        return summary::display_summary();
-    }
-
     let state = state::io::load_state()?;
 
     // Apply filters
@@ -109,12 +166,48 @@ fn output_table_filtered(
     state: &state::types::State,
     filtered_packages: &[(&String, &state::types::PackageState)],
 ) -> Result<()> {
+    use chrono::Utc;
+
     output::header("System Status");
     output::keyval("Hostname", &state.meta.hostname.cyan().bold().to_string());
-    output::keyval(
-        "Last Sync",
-        &state.meta.last_sync.format("%Y-%m-%d %H:%M:%S").to_string(),
-    );
+
+    // Calculate time since sync and format relative display
+    let now = Utc::now();
+    let last_sync = state.meta.last_sync;
+    let time_since = now - last_sync;
+    let hours_since = time_since.num_hours();
+    let days_since = time_since.num_days();
+    let time_str = if hours_since < 24 {
+        format!("{}h ago ({})", hours_since, last_sync.format("%H:%M"))
+    } else if days_since < 7 {
+        format!("{}d ago ({})", days_since, last_sync.format("%H:%M"))
+    } else {
+        last_sync.format("%Y-%m-%d").to_string()
+    };
+    output::keyval("Last Sync", &time_str);
+
+    // Calculate and display health score
+    let time_since_duration =
+        std::time::Duration::from_secs(time_since.num_seconds().max(0) as u64);
+    let health = calculate_system_health(state, time_since_duration);
+    let health_str = if health == 100 {
+        format!("✅ {} (Healthy)", health).green().bold()
+    } else if health >= 80 {
+        format!("🟡 {} (Good)", health).yellow().bold()
+    } else {
+        format!("🔴 {} (Needs Attention)", health).red().bold()
+    };
+    output::keyval("Health", &health_str.to_string());
+
+    // Show drift if any
+    if let Some(drift) = detect_drift(state) {
+        if drift != "No drift detected - system is in sync" {
+            output::keyval("Drift", &format!("{}", "Drift detected".yellow()));
+            for line in drift.lines() {
+                println!("  {}", line);
+            }
+        }
+    }
 
     let pkg_count = filtered_packages.len();
 

@@ -386,10 +386,6 @@ pub enum InfoCommand {
         /// Filter by package name
         #[arg(long, value_name = "PACKAGE")]
         package: Option<String>,
-
-        /// Show compact summary (quick overview like git status)
-        #[arg(long, help_heading = "Display")]
-        summary: bool,
     },
 
     /// Diagnose system issues
