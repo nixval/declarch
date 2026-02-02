@@ -57,6 +57,21 @@ cargo install cargo-audit      # Security auditing
 cargo install cargo-outdated   # Check for outdated dependencies
 ```
 
+### Command Name
+
+The main command is **`declarch`** (not `dcl`). 
+
+```bash
+# Build the binary
+cargo build
+
+# Run with cargo
+cargo run -- sync preview --diff
+
+# Or use the fish alias for development:
+ddev sync preview --diff
+```
+
 ### Build Commands
 
 ```bash
