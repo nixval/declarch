@@ -17,14 +17,14 @@ pub fn handle_deprecated_sync_flags(
     gc: bool,
 ) -> (bool, SyncCommand, &'static str) {
     let deprecated_command = if dry_run {
-        SyncCommand::Preview {
+        SyncCommand::Sync {
             gc,
             target: None,
             noconfirm: false,
             hooks: false,
             skip_soar_install: false,
             modules: vec![],
-            diff: false,
+            dry_run: true,
         }
     } else if update {
         SyncCommand::Update {
@@ -52,13 +52,14 @@ pub fn handle_deprecated_sync_flags(
             hooks: false,
             skip_soar_install: false,
             modules: vec![],
+            dry_run: false,
         }
     };
 
     let new_cmd = match deprecated_command {
-        SyncCommand::Preview { .. } => "declarch sync preview",
         SyncCommand::Update { .. } => "declarch sync update",
         SyncCommand::Prune { .. } => "declarch sync prune",
+        SyncCommand::Sync { dry_run: true, .. } => "declarch sync --dry-run",
         SyncCommand::Sync { .. } => "declarch sync",
     };
 
@@ -190,41 +191,19 @@ pub fn sync_command_to_options(
             hooks,
             skip_soar_install,
             modules,
+            dry_run,
         } => sync::SyncOptions {
-            dry_run: false,
+            dry_run: *dry_run,
             prune: false,
             update: false,
             gc: *gc,
-            yes,
-            force,
+            yes: if *dry_run { false } else { yes },
+            force: if *dry_run { false } else { force },
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
-            diff: false,
-        },
-        SyncCommand::Preview {
-            gc,
-            target,
-            noconfirm,
-            hooks,
-            skip_soar_install,
-            modules,
-            diff,
-        } => sync::SyncOptions {
-            dry_run: true,
-            prune: false,
-            update: false,
-            gc: *gc,
-            yes: false,
-            force: false,
-            target: target.clone(),
-            noconfirm: *noconfirm,
-            hooks: *hooks,
-            skip_soar_install: *skip_soar_install,
-            modules: modules.clone(),
-            diff: *diff,
         },
         SyncCommand::Update {
             gc,
@@ -245,7 +224,6 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
-            diff: false,
         },
         SyncCommand::Prune {
             gc,
@@ -266,7 +244,6 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
-            diff: false,
         },
     }
 }

@@ -88,15 +88,15 @@ pub enum Command {
         #[command(subcommand)]
         command: Option<SyncCommand>,
 
-        /// [DEPRECATED] Use `declarch sync preview` instead
+        /// [DEPRECATED] Use `declarch sync --dry-run` instead
         #[arg(long, hide = true)]
         dry_run: bool,
 
-        /// [DEPRECATED] Use `declarch sync prune` instead
+        /// [DEPRECATED] Use `declarch sync --prune` instead
         #[arg(long, hide = true)]
         prune: bool,
 
-        /// [DEPRECATED] Use `declarch sync update` instead
+        /// [DEPRECATED] Use `declarch sync --update` instead
         #[arg(short = 'u', long, hide = true)]
         update: bool,
 
@@ -303,39 +303,10 @@ pub enum SyncCommand {
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
-    },
 
-    /// Preview changes without executing
-    ///
-    /// Shows what would be installed, updated, or removed without making changes.
-    Preview {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
-        /// Sync only specific package or scope (e.g. "firefox", "aur", "flatpak")
-        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
-        target: Option<String>,
-
-        /// Skip package manager confirmation prompts (CI/CD)
-        #[arg(long, help_heading = "Advanced")]
-        noconfirm: bool,
-
-        /// Enable hooks (disabled by default for security)
-        #[arg(long, help_heading = "Advanced")]
-        hooks: bool,
-
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
-
-        /// Show detailed diff format (like git diff)
+        /// Preview changes without executing (dry-run mode)
         #[arg(long, help_heading = "Display")]
-        diff: bool,
+        dry_run: bool,
     },
 
     /// Sync with system update

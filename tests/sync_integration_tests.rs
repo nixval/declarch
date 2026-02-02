@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use chrono::Utc;
-use declarch::commands::sync::{display_transaction_diff, SyncOptions};
+use declarch::commands::sync::SyncOptions;
 use declarch::config::loader::MergedConfig;
 use declarch::core::resolver::Transaction;
 use declarch::core::types::{PackageId, PackageMetadata, SyncTarget};
@@ -164,24 +164,6 @@ fn test_sync_orphan_detection() {
 }
 
 #[test]
-fn test_transaction_diff_display() {
-    // Test the diff display function
-    let tx = Transaction {
-        to_install: vec![
-            pkg_id(Backend::Aur, "bat"),
-            pkg_id(Backend::Aur, "fzf"),
-            pkg_id(Backend::Flatpak, "firefox"),
-        ],
-        to_adopt: vec![pkg_id(Backend::Aur, "exa")],
-        to_prune: vec![pkg_id(Backend::Aur, "old-pkg")],
-        to_update_project_metadata: vec![],
-    };
-
-    // Should not panic
-    display_transaction_diff(&tx, true);
-}
-
-#[test]
 fn test_sync_options_default() {
     // Test default sync options
     let options = SyncOptions {
@@ -196,7 +178,6 @@ fn test_sync_options_default() {
         hooks: false,
         skip_soar_install: false,
         modules: vec![],
-        diff: false,
     };
 
     assert!(!options.dry_run);
@@ -206,30 +187,8 @@ fn test_sync_options_default() {
 }
 
 #[test]
-fn test_sync_options_preview_mode() {
-    // Test preview mode options
-    let options = SyncOptions {
-        dry_run: true,
-        prune: false,
-        gc: false,
-        update: false,
-        yes: false,
-        force: false,
-        target: None,
-        noconfirm: false,
-        hooks: false,
-        skip_soar_install: false,
-        modules: vec![],
-        diff: true, // With diff enabled
-    };
-
-    assert!(options.dry_run);
-    assert!(options.diff);
-}
-
-#[test]
 fn test_backend_string_conversion() {
-    // Test backend to string conversion used in diff display
+    // Test backend to string conversion
     let backends = vec![
         (Backend::Aur, "aur"),
         (Backend::Flatpak, "flatpak"),
@@ -304,36 +263,4 @@ fn test_transaction_with_multiple_backends() {
     assert_eq!(aur_count, 1);
     assert_eq!(flatpak_count, 1);
     assert_eq!(npm_count, 1);
-}
-
-#[test]
-fn test_transaction_prune_disabled() {
-    // Test that prune doesn't show when disabled
-    let tx = Transaction {
-        to_install: vec![pkg_id(Backend::Aur, "new-pkg")],
-        to_adopt: vec![],
-        to_prune: vec![pkg_id(Backend::Aur, "old-pkg")],
-        to_update_project_metadata: vec![],
-    };
-
-    // With prune=false, diff should not show prune section
-    // This is mostly a smoke test that it doesn't panic
-    display_transaction_diff(&tx, false);
-
-    // With prune=true, should show all sections
-    display_transaction_diff(&tx, true);
-}
-
-#[test]
-fn test_empty_transaction_diff() {
-    // Test diff display with empty transaction
-    let tx = Transaction {
-        to_install: vec![],
-        to_adopt: vec![],
-        to_prune: vec![],
-        to_update_project_metadata: vec![],
-    };
-
-    // Should not panic and show "No changes"
-    display_transaction_diff(&tx, true);
 }
