@@ -10,19 +10,15 @@
 //! ### Custom Implementations (This Module)
 //!
 //! - **AUR** (`aur.rs`): Arch User Repository with helper detection
-//! - **Flatpak** (`flatpak.rs`): Universal apps with remote management
-//! - **Soar** (`soar.rs`): Static binary registry with auto-installation
 //!
-//! These backends require custom Rust code because they have:
-//! - Complex state management
-//! - Special initialization logic
-//! - Non-standard command patterns
-//! - Backend-specific features
+//! This is the only remaining custom implementation because AUR requires:
+//! - Helper detection (paru/yay)
+//! - Complex AUR-specific logic
 //!
 //! ### Generic Implementations (backends/ module)
 //!
-//! Simple package managers (npm, pip, cargo, brew, etc.) use the config-driven
-//! `GenericManager` pattern defined in the `backends` module.
+//! All other backends (npm, pip, cargo, brew, flatpak, soar, etc.) use the
+//! config-driven `GenericManager` pattern defined in the `backends` module.
 //!
 //! ## PackageManager Trait
 //!
@@ -53,7 +49,6 @@
 
 pub mod aur;
 pub mod registry;
-pub mod soar;
 pub mod traits;
 
 pub use registry::{create_manager, get_registry, BackendRegistry};

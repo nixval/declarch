@@ -503,6 +503,53 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
         },
     );
 
+    // === Soar Backend ===
+    backends.insert(
+        "soar".to_string(),
+        BackendConfig {
+            name: "soar".to_string(),
+            binary: BinarySpecifier::Single("soar".to_string()),
+            list_cmd: "soar list".to_string(),
+            install_cmd: "soar install -y {packages}".to_string(),
+            remove_cmd: "soar remove --yes {packages}".to_string(),
+            query_cmd: None,
+            list_format: crate::backends::config::OutputFormat::SplitWhitespace,
+            list_name_col: Some(0),
+            list_version_col: Some(1),
+            list_json_path: None,
+            list_name_key: None,
+            list_version_key: None,
+            list_regex: Some(r"\[○\]\s+(\S+)#.*\|\s+(\S+)".to_string()),
+            list_regex_name_group: Some(1),
+            list_regex_version_group: Some(2),
+            noconfirm_flag: None,
+            needs_sudo: false,
+            preinstall_env: None,
+            use_rust_fallback: false,
+            // Search - soar supports JSON search
+            search_cmd: Some("soar search --json {query}".to_string()),
+            search_format: Some(crate::backends::config::OutputFormat::Json),
+            search_json_path: None,
+            search_name_key: Some("pkg_name".to_string()),
+            search_version_key: Some("version".to_string()),
+            search_desc_key: Some("description".to_string()),
+            search_name_col: None,
+            search_desc_col: None,
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
+            // Output processing - soar uses ANSI codes
+            strip_ansi: Some(true),
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
+        },
+    );
+
     backends
 }
 

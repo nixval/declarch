@@ -168,14 +168,21 @@ impl BackendRegistry {
             )))
         });
 
-        // Soar Backend (Cross-distro) - Uses Rust implementation
-        self.register(Backend::Soar, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::soar::SoarManager::new(noconfirm)))
-        });
-
         // === Generic Backends (config-driven) ===
         // Get built-in backend configurations
         let builtin_backends = get_builtin_backends();
+
+        // Soar Backend (Cross-distro) - Uses GenericManager
+        if let Some(config) = builtin_backends.get("soar") {
+            let config = config.clone();
+            self.register(Backend::Soar, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Soar,
+                    noconfirm,
+                )))
+            });
+        }
 
         // Flatpak Backend (Cross-distro) - Uses GenericManager
         if let Some(config) = builtin_backends.get("flatpak") {
