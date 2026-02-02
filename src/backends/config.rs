@@ -100,6 +100,25 @@ pub struct BackendConfig {
 
     /// Capture group index for package description in search regex
     pub search_regex_desc_group: Option<usize>,
+
+    /// ===== OUTPUT PROCESSING =====
+    /// Strip ANSI escape codes from output (for backends that add colors)
+    pub strip_ansi: Option<bool>,
+
+    /// ===== AUTO-INSTALLATION =====
+    /// Command to auto-install the package manager itself if not available
+    /// Example: "curl -fsSL https://install.soar.qa | sh"
+    pub auto_install_cmd: Option<String>,
+
+    /// ===== COMMAND HOOKS =====
+    /// Command to run before install (e.g., for initialization)
+    pub pre_install_cmd: Option<String>,
+    /// Command to run after install
+    pub post_install_cmd: Option<String>,
+    /// Command to run before remove
+    pub pre_remove_cmd: Option<String>,
+    /// Command to run after remove
+    pub post_remove_cmd: Option<String>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -192,6 +211,15 @@ impl Default for BackendConfig {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         }
     }
 }

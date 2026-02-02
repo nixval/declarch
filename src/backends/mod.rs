@@ -99,6 +99,12 @@
 //!     search_regex: None,
 //!     search_regex_name_group: None,
 //!     search_regex_desc_group: None,
+//!     strip_ansi: None,
+//!     auto_install_cmd: None,
+//!     pre_install_cmd: None,
+//!     post_install_cmd: None,
+//!     pre_remove_cmd: None,
+//!     post_remove_cmd: None,
 //! };
 //! ```
 //!

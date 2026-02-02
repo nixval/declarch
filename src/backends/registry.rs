@@ -81,6 +81,15 @@
 //!         search_regex: None,
 //!         search_regex_name_group: None,
 //!         search_regex_desc_group: None,
+//!         // Output processing
+//!         strip_ansi: None,
+//!         // Auto-installation
+//!         auto_install_cmd: None,
+//!         // Command hooks
+//!         pre_install_cmd: None,
+//!         post_install_cmd: None,
+//!         pre_remove_cmd: None,
+//!         post_remove_cmd: None,
 //!     },
 //! );
 //! ```
@@ -153,6 +162,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 
@@ -191,6 +209,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 
@@ -229,6 +256,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 
@@ -267,6 +303,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 
@@ -305,6 +350,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 
@@ -343,6 +397,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 
@@ -381,6 +444,15 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
         },
     );
 

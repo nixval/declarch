@@ -36,6 +36,115 @@ impl GenericManager {
         }
     }
 
+    /// Strip ANSI escape codes from string
+    fn strip_ansi_codes(input: &str) -> String {
+        let mut result = String::with_capacity(input.len());
+        let mut chars = input.chars();
+
+        while let Some(c) = chars.next() {
+            if c == '\x1b' {
+                // Start of ANSI escape sequence
+                if chars.next() == Some('[') {
+                    // Skip until we hit the terminating character
+                    for next in chars.by_ref() {
+                        if next.is_ascii_alphabetic() {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                result.push(c);
+            }
+        }
+
+        result
+    }
+
+    /// Check if backend is available, auto-install if configured
+    fn ensure_available(&self) -> Result<()> {
+        if self.config.binary.find_available().is_some() {
+            return Ok(());
+        }
+
+        // Binary not found, try auto-install if configured
+        if let Some(auto_install_cmd) = &self.config.auto_install_cmd {
+            eprintln!("{} not found. Auto-installing...", self.config.name);
+            
+            let status = Command::new("sh")
+                .arg("-c")
+                .arg(auto_install_cmd)
+                .status()
+                .map_err(|e| DeclarchError::SystemCommandFailed {
+                    command: auto_install_cmd.clone(),
+                    reason: e.to_string(),
+                })?;
+
+            if !status.success() {
+                return Err(DeclarchError::PackageManagerError(format!(
+                    "Failed to auto-install {}",
+                    self.config.name
+                )));
+            }
+
+            // Check again after auto-install
+            if self.config.binary.find_available().is_none() {
+                return Err(DeclarchError::PackageManagerError(format!(
+                    "{} still not available after auto-install",
+                    self.config.name
+                )));
+            }
+
+            Ok(())
+        } else {
+            Err(DeclarchError::PackageManagerError(format!(
+                "{} not found. Please install {} first.",
+                self.config.binary.primary(),
+                self.config.name
+            )))
+        }
+    }
+
+    /// Run a command string via shell
+    fn run_shell_command(&self, cmd: &str, description: &str) -> Result<()> {
+        let mut command = Command::new("sh");
+        command.arg("-c").arg(cmd);
+
+        if self.config.needs_sudo {
+            // Wrap in sudo if needed - escape single quotes in cmd
+            let escaped_cmd = cmd.replace('\'', "'\"'\"'");
+            let sudo_cmd = format!("sudo sh -c '{}'", escaped_cmd);
+            command = Command::new("sh");
+            command.arg("-c").arg(&sudo_cmd);
+        }
+
+        command.stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
+
+        let status = command.status()
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: description.to_string(),
+                reason: e.to_string(),
+            })?;
+
+        if !status.success() {
+            return Err(DeclarchError::PackageManagerError(format!(
+                "{} failed",
+                description
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Run pre/post hook if configured
+    fn run_hook(&self, hook_cmd: &Option<String>, hook_name: &str) -> Result<()> {
+        if let Some(cmd) = hook_cmd {
+            self.run_shell_command(cmd, hook_name)?;
+        }
+        Ok(())
+    }
+
     /// Get the actual binary to use (first available from alternatives)
     fn get_binary(&self) -> Result<String> {
         self.config.binary.find_available().ok_or_else(|| {
@@ -102,8 +211,14 @@ impl PackageManager for GenericManager {
             return Ok(());
         }
 
+        // Ensure backend is available (auto-install if configured)
+        self.ensure_available()?;
+
         // Security: Validate all package names before shell execution
         sanitize::validate_package_names(packages)?;
+
+        // Run pre-install hook if configured
+        self.run_hook(&self.config.pre_install_cmd, "pre-install")?;
 
         let cmd_template = &self.config.install_cmd;
         let package_list = self.format_packages(packages);
@@ -143,6 +258,9 @@ impl PackageManager for GenericManager {
                 self.config.name
             )));
         }
+
+        // Run post-install hook if configured
+        self.run_hook(&self.config.post_install_cmd, "post-install")?;
 
         Ok(())
     }
