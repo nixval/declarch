@@ -52,16 +52,10 @@
 //! ```
 
 pub mod aur;
-pub mod brew;
-pub mod bun;
-pub mod cargo;
 pub mod flatpak;
-pub mod npm;
-pub mod pnpm;
 pub mod registry;
 pub mod soar;
 pub mod traits;
-pub mod yarn;
 
-pub use registry::{BackendRegistry, create_manager, get_registry};
+pub use registry::{create_manager, get_registry, BackendRegistry};
 pub use traits::PackageManager;

@@ -50,7 +50,7 @@
 //! 2. Add `Backend::<Name>` variant to `core/types.rs`
 //! 3. Register in `BackendRegistry::register_defaults()` using `GenericManager`
 
-use crate::backends::{GenericManager, get_builtin_backends};
+use crate::backends::{get_builtin_backends, GenericManager};
 use crate::config::types::GlobalConfig;
 use crate::constants::BACKENDS_FILE_NAME;
 use crate::core::types::Backend;
@@ -180,38 +180,61 @@ impl BackendRegistry {
             Ok(Box::new(crate::packages::soar::SoarManager::new(noconfirm)))
         });
 
-        // === New Generic Backends ===
+        // === Generic Backends (config-driven) ===
         // Get built-in backend configurations
         let builtin_backends = get_builtin_backends();
 
-        // Register npm backend (custom implementation with search support)
-        self.register(Backend::Npm, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::npm::NpmManager::new(noconfirm)))
-        });
+        // Register npm backend using GenericManager
+        if let Some(config) = builtin_backends.get("npm") {
+            let config = config.clone();
+            self.register(Backend::Npm, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Npm,
+                    noconfirm,
+                )))
+            });
+        }
 
-        // Register brew backend (custom implementation with search support)
-        self.register(Backend::Brew, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::brew::BrewManager::new(noconfirm)))
-        });
+        // Register yarn backend using GenericManager
+        if let Some(config) = builtin_backends.get("yarn") {
+            let config = config.clone();
+            self.register(Backend::Yarn, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Yarn,
+                    noconfirm,
+                )))
+            });
+        }
 
-        // Register yarn backend (custom implementation with search support)
-        self.register(Backend::Yarn, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::yarn::YarnManager::new(noconfirm)))
-        });
+        // Register pnpm backend using GenericManager
+        if let Some(config) = builtin_backends.get("pnpm") {
+            let config = config.clone();
+            self.register(Backend::Pnpm, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Pnpm,
+                    noconfirm,
+                )))
+            });
+        }
 
-        // Register pnpm backend (custom implementation with search support)
-        self.register(Backend::Pnpm, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::pnpm::PnpmManager::new(noconfirm)))
-        });
+        // Register bun backend using GenericManager
+        if let Some(config) = builtin_backends.get("bun") {
+            let config = config.clone();
+            self.register(Backend::Bun, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Bun,
+                    noconfirm,
+                )))
+            });
+        }
 
-        // Register bun backend (custom implementation with search support)
-        self.register(Backend::Bun, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::bun::BunManager::new(noconfirm)))
-        });
-
-        // Register pip backend (no search support - deprecated by PyPI)
-        if let Some(pip_config) = builtin_backends.get("pip") {
-            let config = pip_config.clone();
+        // Register pip backend using GenericManager
+        if let Some(config) = builtin_backends.get("pip") {
+            let config = config.clone();
             self.register(Backend::Pip, move |_global_config, noconfirm| {
                 Ok(Box::new(GenericManager::from_config(
                     config.clone(),
@@ -221,12 +244,29 @@ impl BackendRegistry {
             });
         }
 
-        // Register cargo backend (custom implementation with search support)
-        self.register(Backend::Cargo, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::cargo::CargoManager::new(
-                noconfirm,
-            )))
-        });
+        // Register cargo backend using GenericManager
+        if let Some(config) = builtin_backends.get("cargo") {
+            let config = config.clone();
+            self.register(Backend::Cargo, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Cargo,
+                    noconfirm,
+                )))
+            });
+        }
+
+        // Register brew backend using GenericManager
+        if let Some(config) = builtin_backends.get("brew") {
+            let config = config.clone();
+            self.register(Backend::Brew, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Brew,
+                    noconfirm,
+                )))
+            });
+        }
     }
 
     /// Get available backends for the current distro
