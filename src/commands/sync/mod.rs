@@ -59,6 +59,7 @@ pub struct SyncOptions {
     pub hooks: bool,
     pub skip_soar_install: bool,
     pub modules: Vec<String>,
+    pub diff: bool,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {

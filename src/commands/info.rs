@@ -14,6 +14,7 @@ pub struct InfoOptions {
     pub format: Option<String>,
     pub backend: Option<String>,
     pub package: Option<String>,
+    pub summary: bool,
 }
 
 pub fn run(options: InfoOptions) -> Result<()> {

@@ -332,6 +332,10 @@ pub enum SyncCommand {
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
+
+        /// Show detailed diff format (like git diff)
+        #[arg(long, help_heading = "Display")]
+        diff: bool,
     },
 
     /// Sync with system update
@@ -411,6 +415,10 @@ pub enum InfoCommand {
         /// Filter by package name
         #[arg(long, value_name = "PACKAGE")]
         package: Option<String>,
+
+        /// Show compact summary (quick overview like git status)
+        #[arg(long, help_heading = "Display")]
+        summary: bool,
     },
 
     /// Diagnose system issues

@@ -230,6 +230,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             hooks: true, // Always run hooks during install
             skip_soar_install: false,
             modules: modified_modules.clone(), // Sync only modified modules
+            diff: false,
         });
 
         match sync_result {

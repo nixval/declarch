@@ -24,6 +24,7 @@ pub fn handle_deprecated_sync_flags(
             hooks: false,
             skip_soar_install: false,
             modules: vec![],
+            diff: false,
         }
     } else if update {
         SyncCommand::Update {
@@ -134,6 +135,7 @@ pub fn handle_deprecated_info_flags(doctor: bool) -> (bool, InfoCommand) {
                 debug: false,
                 backend: None,
                 package: None,
+                summary: false,
             },
         )
     }
@@ -198,6 +200,7 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
+            diff: false,
         },
         SyncCommand::Preview {
             gc,
@@ -206,6 +209,7 @@ pub fn sync_command_to_options(
             hooks,
             skip_soar_install,
             modules,
+            diff,
         } => sync::SyncOptions {
             dry_run: true,
             prune: false,
@@ -218,6 +222,7 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
+            diff: *diff,
         },
         SyncCommand::Update {
             gc,
@@ -238,6 +243,7 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
+            diff: false,
         },
         SyncCommand::Prune {
             gc,
@@ -258,6 +264,7 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
+            diff: false,
         },
     }
 }

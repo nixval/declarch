@@ -20,14 +20,12 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             host,
             path,
             skip_soar_install,
-        }) => {
-            commands::init::run(commands::init::InitOptions {
-                host: host.clone(),
-                path: path.clone(),
-                force: args.global.force,
-                skip_soar_install: *skip_soar_install,
-            })
-        }
+        }) => commands::init::run(commands::init::InitOptions {
+            host: host.clone(),
+            path: path.clone(),
+            force: args.global.force,
+            skip_soar_install: *skip_soar_install,
+        }),
 
         Some(Command::Sync {
             command,
@@ -161,12 +159,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     debug,
                     backend,
                     package,
+                    summary,
                 } => commands::info::run(commands::info::InfoOptions {
                     doctor: false,
                     debug,
                     format: args.global.format.clone(),
                     backend,
                     package,
+                    summary,
                 }),
                 InfoCommand::Doctor {
                     debug,
@@ -178,6 +178,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     format: args.global.format.clone(),
                     backend,
                     package,
+                    summary: false,
                 }),
             }
         }
