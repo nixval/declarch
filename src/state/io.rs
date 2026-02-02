@@ -194,6 +194,17 @@ pub fn save_state(state: &State) -> Result<()> {
         source: e,
     })?;
 
+    // Set restrictive permissions (0600) - owner read/write only
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = std::fs::Permissions::from_mode(0o600);
+        std::fs::set_permissions(&path, permissions).map_err(|e| DeclarchError::IoError {
+            path: path.clone(),
+            source: e,
+        })?;
+    }
+
     Ok(())
 }
 
@@ -250,6 +261,17 @@ pub fn save_state_locked(state: &State) -> Result<()> {
         path: path.clone(),
         source: e,
     })?;
+
+    // Set restrictive permissions (0600) - owner read/write only
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = std::fs::Permissions::from_mode(0o600);
+        std::fs::set_permissions(&path, permissions).map_err(|e| DeclarchError::IoError {
+            path: path.clone(),
+            source: e,
+        })?;
+    }
 
     // Release lock (happens automatically when file is dropped)
     drop(file);
