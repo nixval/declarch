@@ -188,10 +188,10 @@ pub enum Command {
     /// Adds packages to KDL configuration files and automatically syncs the system.
     ///
     /// Examples:
-    ///   dcl install hyprland              Add to modules/others.kdl
-    ///   dcl install vim nano emacs        Add multiple packages
-    ///   dcl install soar:bat              Add to backend-specific block
-    ///   dcl install npm --modules base    Add to specific module
+    ///   declarch install hyprland              Add to modules/others.kdl
+    ///   declarch install vim nano emacs        Add multiple packages
+    ///   declarch install soar:bat              Add to backend-specific block
+    ///   declarch install npm --modules base    Add to specific module
     Install {
         /// Package(s) to install (format: [backend:]package)
         ///
@@ -226,9 +226,9 @@ pub enum Command {
     /// Configure output format, colors, and other preferences.
     ///
     /// Examples:
-    ///   dcl settings set color never     Disable colors
-    ///   dcl settings set format json     Set output format to JSON
-    ///   dcl settings show                Show all settings
+    ///   declarch settings set color never     Disable colors
+    ///   declarch settings set format json     Set output format to JSON
+    ///   declarch settings show                Show all settings
     Settings {
         #[command(subcommand)]
         command: SettingsCommand,
@@ -239,10 +239,10 @@ pub enum Command {
     /// Search for packages in AUR and other supported backends.
     ///
     /// Examples:
-    ///   dcl search firefox               Search for firefox in all backends
-    ///   dcl search firefox --backends aur  Search in AUR only
-    ///   dcl search bat --installed-only   Show only installed matches
-    ///   dcl search npm:prettier           Search in specific backend (alternative syntax)
+    ///   declarch search firefox               Search for firefox in all backends
+    ///   declarch search firefox --backends aur  Search in AUR only
+    ///   declarch search bat --installed-only   Show only installed matches
+    ///   declarch search npm:prettier           Search in specific backend (alternative syntax)
     Search {
         /// Search query (can use "backend:query" syntax for specific backend)
         #[arg(value_name = "QUERY")]
@@ -544,8 +544,8 @@ pub enum SettingsCommand {
     /// Set a setting value
     ///
     /// Examples:
-    ///   dcl settings set color never
-    ///   dcl settings set format json
+    ///   declarch settings set color never
+    ///   declarch settings set format json
     Set {
         /// Setting name (color, progress, format, verbose)
         #[arg(value_name = "KEY")]
@@ -559,7 +559,7 @@ pub enum SettingsCommand {
     /// Get a setting value
     ///
     /// Example:
-    ///   dcl settings get color
+    ///   declarch settings get color
     Get {
         /// Setting name
         #[arg(value_name = "KEY")]
@@ -569,13 +569,13 @@ pub enum SettingsCommand {
     /// Show all settings
     ///
     /// Example:
-    ///   dcl settings show
+    ///   declarch settings show
     Show,
 
     /// Reset setting to default
     ///
     /// Example:
-    ///   dcl settings reset color
+    ///   declarch settings reset color
     Reset {
         /// Setting name
         #[arg(value_name = "KEY")]

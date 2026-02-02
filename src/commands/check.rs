@@ -285,7 +285,7 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
     }
 
     println!();
-    output::info("Run 'dcl sync' to apply these changes");
+    output::info("Run 'declarch sync' to apply these changes");
 
     Ok(())
 }

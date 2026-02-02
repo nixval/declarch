@@ -91,7 +91,7 @@ pub fn display_summary() -> Result<()> {
             println!("  {} {} packages to remove", "-".red(), drift_remove);
         }
         println!();
-        println!("{} {}", "Run:".bright_black(), "dcl sync".cyan());
+        println!("{} {}", "Run:".bright_black(), "declarch sync".cyan());
         println!();
     }
 
@@ -116,8 +116,8 @@ pub fn display_summary() -> Result<()> {
             "{}",
             format!("{} orphan packages not tracked", drift_remove).red()
         );
-        println!("  (use \"dcl list orphans\" to see them)");
-        println!("  (use \"dcl sync prune\" to remove them)");
+        println!("  (use \"declarch list orphans\" to see them)");
+        println!("  (use \"declarch sync prune\" to remove them)");
     }
 
     Ok(())

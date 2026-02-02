@@ -19,7 +19,7 @@ impl ErrorSuggestions for DeclarchError {
         match self {
             DeclarchError::ConfigNotFound { path: _ } => Some(format!(
                 "Run '{}' to create initial configuration\nOr specify a different config path",
-                "dcl init".cyan()
+                "declarch init".cyan()
             )),
             DeclarchError::ConfigError(msg) => {
                 if msg.contains("KDL") {
@@ -30,15 +30,15 @@ impl ErrorSuggestions for DeclarchError {
                 } else {
                     Some(format!(
                         "Run '{}' to verify your configuration",
-                        "dcl check validate".cyan()
+                        "declarch check validate".cyan()
                     ))
                 }
             }
             DeclarchError::TargetNotFound(target) => Some(format!(
                 "Package '{}' not found in any backend\nTry: {} or {}",
                 target,
-                format!("dcl search {}", target).cyan(),
-                format!("dcl info --package {}", target).cyan()
+                format!("declarch search {}", target).cyan(),
+                format!("declarch info --package {}", target).cyan()
             )),
             DeclarchError::DependencyMissing(dep) => Some(format!(
                 "Install '{}' first, then retry the operation",
@@ -49,7 +49,7 @@ impl ErrorSuggestions for DeclarchError {
                 {
                     Some(format!(
                         "Check your AUR helper configuration: {}\nCommon fixes: {}, {}",
-                        "dcl settings show".cyan(),
+                        "declarch settings show".cyan(),
                         "sudo pacman -Sy".cyan(),
                         "paru -Syu".cyan()
                     ))
@@ -69,13 +69,13 @@ impl ErrorSuggestions for DeclarchError {
                 if msg.contains("not found") {
                     Some(format!(
                         "The package might not exist or might have a different name\nTry: {}",
-                        "dcl search <package-name>".cyan()
+                        "declarch search <package-name>".cyan()
                     ))
                 } else if msg.contains("already installed") {
                     Some(format!(
                         "Package is already installed. Use '{}' to update or '{}' to reinstall",
-                        "dcl sync --update".cyan(),
-                        "dcl sync --force".cyan()
+                        "declarch sync --update".cyan(),
+                        "declarch sync --force".cyan()
                     ))
                 } else if msg.contains("lock") || msg.contains("database") {
                     Some(format!(
@@ -93,7 +93,7 @@ impl ErrorSuggestions for DeclarchError {
             )),
             DeclarchError::Interrupted => Some(format!(
                 "Operation was cancelled. Run '{}' to resume",
-                "dcl sync".cyan()
+                "declarch sync".cyan()
             )),
             _ => None,
         }
@@ -122,22 +122,25 @@ pub fn get_cli_suggestion(input: &str) -> Option<String> {
     if input_lower.contains("install") && input_lower.contains("package") {
         Some(format!(
             "Did you mean: {} or {}?",
-            "dcl install <package>".cyan(),
-            "dcl sync".cyan()
+            "declarch install <package>".cyan(),
+            "declarch sync".cyan()
         ))
     } else if input_lower.contains("remove") || input_lower.contains("delete") {
         Some(format!(
             "To remove packages:\n1. Remove from config files\n2. Run {}",
-            "dcl sync --prune".cyan()
+            "declarch sync --prune".cyan()
         ))
     } else if input_lower.contains("update") || input_lower.contains("upgrade") {
-        Some(format!("Did you mean: {}?", "dcl sync --update".cyan()))
+        Some(format!(
+            "Did you mean: {}?",
+            "declarch sync --update".cyan()
+        ))
     } else if input_lower.contains("list") || input_lower.contains("show") {
         Some(format!(
             "Try: {}, {}, or {}",
-            "dcl list".cyan(),
-            "dcl info".cyan(),
-            "dcl info --summary".cyan()
+            "declarch list".cyan(),
+            "declarch info".cyan(),
+            "declarch info --summary".cyan()
         ))
     } else {
         None
@@ -254,7 +257,7 @@ mod tests {
 
         let suggestion = error.suggestion();
         assert!(suggestion.is_some());
-        assert!(suggestion.unwrap().contains("dcl init"));
+        assert!(suggestion.unwrap().contains("declarch init"));
     }
 
     #[test]
@@ -264,7 +267,7 @@ mod tests {
         let suggestion = error.suggestion();
         assert!(suggestion.is_some());
         let s = suggestion.unwrap();
-        assert!(s.contains("dcl search"));
+        assert!(s.contains("declarch search"));
         assert!(s.contains("firefox"));
     }
 }

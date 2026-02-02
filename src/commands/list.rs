@@ -207,7 +207,7 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
     if is_orphans {
         println!();
         output::info("Orphan packages are not managed by declarch");
-        output::info("Add them to your config or use 'dcl sync --prune' to remove");
+        output::info("Add them to your config or use 'declarch sync --prune' to remove");
     }
 }
 
