@@ -3,26 +3,10 @@ use crate::error::Result;
 use kdl::KdlNode;
 
 pub mod aur;
-pub mod brew;
-pub mod bun;
-pub mod cargo;
-pub mod flatpak;
-pub mod npm;
-pub mod pip;
-pub mod pnpm;
-pub mod soar;
-pub mod yarn;
+pub mod generic;
 
 pub use aur::AurParser;
-pub use brew::BrewParser;
-pub use bun::BunParser;
-pub use cargo::CargoParser;
-pub use flatpak::FlatpakParser;
-pub use npm::NpmParser;
-pub use pip::PipParser;
-pub use pnpm::PnpmParser;
-pub use soar::SoarParser;
-pub use yarn::YarnParser;
+pub use generic::GenericBackendParser;
 
 /// Trait for backend-specific package parsing
 ///

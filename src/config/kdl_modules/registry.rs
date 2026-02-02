@@ -3,53 +3,84 @@
 //! Manages all available backend parsers and provides
 //! a unified interface for parsing packages from KDL nodes.
 
-use crate::config::kdl_modules::parsers::BackendParser;
+use crate::config::kdl_modules::parsers::{AurParser, BackendParser, GenericBackendParser};
 use crate::config::kdl_modules::types::{Backend, PackageEntry, RawConfig};
 use crate::error::Result;
 use kdl::KdlNode;
-
-// Import individual parsers
-use crate::config::kdl_modules::parsers::{
-    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser, NpmParser, PipParser, PnpmParser,
-    SoarParser, YarnParser,
-};
+use std::collections::HashMap;
 
 /// Registry for backend parsers
 ///
-/// This registry manages all available backend parsers and provides
-/// a unified interface for parsing packages from KDL nodes.
+/// This registry manages all available backend parsers using a HashMap
+/// for efficient lookup. Only AUR has a custom parser; all other
+/// backends use the generic parser.
 pub struct BackendParserRegistry {
-    parsers: Vec<Box<dyn BackendParser>>,
-    #[allow(dead_code)]
-    default_backend: &'static str, // Reserved for future use
+    parsers: HashMap<String, Box<dyn BackendParser>>,
 }
 
 impl BackendParserRegistry {
     /// Create a new registry with default parsers
     pub fn new() -> Self {
-        Self {
-            parsers: vec![
-                Box::new(AurParser),
-                Box::new(SoarParser),
-                Box::new(FlatpakParser),
-                Box::new(NpmParser),
-                Box::new(YarnParser),
-                Box::new(PnpmParser),
-                Box::new(BunParser),
-                Box::new(PipParser),
-                Box::new(CargoParser),
-                Box::new(BrewParser),
-            ],
-            default_backend: "aur", // Default to AUR for Arch Linux
-        }
+        let mut parsers: HashMap<String, Box<dyn BackendParser>> = HashMap::new();
+
+        // AUR: Custom parser (complex parsing logic)
+        parsers.insert("aur".to_string(), Box::new(AurParser));
+        parsers.insert("repo".to_string(), Box::new(AurParser)); // alias
+
+        // Soar: Generic parser with "app" alias
+        let soar = GenericBackendParser::new(Backend::Soar, "soar", vec!["app"]);
+        parsers.insert("soar".to_string(), Box::new(soar));
+
+        // Flatpak: Generic parser
+        let flatpak = GenericBackendParser::new(Backend::Flatpak, "flatpak", vec![]);
+        parsers.insert("flatpak".to_string(), Box::new(flatpak));
+
+        // npm: Generic parser
+        let npm = GenericBackendParser::new(Backend::Npm, "npm", vec![]);
+        parsers.insert("npm".to_string(), Box::new(npm));
+
+        // yarn: Generic parser
+        let yarn = GenericBackendParser::new(Backend::Yarn, "yarn", vec![]);
+        parsers.insert("yarn".to_string(), Box::new(yarn));
+
+        // pnpm: Generic parser
+        let pnpm = GenericBackendParser::new(Backend::Pnpm, "pnpm", vec![]);
+        parsers.insert("pnpm".to_string(), Box::new(pnpm));
+
+        // bun: Generic parser
+        let bun = GenericBackendParser::new(Backend::Bun, "bun", vec![]);
+        parsers.insert("bun".to_string(), Box::new(bun));
+
+        // pip: Generic parser
+        let pip = GenericBackendParser::new(Backend::Pip, "pip", vec![]);
+        parsers.insert("pip".to_string(), Box::new(pip));
+
+        // cargo: Generic parser
+        let cargo = GenericBackendParser::new(Backend::Cargo, "cargo", vec![]);
+        parsers.insert("cargo".to_string(), Box::new(cargo));
+
+        // brew: Generic parser
+        let brew = GenericBackendParser::new(Backend::Brew, "brew", vec![]);
+        parsers.insert("brew".to_string(), Box::new(brew));
+
+        Self { parsers }
     }
 
     /// Find a parser by backend name (including aliases)
     pub fn find_parser(&self, backend: &str) -> Option<&dyn BackendParser> {
-        self.parsers
-            .iter()
-            .find(|p| p.matches(backend))
-            .map(|p| p.as_ref())
+        // First, try direct lookup
+        if let Some(parser) = self.parsers.get(backend) {
+            return Some(parser.as_ref());
+        }
+
+        // If not found, check aliases of all parsers
+        for parser in self.parsers.values() {
+            if parser.matches(backend) {
+                return Some(parser.as_ref());
+            }
+        }
+
+        None
     }
 
     /// Parse packages with inline prefix syntax
