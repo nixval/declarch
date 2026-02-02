@@ -1,3 +1,5 @@
+mod summary;
+
 use crate::config::loader;
 use crate::error::Result;
 use crate::state;
@@ -37,6 +39,11 @@ pub fn run(options: InfoOptions) -> Result<()> {
 }
 
 fn run_info(options: &InfoOptions) -> Result<()> {
+    // Handle --summary flag for quick overview
+    if options.summary {
+        return summary::display_summary();
+    }
+
     let state = state::io::load_state()?;
 
     // Apply filters

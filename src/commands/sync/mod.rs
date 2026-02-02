@@ -12,6 +12,7 @@ mod executor;
 mod state_sync;
 mod hooks;
 mod variants;
+pub mod diff;
 
 // Re-export public API
 pub use planner::{create_transaction, check_variant_transitions, warn_partial_upgrade, display_transaction_plan};
@@ -19,6 +20,7 @@ pub use executor::execute_transaction;
 pub use state_sync::update_state;
 pub use hooks::execute_sync_hooks;
 pub use variants::{find_aur_variant, resolve_installed_package_name};
+pub use diff::display_transaction_diff;
 
 use crate::config::loader;
 use crate::core::types::SyncTarget;
@@ -134,7 +136,13 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // Display transaction plan before execution
-    display_transaction_plan(&tx, options.prune);
+    if options.diff && options.dry_run {
+        // Show detailed diff format when --diff is enabled
+        display_transaction_diff(&tx, options.prune);
+    } else {
+        // Show standard compact format
+        display_transaction_plan(&tx, options.prune);
+    }
 
     if options.dry_run {
         output::info("Dry run mode - no changes will be made");
