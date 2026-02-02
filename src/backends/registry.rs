@@ -456,6 +456,53 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
         },
     );
 
+    // === Flatpak Backend ===
+    backends.insert(
+        "flatpak".to_string(),
+        BackendConfig {
+            name: "flatpak".to_string(),
+            binary: BinarySpecifier::Single("flatpak".to_string()),
+            list_cmd: "flatpak list --app --columns=application,version".to_string(),
+            install_cmd: "flatpak install --user flathub {packages}".to_string(),
+            remove_cmd: "flatpak uninstall --user {packages}".to_string(),
+            query_cmd: None,
+            list_format: crate::backends::config::OutputFormat::TabSeparated,
+            list_name_col: Some(0),
+            list_version_col: Some(1),
+            list_json_path: None,
+            list_name_key: None,
+            list_version_key: None,
+            list_regex: None,
+            list_regex_name_group: None,
+            list_regex_version_group: None,
+            noconfirm_flag: Some("-y".to_string()),
+            needs_sudo: false,
+            preinstall_env: None,
+            use_rust_fallback: false,
+            // Search - flatpak search uses tab-separated format
+            search_cmd: Some("flatpak search {query}".to_string()),
+            search_format: Some(crate::backends::config::OutputFormat::TabSeparated),
+            search_json_path: None,
+            search_name_key: None,
+            search_version_key: Some("3".to_string()), // 4th column (index 3)
+            search_desc_key: Some("1".to_string()),    // 2nd column (index 1)
+            search_name_col: Some(0),                  // 1st column
+            search_desc_col: Some(1),                  // 2nd column
+            search_regex: None,
+            search_regex_name_group: None,
+            search_regex_desc_group: None,
+            // Output processing
+            strip_ansi: None,
+            // Auto-installation
+            auto_install_cmd: None,
+            // Command hooks
+            pre_install_cmd: None,
+            post_install_cmd: None,
+            pre_remove_cmd: None,
+            post_remove_cmd: None,
+        },
+    );
+
     backends
 }
 

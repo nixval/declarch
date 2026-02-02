@@ -168,13 +168,6 @@ impl BackendRegistry {
             )))
         });
 
-        // Flatpak Backend (Cross-distro) - Uses Rust implementation
-        self.register(Backend::Flatpak, |_config, noconfirm| {
-            Ok(Box::new(crate::packages::flatpak::FlatpakManager::new(
-                noconfirm,
-            )))
-        });
-
         // Soar Backend (Cross-distro) - Uses Rust implementation
         self.register(Backend::Soar, |_config, noconfirm| {
             Ok(Box::new(crate::packages::soar::SoarManager::new(noconfirm)))
@@ -183,6 +176,18 @@ impl BackendRegistry {
         // === Generic Backends (config-driven) ===
         // Get built-in backend configurations
         let builtin_backends = get_builtin_backends();
+
+        // Flatpak Backend (Cross-distro) - Uses GenericManager
+        if let Some(config) = builtin_backends.get("flatpak") {
+            let config = config.clone();
+            self.register(Backend::Flatpak, move |_global_config, noconfirm| {
+                Ok(Box::new(GenericManager::from_config(
+                    config.clone(),
+                    Backend::Flatpak,
+                    noconfirm,
+                )))
+            });
+        }
 
         // Register npm backend using GenericManager
         if let Some(config) = builtin_backends.get("npm") {
