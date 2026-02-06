@@ -150,7 +150,7 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
         }
 
         let first_bak = dir.join("state.json.bak.1");
-        let _ = fs::copy(&path, &first_bak);
+        let _ = fs::copy(path, &first_bak);
     }
     // ----------------------------------------------------
 
@@ -209,6 +209,7 @@ pub fn save_state_locked(state: &State) -> Result<()> {
     let file = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(&path)
         .map_err(|e| DeclarchError::IoError {
             path: path.clone(),
