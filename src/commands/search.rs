@@ -193,7 +193,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
 
     // CLI flag overrides everything (intentional design)
     if let Some(backend_list) = &options.backends {
-        return backend_list.iter().map(|b| Backend::from_str(b).map_err(|e| crate::error::DeclarchError::ConfigError(e))).collect();
+        return backend_list.iter().map(|b| Backend::from_str(b).map_err(crate::error::DeclarchError::ConfigError)).collect();
     }
 
     // Otherwise, respect backend settings
@@ -218,7 +218,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
                 .split(',')
                 .map(|b| b.trim())
                 .filter(|b| !b.is_empty())
-                .map(|b| Backend::from_str(b).map_err(|e| crate::error::DeclarchError::ConfigError(e)))
+                .map(|b| Backend::from_str(b).map_err(crate::error::DeclarchError::ConfigError))
                 .collect()
         }
         _ => {

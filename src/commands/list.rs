@@ -37,7 +37,7 @@ pub fn run(options: ListOptions) -> Result<()> {
 
     // Filter by backend if specified
     if let Some(backend_str) = &options.backend {
-        let backend = Backend::from_str(backend_str).map_err(|e| crate::error::DeclarchError::ConfigError(e))?;
+        let backend = Backend::from_str(backend_str).map_err(crate::error::DeclarchError::ConfigError)?;
         packages.retain(|p| p.backend == backend);
     }
 
