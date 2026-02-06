@@ -62,18 +62,12 @@ impl BackendParserRegistry {
                     name: package.to_string(),
                 };
 
-                // Directly add to the appropriate config vector based on backend
+                // In simplified version, non-AUR backends go to legacy_packages
                 match backend {
                     "aur" => config.packages.push(entry),
-                    "soar" | "app" => config.soar_packages.push(entry),
-                    "flatpak" => config.flatpak_packages.push(entry),
-                    "npm" => config.npm_packages.push(entry),
-                    "yarn" => config.yarn_packages.push(entry),
-                    "pnpm" => config.pnpm_packages.push(entry),
-                    "bun" => config.bun_packages.push(entry),
-                    "pip" => config.pip_packages.push(entry),
-                    "cargo" => config.cargo_packages.push(entry),
-                    "brew" => config.brew_packages.push(entry),
+                    "soar" | "app" | "flatpak" | "npm" | "yarn" | "pnpm" | "bun" | "pip" | "cargo" | "brew" => {
+                        config.legacy_packages.push(entry)
+                    }
                     _ => config.packages.push(entry),
                 }
             } else {

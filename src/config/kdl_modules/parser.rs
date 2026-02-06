@@ -212,13 +212,13 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             "soar-packages" | "soar-package" => {
                 let packages = packages::extract_mixed_values_return(node);
                 config
-                    .soar_packages
+                    .legacy_packages
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             "flatpak-packages" | "flatpak-package" => {
                 let packages = packages::extract_mixed_values_return(node);
                 config
-                    .flatpak_packages
+                    .legacy_packages
                     .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
             }
             _ => {}

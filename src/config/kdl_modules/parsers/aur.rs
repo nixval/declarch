@@ -14,8 +14,8 @@ impl super::BackendParser for AurParser {
     }
 
     fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        // Add to legacy_packages for backward compatibility
-        extract_packages_to(node, &mut config.legacy_packages);
+        // AUR packages go to packages (the main package list)
+        extract_packages_to(node, &mut config.packages);
         Ok(())
     }
 }

@@ -120,8 +120,14 @@
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 3);
-        assert_eq!(config.soar_packages.len(), 4);
-        assert_eq!(config.flatpak_packages.len(), 2);
+        // soar-packages and flatpak-packages go to legacy_packages
+        assert_eq!(config.legacy_packages.len(), 6);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "fd"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "ripgrep"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "org.telegram.desktop"));
     }
 
     // New syntax tests
@@ -136,9 +142,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.legacy_packages.len(), 2);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
     }
 
     #[test]
@@ -166,16 +172,16 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.flatpak_packages.len(), 2);
+        assert_eq!(config.legacy_packages.len(), 2);
         assert!(
             config
-                .flatpak_packages
+                .legacy_packages
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
         assert!(
             config
-                .flatpak_packages
+                .legacy_packages
                 .iter()
                 .any(|p| p.name == "org.mozilla.firefox")
         );
@@ -203,20 +209,18 @@
         assert!(config.packages.iter().any(|p| p.name == "hyprland"));
         assert!(config.packages.iter().any(|p| p.name == "waybar"));
 
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
-
-        assert_eq!(config.flatpak_packages.len(), 2);
+        assert_eq!(config.legacy_packages.len(), 4);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
         assert!(
             config
-                .flatpak_packages
+                .legacy_packages
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
         assert!(
             config
-                .flatpak_packages
+                .legacy_packages
                 .iter()
                 .any(|p| p.name == "org.mozilla.firefox")
         );
@@ -244,8 +248,9 @@
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.soar_packages.len(), 1);
-        assert_eq!(config.flatpak_packages.len(), 1);
+        assert_eq!(config.legacy_packages.len(), 2);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "com.spotify.Client"));
     }
 
     #[test]
@@ -263,14 +268,12 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
-
-        assert_eq!(config.flatpak_packages.len(), 1);
+        assert_eq!(config.legacy_packages.len(), 3);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
         assert!(
             config
-                .flatpak_packages
+                .legacy_packages
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
@@ -287,8 +290,8 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 1);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        assert_eq!(config.legacy_packages.len(), 1);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
     }
 
     #[test]
@@ -309,17 +312,11 @@
         assert!(config.packages.iter().any(|p| p.name == "hyprland"));
         assert!(config.packages.iter().any(|p| p.name == "waybar"));
 
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
-
-        assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(
-            config
-                .flatpak_packages
-                .iter()
-                .any(|p| p.name == "com.spotify.Client")
-        );
+        // bat, exa, com.spotify.Client go to legacy_packages
+        assert_eq!(config.legacy_packages.len(), 3);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "com.spotify.Client"));
     }
 
     #[test]
@@ -337,8 +334,7 @@
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2); // hyprland + waybar
-        assert_eq!(config.soar_packages.len(), 1); // bat
-        assert_eq!(config.flatpak_packages.len(), 1); // com.spotify.Client
+        assert_eq!(config.legacy_packages.len(), 2); // bat + com.spotify.Client
     }
 
     #[test]
@@ -351,9 +347,9 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
+        assert_eq!(config.legacy_packages.len(), 2);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
     }
 
     #[test]
@@ -363,14 +359,14 @@
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.soar_packages.len(), 1);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
+        // soar:bat and flatpak:app.id go to legacy_packages
+        assert_eq!(config.legacy_packages.len(), 2);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "app.id"));
 
+        // aur:hyprland goes to packages
         assert_eq!(config.packages.len(), 1);
         assert!(config.packages.iter().any(|p| p.name == "hyprland"));
-
-        assert_eq!(config.flatpak_packages.len(), 1);
-        assert!(config.flatpak_packages.iter().any(|p| p.name == "app.id"));
     }
 
     #[test]
@@ -420,16 +416,13 @@
         assert!(config.packages.iter().any(|p| p.name == "swww"));
         assert!(config.packages.iter().any(|p| p.name == "rofi"));
 
-        // Soar packages: bat, exa
-        assert_eq!(config.soar_packages.len(), 2);
-        assert!(config.soar_packages.iter().any(|p| p.name == "bat"));
-        assert!(config.soar_packages.iter().any(|p| p.name == "exa"));
-
-        // Flatpak packages: com.spotify.Client
-        assert_eq!(config.flatpak_packages.len(), 1);
+        // Legacy packages: bat, exa, com.spotify.Client
+        assert_eq!(config.legacy_packages.len(), 3);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
         assert!(
             config
-                .flatpak_packages
+                .legacy_packages
                 .iter()
                 .any(|p| p.name == "com.spotify.Client")
         );
@@ -477,8 +470,12 @@
 
         let config = parse_kdl_content(kdl).unwrap();
         assert_eq!(config.packages.len(), 2);
-        assert_eq!(config.soar_packages.len(), 2); // bat + exa
-        assert_eq!(config.flatpak_packages.len(), 2);
+        // Legacy packages: bat, com.spotify.Client, exa, org.mozilla.firefox
+        assert_eq!(config.legacy_packages.len(), 4);
+        assert!(config.legacy_packages.iter().any(|p| p.name == "bat"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "exa"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "com.spotify.Client"));
+        assert!(config.legacy_packages.iter().any(|p| p.name == "org.mozilla.firefox"));
     }
 
     // NEW: Meta block tests
