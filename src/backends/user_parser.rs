@@ -516,6 +516,7 @@ mod tests {
             name: "test".to_string(),
             install_cmd: "test install".to_string(),
             remove_cmd: "test remove".to_string(),
+            fallback: None,
             ..Default::default()
         };
         // list_cmd is empty
@@ -532,6 +533,7 @@ mod tests {
             list_format: OutputFormat::Json,
             install_cmd: "test install".to_string(),
             remove_cmd: "test remove".to_string(),
+            fallback: None,
             ..Default::default()
         };
         // Missing name_key
@@ -548,6 +550,7 @@ mod tests {
             list_format: OutputFormat::Regex,
             install_cmd: "test install".to_string(),
             remove_cmd: "test remove".to_string(),
+            fallback: None,
             ..Default::default()
         };
         // Missing regex

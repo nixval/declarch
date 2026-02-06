@@ -70,6 +70,7 @@
 //!         needs_sudo: false,
 //!         preinstall_env: None,
 //!         use_rust_fallback: false,
+//!         fallback: None,
 //!         search_cmd: None,
 //!         search_format: None,
 //!         search_json_path: None,
@@ -141,6 +142,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            fallback: None,
             // Search - using custom implementation, not generic
             search_cmd: None,
             search_format: None,
@@ -179,6 +181,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            fallback: None,
             // Search - using custom implementation, not generic
             search_cmd: None,
             search_format: None,
@@ -217,6 +220,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            fallback: None,
             // Search - using custom implementation, not generic
             search_cmd: None,
             search_format: None,
@@ -255,6 +259,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            fallback: None,
             // Search - using custom implementation, not generic
             search_cmd: None,
             search_format: None,
@@ -293,6 +298,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            fallback: None,
             // Search - pip search is deprecated, no support
             search_cmd: None,
             search_format: None,
@@ -331,6 +337,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false, // Now uses generic parser
+            fallback: None,
             // Search - using custom implementation, not generic
             search_cmd: None,
             search_format: None,
@@ -369,6 +376,7 @@ pub fn get_builtin_backends() -> HashMap<String, BackendConfig> {
             needs_sudo: false,
             preinstall_env: None,
             use_rust_fallback: false,
+            fallback: None,
             // Search - using custom implementation, not generic
             search_cmd: None,
             search_format: None,

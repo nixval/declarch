@@ -100,6 +100,11 @@ pub struct BackendConfig {
 
     /// Capture group index for package description in search regex
     pub search_regex_desc_group: Option<usize>,
+
+    /// ===== FALLBACK SUPPORT =====
+    /// Optional fallback backend name if this backend is not available
+    /// Example: paru → pacman, yarn → npm
+    pub fallback: Option<String>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -192,6 +197,7 @@ impl Default for BackendConfig {
             search_regex: None,
             search_regex_name_group: None,
             search_regex_desc_group: None,
+            fallback: None,
         }
     }
 }

@@ -52,6 +52,7 @@ mod tests {
         let config = BackendConfig {
             list_name_col: Some(0),
             list_version_col: Some(1),
+            fallback: None,
             ..Default::default()
         };
 
@@ -68,6 +69,7 @@ mod tests {
         let config = BackendConfig {
             list_name_col: Some(0),
             list_version_col: Some(1),
+            fallback: None,
             ..Default::default()
         };
 
@@ -83,6 +85,7 @@ mod tests {
         let config = BackendConfig {
             list_name_col: Some(1),
             list_version_col: Some(0),
+            fallback: None,
             ..Default::default()
         };
 

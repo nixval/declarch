@@ -128,6 +128,7 @@ mod tests {
             list_json_path: Some("".to_string()),
             list_name_key: Some("name".to_string()),
             list_version_key: Some("version".to_string()),
+            fallback: None,
             ..Default::default()
         };
 
@@ -151,6 +152,7 @@ mod tests {
             list_json_path: Some("dependencies".to_string()),
             list_name_key: Some("name".to_string()),
             list_version_key: Some("version".to_string()),
+            fallback: None,
             ..Default::default()
         };
 
@@ -170,6 +172,7 @@ mod tests {
             list_json_path: Some("".to_string()),
             list_name_key: Some("name".to_string()),
             list_version_key: Some("version".to_string()),
+            fallback: None,
             ..Default::default()
         };
 
@@ -199,6 +202,7 @@ mod tests {
             list_json_path: Some("dependencies".to_string()),
             list_name_key: Some("name".to_string()), // Not used for Object format
             list_version_key: Some("version".to_string()),
+            fallback: None,
             ..Default::default()
         };
 

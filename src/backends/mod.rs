@@ -88,6 +88,7 @@
 //!     needs_sudo: false,
 //!     preinstall_env: None,
 //!     use_rust_fallback: false,
+//!     fallback: None,
 //!     search_cmd: None,
 //!     search_format: None,
 //!     search_json_path: None,

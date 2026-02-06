@@ -56,6 +56,7 @@ mod tests {
             list_regex: Some(r"(\S+)\s+(\S+)".to_string()),
             list_regex_name_group: Some(1),
             list_regex_version_group: Some(2),
+            fallback: None,
             ..Default::default()
         };
 
@@ -74,6 +75,7 @@ mod tests {
             list_regex: Some(r"(\S+)\s+(\S+)".to_string()),
             list_regex_name_group: Some(1),
             list_regex_version_group: Some(2),
+            fallback: None,
             ..Default::default()
         };
 
@@ -91,6 +93,7 @@ mod tests {
             list_regex: Some(r"package-(\w+)-([\d.]+)".to_string()),
             list_regex_name_group: Some(1),
             list_regex_version_group: Some(2),
+            fallback: None,
             ..Default::default()
         };
 

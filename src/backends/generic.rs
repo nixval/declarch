@@ -37,22 +37,43 @@ impl GenericManager {
     }
 
     /// Get the actual binary to use (first available from alternatives)
+    /// Handles fallback if primary binary not available and fallback configured
     fn get_binary(&self) -> Result<String> {
-        self.config.binary.find_available().ok_or_else(|| {
-            DeclarchError::PackageManagerError(format!(
-                "{} not found. Please install {} first.",
-                self.config.binary.primary(),
-                self.config.name
-            ))
-        })
+        // Try primary binary first
+        if let Some(bin) = self.config.binary.find_available() {
+            return Ok(bin);
+        }
+        
+        // If primary not available and fallback configured, try fallback
+        if let Some(fallback_name) = &self.config.fallback {
+            // Load fallback backend config
+            let all_backends = crate::backends::load_all_backends()
+                .map_err(|e| DeclarchError::PackageManagerError(
+                    format!("Failed to load backend configs: {}", e)
+                ))?;
+            
+            if let Some(fallback_config) = all_backends.get(fallback_name) {
+                if let Some(fallback_bin) = fallback_config.binary.find_available() {
+                    return Ok(fallback_bin);
+                }
+            }
+        }
+        
+        // Neither primary nor fallback available
+        Err(DeclarchError::PackageManagerError(format!(
+            "{} not found. Please install {} first.",
+            self.config.binary.primary(),
+            self.config.name
+        )))
     }
 
     /// Build command with optional sudo
+    /// Uses the resolved binary (respecting fallback if needed)
     fn build_command(&self, cmd_str: &str) -> Result<Command> {
-        let _binary = self.get_binary()?;
+        let binary = self.get_binary()?;
 
-        // Replace {packages} placeholder if present (for install/remove)
-        let cmd_str = cmd_str.to_string();
+        // Replace {binary} and {packages} placeholders
+        let cmd_str = cmd_str.replace("{binary}", &binary);
 
         if self.config.needs_sudo {
             let mut cmd = Command::new("sudo");
@@ -77,12 +98,16 @@ impl PackageManager for GenericManager {
     }
 
     fn list_installed(&self) -> Result<HashMap<String, PackageMetadata>> {
+        // Get the binary (respecting fallback if needed)
+        let binary = self.get_binary()?;
+        let cmd_str = self.config.list_cmd.replace("{binary}", &binary);
+        
         let output = Command::new("sh")
             .arg("-c")
-            .arg(&self.config.list_cmd)
+            .arg(&cmd_str)
             .output()
             .map_err(|e| DeclarchError::SystemCommandFailed {
-                command: self.config.list_cmd.clone(),
+                command: cmd_str.clone(),
                 reason: e.to_string(),
             })?;
 
@@ -191,7 +216,21 @@ impl PackageManager for GenericManager {
     }
 
     fn is_available(&self) -> bool {
-        self.config.binary.find_available().is_some()
+        // Check primary binary
+        if self.config.binary.find_available().is_some() {
+            return true;
+        }
+        
+        // Check fallback if configured
+        if let Some(fallback_name) = &self.config.fallback {
+            if let Ok(all_backends) = crate::backends::load_all_backends() {
+                if let Some(fallback_config) = all_backends.get(fallback_name) {
+                    return fallback_config.binary.find_available().is_some();
+                }
+            }
+        }
+        
+        false
     }
 
     fn get_required_by(&self, _package: &str) -> Result<Vec<String>> {
@@ -212,8 +251,13 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Replace {query} placeholder
-        let cmd_str = search_cmd.replace("{query}", query);
+        // Get the binary (respecting fallback if needed)
+        let binary = self.get_binary()?;
+        
+        // Replace {binary} and {query} placeholders
+        let cmd_str = search_cmd
+            .replace("{binary}", &binary)
+            .replace("{query}", query);
 
         let output = Command::new("sh")
             .arg("-c")
@@ -451,6 +495,7 @@ mod tests {
         let config = BackendConfig {
             name: "test".to_string(),
             binary: BinarySpecifier::Single("echo".to_string()),
+            fallback: None,
             ..Default::default()
         };
 
