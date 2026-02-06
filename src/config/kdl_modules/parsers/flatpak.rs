@@ -3,7 +3,9 @@ use crate::config::kdl_modules::types::RawConfig;
 use crate::error::Result;
 use kdl::KdlNode;
 
-/// Flatpak backend parser
+/// Flatpak backend parser (DEPRECATED in v0.6+)
+/// 
+/// In v0.6+, use `pkg { flatpak { packages } }` syntax instead.
 pub struct FlatpakParser;
 
 impl super::BackendParser for FlatpakParser {
@@ -12,7 +14,7 @@ impl super::BackendParser for FlatpakParser {
     }
 
     fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.flatpak_packages);
+        extract_packages_to(node, &mut config.legacy_packages);
         Ok(())
     }
 }

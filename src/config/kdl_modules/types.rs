@@ -7,6 +7,10 @@ pub struct RawConfig {
     /// Packages from AUR (Arch Linux specific)
     /// Syntax: packages { ... } or packages:aur { ... }
     pub packages: Vec<PackageEntry>,
+    /// Legacy packages (v0.5 syntax - deprecated in v0.6+)
+    /// This field collects packages from legacy backend-specific blocks
+    /// during the migration period. Use pkg { } blocks in v0.6+.
+    pub legacy_packages: Vec<PackageEntry>,
     /// Packages from Soar registry (cross-distro static binaries)
     /// Syntax: packages:soar { ... } or soar:package in packages block
     pub soar_packages: Vec<PackageEntry>,

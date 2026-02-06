@@ -3,7 +3,9 @@ use crate::config::kdl_modules::types::RawConfig;
 use crate::error::Result;
 use kdl::KdlNode;
 
-/// Cargo backend parser
+/// Cargo backend parser (DEPRECATED in v0.6+)
+/// 
+/// In v0.6+, use `pkg { cargo { packages } }` syntax instead.
 pub struct CargoParser;
 
 impl super::BackendParser for CargoParser {
@@ -12,7 +14,7 @@ impl super::BackendParser for CargoParser {
     }
 
     fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.cargo_packages);
+        extract_packages_to(node, &mut config.legacy_packages);
         Ok(())
     }
 }

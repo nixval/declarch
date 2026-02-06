@@ -3,7 +3,9 @@ use crate::config::kdl_modules::types::RawConfig;
 use crate::error::Result;
 use kdl::KdlNode;
 
-/// npm backend parser
+/// npm backend parser (DEPRECATED in v0.6+)
+/// 
+/// In v0.6+, use `pkg { npm { packages } }` syntax instead.
 pub struct NpmParser;
 
 impl super::BackendParser for NpmParser {
@@ -12,7 +14,7 @@ impl super::BackendParser for NpmParser {
     }
 
     fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.npm_packages);
+        extract_packages_to(node, &mut config.legacy_packages);
         Ok(())
     }
 }

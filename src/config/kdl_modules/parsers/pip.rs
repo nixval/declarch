@@ -3,7 +3,9 @@ use crate::config::kdl_modules::types::RawConfig;
 use crate::error::Result;
 use kdl::KdlNode;
 
-/// pip backend parser
+/// pip backend parser (DEPRECATED in v0.6+)
+/// 
+/// In v0.6+, use `pkg { pip { packages } }` syntax instead.
 pub struct PipParser;
 
 impl super::BackendParser for PipParser {
@@ -12,7 +14,7 @@ impl super::BackendParser for PipParser {
     }
 
     fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        extract_packages_to(node, &mut config.pip_packages);
+        extract_packages_to(node, &mut config.legacy_packages);
         Ok(())
     }
 }
