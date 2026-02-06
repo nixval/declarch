@@ -48,7 +48,7 @@ pub struct PackageState {
 impl Default for PackageState {
     fn default() -> Self {
         Self {
-            backend: Backend::Aur,
+            backend: Backend::from("unknown"),
             config_name: String::new(),
             provides_name: String::new(),
             aur_package_name: None,
