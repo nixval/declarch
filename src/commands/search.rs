@@ -8,6 +8,7 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
+use std::str::FromStr;
 
 pub struct SearchOptions {
     pub query: String,
@@ -192,7 +193,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
 
     // CLI flag overrides everything (intentional design)
     if let Some(backend_list) = &options.backends {
-        return backend_list.iter().map(|b| parse_backend(b)).collect();
+        return backend_list.iter().map(|b| Backend::from_str(b).map_err(|e| crate::error::DeclarchError::ConfigError(e))).collect();
     }
 
     // Otherwise, respect backend settings
@@ -217,7 +218,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
                 .split(',')
                 .map(|b| b.trim())
                 .filter(|b| !b.is_empty())
-                .map(parse_backend)
+                .map(|b| Backend::from_str(b).map_err(|e| crate::error::DeclarchError::ConfigError(e)))
                 .collect()
         }
         _ => {
@@ -228,22 +229,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
     }
 }
 
-fn parse_backend(backend_str: &str) -> Result<Backend> {
-    let backend_lower = backend_str.to_lowercase();
-    match backend_lower.as_str() {
-        "aur" => Ok(Backend::Aur),
-        "flatpak" => Ok(Backend::Flatpak),
-        "soar" => Ok(Backend::Soar),
-        "npm" => Ok(Backend::Npm),
-        "yarn" => Ok(Backend::Yarn),
-        "pnpm" => Ok(Backend::Pnpm),
-        "bun" => Ok(Backend::Bun),
-        "pip" => Ok(Backend::Pip),
-        "cargo" => Ok(Backend::Cargo),
-        "brew" => Ok(Backend::Brew),
-        _ => Ok(Backend::Custom(backend_str.to_string())),
-    }
-}
+
 
 fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManager>> {
     use crate::packages::create_manager;

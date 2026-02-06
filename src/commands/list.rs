@@ -6,6 +6,7 @@ use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 /// Options for the list command
 pub struct ListOptions {
@@ -36,7 +37,7 @@ pub fn run(options: ListOptions) -> Result<()> {
 
     // Filter by backend if specified
     if let Some(backend_str) = &options.backend {
-        let backend = parse_backend(backend_str)?;
+        let backend = Backend::from_str(backend_str).map_err(|e| crate::error::DeclarchError::ConfigError(e))?;
         packages.retain(|p| p.backend == backend);
     }
 
@@ -77,23 +78,7 @@ pub fn run(options: ListOptions) -> Result<()> {
     }
 }
 
-/// Parse backend string to Backend enum
-fn parse_backend(backend_str: &str) -> Result<Backend> {
-    let backend_lower = backend_str.to_lowercase();
-    match backend_lower.as_str() {
-        "aur" => Ok(Backend::Aur),
-        "flatpak" => Ok(Backend::Flatpak),
-        "soar" => Ok(Backend::Soar),
-        "npm" => Ok(Backend::Npm),
-        "yarn" => Ok(Backend::Yarn),
-        "pnpm" => Ok(Backend::Pnpm),
-        "bun" => Ok(Backend::Bun),
-        "pip" => Ok(Backend::Pip),
-        "cargo" => Ok(Backend::Cargo),
-        "brew" => Ok(Backend::Brew),
-        _ => Ok(Backend::Custom(backend_str.to_string())),
-    }
-}
+
 
 /// Find orphan packages (installed but not in config)
 fn find_orphans<'a>(

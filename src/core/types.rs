@@ -12,8 +12,9 @@ pub struct PackageId {
 
 // Supported backends.
 // To add a new package manager (e.g. Snap), add a variant here and update:
-// - Backend::display()
-// - Backend::from_str() (via PackageId::from_str())
+// - Backend::display() (fmt::Display trait)
+// - Backend::from_str() (FromStr trait)
+// - PackageId::from_str() for prefix parsing
 // - BackendRegistry::register_defaults()
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -45,6 +46,27 @@ impl fmt::Display for Backend {
             Self::Cargo => write!(f, "cargo"),
             Self::Brew => write!(f, "brew"),
             Self::Custom(name) => write!(f, "{}", name),
+        }
+    }
+}
+
+impl FromStr for Backend {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "aur" => Ok(Self::Aur),
+            "flatpak" => Ok(Self::Flatpak),
+            "soar" => Ok(Self::Soar),
+            "npm" => Ok(Self::Npm),
+            "yarn" => Ok(Self::Yarn),
+            "pnpm" => Ok(Self::Pnpm),
+            "bun" => Ok(Self::Bun),
+            "pip" => Ok(Self::Pip),
+            "cargo" => Ok(Self::Cargo),
+            "brew" => Ok(Self::Brew),
+            // Treat unknown backends as Custom
+            other => Ok(Self::Custom(other.to_string())),
         }
     }
 }

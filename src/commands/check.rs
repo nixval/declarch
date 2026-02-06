@@ -7,24 +7,7 @@ use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashSet;
 use std::path::Path;
-
-/// Parse backend string to Backend enum
-fn parse_backend(backend_str: &str) -> Result<Backend> {
-    let backend_lower = backend_str.to_lowercase();
-    match backend_lower.as_str() {
-        "aur" => Ok(Backend::Aur),
-        "flatpak" => Ok(Backend::Flatpak),
-        "soar" => Ok(Backend::Soar),
-        "npm" => Ok(Backend::Npm),
-        "yarn" => Ok(Backend::Yarn),
-        "pnpm" => Ok(Backend::Pnpm),
-        "bun" => Ok(Backend::Bun),
-        "pip" => Ok(Backend::Pip),
-        "cargo" => Ok(Backend::Cargo),
-        "brew" => Ok(Backend::Brew),
-        _ => Ok(Backend::Custom(backend_str.to_string())),
-    }
-}
+use std::str::FromStr;
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -81,7 +64,7 @@ pub fn run(
 
     // Filter packages by backend if specified
     let package_count = if let Some(backend_str) = &backend_filter {
-        let backend = parse_backend(backend_str)?;
+        let backend = Backend::from_str(backend_str).map_err(|e| crate::error::DeclarchError::ConfigError(e))?;
         let filtered_count = config
             .packages
             .iter()
@@ -106,7 +89,7 @@ pub fn run(
         println!("{}", "Resolved Packages:".bold());
 
         let mut sorted_pkgs: Vec<_> = if let Some(backend_str) = &backend_filter {
-            let backend = parse_backend(backend_str)?;
+            let backend = Backend::from_str(backend_str).map_err(|e| crate::error::DeclarchError::ConfigError(e))?;
             config
                 .packages
                 .iter()

@@ -10,6 +10,7 @@ use crate::ui as output;
 use crate::utils::paths;
 use regex::Regex;
 use std::fs;
+use std::str::FromStr;
 
 /// Options for the install command
 #[derive(Debug)]
@@ -28,22 +29,7 @@ pub struct InstallOptions {
     pub dry_run: bool,
 }
 
-/// Convert backend string to Backend enum
-fn parse_backend(backend_str: &str) -> Backend {
-    match backend_str.to_lowercase().as_str() {
-        "aur" => Backend::Aur,
-        "flatpak" => Backend::Flatpak,
-        "soar" => Backend::Soar,
-        "npm" => Backend::Npm,
-        "yarn" => Backend::Yarn,
-        "pnpm" => Backend::Pnpm,
-        "bun" => Backend::Bun,
-        "pip" => Backend::Pip,
-        "cargo" => Backend::Cargo,
-        "brew" => Backend::Brew,
-        _ => Backend::Custom(backend_str.to_string()),
-    }
-}
+
 
 /// Run the install command
 pub fn run(options: InstallOptions) -> Result<()> {
@@ -95,7 +81,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         let exact_match = if let Some(backend) = backend_str {
             if let Some(ref packages) = existing_packages {
                 let pkg_id = PackageId {
-                    backend: parse_backend(backend),
+                    backend: Backend::from_str(backend).unwrap_or_else(|_| Backend::Custom(backend.to_string())),
                     name: pkg_name.clone(),
                 };
                 packages.contains_key(&pkg_id)
