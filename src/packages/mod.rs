@@ -1,32 +1,17 @@
-//! # Package Manager Implementations
+//! # Package Manager Module
 //!
-//! This module contains custom Rust implementations for package managers that
-//! require complex logic beyond what can be expressed in simple configuration.
+//! This module provides the core infrastructure for package management.
+//! All backends are now handled through the generic `GenericManager`.
 //!
-//! ## Architecture
+//! ## Architecture (v0.6+)
 //!
-//! Declarch supports two backend patterns:
-//!
-//! ### Custom Implementations (This Module)
-//!
-//! - **AUR** (`aur.rs`): Arch User Repository with helper detection
-//! - **Flatpak** (`flatpak.rs`): Universal apps with remote management
-//! - **Soar** (`soar.rs`): Static binary registry with auto-installation
-//!
-//! These backends require custom Rust code because they have:
-//! - Complex state management
-//! - Special initialization logic
-//! - Non-standard command patterns
-//! - Backend-specific features
-//!
-//! ### Generic Implementations (backends/ module)
-//!
-//! Simple package managers (npm, pip, cargo, brew, etc.) use the config-driven
-//! `GenericManager` pattern defined in the `backends` module.
+//! In v0.6, all package managers are config-driven through `GenericManager`.
+//! There are no custom Rust implementations - all backend logic is defined
+//! in KDL configuration files at `~/.config/declarch/backends/*.kdl`.
 //!
 //! ## PackageManager Trait
 //!
-//! All package managers implement the `PackageManager` trait, which defines:
+//! The `PackageManager` trait defines the interface that all backends implement:
 //! - `install()` - Install packages
 //! - `remove()` - Remove packages
 //! - `list_installed()` - List installed packages
@@ -34,9 +19,8 @@
 //!
 //! ## BackendRegistry
 //!
-//! The `BackendRegistry` provides a factory pattern for creating package manager
-//! instances. It registers both custom and generic backends, allowing unified
-//! access through a common interface.
+//! The `BackendRegistry` provides a factory for creating package manager
+//! instances from backend configuration files.
 //!
 //! ## Usage
 //!
@@ -46,22 +30,14 @@
 //! use declarch::config::types::GlobalConfig;
 //!
 //! let config = GlobalConfig::default();
-//! let manager = create_manager(&Backend::Aur, &config, false)?;
+//! let backend = Backend::from("paru");
+//! let manager = create_manager(&backend, &config, false)?;
 //! manager.install(&vec!["hyprland".to_string()])?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-pub mod aur;
-pub mod brew;
-pub mod bun;
-pub mod cargo;
-pub mod flatpak;
-pub mod npm;
-pub mod pnpm;
 pub mod registry;
-pub mod soar;
 pub mod traits;
-pub mod yarn;
 
 pub use registry::{BackendRegistry, create_manager, get_registry};
 pub use traits::PackageManager;
