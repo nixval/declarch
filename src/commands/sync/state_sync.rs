@@ -2,7 +2,7 @@
 //!
 //! Updates state.json with new package information.
 
-use crate::core::{resolver, types::{Backend, PackageId, PackageMetadata}};
+use crate::core::{resolver, types::{PackageId, PackageMetadata}};
 use crate::error::Result;
 use crate::state::types::{State, PackageState};
 use super::{InstalledSnapshot, SyncOptions};
@@ -49,7 +49,7 @@ pub fn update_state(
         let key = resolver::make_state_key(pkg);
 
         // Discover actual AUR package name if applicable
-        let aur_package_name = if pkg.backend == Backend::Aur {
+        let aur_package_name = if pkg.backend.0 == "aur" {
             discover_aur_package_name(&pkg.name)
         } else {
             None

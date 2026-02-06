@@ -159,8 +159,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
 fn resolve_target(target: &Option<String>) -> SyncTarget {
     if let Some(t) = target {
         match t.to_lowercase().as_str() {
-            "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::Aur),
-            "flatpak" => SyncTarget::Backend(Backend::Flatpak),
+            "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::from("aur")),
+            "flatpak" => SyncTarget::Backend(Backend::from("flatpak")),
             _ => SyncTarget::Named(t.clone()),
         }
     } else {
@@ -219,7 +219,7 @@ fn initialize_managers_and_snapshot(
                 let mut available = manager.is_available();
 
                 // Special handling for Soar: try to install if missing
-                if matches!(backend, Backend::Soar)
+                if backend.0 == "soar"
                     && !available
                     && !options.skip_soar_install
                     && !options.dry_run
@@ -276,7 +276,7 @@ fn initialize_managers_and_snapshot(
         let has_aur_packages = config
             .packages
             .keys()
-            .any(|pkg_id| matches!(pkg_id.backend, Backend::Aur));
+            .any(|pkg_id| pkg_id.backend.0 == "aur");
         if has_aur_packages {
             output::warning(
                 "AUR packages detected but system is not Arch-based. These will be skipped.",

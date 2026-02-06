@@ -454,7 +454,7 @@ mod tests {
             ..Default::default()
         };
 
-        let manager = GenericManager::from_config(config, Backend::Aur, false);
+        let manager = GenericManager::from_config(config, Backend::from("aur"), false);
         let packages = vec!["pkg1".to_string(), "pkg2".to_string()];
 
         assert_eq!(manager.format_packages(&packages), "pkg1 pkg2");

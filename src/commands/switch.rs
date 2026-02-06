@@ -169,7 +169,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             let new_state_key = format!("{}:{}", backend, options.new_package);
 
             // Discover actual AUR package name if applicable
-            let aur_package_name = if backend == Backend::Aur {
+            let aur_package_name = if backend == Backend::from("aur") {
                 discover_aur_package_name(&options.new_package)
             } else {
                 None
@@ -279,9 +279,9 @@ fn discover_aur_package_name(package_name: &str) -> Option<String> {
 fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<Backend> {
     if let Some(backend_str) = backend_opt {
         match backend_str.to_lowercase().as_str() {
-            "aur" => Ok(Backend::Aur),
-            "flatpak" => Ok(Backend::Flatpak),
-            "soar" => Ok(Backend::Soar),
+            "aur" => Ok(Backend::from("aur")),
+            "flatpak" => Ok(Backend::from("flatpak")),
+            "soar" => Ok(Backend::from("soar")),
             _ => Err(DeclarchError::Other(format!(
                 "Unknown backend: {}. Use 'aur', 'flatpak', or 'soar'",
                 backend_str
@@ -290,12 +290,12 @@ fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<
     } else {
         // Auto-detect based on prefix
         if package_name.starts_with("flatpak:") {
-            Ok(Backend::Flatpak)
+            Ok(Backend::from("flatpak"))
         } else if package_name.starts_with("soar:") {
-            Ok(Backend::Soar)
+            Ok(Backend::from("soar"))
         } else {
             // Default to AUR
-            Ok(Backend::Aur)
+            Ok(Backend::from("aur"))
         }
     }
 }

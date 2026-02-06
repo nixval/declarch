@@ -8,7 +8,7 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
-use std::str::FromStr;
+
 
 pub struct SearchOptions {
     pub query: String,
@@ -149,23 +149,12 @@ pub fn run(options: SearchOptions) -> Result<()> {
                 }
             }
             Ok(_) => {
-                // Backend doesn't support search - check if it's a custom backend
-                match backend {
-                    Backend::Custom(name) => {
-                        output::warning(&format!(
-                            "Search from custom backend '{}' is not working. Add 'search' configuration to ~/.config/declarch/backends.kdl",
-                            name
-                        ));
-                        output::info("See documentation for custom backend search syntax examples");
-                    }
-                    _ => {
-                        output::warning(&format!(
-                            "Backend '{}' does not support search. Supported backends: AUR, Flatpak, Soar, npm, yarn, pnpm, bun, cargo, brew",
-                            backend
-                        ));
-                        output::info("Tip: Use --backends flag to specify supported backends");
-                    }
-                }
+                // Backend doesn't support search
+                output::warning(&format!(
+                    "Backend '{}' does not support search. Supported backends: AUR, Flatpak, Soar, npm, yarn, pnpm, bun, cargo, brew",
+                    backend
+                ));
+                output::info("Tip: Use --backends flag to specify supported backends");
             }
             Err(e) => {
                 output::warning(&format!("Failed to initialize {}: {}", backend, e));
@@ -193,7 +182,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
 
     // CLI flag overrides everything (intentional design)
     if let Some(backend_list) = &options.backends {
-        return backend_list.iter().map(|b| Backend::from_str(b).map_err(crate::error::DeclarchError::ConfigError)).collect();
+        return Ok(backend_list.iter().map(|b| Backend::from(b.as_str())).collect());
     }
 
     // Otherwise, respect backend settings
@@ -218,13 +207,13 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
                 .split(',')
                 .map(|b| b.trim())
                 .filter(|b| !b.is_empty())
-                .map(|b| Backend::from_str(b).map_err(crate::error::DeclarchError::ConfigError))
+                .map(|b| Ok(Backend::from(b)))
                 .collect()
         }
         _ => {
             // Auto mode: search AUR only by default
             // Use backend:query syntax or --backends flag to search other backends
-            Ok(vec![Backend::Aur])
+            Ok(vec![Backend::from("aur")])
         }
     }
 }

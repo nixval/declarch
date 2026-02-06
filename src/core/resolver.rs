@@ -131,12 +131,12 @@ mod tests {
     use std::path::PathBuf;
 
     // Helper: Mock Config
-    fn mock_config(pkgs: Vec<(&str, Backend)>) -> MergedConfig {
+    fn mock_config(pkgs: Vec<(&str, &str)>) -> MergedConfig {
         let mut map = HashMap::new();
-        for (name, backend) in pkgs {
+        for (name, backend_str) in pkgs {
             let id = PackageId {
                 name: name.to_string(),
-                backend,
+                backend: Backend::from(backend_str),
             };
             map.insert(id, vec![PathBuf::from("dummy.kdl")]);
         }
@@ -155,9 +155,10 @@ mod tests {
     }
 
     // Helper: Mock State (Updated to use new "backend:name" key format)
-    fn mock_state(pkgs: Vec<(&str, Backend, &str)>) -> State {
+    fn mock_state(pkgs: Vec<(&str, &str, &str)>) -> State {
         let mut state = State::default();
-        for (name, backend, version) in pkgs {
+        for (name, backend_str, version) in pkgs {
+            let backend = Backend::from(backend_str);
             let id = PackageId {
                 name: name.to_string(),
                 backend: backend.clone(),
@@ -180,12 +181,12 @@ mod tests {
     }
 
     // Helper: Mock System Snapshot
-    fn mock_snapshot(pkgs: Vec<(&str, Backend, &str)>) -> HashMap<PackageId, PackageMetadata> {
+    fn mock_snapshot(pkgs: Vec<(&str, &str, &str)>) -> HashMap<PackageId, PackageMetadata> {
         let mut map = HashMap::new();
-        for (name, backend, version) in pkgs {
+        for (name, backend_str, version) in pkgs {
             let id = PackageId {
                 name: name.to_string(),
-                backend,
+                backend: Backend::from(backend_str),
             };
             map.insert(
                 id,
@@ -203,7 +204,7 @@ mod tests {
     #[test]
     fn test_install_flow() {
         // Case: Config has git, System empty -> Install git
-        let config = mock_config(vec![("git", Backend::Aur)]);
+        let config = mock_config(vec![("git", "aur")]);
         let state = State::default();
         let snapshot = HashMap::new();
 
@@ -216,9 +217,9 @@ mod tests {
     #[test]
     fn test_smart_match_suffix() {
         // Case: Config has "gdu", System has "gdu-bin" -> Adopt "gdu" (Mapped)
-        let config = mock_config(vec![("gdu", Backend::Aur)]);
+        let config = mock_config(vec![("gdu", "aur")]);
         let state = State::default();
-        let snapshot = mock_snapshot(vec![("gdu-bin", Backend::Aur, "1.0")]);
+        let snapshot = mock_snapshot(vec![("gdu-bin", "aur", "1.0")]);
 
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();
 
@@ -230,9 +231,9 @@ mod tests {
     #[test]
     fn test_smart_match_prefix() {
         // Case: Config has "rofi-wayland", System has "rofi" -> Adopt
-        let config = mock_config(vec![("rofi-wayland", Backend::Aur)]);
+        let config = mock_config(vec![("rofi-wayland", "aur")]);
         let state = State::default();
-        let snapshot = mock_snapshot(vec![("rofi", Backend::Aur, "2.0")]);
+        let snapshot = mock_snapshot(vec![("rofi", "aur", "2.0")]);
 
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();
 
@@ -245,8 +246,8 @@ mod tests {
     fn test_prune_logic_standard() {
         // Case: Config empty, State has "htop" -> Prune htop
         let config = MergedConfig::default();
-        let state = mock_state(vec![("htop", Backend::Aur, "1.0")]);
-        let snapshot = mock_snapshot(vec![("htop", Backend::Aur, "1.0")]);
+        let state = mock_state(vec![("htop", "aur", "1.0")]);
+        let snapshot = mock_snapshot(vec![("htop", "aur", "1.0")]);
 
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();
         assert_eq!(tx.to_prune.len(), 1);
@@ -256,9 +257,9 @@ mod tests {
     #[test]
     fn test_flatpak_fuzzy() {
         // Case: Config "spotify", System "com.spotify.Client" -> Adopt
-        let config = mock_config(vec![("spotify", Backend::Flatpak)]);
+        let config = mock_config(vec![("spotify", "flatpak")]);
         let state = State::default();
-        let snapshot = mock_snapshot(vec![("com.spotify.Client", Backend::Flatpak, "1.0")]);
+        let snapshot = mock_snapshot(vec![("com.spotify.Client", "flatpak", "1.0")]);
 
         let tx = resolve(&config, &state, &snapshot, &SyncTarget::All).unwrap();
 

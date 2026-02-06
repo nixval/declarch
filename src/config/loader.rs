@@ -125,7 +125,7 @@ fn recursive_load(
         for pkg_entry in raw.packages {
             let pkg_id = PackageId {
                 name: pkg_entry.name,
-                backend: Backend::Aur,
+                backend: Backend::from("aur"),
             };
 
             // DEBUG: Show package being added
@@ -142,7 +142,7 @@ fn recursive_load(
     for pkg_entry in raw.soar_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Soar,
+            backend: Backend::from("soar"),
         };
 
         // DEBUG: Show Soar package being added
@@ -158,7 +158,7 @@ fn recursive_load(
     for pkg_entry in raw.flatpak_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Flatpak,
+            backend: Backend::from("flatpak"),
         };
 
         merged
@@ -172,7 +172,7 @@ fn recursive_load(
     for pkg_entry in raw.npm_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Npm,
+            backend: Backend::from("npm"),
         };
 
         merged
@@ -186,7 +186,7 @@ fn recursive_load(
     for pkg_entry in raw.yarn_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Yarn,
+            backend: Backend::from("yarn"),
         };
 
         merged
@@ -200,7 +200,7 @@ fn recursive_load(
     for pkg_entry in raw.pnpm_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Pnpm,
+            backend: Backend::from("pnpm"),
         };
 
         merged
@@ -214,7 +214,7 @@ fn recursive_load(
     for pkg_entry in raw.bun_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Bun,
+            backend: Backend::from("bun"),
         };
 
         merged
@@ -228,7 +228,7 @@ fn recursive_load(
     for pkg_entry in raw.pip_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Pip,
+            backend: Backend::from("pip"),
         };
 
         merged
@@ -242,7 +242,7 @@ fn recursive_load(
     for pkg_entry in raw.cargo_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Cargo,
+            backend: Backend::from("cargo"),
         };
 
         merged
@@ -256,7 +256,7 @@ fn recursive_load(
     for pkg_entry in raw.brew_packages {
         let pkg_id = PackageId {
             name: pkg_entry.name,
-            backend: Backend::Brew,
+            backend: Backend::from("brew"),
         };
 
         merged
@@ -271,7 +271,7 @@ fn recursive_load(
         for pkg_entry in packages {
             let pkg_id = PackageId {
                 name: pkg_entry.name,
-                backend: Backend::Custom(backend_name.clone()),
+                backend: Backend::from(backend_name.clone()),
             };
 
             merged

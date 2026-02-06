@@ -36,9 +36,9 @@ fn test_generic_manager_creation() {
     let backends = get_builtin_backends();
     let npm_config = backends["npm"].clone();
 
-    let manager = GenericManager::from_config(npm_config, Backend::Npm, false);
+    let manager = GenericManager::from_config(npm_config, Backend::from("npm"), false);
 
-    assert_eq!(manager.backend_type(), Backend::Npm);
+    assert_eq!(manager.backend_type(), Backend::from("npm"));
 }
 
 #[test]

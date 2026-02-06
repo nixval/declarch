@@ -10,7 +10,7 @@ use crate::ui as output;
 use crate::utils::paths;
 use regex::Regex;
 use std::fs;
-use std::str::FromStr;
+
 
 /// Options for the install command
 #[derive(Debug)]
@@ -81,7 +81,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         let exact_match = if let Some(backend) = backend_str {
             if let Some(ref packages) = existing_packages {
                 let pkg_id = PackageId {
-                    backend: Backend::from_str(backend).unwrap_or_else(|_| Backend::Custom(backend.to_string())),
+                    backend: Backend::from(backend),
                     name: pkg_name.clone(),
                 };
                 packages.contains_key(&pkg_id)

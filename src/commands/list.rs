@@ -132,20 +132,23 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
 
     // Display by backend
     let backend_order = vec![
-        Backend::Aur,
-        Backend::Flatpak,
-        Backend::Cargo,
-        Backend::Npm,
-        Backend::Bun,
-        Backend::Yarn,
-        Backend::Pnpm,
-        Backend::Pip,
-        Backend::Brew,
-        Backend::Soar,
+        Backend::from("aur"),
+        Backend::from("flatpak"),
+        Backend::from("cargo"),
+        Backend::from("npm"),
+        Backend::from("bun"),
+        Backend::from("yarn"),
+        Backend::from("pnpm"),
+        Backend::from("pip"),
+        Backend::from("brew"),
+        Backend::from("soar"),
     ];
 
-    for backend in backend_order {
-        if let Some(pkgs) = grouped.get(&backend) {
+    // Handle other backends not in the predefined order
+    let known_backends: std::collections::HashSet<_> = backend_order.iter().collect();
+
+    for backend in &backend_order {
+        if let Some(pkgs) = grouped.get(backend) {
             println!();
             println!("{}", format!("Backend: {}", backend).bold().cyan());
 
@@ -167,9 +170,9 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
         }
     }
 
-    // Handle Custom backends
+    // Handle other backends not in the predefined order
     for (backend, pkgs) in grouped.iter() {
-        if matches!(backend, Backend::Custom(_)) {
+        if !known_backends.contains(backend) {
             println!();
             println!("{}", format!("Backend: {}", backend).bold().cyan());
             for pkg in pkgs {

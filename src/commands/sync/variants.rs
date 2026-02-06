@@ -19,7 +19,7 @@ pub fn find_aur_variant(
         let alt_name = format!("{}{}", package_name, suffix);
         let alt_id = PackageId {
             name: alt_name.clone(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         if installed_snapshot.contains_key(&alt_id) {
             return Some(alt_name);
@@ -30,7 +30,7 @@ pub fn find_aur_variant(
     if let Some((prefix, _)) = package_name.split_once('-') {
         let alt_id = PackageId {
             name: prefix.to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         if installed_snapshot.contains_key(&alt_id) {
             return Some(prefix.to_string());
@@ -52,36 +52,24 @@ pub fn resolve_installed_package_name(
     }
 
     // Try smart match based on backend
-    match pkg.backend {
-        Backend::Aur => {
-            // Use helper function for variant matching
-            if let Some(variant) = find_aur_variant(&pkg.name, installed_snapshot) {
-                return variant;
+    if pkg.backend.0 == "aur" {
+        // Use helper function for variant matching
+        if let Some(variant) = find_aur_variant(&pkg.name, installed_snapshot) {
+            return variant;
+        }
+        pkg.name.clone()
+    } else if pkg.backend.0 == "flatpak" {
+        let search = pkg.name.to_lowercase();
+        for installed_id in installed_snapshot.keys() {
+            if installed_id.backend.0 == "flatpak"
+                && installed_id.name.to_lowercase().contains(&search)
+            {
+                return installed_id.name.clone();
             }
-            pkg.name.clone()
         }
-        Backend::Flatpak => {
-            let search = pkg.name.to_lowercase();
-            for installed_id in installed_snapshot.keys() {
-                if installed_id.backend == Backend::Flatpak
-                    && installed_id.name.to_lowercase().contains(&search)
-                {
-                    return installed_id.name.clone();
-                }
-            }
-            pkg.name.clone()
-        }
-        Backend::Soar
-        | Backend::Npm
-        | Backend::Yarn
-        | Backend::Pnpm
-        | Backend::Bun
-        | Backend::Pip
-        | Backend::Cargo
-        | Backend::Brew
-        | Backend::Custom(_) => {
-            // These backends require exact matching - no smart matching needed
-            pkg.name.clone()
-        }
+        pkg.name.clone()
+    } else {
+        // All other backends require exact matching - no smart matching needed
+        pkg.name.clone()
     }
 }

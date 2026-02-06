@@ -61,22 +61,7 @@ fn run_info(options: &InfoOptions) -> Result<()> {
                     // Filter by backend if specified
                     if let Some(filter_backend) = backend_filter {
                         // Check if package backend matches filter
-                        match (&pkg_state.backend, filter_backend) {
-                            (crate::state::types::Backend::Aur, "aur") => true,
-                            (crate::state::types::Backend::Flatpak, "flatpak") => true,
-                            (crate::state::types::Backend::Soar, "soar") => true,
-                            (crate::state::types::Backend::Npm, "npm") => true,
-                            (crate::state::types::Backend::Yarn, "yarn") => true,
-                            (crate::state::types::Backend::Pnpm, "pnpm") => true,
-                            (crate::state::types::Backend::Bun, "bun") => true,
-                            (crate::state::types::Backend::Pip, "pip") => true,
-                            (crate::state::types::Backend::Cargo, "cargo") => true,
-                            (crate::state::types::Backend::Brew, "brew") => true,
-                            (crate::state::types::Backend::Custom(pkg_name), filter_name) => {
-                                pkg_name == filter_name
-                            }
-                            _ => false,
-                        }
+                        pkg_state.backend == crate::core::types::Backend::from(filter_backend)
                     } else {
                         true
                     }
@@ -191,19 +176,7 @@ fn count_backends_filtered(
 ) -> HashMap<String, usize> {
     let mut counts = HashMap::new();
     for (_, package) in packages {
-        let backend_name = match &package.backend {
-            crate::state::types::Backend::Aur => "aur",
-            crate::state::types::Backend::Flatpak => "flatpak",
-            crate::state::types::Backend::Soar => "soar",
-            crate::state::types::Backend::Npm => "npm",
-            crate::state::types::Backend::Yarn => "yarn",
-            crate::state::types::Backend::Pnpm => "pnpm",
-            crate::state::types::Backend::Bun => "bun",
-            crate::state::types::Backend::Pip => "pip",
-            crate::state::types::Backend::Cargo => "cargo",
-            crate::state::types::Backend::Brew => "brew",
-            crate::state::types::Backend::Custom(name) => name.as_str(),
-        };
+        let backend_name = package.backend.name();
         *counts.entry(backend_name.to_string()).or_insert(0) += 1;
     }
     counts

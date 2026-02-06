@@ -50,18 +50,10 @@ impl PackageMatcher {
             return Some(target.clone());
         }
 
-        match target.backend {
-            Backend::Aur => self.find_aur_package(target, installed_snapshot),
-            Backend::Flatpak => self.find_flatpak_package(target, installed_snapshot),
-            Backend::Soar
-            | Backend::Npm
-            | Backend::Yarn
-            | Backend::Pnpm
-            | Backend::Bun
-            | Backend::Pip
-            | Backend::Cargo
-            | Backend::Brew
-            | Backend::Custom(_) => {
+        match target.backend.0.as_str() {
+            "aur" => self.find_aur_package(target, installed_snapshot),
+            "flatpak" => self.find_flatpak_package(target, installed_snapshot),
+            _ => {
                 // These backends require exact matching (no variants)
                 None
             }
@@ -79,7 +71,7 @@ impl PackageMatcher {
             let alt_name = format!("{}{}", target.name, suffix);
             let alt_id = PackageId {
                 name: alt_name,
-                backend: Backend::Aur,
+                backend: Backend::from("aur"),
             };
             if installed_snapshot.contains_key(&alt_id) {
                 return Some(alt_id);
@@ -92,7 +84,7 @@ impl PackageMatcher {
             if let Some(base) = target.name.strip_suffix(suffix) {
                 let alt_id = PackageId {
                     name: base.to_string(),
-                    backend: Backend::Aur,
+                    backend: Backend::from("aur"),
                 };
                 if installed_snapshot.contains_key(&alt_id) {
                     return Some(alt_id);
@@ -114,7 +106,7 @@ impl PackageMatcher {
         let search = target.name.to_lowercase();
 
         for installed_id in installed_snapshot.keys() {
-            if installed_id.backend == Backend::Flatpak {
+            if installed_id.backend.0 == "flatpak" {
                 let installed_name = installed_id.name.to_lowercase();
                 if installed_name.contains(&search) {
                     return Some(installed_id.clone());
@@ -138,26 +130,18 @@ impl PackageMatcher {
             return true;
         }
 
-        match pkg1.backend {
-            Backend::Aur => {
+        match pkg1.backend.0.as_str() {
+            "aur" => {
                 // Check if one is suffix of the other
                 self.is_variant_match(pkg1, pkg2)
             }
-            Backend::Flatpak => {
+            "flatpak" => {
                 // Check if one name contains the other
                 let name1 = pkg1.name.to_lowercase();
                 let name2 = pkg2.name.to_lowercase();
                 name1.contains(&name2) || name2.contains(&name1)
             }
-            Backend::Soar
-            | Backend::Npm
-            | Backend::Yarn
-            | Backend::Pnpm
-            | Backend::Bun
-            | Backend::Pip
-            | Backend::Cargo
-            | Backend::Brew
-            | Backend::Custom(_) => {
+            _ => {
                 // These backends require exact matching
                 false
             }
@@ -222,7 +206,7 @@ mod tests {
 
         let pkg_id = PackageId {
             name: "hyprland".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         snapshot.insert(pkg_id.clone(), mock_metadata());
 
@@ -238,13 +222,13 @@ mod tests {
 
         let git_pkg = PackageId {
             name: "hyprland-git".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         snapshot.insert(git_pkg.clone(), mock_metadata());
 
         let target = PackageId {
             name: "hyprland".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
 
         let result = matcher.find_package(&target, &snapshot);
@@ -259,13 +243,13 @@ mod tests {
 
         let base_pkg = PackageId {
             name: "hyprland".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         snapshot.insert(base_pkg.clone(), mock_metadata());
 
         let target = PackageId {
             name: "hyprland-git".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
 
         let result = matcher.find_package(&target, &snapshot);
@@ -279,11 +263,11 @@ mod tests {
 
         let pkg1 = PackageId {
             name: "hyprland".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         let pkg2 = PackageId {
             name: "hyprland-git".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
 
         assert!(matcher.is_same_package(&pkg1, &pkg2));
@@ -295,11 +279,11 @@ mod tests {
 
         let pkg1 = PackageId {
             name: "hyprland".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
         let pkg2 = PackageId {
             name: "wayland".to_string(),
-            backend: Backend::Aur,
+            backend: Backend::from("aur"),
         };
 
         assert!(!matcher.is_same_package(&pkg1, &pkg2));
