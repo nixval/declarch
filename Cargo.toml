@@ -34,6 +34,9 @@ which = "8.0.0"
 # File locking for concurrent state access
 fs2 = "0.4.3"
 
+# Parallel processing
+rayon = "1.10"
+
 # UX / UI
 ctrlc = "3.5.1"
 colored = "3.0.0"

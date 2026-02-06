@@ -10,6 +10,7 @@ use crate::ui as output;
 use super::{ManagerMap, SyncOptions, InstalledSnapshot};
 use super::variants::resolve_installed_package_name;
 use colored::Colorize;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 /// Execute transaction (install, adopt, prune)
@@ -19,22 +20,40 @@ pub fn execute_transaction(
     config: &loader::MergedConfig,
     options: &SyncOptions,
 ) -> Result<Vec<PackageId>> {
-    let mut installed_snapshot: InstalledSnapshot = HashMap::new();
+    // Build initial snapshot from managers in parallel
+    // This significantly speeds up sync when multiple backends are configured
+    let installed_snapshot: InstalledSnapshot = managers
+        .par_iter()
+        .filter_map(|(backend, mgr)| {
+            if !mgr.is_available() {
+                return None;
+            }
+            match mgr.list_installed() {
+                Ok(packages) => {
+                    let packages_with_backend: Vec<_> = packages
+                        .into_iter()
+                        .map(|(name, meta)| {
+                            let id = PackageId {
+                                name,
+                                backend: backend.clone(),
+                            };
+                            (id, meta)
+                        })
+                        .collect();
+                    Some(Ok(packages_with_backend))
+                }
+                Err(e) => {
+                    output::warning(&format!("Failed to list packages for {}: {}", backend, e));
+                    Some(Err(e))
+                }
+            }
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
 
-    // Build initial snapshot from managers
-    for (backend, mgr) in managers {
-        if !mgr.is_available() {
-            continue;
-        }
-        let packages = mgr.list_installed()?;
-        for (name, meta) in packages {
-            let id = PackageId {
-                name,
-                backend: backend.clone(),
-            };
-            installed_snapshot.insert(id, meta);
-        }
-    }
+    let mut installed_snapshot = installed_snapshot;
 
     // Execute installations
     let successfully_installed = execute_installations(
