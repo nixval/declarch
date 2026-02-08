@@ -78,6 +78,13 @@ pub enum Command {
         #[arg(long)]
         host: Option<String>,
 
+        /// Create a new backend configuration file
+        ///
+        /// Creates a new backend definition file in ~/.config/declarch/backends/
+        /// Example: declarch init --backend cargo
+        #[arg(long, value_name = "NAME", group = "init_target")]
+        backend: Option<String>,
+
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
         skip_soar_install: bool,

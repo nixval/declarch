@@ -19,11 +19,13 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         Some(Command::Init {
             host,
             path,
+            backend,
             skip_soar_install,
         }) => {
             commands::init::run(commands::init::InitOptions {
                 host: host.clone(),
                 path: path.clone(),
+                backend: backend.clone(),
                 force: args.global.force,
                 skip_soar_install: *skip_soar_install,
             })

@@ -1,491 +1,359 @@
 # Package Backends
 
-Complete reference for all supported package manager backends in declarch.
+Complete reference for package manager backends in declarch v0.6+.
 
 ## Overview
 
-Declarch supports multiple package management backends through a unified interface. Each backend represents a different package manager or ecosystem.
+In v0.6+, declarch uses a **pure generic backend system**. All package managers are defined as KDL configuration files - no backend is hardcoded into the binary. This means:
+
+- Any package manager can be supported by creating a backend file
+- Backends are loaded from `~/.config/declarch/backends/*.kdl`
+- Built-in backends are just default templates
+- Users can override or extend any backend
 
 ## Architecture
 
-Declarch uses **two different backend implementation patterns** to support different types of package managers:
+### How Backends Work
 
-### Custom Rust Implementations
+1. **Backend Files**: Each backend is a KDL file in `~/.config/declarch/backends/`
+2. **Generic Manager**: One unified `GenericManager` handles all backends
+3. **Configuration-Driven**: Commands, parsers, and options are all configurable
 
-Some backends require custom Rust implementations due to their complexity or special requirements:
+### Backend Loading Order
 
-| Backend | Why Custom? | Location |
-|---------|-------------|----------|
-| **AUR** | AUR helper detection (paru/yay), special AUR handling | `src/packages/aur.rs` |
-| **Flatpak** | Remote management, special installation patterns | `src/packages/flatpak.rs` |
-| **Soar** | Auto-installation, static binary management | `src/packages/soar.rs` |
+1. Load built-in backend templates (embedded in binary)
+2. Load user backends from `~/.config/declarch/backends/*.kdl`
+3. User backends override built-in ones
 
-These backends have:
-- Complex state management
-- Special detection/initialization logic
-- Non-standard command patterns
-- Backend-specific features
+## Quick Start
 
-### Generic Config-Driven Implementations
-
-Most backends use a generic configuration-driven approach via `GenericManager`:
-
-| Backend | Type | Config Location |
-|---------|------|-----------------|
-| **npm, yarn, pnpm, bun** | Node.js package managers | `src/backends/registry.rs` |
-| **pip** | Python package manager | `src/backends/registry.rs` |
-| **cargo** | Rust package manager | `src/backends/registry.rs` |
-| **brew** | Homebrew | `src/backends/registry.rs` |
-
-These backends:
-- Follow standard package manager patterns
-- Use simple install/remove/list commands
-- Require no special initialization
-- Can be fully configured declaratively
-
-### How Backends Are Loaded
-
-1. **Custom backends** are registered in `src/packages/registry.rs`
-2. **Generic backends** load their configuration from `src/backends/registry.rs`
-3. Both are created through the `BackendRegistry` factory
-4. User-defined backends (from `backends.kdl`) can override built-in configurations
-
-### Adding a New Backend
-
-**For a custom backend** (complex logic):
-1. Create implementation file in `src/packages/<name>.rs`
-2. Implement `PackageManager` trait
-3. Add `Backend::<Name>` to `core/types.rs`
-4. Register in `BackendRegistry::register_defaults()`
-
-**For a generic backend** (simple commands):
-1. Add configuration to `src/backends/registry.rs::get_builtin_backends()`
-2. Add `Backend::<Name>` to `core/types.rs`
-3. Register in `BackendRegistry::register_defaults()` using `GenericManager`
-
-## Available Backends
-
-| Backend | Description | Distribution Support | Syntax |
-|---------|-------------|---------------------|--------|
-| **aur** | Arch User Repository | Arch-based | `packages { pkg }` |
-| **soar** | Static binary registry | All Linux | `packages:soar { pkg }` |
-| **flatpak** | Universal application packages | All Linux | `packages:flatpak { app }` |
-| **npm** | Node.js packages | All Linux | `packages:npm { pkg }` |
-| **yarn** | Yarn packages | All Linux | `packages:yarn { pkg }` |
-| **pnpm** | pnpm packages | All Linux | `packages:pnpm { pkg }` |
-| **bun** | Bun packages | All Linux | `packages:bun { pkg }` |
-| **pip** | Python packages (pip) | All Linux | `packages:pip { pkg }` |
-| **cargo** | Rust crates | All Linux | `packages:cargo { crate }` |
-| **brew** | Homebrew | Linux, macOS | `packages:brew { pkg }` |
-
-## AUR (Arch User Repository)
-
-### Description
-
-Default backend for Arch-based distributions. Installs packages from the Arch User Repository using an AUR helper.
-
-### Requirements
-
-- Arch Linux or Arch-based distribution
-- AUR helper: `paru` or `yay`
-
-### Installation
+### Create a Backend
 
 ```bash
-# Install AUR helper
-paru -S paru  # or: paru -S yay
+# Create a new backend (smart template)
+declarch init --backend cargo
+
+# Edit the generated file
+nano ~/.config/declarch/backends/cargo.kdl
 ```
 
-### Configuration
+### Use a Backend
 
 ```kdl
-// Default on Arch - no backend prefix needed
+// New v0.6+ syntax
+pkg {
+    cargo {
+        ripgrep
+        fd-find
+        bat
+    }
+    npm {
+        typescript
+        prettier
+    }
+}
+```
+
+## Built-in Backend Templates
+
+These backends come with pre-configured templates:
+
+| Backend | Description | Requirements |
+|---------|-------------|--------------|
+| **aur** | Arch User Repository (paru/yay) | Arch Linux + paru/yay |
+| **soar** | Static binary registry | Soar CLI |
+| **flatpak** | Universal Linux apps | Flatpak |
+| **npm** | Node.js packages | Node.js + npm |
+| **yarn** | Yarn packages | Yarn |
+| **pnpm** | pnpm packages | pnpm |
+| **pip** | Python packages | Python + pip |
+| **cargo** | Rust crates | Rust + Cargo |
+| **gem** | Ruby gems | Ruby + gem |
+
+## Backend File Structure
+
+```kdl
+// ~/.config/declarch/backends/<name>.kdl
+backend "<name>" {
+    meta {
+        title "Display Name"
+        description "What this backend does"
+        version "1.0.0"
+        author "your-name"
+        tags "tag1" "tag2"
+        homepage "https://..."
+        requires "binary-name"
+    }
+    
+    // Binary to use
+    binary "binary-name" "alternative-binary"
+    
+    // Fallback backend if binary not found
+    fallback "apt"
+    
+    // List installed packages
+    list "binary list" {
+        format tsv|whitespace|json|regex
+        name_col 0
+        version_col 1
+    }
+    
+    // Install packages
+    install "binary install {packages}"
+    
+    // Remove packages
+    remove "binary remove {packages}"
+    
+    // Search packages (optional)
+    search "binary search {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    // Auto-confirmation flag (optional)
+    noconfirm "-y"
+    
+    // Requires sudo (optional)
+    needs_sudo true
+}
+```
+
+## Configuration Syntax
+
+### New v0.6+ Syntax
+
+```kdl
+pkg {
+    backend1 {
+        package1
+        package2
+    }
+    backend2 {
+        package3
+        package4
+    }
+}
+```
+
+### Legacy v0.5 Syntax (Still Supported)
+
+```kdl
+// For default backend (AUR on Arch)
 packages {
-    hyprland
-    waybar
-    wofi
+    package1
+    package2
 }
 
-// Explicit
-packages:aur {
-    hyprland
-    waybar
+// For specific backend
+packages:backend1 {
+    package1
 }
 ```
 
-### Backend Options
+## Backend Reference
 
-```kdl
-options:aur {
-    noconfirm        // Skip confirmation prompts
-    helper "paru"    // Use paru instead of yay
-}
-```
-
-### Environment Variables
-
-```kdl
-env:aur MAKEFLAGS="-j4"  // Parallel builds
-```
-
-## Soar (Static Binaries)
-
-### Description
-
-Cross-distribution static binary registry. Works on any Linux distribution.
-
-### Requirements
-
-- Soar CLI installed
-- Internet connection
-
-### Installation
+### AUR (Arch User Repository)
 
 ```bash
-# Install Soar CLI
-paru -S soar
-# Or from GitHub releases
+# Auto-detects paru or yay
+declarch init --backend aur
 ```
 
-### Configuration
-
 ```kdl
-packages:soar {
-    bat
-    exa
-    ripgrep
-    fd
-    fzf
+pkg {
+    aur {
+        hyprland
+        waybar
+        wofi
+    }
 }
 ```
 
-### Why Use Soar?
+### Soar (Static Binaries)
 
-- Cross-distro compatibility
-- Static binaries (no dependencies)
-- Fast installation
-- Reproducible builds
-
-## Flatpak
-
-### Description
-
-Universal application packaging system for Linux. Works on any distribution with Flatpak support.
-
-### Requirements
-
-- Flatpak installed
-- Flathub repository added
-
-### Installation
+Cross-distribution static binary registry.
 
 ```bash
-# Install Flatpak
-sudo pacman -S flatpak
-
-# Add Flathub
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+declarch init --backend soar
 ```
 
-### Configuration
-
 ```kdl
-packages:flatpak {
-    com.spotify.Client
-    org.mozilla.firefox
-    com.discordapp.Discord
-    org.telegram.desktop
+pkg {
+    soar {
+        bat
+        exa
+        ripgrep
+        fd
+    }
 }
 ```
 
-### Backend Options
+### Flatpak
 
-```kdl
-options:flatpak {
-    noconfirm
-}
-```
-
-### Package Naming
-
-Flatpak packages use reverse domain notation:
-
-```
-com.spotify.Client
-org.mozilla.firefox
-com.discordapp.Discord
-org.gimp.GIMP
-```
-
-Find packages at: [flathub.org](https://flathub.org)
-
-## npm (Node.js)
-
-### Description
-
-Node.js package manager. Installs global Node.js packages.
-
-### Requirements
-
-- Node.js and npm installed
-
-### Installation
+Universal application packages.
 
 ```bash
-paru -S nodejs npm
+declarch init --backend flatpak
 ```
 
-### Configuration
-
 ```kdl
-packages:npm {
-    typescript
-    prettier
-    eslint
-    @types/node
+pkg {
+    flatpak {
+        com.spotify.Client
+        org.mozilla.firefox
+        com.discordapp.Discord
+    }
 }
 ```
 
-### Global Install Location
-
-Packages are installed to:
-- `~/.npm-global/bin/` (if configured)
-- Or system location
-
-Setup:
-```bash
-npm config set prefix '~/.npm-global'
-export PATH="~/.npm-global/bin:$PATH"
-```
-
-## Yarn
-
-### Description
-
-Alternative Node.js package manager by Facebook.
-
-### Requirements
-
-- Yarn installed
-
-### Installation
+### NPM (Node.js)
 
 ```bash
-npm install -g yarn
-# or
-paru -S yarn
+declarch init --backend npm
 ```
-
-### Configuration
 
 ```kdl
-packages:yarn {
-    eslint
-    prettier
+pkg {
+    npm {
+        typescript
+        prettier
+        eslint
+    }
 }
 ```
 
-## pnpm
-
-### Description
-
-Fast, disk space efficient package manager for Node.js.
-
-### Requirements
-
-- pnpm installed
-
-### Installation
+### Cargo (Rust)
 
 ```bash
-npm install -g pnpm
-# or
-paru -S pnpm
+declarch init --backend cargo
 ```
 
-### Configuration
-
 ```kdl
-packages:pnpm {
-    typescript
-    prettier
+pkg {
+    cargo {
+        ripgrep
+        fd-find
+        cargo-watch
+    }
 }
 ```
 
-## Bun
-
-### Description
-
-Fast all-in-one JavaScript runtime, package manager, bundler, and test runner.
-
-### Requirements
-
-- Bun installed
-
-### Installation
+### pip (Python)
 
 ```bash
-curl -fsSL https://bun.sh/install | bash
+declarch init --backend pip
 ```
 
-### Configuration
-
 ```kdl
-packages:bun {
-    @types/node
-    prettier
+pkg {
+    pip {
+        black
+        ruff
+        pytest
+    }
 }
 ```
 
-## Python (pip)
+## Cross-Distro Compatibility
 
-### Description
+These backends work on **any** Linux distribution:
 
-Python package installer.
-
-### Requirements
-
-- Python and pip installed
-
-### Installation
-
-```bash
-paru -S python python-pip
-```
-
-### Configuration
-
-```kdl
-packages:pip {
-    black
-    ruff
-    jupyter
-    numpy
-    pandas
-}
-```
-
-### Virtual Environments
-
-For project-specific packages, use virtual environments instead of global pip.
-
-## Cargo (Rust)
-
-### Description
-
-Rust package manager for crates.
-
-### Requirements
-
-- Rust and Cargo installed
-
-### Installation
-
-```bash
-paru -S rust cargo
-# or via rustup
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-### Configuration
-
-```kdl
-packages:cargo {
-    ripgrep
-    fd-find
-    cargo-edit
-    cargo-watch
-}
-```
-
-## Brew (Homebrew)
-
-### Description
-
-Cross-platform package manager. Works on Linux and macOS.
-
-### Requirements
-
-- Homebrew installed
-
-### Installation
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-### Configuration
-
-```kdl
-packages:brew {
-    vim
-    ffmpeg
-    imagemagick
-}
-```
-
-## Cross-Distro Backends
-
-The following backends work on **any** Linux distribution:
-
-- ✅ **Soar** - Static binaries
-- ✅ **Flatpak** - Universal apps
-- ✅ **npm** - Node.js packages
-- ✅ **yarn** - Yarn packages
-- ✅ **pnpm** - pnpm packages
-- ✅ **bun** - Bun packages
-- ✅ **python** - Python packages
-- ✅ **cargo** - Rust crates
-- ✅ **brew** - Homebrew
+| Backend | Works Everywhere | Notes |
+|---------|-----------------|-------|
+| **soar** | ✅ | Static binaries, no dependencies |
+| **flatpak** | ✅ | Universal apps with sandboxing |
+| **npm** | ✅ | Requires Node.js |
+| **yarn** | ✅ | Requires Node.js |
+| **pnpm** | ✅ | Requires Node.js |
+| **pip** | ✅ | Requires Python |
+| **cargo** | ✅ | Requires Rust |
+| **gem** | ✅ | Requires Ruby |
+| **brew** | ✅ | Requires Homebrew |
 
 The **AUR** backend only works on Arch-based distributions.
 
 ## Default Backend
 
-If you don't specify a backend, declarch uses:
+On first sync, declarch suggests a default backend based on your system:
 
-- **Arch-based systems**: AUR
-- **Other systems**: Soar (if available)
-
-Example:
-```kdl
-// On Arch: installs via AUR
-packages {
-    bat
-}
-
-// On Ubuntu: installs via Soar
-packages {
-    bat
-}
-```
+- **Arch-based**: AUR (aur)
+- **Debian/Ubuntu**: APT (via custom backend)
+- **Fedora**: DNF (via custom backend)
+- **Other**: Soar (soar)
 
 ## Custom Backends
 
-You can define your own backends for any package manager:
+### Creating a Backend
+
+```bash
+# Generate template
+declarch init --backend nala
+
+# Edit configuration
+nano ~/.config/declarch/backends/nala.kdl
+```
+
+### Example: Nala (Debian/Ubuntu)
 
 ```kdl
-// Custom backend for nala (Debian/Ubuntu)
-backends {
-    nala {
-        cmd "sudo nala install"
-        list_cmd "nala list --installed"
-        remove_cmd "sudo nala remove"
+backend "nala" {
+    meta {
+        title "Nala"
+        description "APT frontend with better formatting"
+        version "1.0.0"
+        requires "nala"
     }
-}
-
-// Use custom backend
-packages:nala {
-    vim
-    ffmpeg
+    
+    binary "nala"
+    fallback "apt"
+    
+    list "nala list --installed" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "nala install {packages}"
+    remove "nala remove {packages}"
+    
+    noconfirm "-y"
+    needs_sudo true
 }
 ```
 
-See [Custom Backends Guide](../advanced/custom-backends.md) for details.
+### Example: DNF5 (Fedora)
+
+```kdl
+backend "dnf5" {
+    meta {
+        title "DNF5"
+        description "Modern Fedora package manager"
+        requires "dnf5"
+    }
+    
+    binary "dnf5"
+    
+    list "dnf5 list --installed --json" {
+        format json
+        json_path ""
+        name_key "name"
+        version_key "version"
+    }
+    
+    install "dnf5 install {packages}"
+    remove "dnf5 remove {packages}"
+    
+    noconfirm "-y"
+    needs_sudo true
+}
+```
+
+See [Custom Backends Guide](../advanced/custom-backends.md) for complete documentation.
 
 ## Backend Availability
 
-Declarch automatically detects which backends are available:
+Declarch checks backend availability by looking for the configured binary:
 
 ```bash
 $ declarch check
@@ -493,49 +361,51 @@ $ declarch check
 ✓ AUR backend available (paru)
 ✓ Flatpak backend available
 ✓ npm backend available
-✗ Python backend not available (python not found)
+✗ pip backend not available (pip3 not found)
 ✓ Cargo backend available
 ```
 
-If a backend isn't available, packages for that backend are skipped during sync.
+Packages for unavailable backends are skipped during sync.
 
 ## Mixing Backends
 
-You can use multiple backends in the same configuration:
+Use multiple backends in the same configuration:
 
 ```kdl
-// System packages (Arch)
-packages {
-    hyprland
-    waybar
-}
-
-// Cross-distro CLI tools
-packages:soar {
-    bat
-    exa
-    ripgrep
-}
-
-// Universal apps
-packages:flatpak {
-    com.spotify.Client
-    org.mozilla.firefox
-}
-
-// Development tools
-packages:npm {
-    typescript
-    prettier
-}
-
-packages:pip {
-    black
-    ruff
-}
-
-packages:cargo {
-    fd-find
+pkg {
+    // System packages
+    aur {
+        hyprland
+        waybar
+    }
+    
+    // Cross-distro CLI tools
+    soar {
+        bat
+        exa
+        ripgrep
+    }
+    
+    // Universal apps
+    flatpak {
+        com.spotify.Client
+        org.mozilla.firefox
+    }
+    
+    // Development tools
+    npm {
+        typescript
+        prettier
+    }
+    
+    pip {
+        black
+        ruff
+    }
+    
+    cargo {
+        fd-find
+    }
 }
 ```
 
@@ -544,22 +414,22 @@ packages:cargo {
 The same package name can exist in multiple backends:
 
 ```kdl
-packages {
-    ripgrep  // AUR: /usr/bin/ripgrep
-}
-
-packages:cargo {
-    ripgrep  // Cargo: ~/.cargo/bin/ripgrep
-}
-
-packages:soar {
-    ripgrep  // Soar: ~/.local/bin/ripgrep
+pkg {
+    aur {
+        ripgrep  // /usr/bin/ripgrep
+    }
+    cargo {
+        ripgrep  // ~/.cargo/bin/ripgrep
+    }
+    soar {
+        ripgrep  // ~/.local/bin/ripgrep
+    }
 }
 ```
 
 Check for conflicts:
 ```bash
-declarch check --conflicts
+declarch check conflicts
 ```
 
 Your PATH ordering determines which version runs!
@@ -574,7 +444,7 @@ Your PATH ordering determines which version runs!
 | Soar | ~1 second |
 | Flatpak | ~3-4 seconds |
 | npm | ~1-2 seconds |
-| Python | ~1-2 seconds |
+| pip | ~1-2 seconds |
 | Cargo | ~2-3 seconds |
 
 ### Optimization Tips
@@ -584,26 +454,99 @@ Your PATH ordering determines which version runs!
    declarch sync --target flatpak
    ```
 
-2. **Group packages by backend:**
+2. **Group packages by backend in v0.6 syntax:**
    ```kdl
-   // ✅ Efficient
-   packages:npm { typescript prettier eslint }
-
-   // ❌ Less efficient (mixed)
-   packages { npm:typescript aur:hyprland }
+   // ✅ Efficient - grouped by backend
+   pkg {
+       npm { typescript prettier eslint }
+       cargo { ripgrep fd-find }
+   }
    ```
+
+## Migration from v0.5
+
+### Backend Definition
+
+**Old (v0.5):** In `declarch.kdl`
+```kdl
+backends {
+    custom {
+        cmd "custom install"
+        list_cmd "custom list"
+        remove_cmd "custom remove"
+    }
+}
+```
+
+**New (v0.6):** Separate file in `backends/custom.kdl`
+```kdl
+backend "custom" {
+    binary "custom"
+    
+    list "custom list" {
+        format whitespace
+        name_col 0
+    }
+    
+    install "custom install {packages}"
+    remove "custom remove {packages}"
+}
+```
+
+### Package Syntax
+
+**Old (v0.5):**
+```kdl
+packages:backend { pkg1 pkg2 }
+```
+
+**New (v0.6):**
+```kdl
+pkg {
+    backend { pkg1 pkg2 }
+}
+```
+
+Both syntaxes are supported for backward compatibility.
+
+## Troubleshooting
+
+### Backend Not Found
+
+```bash
+# Check backend exists
+cat ~/.config/declarch/backends/<name>.kdl
+
+# Validate syntax
+declarch check validate
+```
+
+### Binary Not Found
+
+```bash
+# Test binary
+which <binary>
+
+# Or use full path in backend config
+binary "/usr/bin/<binary>"
+```
+
+### List Parsing Fails
+
+```bash
+# Test list command
+<binary> list
+
+# Adjust format in backend config
+list "<binary> list" {
+    format whitespace|tsv|json|regex
+    name_col 0
+}
+```
 
 ## Related
 
-- [KDL Syntax Reference](kdl-syntax.md) - Configuration syntax
-- [Custom Backends](../advanced/custom-backends.md) - Define your own backends
-- [Modules Guide](modules.md) - Organize configs by backend
-
-## See Also
-
-- [AUR Website](https://aur.archlinux.org/)
-- [Soar Registry](https://soar.dev/)
-- [Flathub](https://flathub.org/)
-- [npm Registry](https://www.npmjs.com/)
-- [PyPI](https://pypi.org/)
-- [ crates.io](https://crates.io/)
+- [`declarch init --backend`](../commands/init.md) - Create backends
+- [Custom Backends](../advanced/custom-backends.md) - Advanced backend configuration
+- [KDL Syntax](kdl-syntax.md) - Configuration syntax
+- [Modules](modules.md) - Organize configs

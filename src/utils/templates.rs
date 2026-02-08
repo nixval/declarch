@@ -21,6 +21,7 @@ meta {{
 
 // === IMPORTS ===
 imports {{
+    "backends.kdl"
     "modules/base.kdl"
     // Add more modules here
     // "modules/desktop.kdl"

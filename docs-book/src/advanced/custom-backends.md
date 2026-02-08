@@ -1,6 +1,6 @@
 # Custom Backends
 
-Extend declarch with custom package manager backends.
+Extend declarch with custom package manager backends using the v0.6+ KDL-based configuration format.
 
 ## What Are Custom Backends?
 
@@ -11,17 +11,81 @@ Custom backends allow you to define support for package managers that aren't bui
 - Internal/private package managers
 - Experimental or custom package management systems
 
-## Backend Definition
+## Backend Configuration Files
 
-Backends are defined in your declarch configuration using the `backends` block:
+In v0.6+, backends are defined in separate KDL files stored in:
+
+```
+~/.config/declarch/backends/
+```
+
+Each backend has its own file named `<backend-name>.kdl`.
+
+## Quick Start
+
+### Create a Backend with `init --backend`
+
+The easiest way to create a new backend:
+
+```bash
+# Create a new backend (e.g., cargo for Rust packages)
+declarch init --backend cargo
+
+# This creates ~/.config/declarch/backends/cargo.kdl
+# Edit it to customize the commands
+```
+
+### Backend File Structure
+
+A backend file looks like this:
 
 ```kdl
-backends {
-    <backend-name> {
-        cmd "<install-command>"
-        list_cmd "<list-command>"
-        remove_cmd "<remove-command>"
+// cargo - Rust package manager
+backend "cargo" {
+    meta {
+        title "Cargo"
+        description "Rust package manager"
+        version "1.0.0"
+        author "declarch-user"
+        tags "package-manager" "cargo"
+        homepage "https://doc.rust-lang.org/cargo/"
+        license "MIT"
+        created "2026-02-07"
+        platforms "linux"
+        requires "cargo"
     }
+    
+    // The binary to use (can specify multiple alternatives)
+    binary "cargo"
+    
+    // Command to list installed packages
+    list "cargo install --list" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    // Install command - {packages} will be replaced with package names
+    install "cargo install {packages}"
+    
+    // Remove command
+    remove "cargo uninstall {packages}"
+    
+    // Search command (optional)
+    search "cargo search {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    // Auto-confirmation flag (optional)
+    noconfirm "-y"
+    
+    // Whether this backend requires sudo (optional)
+    needs_sudo false
+    
+    // Fallback backend if binary not found (optional, v0.6+)
+    // fallback "apt"
 }
 ```
 
@@ -29,127 +93,11 @@ backends {
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| `cmd` | Install command template | `"sudo nala install"` |
-| `list_cmd` | List installed packages | `"nala list --installed"` |
-
-## Optional Fields
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `remove_cmd` | Remove command template | `"sudo nala remove"` |
-| `noconfirm_flag` | Skip confirmation flag | `"-y"` |
-| `update_cmd` | Update command | `"sudo nala update"` |
-
-## Examples
-
-### Nala (Debian/Ubuntu)
-
-```kdl
-backends {
-    nala {
-        cmd "sudo nala install -y"
-        list_cmd "dpkg -l | awk '/^ii/ {print $2}'"
-        remove_cmd "sudo nala remove -y"
-        noconfirm_flag "-y"
-    }
-}
-
-// Use the backend
-packages:nala {
-    vim
-    ffmpeg
-    imagemagick
-}
-```
-
-### DNF (Fedora)
-
-```kdl
-backends {
-    dnf {
-        cmd "sudo dnf install -y"
-        list_cmd "rpm -qa --queryformat='%{NAME}\n'"
-        remove_cmd "sudo dnf remove -y"
-        noconfirm_flag "-y"
-    }
-}
-
-packages:dnf {
-    vim
-    ffmpeg
-}
-```
-
-### apt (Debian/Ubuntu)
-
-```kdl
-backends {
-    apt {
-        cmd "sudo apt install -y"
-        list_cmd "dpkg -l | awk '/^ii/ {print $2}'"
-        remove_cmd "sudo apt remove -y"
-        noconfirm_flag "-y"
-    }
-}
-
-packages:apt {
-    vim
-    curl
-    wget
-}
-```
-
-### Go
-
-```kdl
-backends {
-    go {
-        cmd "go install"
-        list_cmd "ls ~/go/bin/"
-        remove_cmd "rm ~/go/bin/<package>"
-    }
-}
-
-packages:go {
-    github.com/cli/cli@latest
-    golang.org/x/tools/gopls@latest
-}
-```
-
-### Composer (PHP)
-
-```kdl
-backends {
-    composer {
-        cmd "composer global require"
-        list_cmd "composer global show --name-only"
-        remove_cmd "composer global remove"
-    }
-}
-
-packages:composer {
-    laravel/installer
-    phpstan/phpstan
-}
-```
-
-### Ruby Gems
-
-```kdl
-backends {
-    gem {
-        cmd "gem install"
-        list_cmd "gem list --no-versions"
-        remove_cmd "gem uninstall"
-        noconfirm_flag "--no-document"
-    }
-}
-
-packages:gem {
-    bundler
-    rake
-}
-```
+| `backend` | Backend name in quotes | `"cargo"` |
+| `binary` | Binary name or alternatives | `"cargo"` or `"pip3" "pip"` |
+| `list` | List command with parser config | `"cargo install --list" { format whitespace }` |
+| `install` | Install command template | `"cargo install {packages}"` |
+| `remove` | Remove command template | `"cargo uninstall {packages}"` |
 
 ## Command Placeholders
 
@@ -157,397 +105,400 @@ Commands support the following placeholder:
 
 | Placeholder | Replaced With |
 |-------------|---------------|
-| `<package>` | Package name |
+| `{packages}` | Space-separated package names |
+| `{query}` | Search query (for search command) |
 
 ### Example with Placeholders
 
 ```kdl
-backends {
-    custom {
-        cmd "install-package --name <package>"
-        remove_cmd "remove-package --name <package>"
-    }
-}
+install "cargo install {packages}"
+remove "cargo uninstall {packages}"
+search "cargo search {query}"
 ```
 
-During sync:
-```bash
-# For package "vim"
-install-package --name vim
+## List Output Formats
 
-# For removal
-remove-package --name vim
-```
+The list command supports multiple parsing formats:
 
-## Complete Backend Example
-
-### Pacman (Arch - Alternative Implementation)
+### whitespace (default)
+Parse whitespace-separated columns:
 
 ```kdl
-backends {
-    pacman {
-        cmd "sudo pacman -S --noconfirm"
-        list_cmd "pacman -Qq"
-        remove_cmd "sudo pacman -Rns --noconfirm"
-        noconfirm_flag "--noconfirm"
-        update_cmd "sudo pacman -Syu"
-    }
-}
-
-packages:pacman {
-    vim
-    bat
-    exa
+list "pip3 list" {
+    format whitespace
+    name_col 0      // First column is package name
+    version_col 1   // Second column is version (optional)
 }
 ```
 
-### Xbps (Void Linux)
+### tsv
+Parse tab-separated values:
 
 ```kdl
-backends {
-    xbps {
-        cmd "sudo xbps-install -y"
-        list_cmd "xbps-query -l | awk '{print $2}'"
-        remove_cmd "sudo xbps-remove -y"
-        noconfirm_flag "-y"
-    }
-}
-
-packages:xbps {
-    vim
-    curl
+list "flatpak list --app --columns=application,version" {
+    format tsv
+    name_col 0
+    version_col 1
 }
 ```
 
-### Zypper (openSUSE)
+### json
+Parse JSON output:
 
 ```kdl
-backends {
-    zypper {
-        cmd "sudo zypper install -y"
-        list_cmd "zypper se --installed-only | awk '{print $3}'"
-        remove_cmd "sudo zypper remove -y"
-        noconfirm_flag "-y"
+list "dnf5 list --installed --json" {
+    format json
+    json_path "packages"    // Path to array in JSON
+    name_key "name"         // Key for package name
+    version_key "version"   // Key for version
+}
+```
+
+### regex
+Parse with regular expression:
+
+```kdl
+list "custom-pkg list" {
+    format regex
+    pattern "^(\S+)\s+(\S+)"
+    name_group 1
+    version_group 2
+}
+```
+
+## Examples
+
+### NPM (Node.js)
+
+```kdl
+// ~/.config/declarch/backends/npm.kdl
+backend "npm" {
+    meta {
+        title "NPM"
+        description "Node.js package manager"
+        version "1.0.0"
+        author "declarch-user"
+        tags "package-manager" "nodejs" "npm"
+        homepage "https://www.npmjs.com"
+        created "2026-02-07"
+        requires "npm"
+    }
+    
+    binary "npm"
+    
+    list "npm list -g --depth=0" {
+        format regex
+        pattern "(\S+)@(\S+)"
+        name_group 1
+        version_group 2
+    }
+    
+    install "npm install -g {packages}"
+    remove "npm uninstall -g {packages}"
+    
+    search "npm search {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
     }
 }
+```
 
-packages:zypper {
-    vim
-    tmux
+### pip (Python)
+
+```kdl
+// ~/.config/declarch/backends/pip.kdl
+backend "pip" {
+    meta {
+        title "pip"
+        description "Python package installer"
+        version "1.0.0"
+        author "declarch-user"
+        tags "package-manager" "python" "pip"
+        homepage "https://pip.pypa.io"
+        created "2026-02-07"
+        requires "pip3"
+    }
+    
+    binary "pip3" "pip"
+    
+    list "pip3 list" {
+        format whitespace
+        name_col 0
+        version_col 1
+        skip_header 2  // Skip "Package Version" header lines
+    }
+    
+    install "pip3 install {packages}"
+    remove "pip3 uninstall {packages}"
+    
+    noconfirm "-y"
+}
+```
+
+### Nala (Debian/Ubuntu)
+
+```kdl
+// ~/.config/declarch/backends/nala.kdl
+backend "nala" {
+    meta {
+        title "Nala"
+        description "APT frontend with better formatting"
+        version "1.0.0"
+        author "declarch-user"
+        tags "package-manager" "debian" "ubuntu" "apt"
+        created "2026-02-07"
+        requires "nala"
+    }
+    
+    binary "nala"
+    fallback "apt"
+    
+    list "nala list --installed" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "nala install {packages}"
+    remove "nala remove {packages}"
+    
+    noconfirm "-y"
+    needs_sudo true
+}
+```
+
+### DNF5 (Fedora)
+
+```kdl
+// ~/.config/declarch/backends/dnf5.kdl
+backend "dnf5" {
+    meta {
+        title "DNF5"
+        description "Modern Fedora package manager"
+        version "1.0.0"
+        author "declarch-user"
+        tags "package-manager" "fedora" "rpm"
+        created "2026-02-07"
+        requires "dnf5"
+    }
+    
+    binary "dnf5"
+    
+    list "dnf5 list --installed --json" {
+        format json
+        json_path ""
+        name_key "name"
+        version_key "version"
+    }
+    
+    install "dnf5 install {packages}"
+    remove "dnf5 remove {packages}"
+    
+    noconfirm "-y"
+    needs_sudo true
 }
 ```
 
 ## Advanced Features
 
-### Multiple Commands per Backend
+### Multiple Binary Alternatives
 
-For complex installation processes, use a script:
+Specify multiple binaries to try (first available wins):
 
 ```kdl
-backends {
-    complex {
-        cmd "~/.config/declarch/backends/complex-backend.sh install <package>"
-        list_cmd "~/.config/declarch/backends/complex-backend.sh list"
-        remove_cmd "~/.config/declarch/backends/complex-backend.sh remove <package>"
+binary "pip3" "pip" "python3 -m pip"
+```
+
+### Fallback Backend
+
+If the primary binary isn't found, use another backend:
+
+```kdl
+backend "paru" {
+    binary "paru"
+    fallback "yay"  // Try yay if paru not found
+    
+    // ... rest of config
+}
+```
+
+### Environment Variables
+
+Set environment variables for this backend:
+
+```kdl
+backend "custom" {
+    binary "custom-pkg"
+    
+    env {
+        "CUSTOM_HOME=/opt/custom"
+        "CUSTOM_CACHE=/var/cache/custom"
     }
-}
-```
-
-### Backend-Specific Options
-
-```kdl
-options:apt {
-    noconfirm
-}
-
-options:dnf {
-    noconfirm
-    setopt "install_weak_deps=False"
-}
-```
-
-### Environment Variables per Backend
-
-```kdl
-env:dnf DNF_ASSUME_YES="1"
-env:apt DEBIAN_FRONTEND="noninteractive"
-```
-
-## Backend Script Example
-
-Create a backend script for complex logic:
-
-```bash
-#!/bin/bash
-# ~/.config/declarch/backends/custom-backend.sh
-
-BACKEND_DIR="$HOME/.custom-packages"
-mkdir -p "$BACKEND_DIR"
-
-case "$1" in
-    install)
-        pkg="$2"
-        echo "Installing $pkg..."
-        # Custom installation logic
-        wget -O "$BACKEND_DIR/$pkg" "https://example.com/$pkg"
-        chmod +x "$BACKEND_DIR/$pkg"
-        ;;
-    list)
-        ls -1 "$BACKEND_DIR"
-        ;;
-    remove)
-        pkg="$2"
-        echo "Removing $pkg..."
-        rm -f "$BACKEND_DIR/$pkg"
-        ;;
-    *)
-        echo "Usage: $0 {install|list|remove} [package]"
-        exit 1
-        ;;
-esac
-```
-
-Make it executable:
-```bash
-chmod +x ~/.config/declarch/backends/custom-backend.sh
-```
-
-Use in config:
-```kdl
-backends {
-    custom {
-        cmd "~/.config/declarch/backends/custom-backend.sh install <package>"
-        list_cmd "~/.config/declarch/backends/custom-backend.sh list"
-        remove_cmd "~/.config/declarch/backends/custom-backend.sh remove <package>"
-    }
+    
+    // ... commands
 }
 ```
 
 ## Testing Custom Backends
 
-### 1. Define Backend
+### 1. Validate Configuration
+
+```bash
+declarch check validate
+```
+
+### 2. Test List Command
+
+```bash
+# Check if backend is recognized
+declarch info --backend cargo
+
+# Should show backend info or "Backend 'cargo' not found" if invalid
+```
+
+### 3. Dry Run
+
+Add to a module and test:
 
 ```kdl
-backends {
-    test {
-        cmd "echo 'Installing: <package>'"
-        list_cmd "echo 'installed1\ninstalled2'"
-        remove_cmd "echo 'Removing: <package>'"
+// modules/dev.kdl
+pkg {
+    cargo {
+        ripgrep
+        fd-find
+        bat
     }
 }
 ```
 
-### 2. Check Backend
-
 ```bash
-declarch check --backend test
-```
-
-### 3. Dry Run Sync
-
-```bash
-packages:test {
-    test-package
-}
-
 declarch sync --dry-run
-```
-
-### 4. Test Install
-
-```bash
-declarch sync --target test
 ```
 
 ## Troubleshooting
 
 ### Backend Not Recognized
 
-**Problem:** `declarch check` doesn't show your backend
+**Problem:** Backend doesn't appear in `declarch info`
 
 **Solution:**
 ```bash
-# Check syntax
-declarch check
+# Check file location
+cat ~/.config/declarch/backends/mybackend.kdl
 
-# Verify backend block exists
-cat ~/.config/declarch/declarch.kdl | grep -A 10 "backends"
+# Validate syntax
+declarch check validate
+
+# Check file permissions
+ls -la ~/.config/declarch/backends/
 ```
 
-### Command Not Found
+### Binary Not Found
 
-**Problem:** Backend command fails with "command not found"
+**Problem:** Backend fails with "command not found"
 
 **Solution:**
 ```bash
-# Test command manually
-sudo nala --version
+# Test binary exists
+which cargo
 
-# Use full path if needed
-backends {
-    nala {
-        cmd "/usr/bin/nala install -y"
-    }
-}
+# Check if binary is in PATH
+# Or specify full path:
+binary "/usr/bin/cargo"
 ```
 
-### List Command Returns Wrong Format
+### List Parsing Fails
 
-**Problem:** Packages not recognized
+**Problem:** Packages not recognized as installed
 
-**Solution:** Ensure list command returns one package per line:
+**Solution:**
 ```bash
-# Test list command
-dpkg -l | awk '/^ii/ {print $2}'
+# Test list command manually
+cargo install --list
 
-# Should output:
-# package1
-# package2
-# package3
-```
-
-### Permission Issues
-
-**Problem:** Backend can't install without sudo
-
-**Solution:** Include sudo in command:
-```kdl
-backends {
-    custom {
-        cmd "sudo custom-pkg install <package>"
-    }
-}
+# Adjust format and columns in backend config
 ```
 
 ## Best Practices
 
-### 1. Use Absolute Paths
+### 1. Use Standard Paths
 
-```kdl
-backends {
-    custom {
-        cmd "/usr/bin/custom-install"
-    }
-}
-```
-
-### 2. Handle Confirmation Prompts
-
-```kdl
-backends {
-    apt {
-        cmd "sudo apt install -y"  # -y skips prompts
-        noconfirm_flag "-y"
-    }
-}
-```
-
-### 3. Test List Command Thoroughly
+Place backends in `~/.config/declarch/backends/`:
 
 ```bash
-# Your list command should work like this:
-$ your-list-cmd
-package1
-package2
-package3
-
-# Not like this:
-$ your-list-cmd
-package1 version1
-package2 version2  # Wrong format
+~/.config/declarch/backends/
+├── cargo.kdl
+├── npm.kdl
+├── pip.kdl
+└── custom.kdl
 ```
 
-### 4. Use Scripts for Complex Logic
+### 2. Document Requirements
 
-For complex backends, create a script rather than embedding complex commands:
+Always include meta information:
 
+```kdl
+meta {
+    title "My Backend"
+    description "What this backend does"
+    requires "required-binary"
+}
+```
+
+### 3. Handle Errors Gracefully
+
+Use fallback for common alternatives:
+
+```kdl
+binary "paru" "yay" "aura"
+fallback "pacman"
+```
+
+### 4. Test Thoroughly
+
+```bash
+# Test each command
+declarch sync --dry-run
+declarch check
+declarch info --backend mybackend
+```
+
+## Migration from v0.5
+
+If you have backends defined in `declarch.kdl` using the old format:
+
+**Old format (v0.5):**
 ```kdl
 backends {
     custom {
-        cmd "~/.config/declarch/backends/custom.sh install"
+        cmd "custom install"
+        list_cmd "custom list"
+        remove_cmd "custom remove"
     }
 }
 ```
 
-### 5. Document Your Backend
-
+**New format (v0.6+):**
 ```kdl
-// Custom backend for MyPackage Manager
-// Requires: mypkg-cli >= 2.0
-// Repository: https://github.com/example/mypkg
-
-backends {
-    mypkg {
-        cmd "mypkg install"
-        list_cmd "mypkg list"
-        remove_cmd "mypkg remove"
+// In ~/.config/declarch/backends/custom.kdl
+backend "custom" {
+    binary "custom"
+    
+    list "custom list" {
+        format whitespace
+        name_col 0
     }
+    
+    install "custom install {packages}"
+    remove "custom remove {packages}"
 }
 ```
 
-## Submitting Backends
-
-If you create a generally useful backend, consider contributing it to declarch:
-
-1. Test thoroughly on multiple systems
-2. Document requirements and installation
-3. Open an issue or pull request on GitHub
+Use `declarch init --backend <name>` to generate templates.
 
 ## Related
 
-- [Backends Reference](../configuration/backends.md) - Built-in backends
+- [Init Command](../commands/init.md) - `declarch init --backend`
 - [KDL Syntax Reference](../configuration/kdl-syntax.md) - Configuration syntax
 - [Troubleshooting](troubleshooting.md) - Common issues
-
-## Examples Gallery
-
-### Distro Package Managers
-
-```kdl
-// Debian/Ubuntu
-backends {
-    apt { ... }
-}
-
-// Fedora
-backends {
-    dnf { ... }
-}
-
-// Arch (alternative)
-backends {
-    pacman { ... }
-}
-```
-
-### Language Package Managers
-
-```kdl
-// Go
-backends {
-    go { ... }
-}
-
-// PHP
-backends {
-    composer { ... }
-}
-
-// Ruby
-backends {
-    gem { ... }
-}
-```
-
-### Custom/Private
-
-```kdl
-// Company internal
-backends {
-    company-pkg {
-        cmd "company-pkg-client install"
-        list_cmd "company-pkg-client list"
-        remove_cmd "company-pkg-client remove"
-    }
-}
-```
