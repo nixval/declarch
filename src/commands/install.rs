@@ -94,7 +94,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
         if exact_match {
             // Same package, same backend - skip immediately
-            let target_backend = backend_str.unwrap_or("aur");
+            let target_backend = backend_str.unwrap_or("default");
 
             output::warning(&format!(
                 "Package '{}' (backend: {}) already exists in config, skipping",
@@ -121,7 +121,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 .map(|pkg_id| pkg_id.backend.to_string())
                 .collect();
 
-            let target_backend = backend_str.unwrap_or("aur");
+            let target_backend = backend_str.unwrap_or("default");
 
             output::warning(&format!(
                 "Package '{}' already exists from: {}. Install from '{}' anyway?",
@@ -193,7 +193,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         // Show sync message with package details
         let packages_with_backend: Vec<String> = all_packages
             .iter()
-            .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("aur")))
+            .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("default")))
             .collect();
 
         output::info(&format!(
