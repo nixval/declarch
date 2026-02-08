@@ -1,0 +1,31 @@
+// brew - Homebrew package manager
+// https://brew.sh
+
+backend "brew" {
+    meta {
+        title "Homebrew"
+        description "The missing package manager for macOS (or Linux)"
+        version "1.0.0"
+        author "declarch"
+        tags "macos" "linux" "package-manager"
+        homepage "https://brew.sh"
+        license "BSD"
+        created "2026-02-08"
+        platforms "linux" "macos"
+        requires "brew"
+    }
+    
+    binary "brew"
+    
+    list "brew list --versions" {
+        format whitespace
+        name_col 0
+        // version_col not set - multiple versions possible
+    }
+    
+    install "brew install {packages}"
+    remove "brew uninstall {packages}"
+    
+    noconfirm "--force"
+    needs_sudo false
+}

@@ -1,0 +1,33 @@
+// pip - Python package installer
+// https://pip.pypa.io
+
+backend "pip" {
+    meta {
+        title "pip"
+        description "Python package installer"
+        version "1.0.0"
+        author "declarch"
+        tags "python" "package-manager"
+        homepage "https://pip.pypa.io"
+        license "MIT"
+        created "2026-02-08"
+        platforms "linux" "macos" "windows"
+        requires "pip3" "pip"
+    }
+    
+    // Try pip3 first, fallback to pip
+    binary "pip3" "pip"
+    
+    list "pip list --format=json 2>/dev/null" {
+        format json
+        json_path ""  // Root array
+        name_key "name"
+        version_key "version"
+    }
+    
+    install "pip install --break-system-packages {packages}"
+    remove "pip uninstall -y {packages}"
+    
+    noconfirm "-y"
+    needs_sudo false
+}

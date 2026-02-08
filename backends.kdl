@@ -1,0 +1,19 @@
+// Backend Aggregator
+// 
+// This file imports all built-in backend configurations.
+// Add new backends with: declarch init --backend <name>
+
+// Package Managers
+import "backends/paru.kdl"
+import "backends/pacman.kdl"
+import "backends/flatpak.kdl"
+import "backends/soar.kdl"
+
+// Language Ecosystem
+import "backends/npm.kdl"
+import "backends/yarn.kdl"
+import "backends/pnpm.kdl"
+import "backends/bun.kdl"
+import "backends/pip.kdl"
+import "backends/cargo.kdl"
+import "backends/brew.kdl"
