@@ -167,8 +167,23 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         return Ok(());
     }
 
-    // Generate and write template
-    let template = generate_backend_template(&sanitized_name);
+    // Try to fetch from registry first, then fallback to template
+    let template = match remote::fetch_backend_content(&sanitized_name) {
+        Ok(content) => {
+            output::success(&format!(
+                "Fetched backend '{}' from registry",
+                sanitized_name
+            ));
+            content
+        }
+        Err(_) => {
+            output::info(&format!(
+                "Backend '{}' not found in registry, using local template",
+                sanitized_name
+            ));
+            generate_backend_template(&sanitized_name)
+        }
+    };
     fs::write(&backend_file, &template)?;
 
     // STEP 4: Display backend info (like module info)

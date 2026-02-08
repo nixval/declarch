@@ -5,6 +5,7 @@ use reqwest::blocking::Client;
 use std::time::Duration;
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
+const BACKENDS_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main/backends";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Allowed URL schemes for security (prevent SSRF)
@@ -70,6 +71,71 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
         "Failed to fetch from: {}\n  Hint: Ensure the repository has a {}.{} file",
         target_path, PROJECT_NAME, CONFIG_EXTENSION
     )))
+}
+
+/// Fetch backend configuration from remote repository
+///
+/// Tries to fetch from declarch-packages/backends/ first,
+/// then falls back to local template generation if not found.
+pub fn fetch_backend_content(backend_name: &str) -> Result<String> {
+    let client = Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .build()
+        .map_err(|e| DeclarchError::Other(format!("Failed to create HTTP client: {}", e)))?;
+
+    // Build URLs to try for backend
+    let urls = build_backend_urls(backend_name);
+
+    for url in urls {
+        match fetch_url(&client, &url) {
+            Ok(content) => {
+                output::info(&format!("fetch backend: {}", url));
+                return Ok(content);
+            }
+            Err(_) => continue,
+        }
+    }
+
+    Err(DeclarchError::TargetNotFound(format!(
+        "Backend '{}' not found in registry",
+        backend_name
+    )))
+}
+
+/// Build list of URLs to try for backend
+fn build_backend_urls(backend_name: &str) -> Vec<String> {
+    let mut urls = Vec::new();
+
+    // 1. Direct URL (starts with http:// or https://)
+    if backend_name.starts_with("http://") || backend_name.starts_with("https://") {
+        urls.push(backend_name.to_string());
+        return urls;
+    }
+
+    // Clean name (remove .kdl if present)
+    let clean_name = backend_name
+        .strip_suffix(&format!(".{}", CONFIG_EXTENSION))
+        .unwrap_or(backend_name);
+
+    // 2. Default registry backends
+    urls.push(format!(
+        "{}/{}.{}",
+        BACKENDS_REGISTRY, clean_name, CONFIG_EXTENSION
+    ));
+
+    // 3. Try GitHub repo (owner/repo pattern for custom backends)
+    if clean_name.contains('/') {
+        let parts: Vec<&str> = clean_name.split('/').collect();
+        if parts.len() >= 2 {
+            let (owner, repo) = (parts[0], parts[1]);
+            urls.push(format!(
+                "https://raw.githubusercontent.com/{}/{}/main/backends/{}.{}",
+                owner, repo, parts.last().unwrap_or(&"backend"), CONFIG_EXTENSION
+            ));
+        }
+    }
+
+    urls
 }
 
 /// Build list of URLs to try for the given target
