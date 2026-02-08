@@ -1,205 +1,53 @@
-//! Backend parser registry
+//! Backend parser registry (DEPRECATED in v0.6+)
 //!
-//! Manages all available backend parsers and provides
-//! a unified interface for parsing packages from KDL nodes.
+//! This file is kept for backward compatibility but is NO LONGER USED.
+//! 
+//! In v0.6+, all parsing is handled by the generic parser in parser.rs.
+//! There are no backend-specific parsers.
+//!
+//! This module will be removed in v0.7.
 
 use crate::config::kdl_modules::types::{PackageEntry, RawConfig};
-use crate::config::kdl_modules::parsers::BackendParser;
 use crate::error::Result;
 use kdl::KdlNode;
 
-// Import individual parsers
-use crate::config::kdl_modules::parsers::{
-    AurParser, BrewParser, BunParser, CargoParser, FlatpakParser,
-    NpmParser, PipParser, PnpmParser, SoarParser, YarnParser,
-};
-
-/// Registry for backend parsers
-///
-/// This registry manages all available backend parsers and provides
-/// a unified interface for parsing packages from KDL nodes.
-pub struct BackendParserRegistry {
-    parsers: Vec<Box<dyn BackendParser>>,
-    #[allow(dead_code)]
-    default_backend: &'static str, // Reserved for future use
+/// DEPRECATED: Backend parser trait
+/// 
+/// This trait is no longer used. All parsing is now generic.
+pub trait BackendParser: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn aliases(&self) -> &[&'static str] {
+        &[]
+    }
+    fn parse(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()>;
+    fn matches(&self, backend: &str) -> bool {
+        self.name() == backend || self.aliases().contains(&backend)
+    }
 }
 
+/// DEPRECATED: Backend parser registry
+/// 
+/// This registry no longer manages individual parsers.
+/// It exists only for backward compatibility during the transition.
+pub struct BackendParserRegistry;
+
 impl BackendParserRegistry {
-    /// Create a new registry with default parsers
+    /// Create a new registry (empty, no parsers needed in v0.6+)
     pub fn new() -> Self {
-        Self {
-            parsers: vec![
-                Box::new(AurParser),
-                Box::new(SoarParser),
-                Box::new(FlatpakParser),
-                Box::new(NpmParser),
-                Box::new(YarnParser),
-                Box::new(PnpmParser),
-                Box::new(BunParser),
-                Box::new(PipParser),
-                Box::new(CargoParser),
-                Box::new(BrewParser),
-            ],
-            default_backend: "aur", // Default to AUR for Arch Linux
-        }
+        Self
     }
 
-    /// Find a parser by backend name (including aliases)
-    pub fn find_parser(&self, backend: &str) -> Option<&dyn BackendParser> {
-        self.parsers
-            .iter()
-            .find(|p| p.matches(backend))
-            .map(|p| p.as_ref())
-    }
-
-    /// Parse packages with inline prefix syntax
-    ///
-    /// Handles syntax like: `packages { aur:hyprland soar:bat }`
-    pub fn parse_inline_prefix(&self, package_str: &str, config: &mut RawConfig) -> Result<()> {
-        if let Some((backend, package)) = package_str.split_once(':') {
-            if self.find_parser(backend).is_some() {
-                let entry = PackageEntry {
-                    name: package.to_string(),
-                };
-
-                // In simplified version, non-AUR backends go to legacy_packages
-                match backend {
-                    "aur" => config.packages.push(entry),
-                    "soar" | "app" | "flatpak" | "npm" | "yarn" | "pnpm" | "bun" | "pip" | "cargo" | "brew" => {
-                        config.legacy_packages.push(entry)
-                    }
-                    _ => config.packages.push(entry),
-                }
-            } else {
-                // Unknown backend - treat the whole string as package name with default backend
-                config.packages.push(PackageEntry {
-                    name: package_str.to_string(),
-                });
-            }
-        } else {
-            // No prefix - use default backend (AUR)
-            config.packages.push(PackageEntry {
-                name: package_str.to_string(),
-            });
-        }
+    /// DEPRECATED: Parse packages node
+    /// 
+    /// This method is no longer used. Parsing is handled directly in parser.rs.
+    pub fn parse_packages_node(&self, _node: &KdlNode, _config: &mut RawConfig) -> Result<()> {
+        // No-op - parsing is handled by the generic parser
         Ok(())
     }
 
-    /// Parse a packages node with flexible syntax
-    ///
-    /// Supported syntaxes:
-    /// 1. `packages { hyprland waybar }` → AUR packages (default)
-    /// 2. `packages:aur { hyprland }` → AUR packages (explicit)
-    /// 3. `packages:soar { bat exa }` → Soar packages
-    /// 4. `packages:flatpak { com.spotify.Client }` → Flatpak packages
-    /// 5. `packages { bat aur:hyprland flatpak:app.id }` → Mixed with inline prefix
-    /// 6. `packages { soar { bat } flatpak { app.id } }` → Nested blocks
-    pub fn parse_packages_node(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
-        let node_name = node.name().value();
-
-        // Case 1: Colon syntax: packages:backend
-        if let Some((_, backend)) = node_name.split_once(':') {
-            if let Some(parser) = self.find_parser(backend) {
-                return parser.parse(node, config);
-            }
-            // Custom backend - parse and store in custom_packages HashMap
-            return self.parse_custom_backend(backend, node, config);
-        }
-
-        // Case 2: Check for nested children (backend blocks)
-        if let Some(_children) = node.children() {
-            for child in _children.nodes() {
-                let child_name = child.name().value();
-
-                // Check if child name is a backend identifier
-                if let Some(parser) = self.find_parser(child_name) {
-                    // Parse as backend block: `packages { aur { ... } }`
-                    parser.parse(child, config)?;
-                } else {
-                    // Check for inline prefix syntax: `aur:hyprland`
-                    if child_name.contains(':') {
-                        self.parse_inline_prefix(child_name, config)?;
-                    } else {
-                        // No backend prefix - use default backend
-                        config.packages.push(PackageEntry {
-                            name: child_name.to_string(),
-                        });
-                    }
-
-                    // Also check for string arguments in the child node
-                    for entry in child.entries() {
-                        if let Some(val) = entry.value().as_string() {
-                            if val.contains(':') {
-                                self.parse_inline_prefix(val, config)?;
-                            } else {
-                                config.packages.push(PackageEntry {
-                                    name: val.to_string(),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Case 3: Extract direct string arguments (default to AUR)
-        for entry in node.entries() {
-            if let Some(val) = entry.value().as_string() {
-                if val.contains(':') {
-                    self.parse_inline_prefix(val, config)?;
-                } else {
-                    config.packages.push(PackageEntry {
-                        name: val.to_string(),
-                    });
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Parse packages for a custom (user-defined) backend
-    fn parse_custom_backend(
-        &self,
-        backend_name: &str,
-        node: &KdlNode,
-        config: &mut RawConfig,
-    ) -> Result<()> {
-        let mut packages = Vec::new();
-
-        // Extract packages from children
-        if let Some(children) = node.children() {
-            for child in children.nodes() {
-                let child_name = child.name().value();
-                packages.push(PackageEntry {
-                    name: child_name.to_string(),
-                });
-
-                // Also check for string arguments
-                for entry in child.entries() {
-                    if let Some(val) = entry.value().as_string() {
-                        packages.push(PackageEntry {
-                            name: val.to_string(),
-                        });
-                    }
-                }
-            }
-        }
-
-        // Extract packages from direct arguments
-        for entry in node.entries() {
-            if let Some(val) = entry.value().as_string() {
-                packages.push(PackageEntry {
-                    name: val.to_string(),
-                });
-            }
-        }
-
-        // Store in custom_packages HashMap
-        config
-            .custom_packages
-            .insert(backend_name.to_string(), packages);
-
+    /// DEPRECATED: Parse inline prefix
+    pub fn parse_inline_prefix(&self, _package_str: &str, _config: &mut RawConfig) -> Result<()> {
+        // No-op - parsing is handled by the generic parser
         Ok(())
     }
 }

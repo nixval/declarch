@@ -9,8 +9,8 @@ pub use crate::config::kdl_modules::types::{
     LifecyclePhase, PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
 };
 
-// Re-export BackendParser trait from parsers module
-pub use crate::config::kdl_modules::parsers::BackendParser;
+// Re-export BackendParser trait (now in registry for backward compatibility)
+pub use crate::config::kdl_modules::registry::BackendParser;
 
 // Re-export BackendParserRegistry
 pub use crate::config::kdl_modules::registry::BackendParserRegistry;

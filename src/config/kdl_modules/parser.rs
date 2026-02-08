@@ -1,34 +1,34 @@
 //! KDL content parser
 //!
 //! Main parsing logic for KDL configuration files.
+//! 
+//! In v0.6+, this uses a fully generic approach where all packages are
+//! stored in unified storage (packages_by_backend).
 
 use crate::config::kdl_modules::types::{
     ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
     PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
 };
-use crate::config::kdl_modules::registry::BackendParserRegistry;
 use crate::config::kdl_modules::helpers::{
     conflicts, env, hooks, meta, package_mappings, packages, policy, repositories,
 };
 use crate::error::Result;
 use kdl::{KdlDocument, KdlNode};
-use std::collections::HashMap;
 
-/// Parse backend options: options:aur { noconfirm true }
+/// Parse backend options: options:backend_name { noconfirm true }
 pub fn parse_backend_options(
     node: &KdlNode,
-    options: &mut HashMap<String, HashMap<String, String>>,
+    options: &mut std::collections::HashMap<String, std::collections::HashMap<String, String>>,
 ) -> Result<()> {
-    // Check for colon syntax: options:aur
+    // Check for colon syntax: options:paru
     let backend_name = if let Some((_, backend)) = node.name().value().split_once(':') {
         backend.to_string()
     } else {
-        // No backend specified, apply to all? Or skip?
-        // For now, skip if no backend specified
+        // No backend specified - skip
         return Ok(());
     };
 
-    let mut opts = HashMap::new();
+    let mut opts = std::collections::HashMap::new();
 
     // Extract from children
     if let Some(children) = node.children() {
@@ -66,9 +66,9 @@ pub fn parse_backend_options(
 /// Parse KDL content into RawConfig
 ///
 /// This is the main entry point for parsing KDL configuration files.
+/// Uses fully unified package storage - no backend-specific fields.
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     let doc: KdlDocument = content.parse().map_err(|e: kdl::KdlError| {
-        // Provide more helpful error messages for common KDL syntax issues
         let err_msg = e.to_string();
         let hint = if err_msg.contains("unexpected token") {
             "\nHint: Check for missing quotes, unmatched brackets, or invalid characters."
@@ -83,33 +83,7 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         crate::error::DeclarchError::ConfigError(format!("KDL parsing error: {}{}", err_msg, hint))
     })?;
 
-    let mut config = RawConfig {
-        imports: vec![],
-        packages_by_backend: HashMap::new(),
-        packages: vec![],
-        legacy_packages: vec![],
-        soar_packages: vec![],
-        flatpak_packages: vec![],
-        npm_packages: vec![],
-        yarn_packages: vec![],
-        pnpm_packages: vec![],
-        bun_packages: vec![],
-        pip_packages: vec![],
-        cargo_packages: vec![],
-        brew_packages: vec![],
-        custom_packages: HashMap::new(),
-        excludes: vec![],
-        package_mappings: HashMap::new(),
-        project_metadata: ProjectMetadata::default(),
-        conflicts: vec![],
-        backend_options: HashMap::new(),
-        env: HashMap::new(),
-        package_sources: HashMap::new(),
-        policy: PolicyConfig::default(),
-        lifecycle_actions: LifecycleConfig::default(),
-    };
-
-    let registry = BackendParserRegistry::new();
+    let mut config = RawConfig::default();
 
     for node in doc.nodes() {
         let node_name = node.name().value();
@@ -117,8 +91,6 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
         match node_name {
             "import" | "imports" => {
                 packages::extract_strings(node, &mut config.imports);
-                // DEBUG: Show what imports were parsed
-                for _import in &config.imports {}
             }
             "exclude" | "excludes" => {
                 packages::extract_mixed_values(node, &mut config.excludes);
@@ -127,42 +99,33 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                 package_mappings::extract_aliases(node, &mut config.package_mappings);
             }
             "description" => {
-                // Parse description into project_metadata
                 if let Some(entry) = node.entries().first()
                     && let Some(val) = entry.value().as_string()
                 {
                     config.project_metadata.description = Some(val.to_string());
                 }
             }
-            // NEW: Meta block
             "meta" => {
                 meta::parse_meta_block(node, &mut config.project_metadata)?;
             }
-            // NEW: Conflicts
             "conflicts" | "conflict" => {
                 conflicts::parse_conflicts(node, &mut config.conflicts)?;
             }
-            // NEW: Backend options
             name if name.starts_with("options") => {
                 parse_backend_options(node, &mut config.backend_options)?;
             }
-            // NEW: Environment variables
             name if name.starts_with("env") => {
                 env::parse_env_vars(node, &mut config.env, None)?;
             }
-            // NEW: Package repositories
             name if name.starts_with("repos") || name.starts_with("repositories") => {
                 repositories::parse_repositories(node, &mut config.package_sources)?;
             }
-            // NEW: Policy
             "policy" => {
                 policy::parse_policy(node, &mut config.policy)?;
             }
-            // NEW: Hooks
             "hooks" => {
                 hooks::parse_hooks(node, &mut config.lifecycle_actions)?;
             }
-            // NEW: Simplified flat hooks (backward compatibility)
             "on-sync" => {
                 if let Some(val) = meta::get_first_string(node) {
                     config.lifecycle_actions.actions.push(LifecycleAction {
@@ -199,32 +162,169 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
                     });
                 }
             }
-            // Parse packages with flexible syntax using the registry
-            name if name.starts_with("packages") => {
-                registry.parse_packages_node(node, &mut config)?;
+            // Unified pkg syntax: pkg { backend { packages } }
+            "pkg" => {
+                parse_pkg_node(node, &mut config)?;
             }
-            // Legacy syntax support (with deprecation warning in the future)
-            "aur-packages" | "aur-package" => {
-                let packages = packages::extract_mixed_values_return(node);
-                config
-                    .packages
-                    .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
-            }
-            "soar-packages" | "soar-package" => {
-                let packages = packages::extract_mixed_values_return(node);
-                config
-                    .legacy_packages
-                    .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
-            }
-            "flatpak-packages" | "flatpak-package" => {
-                let packages = packages::extract_mixed_values_return(node);
-                config
-                    .legacy_packages
-                    .extend(packages.into_iter().map(|p| PackageEntry { name: p }));
+            // Legacy packages syntax (deprecated but still supported for migration)
+            "packages" => {
+                parse_packages_node_legacy(node, &mut config)?;
             }
             _ => {}
         }
     }
 
     Ok(config)
+}
+
+/// Parse unified pkg node: pkg { backend { packages } }
+fn parse_pkg_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+    // Handle pkg:backend { packages } syntax
+    let node_name = node.name().value();
+    if let Some((_, backend)) = node_name.split_once(':') {
+        // Direct backend specification: pkg:paru { ... }
+        let packages = extract_packages_from_node(node)?;
+        if !packages.is_empty() {
+            config.packages_by_backend
+                .entry(backend.to_string())
+                .or_default()
+                .extend(packages);
+        }
+        return Ok(());
+    }
+
+    // Handle nested blocks: pkg { paru { ... } npm { ... } }
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let backend_name = child.name().value();
+            let packages = extract_packages_from_node(child)?;
+            if !packages.is_empty() {
+                config.packages_by_backend
+                    .entry(backend_name.to_string())
+                    .or_default()
+                    .extend(packages);
+            }
+        }
+    }
+
+    // Handle inline entries: pkg { paru:package1 npm:package2 }
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            if let Some((backend, package)) = val.split_once(':') {
+                config.packages_by_backend
+                    .entry(backend.to_string())
+                    .or_default()
+                    .push(PackageEntry { name: package.to_string() });
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Extract packages from a node (children and entries)
+fn extract_packages_from_node(node: &KdlNode) -> Result<Vec<PackageEntry>> {
+    let mut packages = Vec::new();
+
+    // Extract from children (nested package names)
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            packages.push(PackageEntry { 
+                name: child.name().value().to_string() 
+            });
+            
+            // Also check for string arguments
+            for entry in child.entries() {
+                if let Some(val) = entry.value().as_string() {
+                    packages.push(PackageEntry { name: val.to_string() });
+                }
+            }
+        }
+    }
+
+    // Extract from direct string arguments
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            packages.push(PackageEntry { name: val.to_string() });
+        }
+    }
+
+    Ok(packages)
+}
+
+/// Parse legacy packages node (deprecated but supported for migration)
+/// Handles: packages { pkg1 pkg2 }, packages:paru { ... }, packages { paru { ... } }
+fn parse_packages_node_legacy(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+    let node_name = node.name().value();
+
+    // Check for colon syntax: packages:backend
+    if let Some((_, backend)) = node_name.split_once(':') {
+        let packages = extract_packages_from_node(node)?;
+        if !packages.is_empty() {
+            config.packages_by_backend
+                .entry(backend.to_string())
+                .or_default()
+                .extend(packages);
+        }
+        return Ok(());
+    }
+
+    // Check for nested children (backend blocks)
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+            
+            // Check if child name contains colon (inline prefix)
+            if child_name.contains(':') {
+                if let Some((backend, package)) = child_name.split_once(':') {
+                    config.packages_by_backend
+                        .entry(backend.to_string())
+                        .or_default()
+                        .push(PackageEntry { name: package.to_string() });
+                }
+            } else {
+                // Treat as backend block or package name
+                let packages = extract_packages_from_node(child)?;
+                if !packages.is_empty() {
+                    // Try to detect if it's a known backend by checking for nested structure
+                    // For legacy compatibility, assume it's a package if no children
+                    if child.children().is_none() {
+                        // Likely a package - add to "default" or first available backend
+                        // This will be resolved later
+                        config.packages_by_backend
+                            .entry("default".to_string())
+                            .or_default()
+                            .push(PackageEntry { name: child_name.to_string() });
+                    } else {
+                        // Backend block
+                        config.packages_by_backend
+                            .entry(child_name.to_string())
+                            .or_default()
+                            .extend(packages);
+                    }
+                }
+            }
+        }
+    }
+
+    // Extract direct entries
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            if val.contains(':') {
+                if let Some((backend, package)) = val.split_once(':') {
+                    config.packages_by_backend
+                        .entry(backend.to_string())
+                        .or_default()
+                        .push(PackageEntry { name: package.to_string() });
+                }
+            } else {
+                config.packages_by_backend
+                    .entry("default".to_string())
+                    .or_default()
+                    .push(PackageEntry { name: val.to_string() });
+            }
+        }
+    }
+
+    Ok(())
 }

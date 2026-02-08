@@ -1,83 +1,74 @@
 use std::collections::{HashMap, HashSet};
 
+/// Raw configuration parsed from KDL files
+/// 
+/// In v0.6+, this uses unified package storage where all packages are
+/// organized by backend name in a HashMap. No backend-specific fields.
 #[derive(Debug, Clone)]
 pub struct RawConfig {
-    // === Existing fields ===
+    /// Import statements
     pub imports: Vec<String>,
     
-    // === Unified Package Storage (v0.6+) ===
-    /// All packages organized by backend
-    /// Key: backend name (e.g., "paru", "npm", "flatpak")
-    /// Value: list of packages for that backend
-    /// Syntax: pkg { backend { packages... } }
+    /// Unified package storage: backend_name -> packages
+    /// 
+    /// All packages are stored here, organized by their backend.
+    /// Examples:
+    /// - "paru" -> [hyprland, waybar, git]
+    /// - "npm" -> [typescript, eslint]
+    /// - "flatpak" -> [com.spotify.Client]
+    /// 
+    /// Syntax in KDL:
+    ///   pkg { paru { hyprland waybar } }
+    ///   pkg:paru { hyprland waybar }
     pub packages_by_backend: HashMap<String, Vec<PackageEntry>>,
-    
-    // === DEPRECATED: Legacy package fields (v0.5 and earlier) ===
-    /// DEPRECATED: Use packages_by_backend["paru"] or packages_by_backend["aur"]
-    /// Kept for backward compatibility during migration
-    pub packages: Vec<PackageEntry>,
-    /// DEPRECATED: Temporary storage for non-AUR packages during parsing transition
-    /// This will be removed in v0.7. Use packages_by_backend instead.
-    pub legacy_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["soar"]  
-    pub soar_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["flatpak"]
-    pub flatpak_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["npm"]
-    pub npm_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["yarn"]
-    pub yarn_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["pnpm"]
-    pub pnpm_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["bun"]
-    pub bun_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["pip"]
-    pub pip_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["cargo"]
-    pub cargo_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend["brew"]
-    pub brew_packages: Vec<PackageEntry>,
-    /// DEPRECATED: Use packages_by_backend[backend_name]
-    pub custom_packages: HashMap<String, Vec<PackageEntry>>,
 
+    /// Packages to exclude from sync
     pub excludes: Vec<String>,
+    
     /// Package mappings: config_name -> actual_package_name
-    /// Example: "pipewire" -> "pipewire-jack2"
     pub package_mappings: HashMap<String, String>,
 
-    // === NEW: Project metadata block ===
     /// Project metadata
     pub project_metadata: ProjectMetadata,
 
-    // === NEW: Conflicts ===
     /// Mutually exclusive packages
     pub conflicts: Vec<ConflictEntry>,
 
-    // === NEW: Backend options ===
     /// Backend-specific configuration options
-    /// Syntax: options:aur { noconfirm true }
     pub backend_options: HashMap<String, HashMap<String, String>>,
 
-    // === NEW: Environment variables ===
     /// Environment variables for package operations
-    /// Syntax: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
     pub env: HashMap<String, Vec<String>>,
 
-    // === NEW: Package sources ===
-    /// Custom package sources
-    /// Syntax: repos:aur { "https://..." }
+    /// Custom package sources (repositories)
     pub package_sources: HashMap<String, Vec<String>>,
 
-    // === NEW: Policy control ===
     /// Package lifecycle policies
     pub policy: PolicyConfig,
 
-    // === NEW: Lifecycle Actions ===
     /// Pre/post sync lifecycle actions
     pub lifecycle_actions: LifecycleConfig,
 }
 
-/// Package entry (version constraints skipped for now)
+impl Default for RawConfig {
+    fn default() -> Self {
+        Self {
+            imports: Vec::new(),
+            packages_by_backend: HashMap::new(),
+            excludes: Vec::new(),
+            package_mappings: HashMap::new(),
+            project_metadata: ProjectMetadata::default(),
+            conflicts: Vec::new(),
+            backend_options: HashMap::new(),
+            env: HashMap::new(),
+            package_sources: HashMap::new(),
+            policy: PolicyConfig::default(),
+            lifecycle_actions: LifecycleConfig::default(),
+        }
+    }
+}
+
+/// Package entry (minimal - just name for now)
 #[derive(Debug, Clone)]
 pub struct PackageEntry {
     pub name: String,
@@ -128,7 +119,7 @@ pub struct LifecycleAction {
     pub error_behavior: ErrorBehavior,
 }
 
-/// Action type (simplified from v0.4.3)
+/// Action type
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActionType {
     User, // Run without sudo
@@ -138,12 +129,10 @@ pub enum ActionType {
 /// Lifecycle phase - when the action should run
 #[derive(Debug, Clone, PartialEq)]
 pub enum LifecyclePhase {
-    // Global phases
     PreSync,
     PostSync,
     OnSuccess,
     OnFailure,
-    // Package phases
     PreInstall,
     PostInstall,
     PreRemove,
@@ -154,17 +143,17 @@ pub enum LifecyclePhase {
 /// Action condition - when to run the action
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActionCondition {
-    IfInstalled(String), // Run only if package is installed
-    IfChanged(String),   // Run only if package was installed/updated
-    IfBackend(String),   // Run only if this backend had changes
-    IfSuccess,           // Run only if previous action succeeded
+    IfInstalled(String),
+    IfChanged(String),
+    IfBackend(String),
+    IfSuccess,
 }
 
 /// Error behavior for hooks
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum ErrorBehavior {
     #[default]
-    Warn, // Default: warn on error (from v0.4.3)
-    Required, // Fail sync if hook fails (new in v0.4.4)
-    Ignore,   // Silently ignore errors (new in v0.4.4)
+    Warn,
+    Required,
+    Ignore,
 }
