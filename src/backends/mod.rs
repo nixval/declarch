@@ -135,4 +135,4 @@ pub use config::{BackendConfig, BinarySpecifier, OutputFormat};
 pub use generic::GenericManager;
 
 // Re-export commonly used items
-pub use registry::{get_builtin_backends, load_all_backends};
+pub use registry::load_all_backends;

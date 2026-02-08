@@ -8,7 +8,7 @@ use crate::error::{DeclarchError, Result};
 use kdl::{KdlDocument, KdlNode};
 use std::path::Path;
 
-/// Load user-defined backends from backends.kdl
+/// Load user-defined backends from backends.kdl (aggregator file)
 pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
     if !path.exists() {
         return Ok(Vec::new());
@@ -24,13 +24,57 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
 
     for node in doc.nodes() {
         let node_name = node.name().value();
-        if node_name == "backend" {
-            let config = parse_backend_node(node)?;
-            backends.push(config);
+        match node_name {
+            "backend" => {
+                let config = parse_backend_node(node)?;
+                backends.push(config);
+            }
+            "import" => {
+                // Handle import statements - load referenced backend files
+                if let Some(path_val) = node.entries().first()
+                    .and_then(|e| e.value().as_string()) {
+                    // Resolve relative path from config directory
+                    if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                        let import_path = config_dir.join(path_val);
+                        if let Ok(Some(config)) = load_backend_file(&import_path) {
+                            backends.push(config);
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
     Ok(backends)
+}
+
+/// Parse a single backend from file content
+/// 
+/// Used for individual backend files in backends/ directory
+pub fn parse_backend_file(content: &str) -> Result<Option<BackendConfig>> {
+    let doc = KdlDocument::parse(content)
+        .map_err(|e| DeclarchError::Other(format!("Failed to parse backend file: {}", e)))?;
+
+    for node in doc.nodes() {
+        if node.name().value() == "backend" {
+            return parse_backend_node(node).map(Some);
+        }
+    }
+
+    Ok(None)
+}
+
+/// Load a single backend from file path
+fn load_backend_file(path: &Path) -> Result<Option<BackendConfig>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| DeclarchError::Other(format!("Failed to read backend file: {}", e)))?;
+
+    parse_backend_file(&content)
 }
 
 /// Parse a single backend node
