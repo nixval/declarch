@@ -130,24 +130,11 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
 
     output::header(&format!("Installed Packages ({})", total));
 
-    // Display by backend
-    let backend_order = vec![
-        Backend::from("aur"),
-        Backend::from("flatpak"),
-        Backend::from("cargo"),
-        Backend::from("npm"),
-        Backend::from("bun"),
-        Backend::from("yarn"),
-        Backend::from("pnpm"),
-        Backend::from("pip"),
-        Backend::from("brew"),
-        Backend::from("soar"),
-    ];
+    // Sort backends alphabetically for consistent display
+    let mut backends: Vec<_> = grouped.keys().cloned().collect();
+    backends.sort_by(|a, b| a.name().cmp(b.name()));
 
-    // Handle other backends not in the predefined order
-    let known_backends: std::collections::HashSet<_> = backend_order.iter().collect();
-
-    for backend in &backend_order {
+    for backend in &backends {
         if let Some(pkgs) = grouped.get(backend) {
             println!();
             println!("{}", format!("Backend: {}", backend).bold().cyan());
@@ -170,27 +157,8 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
         }
     }
 
-    // Handle other backends not in the predefined order
-    for (backend, pkgs) in grouped.iter() {
-        if !known_backends.contains(backend) {
-            println!();
-            println!("{}", format!("Backend: {}", backend).bold().cyan());
-            for pkg in pkgs {
-                let status = if is_orphans {
-                    "⚠".yellow()
-                } else {
-                    "✓".green()
-                };
-                let version = pkg.version.as_ref().map(|v| v as &str).unwrap_or("-");
-                println!(
-                    "  {} {:<30} {:>10}",
-                    status,
-                    &pkg.config_name,
-                    version.dimmed()
-                );
-            }
-        }
-    }
+    // Note: All backends are now displayed in the sorted loop above
+    // No hardcoded backend order - everything is dynamic
 
     if is_orphans {
         println!();
