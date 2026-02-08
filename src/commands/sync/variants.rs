@@ -1,25 +1,30 @@
 //! Variant detection and resolution
 //!
-//! Handles AUR package variant matching (-bin, -git, etc.)
+//! Handles package variant matching (-bin, -git, etc.) for smart package identification
 
-use crate::core::types::{Backend, PackageId};
+use crate::core::types::PackageId;
 use super::InstalledSnapshot;
 
-/// AUR package variant suffixes for smart matching
-const AUR_SUFFIXES: &[&str] = &["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland"];
+/// Common package variant suffixes for smart matching
+const VARIANT_SUFFIXES: &[&str] = &["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland", "-appimage"];
 
-/// Try to find an AUR package variant in the installed snapshot
+/// Try to find a package variant in the installed snapshot
 /// Returns the variant name if found, otherwise None
-pub fn find_aur_variant(
+/// 
+/// This works for any backend, not just AUR. For example:
+/// - "hyprland" might match "hyprland-git" or "hyprland-bin"
+/// - "firefox" might match "firefox-nightly"
+pub fn find_variant(
     package_name: &str,
+    backend: &str,
     installed_snapshot: &InstalledSnapshot,
 ) -> Option<String> {
     // Try each suffix variant
-    for suffix in AUR_SUFFIXES {
+    for suffix in VARIANT_SUFFIXES {
         let alt_name = format!("{}{}", package_name, suffix);
         let alt_id = PackageId {
             name: alt_name.clone(),
-            backend: Backend::from("aur"),
+            backend: crate::core::types::Backend::from(backend),
         };
         if installed_snapshot.contains_key(&alt_id) {
             return Some(alt_name);
@@ -30,7 +35,7 @@ pub fn find_aur_variant(
     if let Some((prefix, _)) = package_name.split_once('-') {
         let alt_id = PackageId {
             name: prefix.to_string(),
-            backend: Backend::from("aur"),
+            backend: crate::core::types::Backend::from(backend),
         };
         if installed_snapshot.contains_key(&alt_id) {
             return Some(prefix.to_string());
@@ -51,25 +56,27 @@ pub fn resolve_installed_package_name(
         return pkg.name.clone();
     }
 
-    // Try smart match based on backend
-    if pkg.backend.0 == "aur" {
-        // Use helper function for variant matching
-        if let Some(variant) = find_aur_variant(&pkg.name, installed_snapshot) {
-            return variant;
-        }
-        pkg.name.clone()
-    } else if pkg.backend.0 == "flatpak" {
-        let search = pkg.name.to_lowercase();
-        for installed_id in installed_snapshot.keys() {
-            if installed_id.backend.0 == "flatpak"
-                && installed_id.name.to_lowercase().contains(&search)
-            {
-                return installed_id.name.clone();
-            }
-        }
-        pkg.name.clone()
-    } else {
-        // All other backends require exact matching - no smart matching needed
-        pkg.name.clone()
+    // Try variant matching for the same backend
+    if let Some(variant) = find_variant(&pkg.name, pkg.backend.name(), installed_snapshot) {
+        return variant;
     }
+
+    // Try case-insensitive substring match for flatpak-style backends
+    // (where package IDs are long like com.spotify.Client)
+    let search = pkg.name.to_lowercase();
+    for installed_id in installed_snapshot.keys() {
+        if installed_id.backend == pkg.backend
+            && installed_id.name.to_lowercase().contains(&search)
+        {
+            return installed_id.name.clone();
+        }
+    }
+
+    // No match found - return original name
+    pkg.name.clone()
+}
+
+/// Check if a package name looks like a variant (has known suffix)
+pub fn is_variant(package_name: &str) -> bool {
+    VARIANT_SUFFIXES.iter().any(|suffix| package_name.ends_with(suffix))
 }

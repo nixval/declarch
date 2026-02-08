@@ -18,29 +18,20 @@ pub use planner::{create_transaction, check_variant_transitions, warn_partial_up
 pub use executor::execute_transaction;
 pub use state_sync::update_state;
 pub use hooks::execute_sync_hooks;
-pub use variants::{find_aur_variant, resolve_installed_package_name};
+pub use variants::{find_variant, resolve_installed_package_name};
 
 use crate::config::loader;
 use crate::core::types::SyncTarget;
-use crate::error::{DeclarchError, Result};
+use crate::error::Result;
 use crate::ui as output;
-use crate::utils::distro::DistroType;
-use crate::utils::install;
 use crate::utils::paths;
 use std::path::Path;
 
-// Import remaining dependencies from original sync.rs
-use crate::core::{
-    types::{PackageId, PackageMetadata},
-};
+use crate::core::types::{PackageId, PackageMetadata};
 use crate::packages::{PackageManager, create_manager};
-use crate::state::{
-    self,
-    types::Backend,
-};
-use chrono::Utc;
+use crate::state::types::Backend;
+use crate::state;
 use std::collections::HashMap;
-use std::process::{Command, Stdio};
 
 // Type aliases to reduce complexity
 pub type InstalledSnapshot = HashMap<PackageId, PackageMetadata>;
@@ -57,7 +48,6 @@ pub struct SyncOptions {
     pub target: Option<String>,
     pub noconfirm: bool,
     pub hooks: bool,
-    pub skip_soar_install: bool,
     pub modules: Vec<String>,
 }
 
@@ -68,13 +58,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 2. Load Config
     let config_path = paths::config_file()?;
     let mut config = if !options.modules.is_empty() {
-        // Check if this is selective sync (single module, no target specified)
-        // or loading additional modules
         if options.modules.len() == 1 && options.target.is_none() {
-            // Selective sync: load ONLY this module (no verbose message)
             load_single_module(&config_path, &options.modules[0])?
         } else {
-            // Load additional modules
             load_config_with_modules(&config_path, &options.modules)?
         }
     } else {
@@ -84,125 +70,63 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // Execute pre-sync hooks
     execute_sync_hooks(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
-    // 3. System Update
-    perform_system_update(&options)?;
-
-    // 4. Initialize Managers & Snapshot
+    // 3. Initialize Managers & Snapshot
     let (installed_snapshot, managers) =
         initialize_managers_and_snapshot(&config, &options, &sync_target)?;
 
-    // 5. Load State & Resolve
-    let mut state = state::io::load_state()?;
+    // 4. Load State & Resolve
+    let state = state::io::load_state()?;
 
-    // ==========================================
-    // PHASE 2: VARIANT DETECTION
-    // ==========================================
-    // Variant checking is done in planner::check_variant_transitions()
+    // 5. Create Transaction
+    let transaction = create_transaction(&mut config, &state, &installed_snapshot, &managers, &sync_target)?;
 
-    // ==========================================
-    // PHASE 3: TRANSACTION PLANNING
-    // ==========================================
-    let tx = create_transaction(
-        &mut config,
-        &state,
-        &installed_snapshot,
-        &managers,
-        &sync_target,
-    )?;
+    // 6. Display Plan
+    if transaction.to_install.is_empty() 
+        && transaction.to_prune.is_empty() 
+        && transaction.to_adopt.is_empty() {
+        output::success("Everything is up to date!");
+        return Ok(());
+    }
 
-    // ==========================================
-    // PHASE 4: EXECUTE TRANSACTION
-    // ==========================================
-    if tx.to_install.is_empty()
-        && tx.to_adopt.is_empty()
-        && tx.to_update_project_metadata.is_empty()
-        && (!options.prune || tx.to_prune.is_empty())
-    {
-        output::success("System is in sync.");
-        if options.update {
-            state.meta.last_update = Some(Utc::now());
-            state::io::save_state_locked(&state)?;
+    display_transaction_plan(&transaction, options.prune);
+
+    // 7. Execute
+    if !options.dry_run {
+        if !options.yes && !output::prompt_yes_no("Proceed with sync?") {
+            output::info("Sync cancelled");
+            return Ok(());
         }
-        // Execute post-sync hooks even when system is in sync
-        execute_sync_hooks(
-            &config.lifecycle_actions,
-            options.hooks,
-            options.dry_run,
-        )?;
-        return Ok(());
+
+        execute_transaction(&transaction, &managers, &config, &options)?;
+
+        // 8. Update State
+        let new_state = update_state(&state, &transaction, &installed_snapshot, &options)?;
+        state::io::save_state_locked(&new_state)?;
     }
 
-    if options.dry_run {
-        output::info("Dry run mode - no changes will be made");
-        return Ok(());
-    }
-
-    execute_transaction(&tx, &managers, &config, &options)?;
-
-    // ==========================================
-    // PHASE 5: UPDATE STATE
-    // ==========================================
-    let _state = update_state(&state, &tx, &installed_snapshot, &options)?;
-
-    // ==========================================
-    // PHASE 6: POST-SYNC HOOKS
-    // ==========================================
-    execute_sync_hooks(
-        &config.lifecycle_actions,
-        options.hooks,
-        options.dry_run,
-    )?;
+    // Execute post-sync hooks
+    execute_sync_hooks(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
     Ok(())
 }
 
 fn resolve_target(target: &Option<String>) -> SyncTarget {
     if let Some(t) = target {
-        match t.to_lowercase().as_str() {
-            "aur" | "repo" | "paru" | "pacman" => SyncTarget::Backend(Backend::from("aur")),
-            "flatpak" => SyncTarget::Backend(Backend::from("flatpak")),
-            _ => SyncTarget::Named(t.clone()),
-        }
+        // Accept any backend name directly
+        SyncTarget::Backend(Backend::from(t.as_str()))
     } else {
         SyncTarget::All
     }
 }
 
-fn perform_system_update(options: &SyncOptions) -> Result<()> {
-    let global_config = crate::config::types::GlobalConfig::default();
-    let aur_helper = global_config.aur_helper.to_string();
-
-    if options.update {
-        output::info("Updating system...");
-        if !options.dry_run {
-            let mut cmd = Command::new(&aur_helper);
-            cmd.arg("-Syu");
-            if options.yes || options.noconfirm {
-                cmd.arg("--noconfirm");
-            }
-
-            let status = cmd
-                .stdin(Stdio::inherit())
-                .stdout(Stdio::inherit())
-                .status()?;
-            if !status.success() {
-                return Err(DeclarchError::Other("System update failed".into()));
-            }
-        }
-    }
-    Ok(())
-}
-
 fn initialize_managers_and_snapshot(
-    config: &crate::config::loader::MergedConfig,
+    config: &loader::MergedConfig,
     options: &SyncOptions,
     sync_target: &SyncTarget,
 ) -> Result<(InstalledSnapshot, ManagerMap)> {
     let mut installed_snapshot: InstalledSnapshot = HashMap::new();
     let mut managers: ManagerMap = HashMap::new();
 
-    // Detect distro and create available backends
-    let distro = DistroType::detect();
     let global_config = crate::config::types::GlobalConfig::default();
 
     // Get backends from config (unique set)
@@ -216,26 +140,8 @@ fn initialize_managers_and_snapshot(
     for backend in configured_backends {
         match create_manager(&backend, &global_config, options.noconfirm) {
             Ok(manager) => {
-                let mut available = manager.is_available();
+                let available = manager.is_available();
 
-                // Special handling for Soar: try to install if missing
-                if backend.0 == "soar"
-                    && !available
-                    && !options.skip_soar_install
-                    && !options.dry_run
-                {
-                    output::warning("Soar is required but not installed");
-
-                    // Try to install Soar
-                    if install::install_soar()? {
-                        output::success("Soar installed successfully!");
-                        available = true;
-                    } else {
-                        output::warning("Skipping Soar packages - automatic installation failed");
-                    }
-                }
-
-                // Warn if targeting unavailable backend
                 if !available && matches!(sync_target, SyncTarget::Backend(b) if b == &backend) {
                     output::warning(&format!(
                         "Backend '{}' is not available on this system.",
@@ -244,63 +150,47 @@ fn initialize_managers_and_snapshot(
                 }
 
                 if available {
-                    // List installed packages from this backend
                     match manager.list_installed() {
                         Ok(packages) => {
                             for (name, meta) in packages {
-                                let id = PackageId {
-                                    name,
+                                let pkg_id = PackageId {
+                                    name: name.clone(),
                                     backend: backend.clone(),
                                 };
-                                installed_snapshot.insert(id, meta);
+                                installed_snapshot.insert(pkg_id, meta);
                             }
-                            managers.insert(backend.clone(), manager);
                         }
                         Err(e) => {
                             output::warning(&format!(
-                                "Failed to list packages from {}: {}",
+                                "Failed to list packages for {}: {}",
                                 backend, e
                             ));
                         }
                     }
+                    managers.insert(backend.clone(), manager);
                 }
             }
             Err(e) => {
-                output::warning(&format!("Failed to initialize {} backend: {}", backend, e));
+                output::warning(&format!(
+                    "Failed to create manager for {}: {}",
+                    backend, e
+                ));
             }
-        }
-    }
-
-    // On non-Arch systems, warn about AUR packages in config
-    if !distro.supports_aur() {
-        let has_aur_packages = config
-            .packages
-            .keys()
-            .any(|pkg_id| pkg_id.backend.0 == "aur");
-        if has_aur_packages {
-            output::warning(
-                "AUR packages detected but system is not Arch-based. These will be skipped.",
-            );
         }
     }
 
     Ok((installed_snapshot, managers))
 }
 
-/// Load config with additional modules
-/// Load a single module file (for selective sync)
-/// Loads ONLY the specified module, not the entire config
 fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
-    // Try as module name (e.g., "gaming" -> modules/gaming.kdl)
     let module_path = paths::module_file(module_name);
 
     let final_path = if let Ok(path) = module_path {
         if path.exists() {
             path
         } else {
-            // Try as direct path
             let direct_path = PathBuf::from(module_name);
             if direct_path.exists() {
                 direct_path
@@ -312,7 +202,6 @@ fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::
             }
         }
     } else {
-        // Try as direct path
         let direct_path = PathBuf::from(module_name);
         if direct_path.exists() {
             direct_path
@@ -324,9 +213,7 @@ fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::
         }
     };
 
-    // Load ONLY this module's packages (not the full config)
     let module_config = loader::load_root_config(&final_path)?;
-
     Ok(module_config)
 }
 
@@ -336,19 +223,15 @@ fn load_config_with_modules(
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
-    // Load base config
     let mut merged = loader::load_root_config(config_path)?;
 
-    // Load each additional module
     for module_name in extra_modules {
-        // Try as module name (e.g., "gaming" -> modules/gaming.kdl)
         let module_path = paths::module_file(module_name);
 
         let final_path = if let Ok(path) = module_path {
             if path.exists() {
                 path
             } else {
-                // Try as direct path
                 let direct_path = PathBuf::from(module_name);
                 if direct_path.exists() {
                     direct_path
@@ -360,7 +243,6 @@ fn load_config_with_modules(
                 }
             }
         } else {
-            // Try as direct path
             let direct_path = PathBuf::from(module_name);
             if direct_path.exists() {
                 direct_path
@@ -372,13 +254,8 @@ fn load_config_with_modules(
             }
         };
 
-        // Load the module
         output::info(&format!("  Loading module: {}", final_path.display()));
-
-        // Load the module config
         let module_config = loader::load_root_config(&final_path)?;
-
-        // Merge the module config into our existing config
         merged.packages.extend(module_config.packages);
         merged.excludes.extend(module_config.excludes);
     }

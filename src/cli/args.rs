@@ -85,9 +85,6 @@ pub enum Command {
         #[arg(long, value_name = "NAME", group = "init_target")]
         backend: Option<String>,
 
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
     },
 
     /// Synchronize system state with configuration
@@ -305,7 +302,6 @@ pub enum SyncCommand {
 
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
@@ -334,7 +330,6 @@ pub enum SyncCommand {
 
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
@@ -363,7 +358,6 @@ pub enum SyncCommand {
 
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
@@ -392,7 +386,6 @@ pub enum SyncCommand {
 
         /// Skip automatic Soar installation
         #[arg(long, help_heading = "Advanced")]
-        skip_soar_install: bool,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]

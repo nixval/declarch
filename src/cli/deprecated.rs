@@ -22,7 +22,6 @@ pub fn handle_deprecated_sync_flags(
             target: None,
             noconfirm: false,
             hooks: false,
-            skip_soar_install: false,
             modules: vec![],
         }
     } else if update {
@@ -31,7 +30,6 @@ pub fn handle_deprecated_sync_flags(
             target: None,
             noconfirm: false,
             hooks: false,
-            skip_soar_install: false,
             modules: vec![],
         }
     } else if prune {
@@ -40,7 +38,6 @@ pub fn handle_deprecated_sync_flags(
             target: None,
             noconfirm: false,
             hooks: false,
-            skip_soar_install: false,
             modules: vec![],
         }
     } else {
@@ -49,7 +46,6 @@ pub fn handle_deprecated_sync_flags(
             target: None,
             noconfirm: false,
             hooks: false,
-            skip_soar_install: false,
             modules: vec![],
         }
     };
@@ -184,7 +180,6 @@ pub fn sync_command_to_options(
             target,
             noconfirm,
             hooks,
-            skip_soar_install,
             modules,
         } => sync::SyncOptions {
             dry_run: false,
@@ -196,7 +191,6 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
-            skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
         },
         SyncCommand::Preview {
@@ -204,7 +198,6 @@ pub fn sync_command_to_options(
             target,
             noconfirm,
             hooks,
-            skip_soar_install,
             modules,
         } => sync::SyncOptions {
             dry_run: true,
@@ -216,7 +209,6 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
-            skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
         },
         SyncCommand::Update {
@@ -224,7 +216,6 @@ pub fn sync_command_to_options(
             target,
             noconfirm,
             hooks,
-            skip_soar_install,
             modules,
         } => sync::SyncOptions {
             dry_run: false,
@@ -236,7 +227,6 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
-            skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
         },
         SyncCommand::Prune {
@@ -244,7 +234,6 @@ pub fn sync_command_to_options(
             target,
             noconfirm,
             hooks,
-            skip_soar_install,
             modules,
         } => sync::SyncOptions {
             dry_run: false,
@@ -256,7 +245,6 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
-            skip_soar_install: *skip_soar_install,
             modules: modules.clone(),
         },
     }
