@@ -17,28 +17,21 @@ pub struct InfoOptions {
 }
 
 pub fn run(options: InfoOptions) -> Result<()> {
-    // Handle --debug flag (must be set early)
-    // Note: std::env::set_var is unsafe in Rust 1.92+ for safety reasons.
-    // This is safe here because we're setting the variable before any threads are spawned
-    // and we're only setting it at process startup.
     if options.debug {
         unsafe { std::env::set_var("RUST_LOG", "debug") };
         output::info("Debug logging enabled");
     }
 
-    // Handle --doctor flag
     if options.doctor {
         return run_doctor();
     }
 
-    // Default info behavior
     run_info(&options)
 }
 
 fn run_info(options: &InfoOptions) -> Result<()> {
     let state = state::io::load_state()?;
 
-    // Apply filters
     let filtered_packages: Vec<(&String, &state::types::PackageState)> =
         if options.backend.is_some() || options.package.is_some() {
             let backend_filter = options.backend.as_deref();
@@ -50,17 +43,13 @@ fn run_info(options: &InfoOptions) -> Result<()> {
                 .filter(|(key, pkg_state)| {
                     let name = extract_package_name(key);
 
-                    // Filter by package name if specified
-                    let Some(filter_pkg) = package_filter else {
-                        return true;
-                    };
-                    if !name.contains(filter_pkg) {
-                        return false;
+                    if let Some(filter_pkg) = package_filter {
+                        if !name.contains(filter_pkg) {
+                            return false;
+                        }
                     }
 
-                    // Filter by backend if specified
                     if let Some(filter_backend) = backend_filter {
-                        // Check if package backend matches filter
                         pkg_state.backend == crate::core::types::Backend::from(filter_backend)
                     } else {
                         true
@@ -71,13 +60,11 @@ fn run_info(options: &InfoOptions) -> Result<()> {
             state.packages.iter().collect()
         };
 
-    // Determine output format
     let format_str = options.format.as_deref().unwrap_or("table");
 
     match format_str {
         "json" => output_json_filtered(&filtered_packages, &state),
         "yaml" => output_yaml_filtered(&filtered_packages, &state),
-        "table" => output_table_filtered(&state, &filtered_packages),
         _ => output_table_filtered(&state, &filtered_packages),
     }
 }
@@ -94,33 +81,19 @@ fn output_table_filtered(
     );
 
     let pkg_count = filtered_packages.len();
-
-    // Optimized: Count all backends in single pass
     let backend_counts = count_backends_filtered(filtered_packages);
 
     println!();
     output::tag("Total Managed", &pkg_count.to_string());
 
-    // Only show backends that have packages
-    let backends_to_show = vec![
-        ("aur", "AUR/Repo"),
-        ("flatpak", "Flatpak"),
-        ("soar", "Soar"),
-        ("npm", "NPM"),
-        ("yarn", "Yarn"),
-        ("pnpm", "Pnpm"),
-        ("bun", "Bun"),
-        ("pip", "Pip"),
-        ("cargo", "Cargo"),
-        ("brew", "Brew"),
-    ];
+    // Dynamic backend display - no hardcoded list
+    let mut backends: Vec<_> = backend_counts.iter().collect();
+    backends.sort_by(|a, b| b.1.cmp(a.1)); // Sort by count descending
 
-    for (backend_key, backend_name) in backends_to_show {
-        let Some(&count) = backend_counts.get(backend_key) else {
-            continue;
-        };
-        if count > 0 {
-            output::indent(&format!("• {}: {}", backend_name, count), 2);
+    for (backend_key, count) in backends {
+        if *count > 0 {
+            let display_name = format!("{}", backend_key);
+            output::indent(&format!("• {}: {}", display_name, count), 2);
         }
     }
 
@@ -128,12 +101,10 @@ fn output_table_filtered(
         output::separator();
         println!("{}", "Managed Packages:".bold());
 
-        // Sort by name using helper function
         let mut sorted_packages: Vec<_> = filtered_packages.to_vec();
         sorted_packages
             .sort_by(|(k1, _), (k2, _)| extract_package_name(k1).cmp(extract_package_name(k2)));
 
-        // Display packages horizontally with backend prefix
         print_packages_horizontally(sorted_packages);
     }
 
@@ -165,12 +136,10 @@ fn output_yaml_filtered(
     Ok(())
 }
 
-/// Helper function to extract package name from key "backend:name"
 fn extract_package_name(key: &str) -> &str {
     key.split_once(':').map(|(_, n)| n).unwrap_or(key)
 }
 
-/// Count backends from filtered package references
 fn count_backends_filtered(
     packages: &[(&String, &state::types::PackageState)],
 ) -> HashMap<String, usize> {
@@ -184,7 +153,6 @@ fn count_backends_filtered(
 
 fn run_doctor() -> Result<()> {
     output::header("System Diagnosis");
-
     let mut all_ok = true;
 
     // Check 1: Config file
@@ -193,7 +161,6 @@ fn run_doctor() -> Result<()> {
     if config_path.exists() {
         output::success(&format!("Config found: {}", config_path.display()));
 
-        // Try to parse it
         match loader::load_root_config(&config_path) {
             Ok(config) => {
                 output::success(&format!(
@@ -218,7 +185,6 @@ fn run_doctor() -> Result<()> {
     if state_path.exists() {
         output::success(&format!("State found: {}", state_path.display()));
 
-        // Try to load it
         match state::io::load_state() {
             Ok(state) => {
                 output::success(&format!(
@@ -226,7 +192,6 @@ fn run_doctor() -> Result<()> {
                     state.packages.len()
                 ));
 
-                // Check for orphans
                 if config_path.exists()
                     && let Ok(config) = loader::load_root_config(&config_path)
                 {
@@ -268,27 +233,9 @@ fn run_doctor() -> Result<()> {
         output::info("Run 'dcl sync' to create initial state");
     }
 
-    // Check 3: Backend availability
+    // Check 3: Backend availability (dynamic)
     output::info("Checking backends...");
-    let backends_to_check = vec![
-        ("paru", "AUR (paru)"),
-        ("yay", "AUR (yay)"),
-        ("flatpak", "Flatpak"),
-        ("cargo", "Cargo"),
-        ("npm", "npm"),
-        ("bun", "Bun"),
-        ("pip", "pip"),
-    ];
-
-    let mut available_backends = 0;
-    for (cmd, name) in &backends_to_check {
-        if is_command_available(cmd) {
-            output::success(&format!("{}: Available", name));
-            available_backends += 1;
-        } else {
-            output::warning(&format!("{}: Not found", name));
-        }
-    }
+    let available_backends = check_backends_dynamically()?;
 
     // Check 4: State consistency
     output::info("Checking state consistency...");
@@ -300,7 +247,6 @@ fn run_doctor() -> Result<()> {
         return Ok(());
     };
 
-    // Check for duplicate keys
     let keys: Vec<_> = state.packages.keys().collect();
     let unique_keys: std::collections::HashSet<_> = keys.iter().collect();
     if keys.len() != unique_keys.len() {
@@ -309,7 +255,6 @@ fn run_doctor() -> Result<()> {
         output::success("State consistency: OK");
     }
 
-    // Check last sync time
     let now = chrono::Utc::now();
     let days_since_sync = (now - state.meta.last_sync).num_days();
     if days_since_sync > 7 {
@@ -323,16 +268,62 @@ fn run_doctor() -> Result<()> {
     output::separator();
     if all_ok {
         output::success("All checks passed!");
-        output::info(&format!(
-            "Available backends: {}/{}",
-            available_backends,
-            backends_to_check.len()
-        ));
+        output::info(&format!("Available backends: {}", available_backends.len()));
+        for backend in &available_backends {
+            output::indent(&format!("• {}", backend), 2);
+        }
     } else {
         output::warning("Some issues found - see details above");
     }
 
     Ok(())
+}
+
+/// Check backends dynamically from backends.kdl
+fn check_backends_dynamically() -> Result<Vec<String>> {
+    let mut available = Vec::new();
+    
+    // Load backend configs
+    match crate::backends::load_all_backends() {
+        Ok(backends) => {
+            for (name, config) in backends {
+                // Check if binary is available
+                let binary_available = match &config.binary {
+                    crate::backends::config::BinarySpecifier::Single(bin) => {
+                        is_command_available(bin)
+                    }
+                    crate::backends::config::BinarySpecifier::Multiple(bins) => {
+                        bins.iter().any(|b| is_command_available(b))
+                    }
+                };
+                
+                if binary_available {
+                    output::success(&format!("{}: Available", name));
+                    available.push(name);
+                } else {
+                    output::warning(&format!("{}: Binary not found", name));
+                }
+            }
+        }
+        Err(e) => {
+            output::warning(&format!("Could not load backend configs: {}", e));
+        }
+    }
+    
+    if available.is_empty() {
+        output::warning("No backends configured or available");
+        output::info("Run 'dcl init --backend <name>' to add a backend");
+    }
+    
+    Ok(available)
+}
+
+fn is_command_available(cmd: &str) -> bool {
+    Command::new("which")
+        .arg(cmd)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 /// Print packages grouped by backend with horizontal display per group
@@ -341,7 +332,6 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
         return;
     }
 
-    // Get terminal width, default to 80 if detection fails
     let term_width = terminal_size()
         .map(|(Width(w), _)| w as usize)
         .unwrap_or(80);
@@ -358,45 +348,29 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
             .push(pkg_state.config_name.clone());
     }
 
-    // Define order for known backends
-    let backend_order = vec![
-        "aur", "soar", "flatpak", "npm", "yarn", "pnpm", "bun", "pip", "cargo", "brew",
-    ];
+    // Sort backends alphabetically for consistent display
+    let mut backends: Vec<_> = grouped.keys().cloned().collect();
+    backends.sort();
 
     // Display each backend group
-    for backend in &backend_order {
-        let Some(pkg_names) = grouped.get(*backend) else {
-            continue;
-        };
-        if !pkg_names.is_empty() {
-            println!(
-                "  {}: {}",
-                backend.bold().cyan(),
-                format_packages_inline(pkg_names, term_width)
-            );
-        }
-    }
-
-    // Display any custom backends (not in predefined order)
-    for (backend, pkg_names) in grouped {
-        if !backend_order.contains(&backend.as_str()) && !pkg_names.is_empty() {
-            println!(
-                "  {}: {}",
-                backend.bold().cyan(),
-                format_packages_inline(&pkg_names, term_width)
-            );
+    for backend in backends {
+        if let Some(pkg_names) = grouped.get(&backend) {
+            if !pkg_names.is_empty() {
+                println!(
+                    "  {}: {}",
+                    backend.bold().cyan(),
+                    format_packages_inline(pkg_names, term_width)
+                );
+            }
         }
     }
 }
 
-/// Format package names inline with auto-wrapping
 fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
-    // Calculate available space (subtract "backend: " prefix and indentation)
-    let prefix_len = 10; // "backend: " is roughly 10 chars with colors
-    let available_width = term_width.saturating_sub(prefix_len + 4); // +4 for margin
+    let prefix_len = 10;
+    let available_width = term_width.saturating_sub(prefix_len + 4);
 
     if available_width < 20 {
-        // Too narrow, just return comma-separated
         return pkg_names.join(" ");
     }
 
@@ -405,41 +379,29 @@ fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
     let mut line_length = 0;
 
     for pkg_name in pkg_names {
-        let item_length = pkg_name.len() + 2; // +2 for spacing between items
+        let item_length = pkg_name.len() + 2;
 
-        // Check if we need to wrap to next line
         if line_length + item_length > available_width && !current_line.is_empty() {
             lines.push(current_line.trim().to_string());
             current_line.clear();
             line_length = 0;
         }
 
-        // Add spacing between items
         if !current_line.is_empty() {
             current_line.push_str("  ");
+            line_length += 2;
         }
-
         current_line.push_str(pkg_name);
-        line_length += item_length;
+        line_length += pkg_name.len();
     }
 
-    // Add remaining items
     if !current_line.is_empty() {
-        lines.push(current_line);
+        lines.push(current_line.trim().to_string());
     }
 
-    // Join lines with proper indentation
     if lines.len() > 1 {
-        lines.join("\n      ") // Indent continuation lines
+        lines.join("\n     ")
     } else {
-        lines.join("  ")
+        lines.join("\n")
     }
-}
-
-fn is_command_available(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
 }
