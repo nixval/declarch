@@ -85,8 +85,8 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
 
     let mut config = RawConfig {
         imports: vec![],
+        packages_by_backend: HashMap::new(),
         packages: vec![],
-        legacy_packages: vec![],
         soar_packages: vec![],
         flatpak_packages: vec![],
         npm_packages: vec![],

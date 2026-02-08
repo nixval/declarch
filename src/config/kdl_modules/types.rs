@@ -4,46 +4,37 @@ use std::collections::{HashMap, HashSet};
 pub struct RawConfig {
     // === Existing fields ===
     pub imports: Vec<String>,
-    /// Packages from AUR (Arch Linux specific)
-    /// Syntax: packages { ... } or packages:aur { ... }
+    
+    // === Unified Package Storage (v0.6+) ===
+    /// All packages organized by backend
+    /// Key: backend name (e.g., "paru", "npm", "flatpak")
+    /// Value: list of packages for that backend
+    /// Syntax: pkg { backend { packages... } }
+    pub packages_by_backend: HashMap<String, Vec<PackageEntry>>,
+    
+    // === DEPRECATED: Legacy package fields (v0.5 and earlier) ===
+    /// DEPRECATED: Use packages_by_backend["paru"] or packages_by_backend["aur"]
+    /// Kept for backward compatibility during migration
     pub packages: Vec<PackageEntry>,
-    /// Legacy packages (v0.5 syntax - deprecated in v0.6+)
-    /// This field collects packages from legacy backend-specific blocks
-    /// during the migration period. Use pkg { } blocks in v0.6+.
-    pub legacy_packages: Vec<PackageEntry>,
-    /// Packages from Soar registry (cross-distro static binaries)
-    /// Syntax: packages:soar { ... } or soar:package in packages block
+    /// DEPRECATED: Use packages_by_backend["soar"]  
     pub soar_packages: Vec<PackageEntry>,
-    /// Flatpak packages
-    /// Syntax: packages:flatpak { ... } or flatpak:package in packages block
+    /// DEPRECATED: Use packages_by_backend["flatpak"]
     pub flatpak_packages: Vec<PackageEntry>,
-
-    // === New language ecosystem backends ===
-    /// npm packages (Node.js global packages)
-    /// Syntax: packages:npm { ... } or npm:package in packages block
+    /// DEPRECATED: Use packages_by_backend["npm"]
     pub npm_packages: Vec<PackageEntry>,
-    /// Yarn packages
-    /// Syntax: packages:yarn { ... }
+    /// DEPRECATED: Use packages_by_backend["yarn"]
     pub yarn_packages: Vec<PackageEntry>,
-    /// pnpm packages
-    /// Syntax: packages:pnpm { ... }
+    /// DEPRECATED: Use packages_by_backend["pnpm"]
     pub pnpm_packages: Vec<PackageEntry>,
-    /// Bun packages
-    /// Syntax: packages:bun { ... }
+    /// DEPRECATED: Use packages_by_backend["bun"]
     pub bun_packages: Vec<PackageEntry>,
-    /// pip packages (Python)
-    /// Syntax: packages:pip { ... }
+    /// DEPRECATED: Use packages_by_backend["pip"]
     pub pip_packages: Vec<PackageEntry>,
-    /// Cargo packages (Rust)
-    /// Syntax: packages:cargo { ... }
+    /// DEPRECATED: Use packages_by_backend["cargo"]
     pub cargo_packages: Vec<PackageEntry>,
-    /// Homebrew packages
-    /// Syntax: packages:brew { ... }
+    /// DEPRECATED: Use packages_by_backend["brew"]
     pub brew_packages: Vec<PackageEntry>,
-
-    /// Custom backend packages (user-defined)
-    /// Syntax: packages:nala { ... } where nala is defined in backends.kdl
-    /// Stored as HashMap: backend_name -> Vec<PackageEntry>
+    /// DEPRECATED: Use packages_by_backend[backend_name]
     pub custom_packages: HashMap<String, Vec<PackageEntry>>,
 
     pub excludes: Vec<String>,
