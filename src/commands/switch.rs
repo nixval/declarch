@@ -6,7 +6,6 @@ use crate::state::{self, types::PackageState};
 use crate::ui as output;
 use chrono::Utc;
 use colored::Colorize;
-use std::process::Command;
 
 #[derive(Debug)]
 pub struct SwitchOptions {
@@ -20,10 +19,6 @@ pub struct SwitchOptions {
 
 pub fn run(options: SwitchOptions) -> Result<()> {
     output::header("Switching Package Variant");
-
-    // ==========================================
-    // PHASE 1: VALIDATION & DISCOVERY
-    // ==========================================
 
     output::info("Analyzing package transition...");
     output::separator();
@@ -101,19 +96,13 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             }
         }
         Ok(_) => {
-            // No reverse dependencies found
             output::success("No reverse dependencies found");
         }
         Err(e) => {
-            // Error checking dependencies, warn but continue
             output::warning(&format!("Could not check reverse dependencies: {}", e));
             output::warning("Proceed with caution");
         }
     }
-
-    // ==========================================
-    // PHASE 2: TRANSACTION PLANNING
-    // ==========================================
 
     output::separator();
     output::info("Transition plan:");
@@ -138,14 +127,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
         return Ok(());
     }
 
-    // ==========================================
-    // PHASE 3: EXECUTION WITH ROLLBACK
-    // ==========================================
-
-    // Create in-memory backup before changing anything
-    // Note: This provides rollback protection within this process only.
-    // For concurrent process protection, file-level locking would be needed.
-    // TODO: Implement proper transaction support with file locking for multi-process safety.
+    // Create in-memory backup
     let state_backup = state.clone();
     output::info("Created state backup");
 
@@ -156,10 +138,6 @@ pub fn run(options: SwitchOptions) -> Result<()> {
         &*manager,
     ) {
         Ok(()) => {
-            // ==========================================
-            // PHASE 4: UPDATE STATE
-            // ==========================================
-
             output::info("Updating declarch state...");
 
             // Remove old package from state
@@ -168,18 +146,11 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             // Add new package to state
             let new_state_key = format!("{}:{}", backend, options.new_package);
 
-            // Discover actual AUR package name if applicable
-            let aur_package_name = if backend == Backend::from("aur") {
-                discover_aur_package_name(&options.new_package)
-            } else {
-                None
-            };
-
             let new_pkg_state = PackageState {
                 backend: backend.clone(),
                 config_name: options.new_package.clone(),
                 provides_name: options.new_package.clone(),
-                aur_package_name,
+                aur_package_name: None, // Deprecated field, kept for compatibility
                 installed_at: Utc::now(),
                 version: installed
                     .get(&options.new_package)
@@ -205,14 +176,9 @@ pub fn run(options: SwitchOptions) -> Result<()> {
         }
 
         Err(e) => {
-            // ==========================================
-            // ROLLBACK ON FAILURE
-            // ==========================================
-
             output::error(&format!("Transition failed: {}", e));
             output::warning("Rolling back state changes...");
 
-            // Restore state from backup (with locking)
             if let Err(e2) = state::io::save_state_locked(&state_backup) {
                 output::error(&format!("Failed to restore state: {}", e2));
                 return Err(DeclarchError::Other(format!(
@@ -221,7 +187,6 @@ pub fn run(options: SwitchOptions) -> Result<()> {
                 )));
             }
 
-            // Attempt to restore old package if it was removed
             if installed.keys().all(|name| name != &options.old_package) {
                 output::warning(&format!("Attempting to restore {}...", options.old_package));
                 if let Err(e2) = manager.install(std::slice::from_ref(&options.old_package)) {
@@ -242,60 +207,19 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     }
 }
 
-/// Discover the actual AUR package name for a given package
-/// This handles cases where the config name differs from the actual AUR package name
-/// (e.g., config says "hyprland" but AUR package is "hyprland-git")
-fn discover_aur_package_name(package_name: &str) -> Option<String> {
-    // Query pacman -Qi to get package info
-    let output = Command::new("pacman")
-        .args(["-Qi", package_name])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let stdout = String::from_utf8(output.stdout).ok()?;
-
-    // Parse the "Name" field to get the actual package name
-    for line in stdout.lines() {
-        let line = line.trim();
-        if line.starts_with("Name") {
-            if let Some(name) = line.split(':').nth(1) {
-                let actual_name = name.trim();
-                // Return the actual name only if it differs from config name
-                if actual_name != package_name {
-                    return Some(actual_name.to_string());
-                }
-            }
-            break;
-        }
-    }
-
-    None
-}
-
 fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<Backend> {
     if let Some(backend_str) = backend_opt {
-        match backend_str.to_lowercase().as_str() {
-            "aur" => Ok(Backend::from("aur")),
-            "flatpak" => Ok(Backend::from("flatpak")),
-            "soar" => Ok(Backend::from("soar")),
-            _ => Err(DeclarchError::Other(format!(
-                "Unknown backend: {}. Use 'aur', 'flatpak', or 'soar'",
-                backend_str
-            ))),
-        }
+        // Accept any backend name - validation happens when creating manager
+        Ok(Backend::from(backend_str))
     } else {
         // Auto-detect based on prefix
-        if package_name.starts_with("flatpak:") {
-            Ok(Backend::from("flatpak"))
-        } else if package_name.starts_with("soar:") {
-            Ok(Backend::from("soar"))
+        if let Some((backend, _)) = package_name.split_once(':') {
+            Ok(Backend::from(backend))
         } else {
-            // Default to AUR
-            Ok(Backend::from("aur"))
+            // No prefix and no explicit backend - error
+            Err(DeclarchError::Other(
+                "Cannot determine backend. Use 'backend:package' syntax or --backend flag".to_string()
+            ))
         }
     }
 }
@@ -308,21 +232,15 @@ fn execute_transition(
 ) -> Result<()> {
     output::indent(&format!("Uninstalling {}...", old_package.yellow()), 0);
 
-    // Uninstall old package
     manager
         .remove(&[old_package.to_string()])
         .map_err(|e| DeclarchError::Other(format!("Failed to uninstall {}: {}", old_package, e)))?;
 
-    output::success(&format!("Uninstalled {}", old_package));
-
-    // Install new package
     output::indent(&format!("Installing {}...", new_package.green()), 0);
 
     manager
         .install(&[new_package.to_string()])
         .map_err(|e| DeclarchError::Other(format!("Failed to install {}: {}", new_package, e)))?;
-
-    output::success(&format!("Installed {}", new_package));
 
     Ok(())
 }
