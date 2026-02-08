@@ -1,6 +1,6 @@
 //! Package search command
 //!
-//! Search for packages across multiple backends
+//! Search for packages across configured backends
 
 use crate::core::types::{Backend, PackageId};
 use crate::error::Result;
@@ -8,7 +8,6 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
-
 
 pub struct SearchOptions {
     pub query: String,
@@ -19,7 +18,6 @@ pub struct SearchOptions {
 }
 
 /// Parse query for optional "backend:query" syntax
-/// Returns (backend_from_query, actual_query)
 fn parse_backend_query(query: &str) -> (Option<String>, String) {
     if query.contains(':') {
         let parts: Vec<&str> = query.splitn(2, ':').collect();
@@ -40,11 +38,6 @@ fn parse_backend_query(query: &str) -> (Option<String>, String) {
 }
 
 pub fn run(options: SearchOptions) -> Result<()> {
-    // Detect distro for AUR warning
-    use crate::utils::distro::DistroType;
-    let distro = DistroType::detect();
-    let is_arch = distro.supports_aur();
-
     // Load state to check installed packages
     let state = state::io::load_state()?;
 
@@ -53,38 +46,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     // Merge backend_from_query with options.backends
     let final_backends = if let Some(backend) = backend_from_query {
-        // backend:query syntax overrides --backends flag
         Some(vec![backend])
     } else {
         options.backends.clone()
     };
-
-    // Check if user is trying to search AUR on non-Arch system
-    if !is_arch {
-        let check_aur = if let Some(ref backend_list) = final_backends {
-            // User specified backends via flag or prefix
-            backend_list.iter().any(|b| b.to_lowercase() == "aur")
-        } else {
-            // Auto mode - defaults to AUR
-            options.backends.is_none()
-        };
-
-        if check_aur {
-            output::warning(&format!(
-                "You are using a non-Arch based distro ({:?}). Searching AUR may not work as expected.",
-                distro
-            ));
-
-            // Check for confirmation from environment (non-interactive for scripts)
-            if std::env::var("DECLARCH_AUTO_CONFIRM").is_ok() {
-                output::info("Auto-confirm enabled via DECLARCH_AUTO_CONFIRM");
-            } else {
-                output::info(
-                    "Tip: Use --backends flag to specify other backends (flatpak, brew, npm, cargo, etc.)",
-                );
-            }
-        }
-    }
 
     // Create updated options for internal use
     let updated_options = SearchOptions {
@@ -100,6 +65,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     if backends_to_search.is_empty() {
         output::warning("No backends available for search");
+        output::info("Run 'dcl init --backend <name>' to add a backend");
         return Ok(());
     }
 
@@ -117,10 +83,9 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
                 match manager.search(&actual_query) {
                     Ok(mut results) => {
-                        // Track total count before limiting
                         total_count += results.len();
 
-                        // Apply result limiting (always applies with default of 10)
+                        // Apply result limiting
                         if let Some(limit_value) = effective_limit
                             && results.len() > limit_value
                         {
@@ -135,7 +100,6 @@ pub fn run(options: SearchOptions) -> Result<()> {
                             };
                             let state_key = crate::core::resolver::make_state_key(&pkg_id);
                             let is_installed = state.packages.contains_key(&state_key);
-                            // Add a marker for installed packages
                             if is_installed {
                                 result.name = format!("{} ✓", result.name);
                             }
@@ -151,10 +115,9 @@ pub fn run(options: SearchOptions) -> Result<()> {
             Ok(_) => {
                 // Backend doesn't support search
                 output::warning(&format!(
-                    "Backend '{}' does not support search. Supported backends: AUR, Flatpak, Soar, npm, yarn, pnpm, bun, cargo, brew",
+                    "Backend '{}' does not support search",
                     backend
                 ));
-                output::info("Tip: Use --backends flag to specify supported backends");
             }
             Err(e) => {
                 output::warning(&format!("Failed to initialize {}: {}", backend, e));
@@ -171,54 +134,43 @@ pub fn run(options: SearchOptions) -> Result<()> {
         all_results.retain(|r| !r.name.contains('✓'));
     }
 
-    // Display results with count information
+    // Display results
     display_results(&all_results, &actual_query, total_count, effective_limit);
 
     Ok(())
 }
 
 fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
-    use crate::config::settings::Settings;
-
-    // CLI flag overrides everything (intentional design)
+    // CLI flag overrides everything
     if let Some(backend_list) = &options.backends {
         return Ok(backend_list.iter().map(|b| Backend::from(b.as_str())).collect());
     }
 
-    // Otherwise, respect backend settings
-    let settings = Settings::load().map_err(|e| {
-        crate::error::DeclarchError::Other(format!("Failed to load settings: {}", e))
-    })?;
-
-    let backend_mode = settings
-        .get("backend_mode")
-        .unwrap_or(&"auto".to_string())
-        .clone();
-
-    match backend_mode.as_str() {
-        "enabled-only" => {
-            // Only search backends listed in settings
-            let backend_list = settings
-                .get("backends")
-                .unwrap_or(&"aur".to_string())
-                .clone();
-
-            backend_list
-                .split(',')
-                .map(|b| b.trim())
-                .filter(|b| !b.is_empty())
-                .map(|b| Ok(Backend::from(b)))
-                .collect()
+    // No backends specified - try to use configured backends
+    // Load from backends.kdl and check which support search
+    match crate::backends::load_all_backends() {
+        Ok(backends) => {
+            let mut result = Vec::new();
+            for (name, config) in backends {
+                // Check if backend has search configured
+                if config.search_cmd.is_some() {
+                    result.push(Backend::from(name));
+                }
+            }
+            
+            if result.is_empty() {
+                output::warning("No backends with search support configured");
+                output::info("Run 'dcl init --backend <name>' to add a backend");
+            }
+            
+            Ok(result)
         }
-        _ => {
-            // Auto mode: search AUR only by default
-            // Use backend:query syntax or --backends flag to search other backends
-            Ok(vec![Backend::from("aur")])
+        Err(e) => {
+            output::warning(&format!("Could not load backends: {}", e));
+            Ok(Vec::new())
         }
     }
 }
-
-
 
 fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManager>> {
     use crate::packages::create_manager;
@@ -280,25 +232,31 @@ fn display_results(
         ));
     }
 
+    // Sort backends alphabetically
+    let mut backends: Vec<_> = by_backend.keys().cloned().collect();
+    backends.sort_by(|a, b| a.name().cmp(b.name()));
+
     // Display by backend
-    for (backend, packages) in by_backend {
-        println!("{}", format!("{}:", backend).bold().cyan());
+    for backend in backends {
+        if let Some(packages) = by_backend.get(&backend) {
+            println!("{}", format!("{}:", backend).bold().cyan());
 
-        for pkg in packages {
-            let name = pkg.name.green();
-            let version = pkg
-                .version
-                .as_ref()
-                .map(|v| v.dimmed().to_string())
-                .unwrap_or_default();
-            let description = pkg
-                .description
-                .as_ref()
-                .map(|d| format!(" - {}", d))
-                .unwrap_or_default();
+            for pkg in packages.iter() {
+                let name = pkg.name.green();
+                let version = pkg
+                    .version
+                    .as_ref()
+                    .map(|v| v.dimmed().to_string())
+                    .unwrap_or_default();
+                let description = pkg
+                    .description
+                    .as_ref()
+                    .map(|d| format!(" - {}", d))
+                    .unwrap_or_default();
 
-            println!("  {} {}{}", name, version, description.dimmed());
+                println!("  {} {}{}", name, version, description.dimmed());
+            }
+            println!();
         }
-        println!();
     }
 }
