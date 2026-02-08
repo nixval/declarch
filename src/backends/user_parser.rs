@@ -61,14 +61,13 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "list" => parse_list_cmd(child, &mut config)?,
                 "install" => parse_install_cmd(child, &mut config)?,
                 "remove" => parse_remove_cmd(child, &mut config)?,
+                "search" => parse_search_cmd(child, &mut config)?,
                 "noconfirm" => parse_noconfirm(child, &mut config)?,
                 "needs_sudo" => config.needs_sudo = parse_bool(child)?,
                 "env" => parse_env(child, &mut config)?,
-                unknown => {
-                    return Err(DeclarchError::Other(format!(
-                        "Unknown backend field: '{}'. Available fields: binary, list, install, remove, noconfirm, needs_sudo, env",
-                        unknown
-                    )));
+                "fallback" => parse_fallback(child, &mut config)?,
+                _ => {
+                    // Ignore unknown fields for forward compatibility
                 }
             }
         }
@@ -270,6 +269,121 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 /// Parse noconfirm flag
 fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     config.noconfirm_flag = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .map(|s| s.to_string());
+    Ok(())
+}
+
+/// Parse search command with output format
+fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    // Extract command from argument
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other(
+                "Search command required. Usage: search \"command\" { ... }".to_string(),
+            )
+        })?;
+
+    config.search_cmd = Some(cmd.to_string());
+
+    // Parse output format from children
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+            match child_name {
+                "format" => {
+                    let format_str = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .ok_or_else(|| {
+                            DeclarchError::Other(
+                                "Format value required. Usage: format json|whitespace|tsv|regex"
+                                    .to_string(),
+                            )
+                        })?;
+
+                    config.search_format = Some(match format_str {
+                        "json" => OutputFormat::Json,
+                        "whitespace" => OutputFormat::SplitWhitespace,
+                        "tsv" => OutputFormat::TabSeparated,
+                        "regex" => OutputFormat::Regex,
+                        _ => {
+                            return Err(DeclarchError::Other(format!(
+                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
+                                format_str
+                            )));
+                        }
+                    });
+                }
+                "json_path" => {
+                    config.search_json_path = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "name_key" => {
+                    config.search_name_key = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "version_key" => {
+                    config.search_version_key = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "desc_key" => {
+                    config.search_desc_key = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "name_col" => {
+                    config.search_name_col = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                "desc_col" => {
+                    config.search_desc_col = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Parse fallback backend
+fn parse_fallback(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    config.fallback = node
         .entries()
         .first()
         .and_then(|entry| entry.value().as_string())

@@ -16,6 +16,9 @@ pub struct RawConfig {
     /// DEPRECATED: Use packages_by_backend["paru"] or packages_by_backend["aur"]
     /// Kept for backward compatibility during migration
     pub packages: Vec<PackageEntry>,
+    /// DEPRECATED: Temporary storage for non-AUR packages during parsing transition
+    /// This will be removed in v0.7. Use packages_by_backend instead.
+    pub legacy_packages: Vec<PackageEntry>,
     /// DEPRECATED: Use packages_by_backend["soar"]  
     pub soar_packages: Vec<PackageEntry>,
     /// DEPRECATED: Use packages_by_backend["flatpak"]
