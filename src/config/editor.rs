@@ -296,13 +296,15 @@ impl ConfigEditor {
         updated_content = updated_content
             .replace("pkg{", "pkg {");
         
-        // Fix backend blocks
-        for backend in ["aur", "paru", "yay", "pacman", "npm", "yarn", "pnpm", "bun", 
-                        "pip", "cargo", "brew", "flatpak", "snap", "soar", "dnf", "apt"] {
-            updated_content = updated_content
-                .replace(&format!("{}\n", backend), &format!("{} {{\n", backend))
-                .replace(&format!("{}\r\n", backend), &format!("{} {{\r\n", backend));
-        }
+        // Fix backend blocks - detect any word followed by newline that should be a block
+        // Pattern: word\n or word\r\n followed by indented content or opening brace
+        // This handles any backend name without hardcoding
+        let backend_block_re = regex::Regex::new(r"(?m)^([a-zA-Z][a-zA-Z0-9_-]*)\s*\r?\n\s*\{")
+            .map_err(|e| crate::error::DeclarchError::ConfigError(format!("Invalid regex: {}", e)))?;
+        
+        updated_content = backend_block_re.replace_all(&updated_content, |caps: &regex::Captures| {
+            format!("{} {{", &caps[1])
+        }).to_string();
 
         // Problem 2: Add newlines between nodes (e.g., "}pkg" should be "}\npkg")
         // This happens when KDL library outputs multiple nodes without separation
