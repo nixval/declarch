@@ -213,6 +213,18 @@ pub fn run(options: InstallOptions) -> Result<()> {
                     let _ = std::fs::remove_file(backup);
                 }
             }
+            Err(crate::error::DeclarchError::Interrupted) => {
+                // User cancelled - rollback and show friendly message
+                for edit in &all_edits {
+                    if let Some(ref backup) = edit.backup_path {
+                        let _ = restore_from_backup(backup);
+                    } else if edit.created_new_file {
+                        let _ = std::fs::remove_file(&edit.file_path);
+                    }
+                }
+                output::info("Changes rolled back");
+                return Ok(());
+            }
             Err(e) => {
                 // Rollback all edits silently
                 for edit in &all_edits {

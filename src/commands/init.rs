@@ -43,9 +43,7 @@ backend "aur" {
     remove "{binary} -R {packages}"
     
     search "{binary} -Ss {query}" {
-        format "whitespace"
-        name_col 0
-        desc_col 1
+        format "aur"
     }
     
     fallback "pacman"
@@ -103,8 +101,8 @@ backend "flatpak" {
     remove "flatpak uninstall {packages}"
     
     search "flatpak search {query}" {
-        format "whitespace"
-        name_col 0
+        format "tsv"
+        name_col 2
         desc_col 1
     }
     

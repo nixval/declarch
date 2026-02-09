@@ -33,6 +33,14 @@ This is a major refactor with breaking changes. Expect errors when upgrading fro
 - **Better error messages**: File path, line:column, visual indicators
 - **Consistent backend input**: Vec<String> with delimiter support
 
+### Fixed
+- **Search output formatting**: Added dedicated AUR search format for multi-line output
+  - AUR (`paru -Ss`): New `format "aur"` handles the two-line output format correctly
+    - First line: repo/package version [info]
+    - Second line: 4-space indented description
+  - AUR search now shows complete descriptions instead of truncated text
+  - Flatpak: Uses TSV format with Application ID as name for easy config reference
+
 ### Migration Guide
 ```bash
 # Backup your config

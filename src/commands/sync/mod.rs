@@ -94,7 +94,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     if !options.dry_run {
         if !options.yes && !output::prompt_yes_no("Proceed with sync?") {
             output::info("Sync cancelled");
-            return Ok(());
+            return Err(crate::error::DeclarchError::Interrupted);
         }
 
         execute_transaction(&transaction, &managers, &config, &options)?;

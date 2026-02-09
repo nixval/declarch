@@ -251,9 +251,10 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
+                        "aur" => OutputFormat::AurSearch,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex, aur",
                                 format_str
                             )));
                         }
@@ -509,9 +510,10 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
+                        "aur" => OutputFormat::AurSearch,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex, aur",
                                 format_str
                             )));
                         }
@@ -728,6 +730,12 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         }
         OutputFormat::Custom => {
             // Custom format doesn't require validation (uses Rust implementation)
+        }
+        OutputFormat::AurSearch => {
+            // AUR search format is only for search, not for list
+            return Err(DeclarchError::Other(
+                "AUR search format is not valid for list commands".to_string(),
+            ));
         }
     }
 
