@@ -549,7 +549,7 @@ mod tests {
 
         // Verify package was added
         assert_eq!(added, vec!["bat"]);
-        assert!(updated.contains("packages:soar"));
+        assert!(updated.contains("pkg:soar"));
         assert!(updated.contains("bat"));
         // Verify valid KDL syntax (has braces)
         assert!(updated.contains('{'));
@@ -559,7 +559,7 @@ mod tests {
     #[test]
     fn test_add_package_to_existing_block() {
         let editor = ConfigEditor::new();
-        let content = "packages:soar {\n  vim\n}\n";
+        let content = "pkg:soar {\n  vim\n}\n";
         let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
@@ -570,13 +570,13 @@ mod tests {
         assert!(updated.contains("vim"));
         assert!(updated.contains("bat"));
         // Verify it's still valid KDL
-        assert!(updated.contains("packages:soar"));
+        assert!(updated.contains("pkg:soar"));
     }
 
     #[test]
     fn test_prevent_duplicates() {
         let editor = ConfigEditor::new();
-        let content = "packages:soar {\n  bat\n}\n";
+        let content = "pkg:soar {\n  bat\n}\n";
         let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
@@ -588,9 +588,9 @@ mod tests {
     }
 
     #[test]
-    fn test_add_to_default_packages_block() {
+    fn test_add_to_default_pkg_block() {
         let editor = ConfigEditor::new();
-        let content = "packages {\n  nano\n}\n";
+        let content = "pkg {\n  nano\n}\n";
         let result = editor.add_package_to_content(content, "vim", None);
 
         assert!(result.is_ok());
@@ -600,7 +600,7 @@ mod tests {
         assert_eq!(added, vec!["vim"]);
         assert!(updated.contains("nano"));
         assert!(updated.contains("vim"));
-        assert!(updated.contains("packages {"));
+        assert!(updated.contains("pkg {"));
     }
 
     #[test]
@@ -608,7 +608,7 @@ mod tests {
         let editor = ConfigEditor::new();
         let mut content = "";
 
-        // Add AUR package
+        // Add AUR package (no specific backend = default pkg block)
         let result = editor.add_package_to_content(content, "bat", None);
         assert!(result.is_ok());
         let (updated, _) = result.unwrap();
@@ -620,8 +620,8 @@ mod tests {
         let (updated, _) = result.unwrap();
 
         // Verify both blocks exist (KDL library may format differently)
-        assert!(updated.contains("packages"));
-        assert!(updated.contains("packages:soar"));
+        assert!(updated.contains("pkg"));
+        assert!(updated.contains("pkg:soar"));
         // Verify bat appears in the output at least twice (once per backend)
         let bat_count = updated.matches("bat").count();
         assert!(
