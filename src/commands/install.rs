@@ -182,7 +182,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
     // Step 4: Auto-sync (unless --no-sync)
     if !options.no_sync {
         // Show sync message with package details
-        let packages_with_backend: Vec<String> = all_packages
+        let _packages_with_backend: Vec<String> = all_packages
             .iter()
             .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("default")))
             .collect();
