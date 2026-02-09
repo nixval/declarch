@@ -5,7 +5,7 @@ use clap_complete::Shell;
 #[command(
     name = "declarch",
     about = "Universal declarative package manager for Linux",
-    long_about = "Universal declarative package manager - unify packages from any source (paru, flatpak, npm, cargo, pip, custom backends) under one declarative config.",
+    long_about = "Universal declarative package manager - unify packages from any source (system package managers, language-specific tools, containers, custom backends) under one declarative config.",
     version,
     next_line_help = false,
     term_width = 120,
@@ -81,12 +81,12 @@ pub enum Command {
         /// Create new backend configuration file(s)
         ///
         /// Creates backend definition files in ~/.config/declarch/backends/
-        /// Supports multiple backends: --backend apt,aur,paru or --backend apt --backend aur
+        /// Supports multiple backends: --backend apt,cargo or --backend apt --backend cargo
         /// 
         /// Examples:
         ///   declarch init --backend cargo
-        ///   declarch init --backend apt,aur,paru
-        ///   declarch init --backend apt --backend aur -y
+        ///   declarch init --backend apt,cargo
+        ///   declarch init --backend apt --backend cargo -y
         #[arg(long, value_name = "NAMES", group = "init_target", num_args = 1.., value_delimiter = ',')]
         backend: Vec<String>,
 
@@ -186,7 +186,7 @@ pub enum Command {
         #[arg(value_name = "NEW_PACKAGE")]
         new_package: String,
 
-        /// Backend (e.g., paru, flatpak, npm)
+        /// Backend (e.g., system package manager, container runtime, language tool)
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 
@@ -212,15 +212,14 @@ pub enum Command {
     ///   declarch install hyprland              Add to modules/others.kdl
     ///   declarch install vim nano emacs        Add multiple packages
     ///   declarch install soar:bat              Add to backend-specific block
-    ///   declarch install npm --modules base    Add to specific module
+    ///   declarch install package --modules base    Add to specific module
     Install {
         /// Package(s) to install (format: [backend:]package)
         ///
         /// Examples:
         ///   hyprland                     Package without backend (uses default)
-        ///   soar:bat                     Package with backend override
-        ///   npm:nodejs                   NPM package
-        ///   paru:firefox                 Arch package via paru
+        ///   backend:package              Package with backend override
+        ///   backend:name                 Package with specific backend
         #[arg(required = true, num_args = 1.., value_name = "PACKAGES")]
         packages: Vec<String>,
 
@@ -261,9 +260,9 @@ pub enum Command {
     ///
     /// Examples:
     ///   declarch search firefox                Search for firefox in all backends
-    ///   declarch search firefox --backends paru  Search in paru only
+    ///   declarch search firefox --backends aur   Search in specific backend only
     ///   declarch search bat --installed-only   Show only installed matches
-    ///   declarch search npm:prettier           Search in specific backend (alternative syntax)
+    ///   declarch search backend:package        Search in specific backend (alternative syntax)
     Search {
         /// Search query (can use "backend:query" syntax for specific backend)
         #[arg(value_name = "QUERY")]
@@ -305,7 +304,7 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         gc: bool,
 
-        /// Sync only specific package or scope (e.g. "firefox", "paru", "flatpak")
+        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
@@ -330,7 +329,7 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         gc: bool,
 
-        /// Sync only specific package or scope (e.g. "firefox", "paru", "flatpak")
+        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
@@ -349,13 +348,13 @@ pub enum SyncCommand {
 
     /// Sync with system update
     ///
-    /// Runs system package manager update (e.g., paru -Syu) before syncing packages.
+    /// Runs system package manager update before syncing packages.
     Update {
         /// Garbage collect system orphans after sync
         #[arg(long, help_heading = "Advanced")]
         gc: bool,
 
-        /// Sync only specific package or scope (e.g. "firefox", "paru", "flatpak")
+        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
@@ -380,7 +379,7 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         gc: bool,
 
-        /// Sync only specific package or scope (e.g. "firefox", "paru", "flatpak")
+        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
@@ -409,7 +408,7 @@ pub enum InfoCommand {
         #[arg(long)]
         debug: bool,
 
-        /// Filter by backend (e.g., paru, flatpak, npm, cargo, pip)
+        /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 
@@ -427,7 +426,7 @@ pub enum InfoCommand {
         #[arg(long)]
         debug: bool,
 
-        /// Filter by backend (e.g., paru, flatpak, npm, cargo, pip)
+        /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 
@@ -444,7 +443,7 @@ pub enum ListCommand {
     /// Lists all installed packages managed by declarch.
     /// This is the default behavior when no subcommand is specified.
     All {
-        /// Filter by backend (e.g., paru, flatpak, cargo, npm)
+        /// Filter by backend name
         #[arg(short, long, value_name = "BACKEND")]
         backend: Option<String>,
     },
@@ -454,7 +453,7 @@ pub enum ListCommand {
     /// Lists packages that are installed on the system but not
     /// defined in your declarch configuration.
     Orphans {
-        /// Filter by backend (e.g., paru, flatpak, cargo, npm)
+        /// Filter by backend name
         #[arg(short, long, value_name = "BACKEND")]
         backend: Option<String>,
     },
@@ -464,7 +463,7 @@ pub enum ListCommand {
     /// Lists packages that are both defined in your configuration
     /// and currently installed on the system.
     Synced {
-        /// Filter by backend (e.g., paru, flatpak, cargo, npm)
+        /// Filter by backend name
         #[arg(short, long, value_name = "BACKEND")]
         backend: Option<String>,
     },
@@ -477,7 +476,7 @@ pub enum CheckCommand {
     /// Checks configuration syntax, imports, duplicates, and conflicts.
     /// This is the default behavior when no subcommand is specified.
     All {
-        /// Filter by backend (e.g., paru, flatpak, npm, cargo, pip)
+        /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 
@@ -499,7 +498,7 @@ pub enum CheckCommand {
     /// Finds packages that are declared multiple times across your configuration.
     /// Duplicates are automatically deduplicated during sync.
     Duplicates {
-        /// Filter by backend (e.g., paru, flatpak, npm, cargo, pip)
+        /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 
@@ -513,7 +512,7 @@ pub enum CheckCommand {
     /// Finds packages with the same name in different backends.
     /// This can cause PATH conflicts when multiple backends install binaries with the same name.
     Conflicts {
-        /// Filter by backend (e.g., paru, flatpak, npm, cargo, pip)
+        /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
 
