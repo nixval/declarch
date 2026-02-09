@@ -9,112 +9,35 @@ use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Default backends.kdl content with essential backends
+/// Default backends.kdl content - uses explicit import pattern
 const DEFAULT_BACKENDS_KDL: &str = r#"// Backend Aggregator
 // 
-// This file contains all backend configurations for declarch.
-// You can define backends directly here or import from separate files.
+// This file is the central registry for all backend configurations.
+// ALL backends must be explicitly imported here - no auto-loading.
 //
-// NOTE: All .kdl files in the backends/ directory are automatically loaded.
-// You don't need to add import statements for them.
+// Usage:
+//   - Enable backend:  Uncomment or add the import line
+//   - Disable backend: Comment out the import line
+//   - Add new backend: declarch init --backend <name>
 //
-// To add more backends: declarch init --backend <name>
+// Example:
+//   import "backends/aur.kdl"
+//   import "backends/flatpak.kdl"
+//   // import "backends/npm.kdl"  // Disabled
 
 // =============================================================================
-// AUR Helper (Arch Linux)
-// Fallback chain: paru → yay → pacman
+// Core Backends
+// Uncomment the backends you want to use
 // =============================================================================
-backend "aur" {
-    meta {
-        title "AUR Helper"
-        description "Arch User Repository helper with pacman fallback"
-        maintained "declarch"
-        tags "package-manager" "aur" "arch"
-        platforms "arch"
-        requires "paru" "yay" "pacman"
-    }
-    
-    binary "paru" "yay"
-    
-    list "{binary} -Q" {
-        format whitespace
-        name_col 0
-        version_col 1
-    }
-    
-    install "{binary} -S --needed {packages}"
-    remove "{binary} -R {packages}"
-    
-    search "{binary} -Ss {query}" {
-        format whitespace
-        name_col 0
-        desc_col 1
-    }
-    
-    fallback "pacman"
-}
 
-// =============================================================================
-// Pacman (Arch Linux native)
-// Used as ultimate fallback when no AUR helper is available
-// =============================================================================
-backend "pacman" {
-    meta {
-        title "Pacman"
-        description "Arch Linux native package manager"
-        maintained "declarch"
-        tags "package-manager" "arch" "native"
-        platforms "arch"
-        requires "pacman"
-    }
-    
-    binary "pacman"
-    
-    list "pacman -Q" {
-        format whitespace
-        name_col 0
-        version_col 1
-    }
-    
-    install "pacman -S --needed {packages}"
-    remove "pacman -R {packages}"
-    
-    needs_sudo true
-}
+// AUR Helper (paru → yay → pacman fallback chain)
+import "backends/aur.kdl"
 
-// =============================================================================
-// Flatpak (Universal Linux apps)
-// =============================================================================
-backend "flatpak" {
-    meta {
-        title "Flatpak"
-        description "Universal Linux application sandboxing"
-        maintained "declarch"
-        tags "package-manager" "flatpak" "sandbox" "universal"
-        platforms "linux"
-        requires "flatpak"
-    }
-    
-    binary "flatpak"
-    
-    list "flatpak list --app --columns=application,version" {
-        format tsv
-        name_col 0
-        version_col 1
-    }
-    
-    install "flatpak install flathub {packages}"
-    remove "flatpak uninstall {packages}"
-    
-    search "flatpak search {query}" {
-        format whitespace
-        name_col 0
-        desc_col 1
-    }
-    
-    noconfirm "-y"
-    needs_sudo false
-}
+// Pacman (Arch native, used as fallback for aur)
+import "backends/pacman.kdl"
+
+// Flatpak (Universal Linux applications)
+import "backends/flatpak.kdl"
 "#;
 
 #[derive(Debug)]
@@ -232,6 +155,11 @@ fn init_root(host: Option<String>, force: bool) -> Result<()> {
 }
 
 /// Initialize a new backend configuration file
+/// 
+/// This function:
+/// 1. Creates the backend file in backends/<name>.kdl
+/// 2. Adds/enables the import in backends.kdl
+/// 3. Uses explicit import pattern (no auto-loading)
 fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     let root_dir = paths::config_dir()?;
@@ -274,30 +202,7 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         ));
     }
 
-    // STEP 3: Check if backend already exists in backends.kdl
-    let backends_kdl_path = root_dir.join("backends.kdl");
-    if !force && backends_kdl_path.exists() {
-        let existing_content = fs::read_to_string(&backends_kdl_path)?;
-        
-        // Check if backend is already defined in backends.kdl
-        // Pattern: backend "name" {{
-        let pattern = format!(r#"backend\s+"{}"\s*\{{"#, regex::escape(&sanitized_name));
-        let backend_defined = regex::Regex::new(&pattern)
-            .map(|re| re.is_match(&existing_content))
-            .unwrap_or(false);
-        
-        if backend_defined {
-            output::info(&format!(
-                "Backend '{}' is already defined in {}",
-                sanitized_name,
-                backends_kdl_path.display()
-            ));
-            output::info("Use --force to create a separate file that will override the default.");
-            return Ok(());
-        }
-    }
-
-    // STEP 4: Create backend file
+    // STEP 3: Create backend file
     let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
 
     if backend_file.exists() && !force {
@@ -307,64 +212,55 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
             backend_file.display()
         ));
         output::info("Use --force to overwrite.");
-        return Ok(());
+        // Continue to ensure import exists in backends.kdl
+    } else {
+        // STEP 4: Generate and create backend file
+        let template = match remote::fetch_backend_content(&sanitized_name) {
+            Ok(content) => {
+                output::success(&format!(
+                    "Fetched backend '{}' from registry",
+                    sanitized_name
+                ));
+                content
+            }
+            Err(_) => {
+                output::info(&format!(
+                    "Backend '{}' not found in registry, using local template",
+                    sanitized_name
+                ));
+                generate_backend_template(&sanitized_name)
+            }
+        };
+        fs::write(&backend_file, &template)?;
+
+        // Display backend info
+        display_backend_meta(&template, &sanitized_name);
     }
 
-    // STEP 5: Generate and create backend file
-    let template = match remote::fetch_backend_content(&sanitized_name) {
-        Ok(content) => {
-            output::success(&format!(
-                "Fetched backend '{}' from registry",
-                sanitized_name
-            ));
-            content
-        }
-        Err(_) => {
-            output::info(&format!(
-                "Backend '{}' not found in registry, using local template",
-                sanitized_name
-            ));
-            generate_backend_template(&sanitized_name)
-        }
-    };
-    fs::write(&backend_file, &template)?;
-
-    // STEP 6: Display backend info
-    display_backend_meta(&template, &sanitized_name);
-
-    // STEP 7: Add to backends.kdl (aggregator pattern)
+    // STEP 5: Ensure backends.kdl exists
     let backends_kdl_path = root_dir.join("backends.kdl");
-    let backend_entry = format!("backends/{}.kdl", sanitized_name);
-    
-    // Create backends.kdl if not exists
     if !backends_kdl_path.exists() {
         fs::write(&backends_kdl_path, DEFAULT_BACKENDS_KDL)?;
     }
 
-    // Prompt for consent (like module init)
-    if !force
-        && !output::prompt_yes_no(&format!(
-            "Add '{}' to backends.kdl?",
-            backend_entry
-        ))
-    {
-        output::info("Skipping auto-import. You can add it manually to backends.kdl.");
-        output::success(&format!(
-            "Created backend configuration: {}",
-            backend_file.display()
-        ));
-        return Ok(());
-    }
-
-    // Add import to backends.kdl
-    inject_import_to_backends_kdl(&backends_kdl_path, &backend_entry)?;
+    // STEP 6: Add/enable import in backends.kdl
+    let backend_entry = format!("backends/{}.kdl", sanitized_name);
+    enable_backend_import(&backends_kdl_path, &backend_entry, force)?;
 
     output::success(&format!(
-        "Created backend configuration: {}",
+        "Backend '{}' is ready to use",
+        sanitized_name
+    ));
+    output::info(&format!(
+        "Configuration file: {}",
         backend_file.display()
     ));
     output::info("Edit this file to customize the backend behavior.");
-    output::info("Run 'declarch check validate' to verify the backend configuration.");
+    output::info(&format!(
+        "To disable: comment out 'import \"{}\"' in {}",
+        backend_entry,
+        backends_kdl_path.display()
+    ));
 
     Ok(())
 }
@@ -429,25 +325,60 @@ fn extract_meta_fields(content: &str) -> std::collections::HashMap<String, Strin
     fields
 }
 
-/// Inject import into backends.kdl
-fn inject_import_to_backends_kdl(backends_kdl_path: &Path, import_path: &str) -> Result<()> {
+/// Enable backend import in backends.kdl
+/// 
+/// This function will:
+/// 1. Check if import already exists and is enabled
+/// 2. Uncomment the import if it's commented out
+/// 3. Add the import if it doesn't exist
+fn enable_backend_import(backends_kdl_path: &Path, import_path: &str, _force: bool) -> Result<()> {
     let content = fs::read_to_string(backends_kdl_path)?;
-
-    // Check if already exists
-    if content.contains(import_path) {
+    
+    // Check for exact match (already enabled)
+    let import_line = format!(r#"import "{}""#, import_path);
+    if content.contains(&import_line) {
         output::info(&format!(
-            "Backend '{}' is already referenced in backends.kdl.",
+            "Backend import '{}' is already enabled in backends.kdl",
             import_path
         ));
         return Ok(());
     }
-
-    // Add import line
-    let import_line = format!("import \"{}\"", import_path);
-    let new_content = format!("{}\n{}", content.trim_end(), import_line);
+    
+    // Check for commented version (needs uncomment)
+    let commented_patterns = [
+        format!(r#"//\s*import\s+"{}""#, regex::escape(import_path)),
+        format!(r#"#\s*import\s+"{}""#, regex::escape(import_path)),
+    ];
+    
+    for pattern in &commented_patterns {
+        if let Ok(re) = regex::Regex::new(pattern) {
+            if re.is_match(&content) {
+                // Uncomment the import
+                let new_content = re.replace(&content, &import_line);
+                fs::write(backends_kdl_path, new_content.as_ref())?;
+                output::success(&format!(
+                    "Enabled backend import '{}' in backends.kdl",
+                    import_path
+                ));
+                return Ok(());
+            }
+        }
+    }
+    
+    // Import doesn't exist, add it
+    // Add import line with a comment
+    let import_with_comment = format!(
+        "\n// {} backend\n{}\n",
+        import_path.trim_start_matches("backends/").trim_end_matches(".kdl"),
+        import_line
+    );
+    let new_content = format!("{}{}", content.trim_end(), import_with_comment);
 
     fs::write(backends_kdl_path, new_content)?;
-    output::success("Added backend import to backends.kdl");
+    output::success(&format!(
+        "Added backend import '{}' to backends.kdl",
+        import_path
+    ));
 
     Ok(())
 }
