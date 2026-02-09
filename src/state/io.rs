@@ -205,19 +205,22 @@ pub fn save_state_locked(state: &State) -> Result<()> {
         "Could not determine state directory".into(),
     ))?;
 
-    // Open file with locking
-    let file = OpenOptions::new()
+    // Create lock file path
+    let lock_path = dir.join("state.lock");
+    
+    // Open or create lock file
+    let lock_file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(&path)
+        .open(&lock_path)
         .map_err(|e| DeclarchError::IoError {
-            path: path.clone(),
+            path: lock_path.clone(),
             source: e,
         })?;
 
     // Acquire exclusive lock - blocks other processes
-    file.lock_exclusive().map_err(|e| DeclarchError::Other(format!(
+    lock_file.lock_exclusive().map_err(|e| DeclarchError::Other(format!(
         "Failed to lock state file: {}. Another declarch process may be running.",
         e
     )))?;
@@ -242,6 +245,7 @@ pub fn save_state_locked(state: &State) -> Result<()> {
 
     tmp_file.write_all(content.as_bytes())?;
     tmp_file.sync_all()?;
+    drop(tmp_file); // Close temp file before rename
 
     // Atomic rename
     fs::rename(&tmp_path, &path).map_err(|e| DeclarchError::IoError {
@@ -249,8 +253,13 @@ pub fn save_state_locked(state: &State) -> Result<()> {
         source: e,
     })?;
 
-    // Release lock (happens automatically when file is dropped)
-    drop(file);
+    // Sync directory to ensure rename is persisted
+    if let Ok(dir_file) = fs::File::open(dir) {
+        let _ = dir_file.sync_all();
+    }
+
+    // Release lock (happens automatically when lock_file is dropped)
+    drop(lock_file);
 
     Ok(())
 }

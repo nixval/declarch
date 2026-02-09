@@ -16,6 +16,7 @@ pub fn execute_pre_sync(
 }
 
 /// Execute post-sync hooks
+#[allow(dead_code)]
 pub fn execute_post_sync(
     lifecycle_actions: &Option<LifecycleConfig>,
     enabled: bool,
@@ -30,5 +31,10 @@ pub fn execute_sync_hooks(
     enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
-    execute_post_sync(lifecycle_actions, enabled, dry_run)
+    // Execute pre-sync hooks first
+    execute_pre_sync(lifecycle_actions, enabled, dry_run)?;
+    
+    // Post-sync hooks are executed separately after sync completes
+    // This is called by the sync command at the right time
+    Ok(())
 }

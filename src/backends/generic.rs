@@ -6,6 +6,76 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::utils::sanitize;
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
+
+/// Default timeout for backend commands (5 minutes)
+const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Execute a command with timeout (non-interactive)
+fn run_command_with_timeout(
+    cmd: &mut Command,
+    timeout: Duration,
+) -> Result<std::process::Output> {
+    let cmd_debug = format!("{:?}", cmd);
+    
+    let (tx, rx) = mpsc::channel();
+    let mut cmd = std::mem::replace(cmd, Command::new("true"));
+    
+    thread::spawn(move || {
+        let result = cmd.output();
+        let _ = tx.send(result);
+    });
+    
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(output)) => Ok(output),
+        Ok(Err(e)) => Err(DeclarchError::SystemCommandFailed {
+            command: cmd_debug,
+            reason: e.to_string(),
+        }),
+        Err(_) => Err(DeclarchError::SystemCommandFailed {
+            command: cmd_debug,
+            reason: format!("Command timed out after {} seconds", timeout.as_secs()),
+        }),
+    }
+}
+
+/// Execute an interactive command with timeout (shows real-time output)
+fn run_interactive_command_with_timeout(
+    cmd: &mut Command,
+    timeout: Duration,
+) -> Result<std::process::ExitStatus> {
+    let cmd_debug = format!("{:?}", cmd);
+    
+    let (tx, rx) = mpsc::channel();
+    let mut cmd = std::mem::replace(cmd, Command::new("true"));
+    
+    // Set up interactive stdio
+    cmd.stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    
+    thread::spawn(move || {
+        let result = cmd.status();
+        let _ = tx.send(result);
+    });
+    
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(status)) => Ok(status),
+        Ok(Err(e)) => Err(DeclarchError::SystemCommandFailed {
+            command: cmd_debug,
+            reason: e.to_string(),
+        }),
+        Err(_) => {
+            eprintln!("\n⚠️  Command timed out after {} seconds", timeout.as_secs());
+            Err(DeclarchError::SystemCommandFailed {
+                command: cmd_debug,
+                reason: format!("Command timed out after {} seconds", timeout.as_secs()),
+            })
+        }
+    }
+}
 
 /// Generic package manager that works with any backend configuration
 pub struct GenericManager {
@@ -102,10 +172,10 @@ impl PackageManager for GenericManager {
         let binary = self.get_binary()?;
         let cmd_str = self.config.list_cmd.replace("{binary}", &binary);
         
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(&cmd_str)
-            .output()
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&cmd_str);
+        
+        let output = run_command_with_timeout(&mut cmd, DEFAULT_COMMAND_TIMEOUT)
             .map_err(|e| DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
@@ -151,12 +221,9 @@ impl PackageManager for GenericManager {
             }
         }
 
-        cmd.stdin(Stdio::inherit())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
-
-        let status = cmd
-            .status()
+        // Use interactive timeout function (5 minute timeout for install)
+        let timeout = Duration::from_secs(300);
+        let status = run_interactive_command_with_timeout(&mut cmd, timeout)
             .map_err(|e| DeclarchError::SystemCommandFailed {
                 command: format!("install: {}", cmd_str),
                 reason: e.to_string(),
@@ -194,12 +261,9 @@ impl PackageManager for GenericManager {
 
         let mut cmd = self.build_command(&cmd_str)?;
 
-        cmd.stdin(Stdio::inherit())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
-
-        let status = cmd
-            .status()
+        // Use interactive timeout function (5 minute timeout for remove)
+        let timeout = Duration::from_secs(300);
+        let status = run_interactive_command_with_timeout(&mut cmd, timeout)
             .map_err(|e| DeclarchError::SystemCommandFailed {
                 command: format!("remove: {}", cmd_str),
                 reason: e.to_string(),
@@ -259,10 +323,11 @@ impl PackageManager for GenericManager {
             .replace("{binary}", &binary)
             .replace("{query}", query);
 
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(&cmd_str)
-            .output()
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&cmd_str);
+        
+        // Use shorter timeout for search (30 seconds)
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
             .map_err(|e| DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
