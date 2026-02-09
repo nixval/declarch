@@ -9,25 +9,22 @@ use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Default backends.kdl content - uses explicit import pattern
+/// Default backends.kdl content with essential backends enabled by default
 const DEFAULT_BACKENDS_KDL: &str = r#"// Backend Aggregator
 // 
 // This file is the central registry for all backend configurations.
-// ALL backends must be explicitly imported here - no auto-loading.
+// Backends are loaded via explicit imports from the backends/ directory.
 //
-// Usage:
-//   - Enable backend:  Uncomment or add the import line
-//   - Disable backend: Comment out the import line
-//   - Add new backend: declarch init --backend <name>
+// Default backends (enabled on init):
+//   - aur: AUR helper with fallback chain (paru → yay → pacman)
+//   - pacman: Arch native package manager
+//   - flatpak: Universal Linux applications
 //
-// Example:
-//   import "backends/aur.kdl"
-//   import "backends/flatpak.kdl"
-//   // import "backends/npm.kdl"  // Disabled
+// To add more backends: declarch init --backend <name>
+// To disable a backend: Comment out the import line
 
 // =============================================================================
-// Core Backends
-// Uncomment the backends you want to use
+// Core Backends (enabled by default)
 // =============================================================================
 
 // AUR Helper (paru → yay → pacman fallback chain)
@@ -38,6 +35,16 @@ import "backends/pacman.kdl"
 
 // Flatpak (Universal Linux applications)
 import "backends/flatpak.kdl"
+
+// =============================================================================
+// Additional Backends
+// Add your custom backend imports here or use: declarch init --backend <name>
+// =============================================================================
+imports {
+    // Example:
+    // "backends/npm.kdl"
+    // "backends/cargo.kdl"
+}
 "#;
 
 #[derive(Debug)]
@@ -112,7 +119,29 @@ fn init_root(host: Option<String>, force: bool) -> Result<()> {
             .unwrap_or_else(|_| "unknown".to_string())
     });
 
-    // Create backends.kdl first (so it's referenced in template)
+    // Create backends directory and default backends
+    let backends_dir = config_dir.join("backends");
+    if !backends_dir.exists() {
+        fs::create_dir_all(&backends_dir)?;
+    }
+
+    // Create default backend files (aur, pacman, flatpak)
+    let default_backends = [("aur", generate_aur_backend_template()), 
+                            ("pacman", generate_pacman_backend_template()),
+                            ("flatpak", generate_flatpak_backend_template())];
+    
+    for (name, template) in default_backends {
+        let backend_file = backends_dir.join(format!("{}.kdl", name));
+        if !backend_file.exists() {
+            fs::write(&backend_file, template)?;
+            output::success(&format!(
+                "Created backend: {}",
+                backend_file.display()
+            ));
+        }
+    }
+
+    // Create backends.kdl with imports
     let backends_kdl_path = config_dir.join("backends.kdl");
     if !backends_kdl_path.exists() {
         fs::write(&backends_kdl_path, DEFAULT_BACKENDS_KDL)?;
@@ -327,56 +356,48 @@ fn extract_meta_fields(content: &str) -> std::collections::HashMap<String, Strin
 
 /// Enable backend import in backends.kdl
 /// 
-/// This function will:
-/// 1. Check if import already exists and is enabled
-/// 2. Uncomment the import if it's commented out
-/// 3. Add the import if it doesn't exist
+/// This function injects the backend import into the `imports { }` block,
+/// similar to how init modules work with declarch.kdl.
 fn enable_backend_import(backends_kdl_path: &Path, import_path: &str, _force: bool) -> Result<()> {
     let content = fs::read_to_string(backends_kdl_path)?;
     
-    // Check for exact match (already enabled)
-    let import_line = format!(r#"import "{}""#, import_path);
-    if content.contains(&import_line) {
+    // Check for exact match anywhere in file (already imported)
+    // Support both formats: import "path" and "path" (inside imports block)
+    let import_line_full = format!(r#"import "{}""#, import_path);
+    let import_line_short = format!(r#"    "{}""#, import_path);
+    
+    if content.contains(&import_line_full) || content.contains(&import_line_short) {
         output::info(&format!(
-            "Backend import '{}' is already enabled in backends.kdl",
+            "Backend '{}' is already imported in backends.kdl",
             import_path
         ));
         return Ok(());
     }
     
-    // Check for commented version (needs uncomment)
-    let commented_patterns = [
-        format!(r#"//\s*import\s+"{}""#, regex::escape(import_path)),
-        format!(r#"#\s*import\s+"{}""#, regex::escape(import_path)),
-    ];
+    // Check if there's an imports { } block
+    let imports_pattern = r"imports\s*\{";
+    let imports_re = regex::Regex::new(imports_pattern).unwrap();
     
-    for pattern in &commented_patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
-            if re.is_match(&content) {
-                // Uncomment the import
-                let new_content = re.replace(&content, &import_line);
-                fs::write(backends_kdl_path, new_content.as_ref())?;
-                output::success(&format!(
-                    "Enabled backend import '{}' in backends.kdl",
-                    import_path
-                ));
-                return Ok(());
-            }
-        }
+    if imports_re.is_match(&content) {
+        // Inject into existing imports block (using format like modules)
+        let pattern = r"(imports\s*\{)";
+        let re = regex::Regex::new(pattern).unwrap();
+        
+        let import_entry = format!(r#"    "{}""#, import_path);
+        let new_content = re.replace(&content, |caps: &regex::Captures| {
+            format!("{}\n{}", &caps[0], import_entry)
+        });
+        
+        fs::write(backends_kdl_path, new_content.as_ref())?;
+    } else {
+        // No imports block, add import line at the end
+        let import_line = format!(r#"import "{}""#, import_path);
+        let new_content = format!("{}\n{}", content.trim_end(), import_line);
+        fs::write(backends_kdl_path, new_content)?;
     }
     
-    // Import doesn't exist, add it
-    // Add import line with a comment
-    let import_with_comment = format!(
-        "\n// {} backend\n{}\n",
-        import_path.trim_start_matches("backends/").trim_end_matches(".kdl"),
-        import_line
-    );
-    let new_content = format!("{}{}", content.trim_end(), import_with_comment);
-
-    fs::write(backends_kdl_path, new_content)?;
     output::success(&format!(
-        "Added backend import '{}' to backends.kdl",
+        "Added backend '{}' to backends.kdl",
         import_path
     ));
 
