@@ -12,11 +12,19 @@
 //! to install backends via `declarch init --backend <name>`.
 
 use crate::backends::user_parser;
+use crate::ui as output;
 use crate::utils::paths;
 use std::collections::HashMap;
 
 /// Backend configuration type re-export
 pub use crate::backends::config::BackendConfig;
+
+/// Tracks where each backend was loaded from for duplicate detection
+#[derive(Debug, Clone)]
+struct BackendSource {
+    name: String,
+    source_file: String,
+}
 
 /// Load all backend configurations from user config directory
 ///
@@ -30,14 +38,40 @@ pub use crate::backends::config::BackendConfig;
 /// # Note
 /// If no backends are found, returns an empty HashMap. The caller should
 /// check for empty result and show appropriate error message.
+///
+/// # Duplicate Detection
+/// If a backend is defined multiple times (e.g., both in backends.kdl and
+/// backends/aur.kdl), a warning is shown and the last loaded definition wins.
 pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig>> {
-    let mut backends = HashMap::new();
+    let mut backends: HashMap<String, BackendConfig> = HashMap::new();
+    let mut backend_sources: Vec<BackendSource> = Vec::new();
 
     // Load user-defined backends from backends.kdl
     let backends_path = paths::backend_config()?;
     if backends_path.exists() {
         let user_backends = user_parser::load_user_backends(&backends_path)?;
         for config in user_backends {
+            let source = BackendSource {
+                name: config.name.clone(),
+                source_file: backends_path.display().to_string(),
+            };
+            
+            // Check for duplicates
+            if backends.contains_key(&config.name) {
+                let existing = backend_sources.iter()
+                    .find(|s| s.name == config.name)
+                    .map(|s| s.source_file.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+                
+                output::warning(&format!(
+                    "Duplicate backend '{}' defined in '{}' and '{}'. Using the later definition.",
+                    config.name,
+                    existing,
+                    backends_path.display()
+                ));
+            }
+            
+            backend_sources.push(source);
             backends.insert(config.name.clone(), config);
         }
     }
@@ -51,8 +85,33 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
             
             // Only process .kdl files
             if path.extension().map(|e| e == "kdl").unwrap_or(false) {
+                let file_name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                
                 match load_backend_file(&path) {
                     Ok(Some(config)) => {
+                        // Check for duplicates
+                        if backends.contains_key(&config.name) {
+                            let existing = backend_sources.iter()
+                                .find(|s| s.name == config.name)
+                                .map(|s| s.source_file.clone())
+                                .unwrap_or_else(|| "unknown".to_string());
+                            
+                            output::warning(&format!(
+                                "Duplicate backend '{}' defined in '{}' and '{}'. Using '{}'.",
+                                config.name,
+                                existing,
+                                file_name,
+                                file_name
+                            ));
+                        }
+                        
+                        backend_sources.push(BackendSource {
+                            name: config.name.clone(),
+                            source_file: file_name.clone(),
+                        });
                         backends.insert(config.name.clone(), config);
                     }
                     Ok(None) => {

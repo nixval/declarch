@@ -9,12 +9,131 @@ use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Default backends.kdl content
+/// Default backends.kdl content with essential backends
 const DEFAULT_BACKENDS_KDL: &str = r#"// Backend Aggregator
 // 
-// This file imports all custom backend configurations.
-// Add new backends with: declarch init --backend <name>
+// This file contains all backend configurations for declarch.
+// You can define backends directly here or import from separate files.
+//
+// Default backends included:
+// - aur: AUR helper (paru → yay → pacman fallback chain)
+// - flatpak: Flatpak applications
+//
+// To add more backends: declarch init --backend <name>
 
+// =============================================================================
+// AUR Helper (Arch Linux)
+// =============================================================================
+// Supports paru/yay as primary with automatic fallback to pacman.
+// Fallback chain: aur → paru → yay → pacman
+//
+// This backend will:
+// 1. Try 'paru' first
+// 2. If not found, try 'yay'
+// 3. If neither found, fallback to 'pacman' (for official repos only)
+backend "aur" {
+    meta {
+        title "AUR Helper"
+        description "Arch User Repository helper with pacman fallback"
+        maintained "declarch"
+        tags "package-manager" "aur" "arch"
+        platforms "arch"
+        requires "paru" "yay" "pacman"
+    }
+    
+    // Try paru first, then yay (first available will be used)
+    binary "paru" "yay"
+    
+    // List all installed packages (official repo + AUR)
+    list "{binary} -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    // Install packages (AUR or official repos)
+    install "{binary} -S --needed {packages}"
+    
+    // Remove packages
+    remove "{binary} -R {packages}"
+    
+    // Search packages (optional)
+    search "{binary} -Ss {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    // If no AUR helper found, fallback to pacman
+    fallback "pacman"
+}
+
+// =============================================================================
+// Pacman (Arch Linux native)
+// =============================================================================
+// Native Arch package manager for official repositories only.
+// Used as ultimate fallback when no AUR helper is available.
+backend "pacman" {
+    meta {
+        title "Pacman"
+        description "Arch Linux native package manager"
+        maintained "declarch"
+        tags "package-manager" "arch" "native"
+        platforms "arch"
+        requires "pacman"
+    }
+    
+    binary "pacman"
+    
+    list "pacman -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "pacman -S --needed {packages}"
+    remove "pacman -R {packages}"
+    
+    needs_sudo true
+}
+
+// =============================================================================
+// Flatpak
+// =============================================================================
+backend "flatpak" {
+    meta {
+        title "Flatpak"
+        description "Universal Linux application sandboxing"
+        maintained "declarch"
+        tags "package-manager" "flatpak" "sandbox" "universal"
+        platforms "linux"
+        requires "flatpak"
+    }
+    
+    binary "flatpak"
+    
+    // List installed applications
+    list "flatpak list --app --columns=application,version" {
+        format tsv
+        name_col 0
+        version_col 1
+    }
+    
+    // Install from flathub
+    install "flatpak install flathub {packages}"
+    
+    // Remove applications
+    remove "flatpak uninstall {packages}"
+    
+    // Search (optional)
+    search "flatpak search {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    noconfirm "-y"
+}
 "#;
 
 #[derive(Debug)]
@@ -174,12 +293,35 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         ));
     }
 
-    // STEP 3: Create backend file
+    // STEP 3: Check if backend already exists in backends.kdl
+    let backends_kdl_path = root_dir.join("backends.kdl");
+    if !force && backends_kdl_path.exists() {
+        let existing_content = fs::read_to_string(&backends_kdl_path)?;
+        
+        // Check if backend is already defined in backends.kdl
+        // Pattern: backend "name" {{
+        let pattern = format!(r#"backend\s+"{}"\s*\{{"#, regex::escape(&sanitized_name));
+        let backend_defined = regex::Regex::new(&pattern)
+            .map(|re| re.is_match(&existing_content))
+            .unwrap_or(false);
+        
+        if backend_defined {
+            output::info(&format!(
+                "Backend '{}' is already defined in {}",
+                sanitized_name,
+                backends_kdl_path.display()
+            ));
+            output::info("Use --force to create a separate file that will override the default.");
+            return Ok(());
+        }
+    }
+
+    // STEP 4: Create backend file
     let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
 
     if backend_file.exists() && !force {
         output::warning(&format!(
-            "Backend '{}' already exists: {}",
+            "Backend file '{}' already exists: {}",
             sanitized_name,
             backend_file.display()
         ));
@@ -187,7 +329,7 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         return Ok(());
     }
 
-    // Try to fetch from registry first, then fallback to template
+    // STEP 5: Generate and create backend file
     let template = match remote::fetch_backend_content(&sanitized_name) {
         Ok(content) => {
             output::success(&format!(
@@ -206,10 +348,10 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     };
     fs::write(&backend_file, &template)?;
 
-    // STEP 4: Display backend info (like module info)
+    // STEP 6: Display backend info
     display_backend_meta(&template, &sanitized_name);
 
-    // STEP 5: Add to backends.kdl (aggregator pattern)
+    // STEP 7: Add to backends.kdl (aggregator pattern)
     let backends_kdl_path = root_dir.join("backends.kdl");
     let backend_entry = format!("backends/{}.kdl", sanitized_name);
     
@@ -330,177 +472,239 @@ fn inject_import_to_backends_kdl(backends_kdl_path: &Path, import_path: &str) ->
 }
 
 /// Generate a backend template based on the backend name
-/// Unknown metadata values are set to "-" and will be skipped in output
+/// Creates a complete, production-ready backend configuration
 fn generate_backend_template(name: &str) -> String {
-    // Backend-agnostic template generation
-    // Unknown values use "-" which means "skip this field"
-    // Special cases: aur, pacman, flatpak have specific fallback chains
+    match name {
+        "aur" => generate_aur_backend_template(),
+        "pacman" => generate_pacman_backend_template(),
+        "flatpak" => generate_flatpak_backend_template(),
+        _ => generate_generic_backend_template(name),
+    }
+}
 
-    // Determine binary and fallback chain for known backends
-    let (binary, fallback) = match name {
-        "aur" => ("paru", Some("yay")),  // paru -> yay -> pacman
-        "yay" => ("yay", Some("pacman")),
-        "paru" => ("paru", Some("yay")),
-        "flatpak" => ("flatpak", None),
-        _ => (name, None),
-    };
-    
-    let pm_name = name;
-    let description = format!("{} package manager", name);
-    
-    // Use "-" for unknown optional fields (will be skipped in output)
-    let version = "-";
-    let author = "-";
-    let maintained = "nixval";
-    let url = "-";
-    let homepage = "-";
-    let license = "-";
-    let install_guide = "-";
-
-    let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
-
-    // Build meta section dynamically, skipping "-" values
-    let mut meta_lines = vec![
-        format!(r#"        title "{}""#, pm_name),
-        format!(r#"        description "{}""#, description),
-    ];
-    
-    if version != "-" {
-        meta_lines.push(format!(r#"        version "{}""#, version));
-    }
-    
-    if author != "-" {
-        meta_lines.push(format!(r#"        author "{}""#, author));
-    }
-    
-    meta_lines.push(format!(r#"        maintained "{}""#, maintained));
-    meta_lines.push(format!(r#"        tags "package-manager" "{}""#, name));
-    
-    if url != "-" {
-        meta_lines.push(format!(r#"        url "{}""#, url));
-    }
-    
-    if homepage != "-" {
-        meta_lines.push(format!(r#"        homepage "{}""#, homepage));
-    }
-    
-    if license != "-" {
-        meta_lines.push(format!(r#"        license "{}""#, license));
-    }
-    
-    meta_lines.push(format!(r#"        created "{}""#, current_date));
-    meta_lines.push(r#"        platforms "linux""#.to_string());
-    meta_lines.push(format!(r#"        requires "{}""#, binary));
-    
-    if install_guide != "-" {
-        meta_lines.push(format!(r#"        install-guide "{}""#, install_guide));
-    }
-
-    let meta_section = meta_lines.join("\n");
-    
-    // Build fallback section if needed
-    let fallback_section = fallback.map(|fb| {
-        format!(r#"
-    // Fallback backend if binary not found
-    fallback "{}"
-"#, fb)
-    }).unwrap_or_default();
-
-    // Special template for AUR helpers (paru/yay)
-    if name == "aur" || name == "paru" || name == "yay" {
-        return format!(
-            r#"// {name} - AUR Helper
+/// AUR helper backend with paru → yay → pacman fallback chain
+fn generate_aur_backend_template() -> String {
+    r#"// aur - AUR Helper with Fallback Chain
 // 
-// Supports paru/yay as primary, with pacman as ultimate fallback.
+// This backend provides a complete fallback chain:
+//   aur (alias) → paru → yay → pacman
+//
+// Behavior:
+//   1. If 'paru' is installed, use it (best AUR helper)
+//   2. Else if 'yay' is installed, use it (alternative AUR helper)
+//   3. Else if 'pacman' backend exists, fallback to it (official repos only)
+//
+// Installation:
+//   paru:  pacman -S paru      (or from AUR: paru-bin)
+//   yay:   pacman -S yay       (or from AUR: yay-bin)
 
-backend "{name}" {{
-    meta {{
-{meta_section}
-    }}
+backend "aur" {
+    meta {
+        title "AUR Helper"
+        description "Arch User Repository with automatic fallback chain"
+        maintained "declarch"
+        tags "package-manager" "aur" "arch" "fallback"
+        platforms "arch"
+        requires "paru" "yay" "pacman"
+    }
     
-    // Try paru first, then yay
+    // Binary fallback chain: try paru first, then yay
     binary "paru" "yay"
     
     // List all installed packages (official repo + AUR)
-    // Use -Q (all) instead of -Qm (AUR only) for broader package detection
-    list "{{binary}} -Q" {{
+    // Output format: "package-name version"
+    list "{binary} -Q" {
         format whitespace
         name_col 0
-    }}
+        version_col 1
+    }
     
-    // Install from AUR or official repos
-    install "{{binary}} -S --needed {{packages}}"
+    // Install packages (supports both AUR and official repos)
+    install "{binary} -S --needed {packages}"
     
     // Remove packages
-    remove "{{binary}} -R {{packages}}"
+    remove "{binary} -R {packages}"
     
-    // Search packages
-    // search "{{binary}} -Ss {{query}}" {{
-    //     format whitespace
-    //     name_col 0
-    //     desc_col 1
-    // }}
-    
-    // Auto-confirmation (use with caution)
-    // noconfirm "--noconfirm"
-    
-    // Fallback chain: aur -> pacman (if no AUR helper installed)
-    fallback "pacman"
-}}
-"#,
-            name = name,
-            meta_section = meta_section
-        );
+    // Search packages in AUR and repos
+    search "{binary} -Ss {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
     }
+    
+    // Query package info (for dependencies)
+    // query "{binary} -Qi {package}"
+    
+    // If no AUR helper available, fallback to pacman
+    fallback "pacman"
+}
+"#.to_string()
+}
 
+/// Native pacman backend (for official repos only)
+fn generate_pacman_backend_template() -> String {
+    r#"// pacman - Arch Linux Native Package Manager
+//
+// This is the ultimate fallback when no AUR helper is available.
+// It only supports official repositories, not AUR.
+
+backend "pacman" {
+    meta {
+        title "Pacman"
+        description "Arch Linux native package manager (official repos only)"
+        maintained "declarch"
+        tags "package-manager" "arch" "native" "official"
+        platforms "arch"
+        requires "pacman"
+    }
+    
+    binary "pacman"
+    
+    list "pacman -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "pacman -S --needed {packages}"
+    remove "pacman -R {packages}"
+    
+    search "pacman -Ss {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    needs_sudo true
+}
+"#.to_string()
+}
+
+/// Flatpak backend
+fn generate_flatpak_backend_template() -> String {
+    r#"// flatpak - Universal Linux Application Sandboxing
+//
+// Flatpak runs applications in isolated sandboxes with their own dependencies.
+// Applications are identified by reverse DNS: com.vendor.AppName
+
+backend "flatpak" {
+    meta {
+        title "Flatpak"
+        description "Universal Linux application sandboxing"
+        maintained "declarch"
+        tags "package-manager" "flatpak" "sandbox" "universal" "gui"
+        platforms "linux"
+        requires "flatpak"
+    }
+    
+    binary "flatpak"
+    
+    // List installed applications
+    // Output: Application ID    Version    Branch    Installation
+    list "flatpak list --app --columns=application,version" {
+        format tsv
+        name_col 0
+        version_col 1
+    }
+    
+    // Install from flathub (default remote)
+    install "flatpak install flathub {packages}"
+    
+    // Remove applications
+    remove "flatpak uninstall {packages}"
+    
+    // Search flathub
+    search "flatpak search {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    // Auto-confirm operations
+    noconfirm "-y"
+    
+    // Flatpak doesn't need sudo for user installations
+    needs_sudo false
+}
+"#.to_string()
+}
+
+/// Generic backend template for unknown package managers
+fn generate_generic_backend_template(name: &str) -> String {
+    let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
+    
     format!(
-        r#"// {name} - {description}
+        r#"// {name} - Custom Backend Configuration
 // 
-// This is a template backend configuration for declarch.
+// This is a template for the '{name}' package manager.
 // Customize the commands below to match your package manager's syntax.
+//
+// Common placeholders:
+//   {{packages}}  - Space-separated package names
+//   {{query}}     - Search query (for search command)
+//
+// Output formats:
+//   - whitespace: Space-separated columns (default)
+//   - tsv:        Tab-separated values
+//   - json:       JSON output with configurable path
+//   - regex:      Regular expression pattern matching
 
 backend "{name}" {{
     meta {{
-{meta_section}
+        title "{name}"
+        description "Custom {name} backend configuration"
+        maintained "user"
+        tags "package-manager" "{name}"
+        created "{date}"
+        platforms "linux"
+        requires "{name}"
     }}
     
-    // The binary to use (can specify multiple alternatives)
-    binary "{binary}"
+    // Binary to use (can specify multiple for fallback)
+    binary "{name}"
     
     // Command to list installed packages
-    // Supported formats: tsv, whitespace, json, regex
-    list "{binary} list" {{
+    //
+    // Example outputs and formats:
+    // - "package version"        → format whitespace, name_col 0, version_col 1
+    // - "package\tversion"       → format tsv, name_col 0, version_col 1
+    // - '{{"packages":[{{"name":"x"}}]}}' → format json, json {{ path "packages" name_key "name" }}
+    list "{name} list" {{
         format whitespace
         name_col 0
-        // version_col 1  // Uncomment if version is available
+        // version_col 1  // Uncomment if output includes version
     }}
     
-    // Install command - {{packages}} will be replaced with package names
-    install "{binary} install {{packages}}"
+    // Install command
+    // {{packages}} will be replaced with space-separated package names
+    install "{name} install {{packages}}"
     
-    // Remove command
-    remove "{binary} remove {{packages}}"
+    // Remove/uninstall command
+    remove "{name} remove {{packages}}"
     
     // Search command (optional but recommended)
-    // search "{binary} search {{query}}" {{
+    // Uncomment and customize if your package manager supports search
+    // search "{name} search {{query}}" {{
     //     format whitespace
     //     name_col 0
     //     desc_col 1
     // }}
     
     // Auto-confirmation flag (optional)
+    // Uncomment if your package manager has a "yes to all" flag
     // noconfirm "-y"
     
-    // Whether this backend requires sudo (optional)
+    // Whether this backend requires sudo (default: false)
+    // Uncomment if install/remove need root privileges
     // needs_sudo true
-{fallback_section}
+    
+    // Fallback backend (optional)
+    // If this backend's binary is not found, use another backend instead
+    // fallback "alternative-backend"
 }}
 "#,
         name = name,
-        description = description,
-        binary = binary,
-        meta_section = meta_section,
-        fallback_section = fallback_section
+        date = current_date
     )
 }
 
