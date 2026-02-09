@@ -40,6 +40,16 @@ This is a major refactor with breaking changes. Expect errors when upgrading fro
     - Second line: 4-space indented description
   - AUR search now shows complete descriptions instead of truncated text
   - Flatpak: Uses TSV format with Application ID as name for easy config reference
+- **Config rollback on cancel**: Fixed rollback when user cancels sync during install
+  - Install command now properly rolls back config changes when user cancels
+  - Returns Interrupted error on sync cancel to trigger rollback
+  - Shows "Changes rolled back" message to confirm
+- **Backend validation**: Validate backend exists before adding package to config
+  - Prevents config pollution from typos like 'uar' instead of 'aur'
+  - Shows warning: "Backend 'xxx' not found. Run 'declarch init --backend xxx'"
+- **NPM error output**: Use --silent flag to reduce verbose npm error messages
+  - NPM backend now uses --silent for install/remove commands
+  - Cleaner error messages when packages don't exist
 
 ### Migration Guide
 ```bash
