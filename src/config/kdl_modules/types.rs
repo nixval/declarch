@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 /// 
 /// In v0.6+, this uses unified package storage where all packages are
 /// organized by backend name in a HashMap. No backend-specific fields.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RawConfig {
     /// Import statements
     pub imports: Vec<String>,
@@ -48,24 +48,6 @@ pub struct RawConfig {
 
     /// Pre/post sync lifecycle actions
     pub lifecycle_actions: LifecycleConfig,
-}
-
-impl Default for RawConfig {
-    fn default() -> Self {
-        Self {
-            imports: Vec::new(),
-            packages_by_backend: HashMap::new(),
-            excludes: Vec::new(),
-            package_mappings: HashMap::new(),
-            project_metadata: ProjectMetadata::default(),
-            conflicts: Vec::new(),
-            backend_options: HashMap::new(),
-            env: HashMap::new(),
-            package_sources: HashMap::new(),
-            policy: PolicyConfig::default(),
-            lifecycle_actions: LifecycleConfig::default(),
-        }
-    }
 }
 
 /// Package entry (minimal - just name for now)

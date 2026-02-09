@@ -195,9 +195,9 @@ fn recursive_load(
         } else {
             // Security check: Block path traversal
             if import_str.contains("..") {
-                return Err(DeclarchError::ConfigError(format!(
-                    "Path traversal blocked: import paths cannot contain '..'",
-                )));
+                return Err(DeclarchError::ConfigError(
+                    "Path traversal blocked: import paths cannot contain '..'".to_string()
+                ));
             }
             parent_dir.join(import_str)
         };

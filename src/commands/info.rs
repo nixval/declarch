@@ -92,8 +92,7 @@ fn output_table_filtered(
 
     for (backend_key, count) in backends {
         if *count > 0 {
-            let display_name = format!("{}", backend_key);
-            output::indent(&format!("• {}: {}", display_name, count), 2);
+            output::indent(&format!("• {}: {}", backend_key, count), 2);
         }
     }
 

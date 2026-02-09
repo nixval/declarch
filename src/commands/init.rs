@@ -752,9 +752,12 @@ pub fn list_available_backends() -> Result<()> {
     ];
     
     println!();
+    const SYSTEM_PMS: &[&str] = &["apt", "aur", "dnf", "pacman", "paru", "yay", "flatpak", "snap", "nix", "soar", "brew"];
+    const LANG_PMS: &[&str] = &["npm", "yarn", "pnpm", "bun", "pip", "cargo", "gem", "go"];
+    
     println!("{}", "System Package Managers:".bold().cyan());
     for (name, desc, _) in &backends {
-        if vec!["apt", "aur", "dnf", "pacman", "paru", "yay", "flatpak", "snap", "nix", "soar", "brew"].contains(name) {
+        if SYSTEM_PMS.contains(name) {
             println!("  {} - {}", name.bold(), desc.dimmed());
         }
     }
@@ -762,7 +765,7 @@ pub fn list_available_backends() -> Result<()> {
     println!();
     println!("{}", "Language-Specific Package Managers:".bold().cyan());
     for (name, desc, _) in &backends {
-        if vec!["npm", "yarn", "pnpm", "bun", "pip", "cargo", "gem", "go"].contains(name) {
+        if LANG_PMS.contains(name) {
             println!("  {} - {}", name.bold(), desc.dimmed());
         }
     }
