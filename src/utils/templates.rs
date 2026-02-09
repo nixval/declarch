@@ -120,18 +120,20 @@ meta {
     tags "base" "essential"
 }
 
-// Essential packages for modern terminal experience
+// Add your essential packages here
+// Example:
+// pkg {
+//     backend-name {
+//         bat         // Better cat with syntax highlighting
+//         eza         // Better ls with colors
+//         fd          // Better find command
+//         ripgrep     // Faster grep alternative
+//         zoxide      // Smart cd command
+//         git         // Version control
+//     }
+// }
 pkg {
-    aur {
-        bat         // Better cat with syntax highlighting
-        eza         // Better ls with colors (modern replacement for exa)
-        fd          // Better find command
-        ripgrep     // Faster grep alternative
-        zoxide      // Smart cd command
-        git         // Version control
-        curl        // Data transfer tool
-        wget        // Data transfer tool
-    }
+    // Add packages after initializing your preferred backend
 }
 "#
             .to_string(),
