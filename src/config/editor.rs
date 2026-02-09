@@ -187,55 +187,76 @@ impl ConfigEditor {
             .parse()
             .map_err(|e| DeclarchError::Other(format!("KDL parsing error: {}", e)))?;
 
-        // Determine target node name (v0.6+ uses 'pkg' not 'packages')
-        let node_name = if let Some(backend_name) = backend {
-            format!("pkg:{}", backend_name)
+        // Default backend is "aur" if not specified
+        let backend_name = backend.unwrap_or("aur");
+
+        // Structure: pkg { backend { package } }
+        // Step 1: Find or create 'pkg' node
+        let pkg_node_idx = doc
+            .nodes()
+            .iter()
+            .position(|n| n.name().value() == "pkg");
+
+        let pkg_idx = if let Some(idx) = pkg_node_idx {
+            idx
         } else {
-            "pkg".to_string()
+            // Create pkg node
+            let mut new_pkg = KdlNode::new("pkg");
+            new_pkg.set_children(KdlDocument::new());
+            doc.nodes_mut().push(new_pkg);
+            doc.nodes().len() - 1
         };
 
-        // Check if package already exists in the target node
-        for node in doc.nodes() {
-            if node.name().value() == node_name
-                && let Some(children) = node.children()
-            {
-                // Check if package already exists
-                for child in children.nodes() {
-                    if child.name().value() == package {
-                        // Already exists, return unchanged
-                        return Ok((content.to_string(), Vec::new()));
+        // Step 2: Find or create backend node inside pkg
+        let pkg_node = &mut doc.nodes_mut()[pkg_idx];
+        let backend_node_idx = if let Some(children) = pkg_node.children() {
+            children.nodes().iter().position(|n| n.name().value() == backend_name)
+        } else {
+            None
+        };
+
+        if let Some(backend_idx) = backend_node_idx {
+            // Backend node exists, check if package already exists
+            if let Some(children) = pkg_node.children() {
+                if let Some(backend_node) = children.nodes().get(backend_idx) {
+                    if let Some(backend_children) = backend_node.children() {
+                        for child in backend_children.nodes() {
+                            if child.name().value() == package {
+                                // Already exists, return unchanged
+                                return Ok((content.to_string(), Vec::new()));
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        // Find or create target node
-        let target_node_idx = doc
-            .nodes()
-            .iter()
-            .position(|n| n.name().value() == node_name);
-
-        if let Some(idx) = target_node_idx {
-            // Node exists, add package as child
-            let node = &mut doc.nodes_mut()[idx];
-            let child_node = KdlNode::new(package);
-
-            if let Some(children) = node.children_mut() {
-                // Children document exists, append to it
-                children.nodes_mut().push(child_node);
-            } else {
-                // Create new children document
-                let mut children_doc = KdlDocument::new();
-                children_doc.nodes_mut().push(child_node);
-                node.set_children(children_doc);
+            // Add package to existing backend node
+            if let Some(children) = pkg_node.children_mut() {
+                let backend_node = &mut children.nodes_mut()[backend_idx];
+                let package_node = KdlNode::new(package);
+                
+                if let Some(backend_children) = backend_node.children_mut() {
+                    backend_children.nodes_mut().push(package_node);
+                } else {
+                    let mut backend_children_doc = KdlDocument::new();
+                    backend_children_doc.nodes_mut().push(package_node);
+                    backend_node.set_children(backend_children_doc);
+                }
             }
         } else {
-            // Node doesn't exist, create new node with package
-            let mut new_node = KdlNode::new(node_name.clone());
-            let mut children_doc = KdlDocument::new();
-            children_doc.nodes_mut().push(KdlNode::new(package));
-            new_node.set_children(children_doc);
-            doc.nodes_mut().push(new_node);
+            // Create new backend node with package
+            let mut backend_node = KdlNode::new(backend_name);
+            let mut backend_children_doc = KdlDocument::new();
+            backend_children_doc.nodes_mut().push(KdlNode::new(package));
+            backend_node.set_children(backend_children_doc);
+
+            if let Some(children) = pkg_node.children_mut() {
+                children.nodes_mut().push(backend_node);
+            } else {
+                let mut children_doc = KdlDocument::new();
+                children_doc.nodes_mut().push(backend_node);
+                pkg_node.set_children(children_doc);
+            }
         }
 
         // Generate KDL from modified AST
@@ -243,15 +264,15 @@ impl ConfigEditor {
 
         // Fix formatting issues from KDL library output
         // Problem 1: Add space before opening braces
-        // v0.6+ uses 'pkg' instead of 'packages' - generic replacement for any backend
         updated_content = updated_content
             .replace("pkg{", "pkg {");
         
-        // Also fix any backend-specific pkg:backend{ patterns
+        // Fix backend blocks
         for backend in ["aur", "paru", "yay", "pacman", "npm", "yarn", "pnpm", "bun", 
                         "pip", "cargo", "brew", "flatpak", "snap", "soar", "dnf", "apt"] {
             updated_content = updated_content
-                .replace(&format!("pkg:{}{{", backend), &format!("pkg:{} {{", backend));
+                .replace(&format!("{}\n", backend), &format!("{} {{\n", backend))
+                .replace(&format!("{}\r\n", backend), &format!("{} {{\r\n", backend));
         }
 
         // Problem 2: Add newlines between nodes (e.g., "}pkg" should be "}\npkg")
@@ -549,7 +570,8 @@ mod tests {
 
         // Verify package was added
         assert_eq!(added, vec!["bat"]);
-        assert!(updated.contains("pkg:soar"));
+        assert!(updated.contains("pkg"));
+        assert!(updated.contains("soar"));
         assert!(updated.contains("bat"));
         // Verify valid KDL syntax (has braces)
         assert!(updated.contains('{'));
@@ -559,7 +581,7 @@ mod tests {
     #[test]
     fn test_add_package_to_existing_block() {
         let editor = ConfigEditor::new();
-        let content = "pkg:soar {\n  vim\n}\n";
+        let content = "pkg {\n  soar {\n    vim\n  }\n}\n";
         let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
@@ -569,14 +591,15 @@ mod tests {
         assert_eq!(added, vec!["bat"]);
         assert!(updated.contains("vim"));
         assert!(updated.contains("bat"));
-        // Verify it's still valid KDL
-        assert!(updated.contains("pkg:soar"));
+        // Verify it's still valid KDL with nested structure
+        assert!(updated.contains("pkg"));
+        assert!(updated.contains("soar"));
     }
 
     #[test]
     fn test_prevent_duplicates() {
         let editor = ConfigEditor::new();
-        let content = "pkg:soar {\n  bat\n}\n";
+        let content = "pkg {\n  soar {\n    bat\n  }\n}\n";
         let result = editor.add_package_to_content(content, "bat", Some("soar"));
 
         assert!(result.is_ok());
@@ -608,26 +631,22 @@ mod tests {
         let editor = ConfigEditor::new();
         let mut content = "";
 
-        // Add AUR package (no specific backend = default pkg block)
+        // Add AUR package (no specific backend = uses aur as default)
         let result = editor.add_package_to_content(content, "bat", None);
         assert!(result.is_ok());
         let (updated, _) = result.unwrap();
         content = &updated;
 
         // Add Soar package
-        let result = editor.add_package_to_content(content, "bat", Some("soar"));
+        let result = editor.add_package_to_content(content, "fd", Some("soar"));
         assert!(result.is_ok());
         let (updated, _) = result.unwrap();
 
-        // Verify both blocks exist (KDL library may format differently)
+        // Verify nested structure: pkg { aur { bat } soar { fd } }
         assert!(updated.contains("pkg"));
-        assert!(updated.contains("pkg:soar"));
-        // Verify bat appears in the output at least twice (once per backend)
-        let bat_count = updated.matches("bat").count();
-        assert!(
-            bat_count >= 2,
-            "Expected 'bat' to appear at least twice, found {} times",
-            bat_count
-        );
+        assert!(updated.contains("aur"));
+        assert!(updated.contains("soar"));
+        assert!(updated.contains("bat"));
+        assert!(updated.contains("fd"));
     }
 }

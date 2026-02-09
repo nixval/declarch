@@ -2,6 +2,54 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-02-09
+
+### ⚠️ BREAKING CHANGES
+
+This is a major refactor with breaking changes. Expect errors when upgrading from v0.5.x.
+
+#### New Architecture
+- **Backend system rewritten**: Official backends (aur, pacman, flatpak) now built into backends.kdl
+- **Import pattern**: Custom backends use `imports { "backends/name.kdl" }` pattern
+- **No auto-loading**: Backends are no longer auto-loaded from directories
+
+#### New KDL Syntax
+- Use `pkg` instead of `packages`
+- All string values must be quoted: `format "whitespace"`, `needs_sudo "true"`
+- Backend blocks go inside `pkg { }`
+
+#### New CLI Structure
+- `declarch sync --update` → `declarch sync update`
+- `declarch sync --prune` → `declarch sync prune`
+- `declarch sync --dry-run` → `declarch sync preview`
+
+### Added
+- **Enhanced error reporting**: Rust-like error messages with line numbers and hints
+- **Backend import system**: Explicit imports for custom backends
+- **Official backends embedded**: aur, pacman, flatpak work out of the box
+
+### Changed
+- **Simplified CLI**: Removed duplicate flags, standardized naming
+- **Better error messages**: File path, line:column, visual indicators
+- **Consistent backend input**: Vec<String> with delimiter support
+
+### Migration Guide
+```bash
+# Backup your config
+cp -r ~/.config/declarch ~/.config/declarch.backup
+
+# Re-initialize
+declarch init
+
+# Fix your .kdl files:
+# - Change 'packages {' to 'pkg {'
+# - Change 'format whitespace' to 'format "whitespace"'
+# - Change 'needs_sudo true' to 'needs_sudo "true"'
+
+# Sync
+declarch sync
+```
+
 ## [0.5.2] - 2026-01-31
 
 ### Added

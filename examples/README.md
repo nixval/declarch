@@ -1,6 +1,6 @@
 # Declarch Configuration Examples
 
-This directory contains example configurations for Declarch v0.6+.
+This directory contains example configurations for Declarch v0.8+.
 
 ## File Structure
 
