@@ -4,9 +4,9 @@ use kdl::KdlNode;
 /// Extract packages from a node and add them to a target vector
 ///
 /// Handles:
-/// - String arguments: `packages "bat" "exa"`
-/// - Children node names: `packages { bat exa }`
-/// - Mixed: `packages "bat" { exa }`
+/// - String arguments: `pkg "bat" "exa"`
+/// - Children node names: `pkg { bat exa }`
+/// - Mixed: `pkg "bat" { exa }`
 pub fn extract_packages_to(node: &KdlNode, target: &mut Vec<PackageEntry>) {
     // Extract from string arguments of this node
     for entry in node.entries() {
