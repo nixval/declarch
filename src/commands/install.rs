@@ -6,6 +6,7 @@ use crate::config::editor::{self, ConfigEditor, restore_from_backup};
 use crate::config::loader;
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
+use crate::packages::get_registry;
 use crate::ui as output;
 use crate::utils::paths;
 use regex::Regex;
@@ -135,6 +136,24 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
             // User confirmed - proceed with installation
             output::info("Proceeding with installation...");
+        }
+
+        // Validate backend exists before adding to config
+        if let Some(backend) = backend_str {
+            let registry = get_registry();
+            let registry_guard = registry.lock().map_err(|e| {
+                DeclarchError::Other(format!("Failed to lock backend registry: {}", e))
+            })?;
+            
+            // Check if backend config exists
+            if !registry_guard.has_backend(backend) {
+                output::warning(&format!(
+                    "Backend '{}' not found. Run 'declarch init --backend {}'",
+                    backend, backend
+                ));
+                skipped_count += 1;
+                continue;
+            }
         }
 
         // Add package to config
