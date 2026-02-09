@@ -9,42 +9,114 @@ use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Default backends.kdl content with essential backends enabled by default
+/// Default backends.kdl content with embedded default backends
 const DEFAULT_BACKENDS_KDL: &str = r#"// Backend Aggregator
 // 
-// This file is the central registry for all backend configurations.
-// Backends are loaded via explicit imports from the backends/ directory.
+// This file contains all backend configurations for declarch.
+// Default backends (aur, pacman, flatpak) are embedded directly here.
 //
-// Default backends (enabled on init):
-//   - aur: AUR helper with fallback chain (paru → yay → pacman)
-//   - pacman: Arch native package manager
-//   - flatpak: Universal Linux applications
-//
-// To add more backends: declarch init --backend <name>
-// To disable a backend: Comment out the import line
+// To add custom backends: declarch init --backend <name>
+// To disable a backend: Comment out the backend block
 
 // =============================================================================
-// Core Backends (enabled by default)
+// AUR Helper (Arch Linux)
+// Fallback chain: paru → yay → pacman
 // =============================================================================
-
-// AUR Helper (paru → yay → pacman fallback chain)
-import "backends/aur.kdl"
-
-// Pacman (Arch native, used as fallback for aur)
-import "backends/pacman.kdl"
-
-// Flatpak (Universal Linux applications)
-import "backends/flatpak.kdl"
-
-// =============================================================================
-// Additional Backends
-// Add your custom backend imports here or use: declarch init --backend <name>
-// =============================================================================
-imports {
-    // Example:
-    // "backends/npm.kdl"
-    // "backends/cargo.kdl"
+backend "aur" {
+    meta {
+        title "AUR Helper"
+        description "Arch User Repository with automatic fallback"
+        maintained "declarch"
+        tags "package-manager" "aur" "arch"
+        platforms "arch"
+        requires "paru" "yay" "pacman"
+    }
+    
+    binary "paru" "yay"
+    
+    list "{binary} -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "{binary} -S --needed {packages}"
+    remove "{binary} -R {packages}"
+    
+    search "{binary} -Ss {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    fallback "pacman"
 }
+
+// =============================================================================
+// Pacman (Arch Linux native)
+// =============================================================================
+backend "pacman" {
+    meta {
+        title "Pacman"
+        description "Arch Linux native package manager"
+        maintained "declarch"
+        tags "package-manager" "arch" "native"
+        platforms "arch"
+        requires "pacman"
+    }
+    
+    binary "pacman"
+    
+    list "pacman -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "pacman -S --needed {packages}"
+    remove "pacman -R {packages}"
+    
+    needs_sudo true
+}
+
+// =============================================================================
+// Flatpak (Universal Linux apps)
+// =============================================================================
+backend "flatpak" {
+    meta {
+        title "Flatpak"
+        description "Universal Linux application sandboxing"
+        maintained "declarch"
+        tags "package-manager" "flatpak" "sandbox" "universal"
+        platforms "linux"
+        requires "flatpak"
+    }
+    
+    binary "flatpak"
+    
+    list "flatpak list --app --columns=application,version" {
+        format tsv
+        name_col 0
+        version_col 1
+    }
+    
+    install "flatpak install flathub {packages}"
+    remove "flatpak uninstall {packages}"
+    
+    search "flatpak search {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    noconfirm "-y"
+    needs_sudo false
+}
+
+// =============================================================================
+// Custom Backends
+// Add your custom backends below or use: declarch init --backend <name>
+// =============================================================================
 "#;
 
 #[derive(Debug)]
@@ -119,34 +191,18 @@ fn init_root(host: Option<String>, force: bool) -> Result<()> {
             .unwrap_or_else(|_| "unknown".to_string())
     });
 
-    // Create backends directory and default backends
+    // Create backends directory (for custom backends)
     let backends_dir = config_dir.join("backends");
     if !backends_dir.exists() {
         fs::create_dir_all(&backends_dir)?;
     }
 
-    // Create default backend files (aur, pacman, flatpak)
-    let default_backends = [("aur", generate_aur_backend_template()), 
-                            ("pacman", generate_pacman_backend_template()),
-                            ("flatpak", generate_flatpak_backend_template())];
-    
-    for (name, template) in default_backends {
-        let backend_file = backends_dir.join(format!("{}.kdl", name));
-        if !backend_file.exists() {
-            fs::write(&backend_file, template)?;
-            output::success(&format!(
-                "Created backend: {}",
-                backend_file.display()
-            ));
-        }
-    }
-
-    // Create backends.kdl with imports
+    // Create backends.kdl with embedded default backends
     let backends_kdl_path = config_dir.join("backends.kdl");
     if !backends_kdl_path.exists() {
         fs::write(&backends_kdl_path, DEFAULT_BACKENDS_KDL)?;
         output::success(&format!(
-            "Created backends aggregator: {}",
+            "Created backends configuration: {}",
             backends_kdl_path.display()
         ));
     }
@@ -356,48 +412,40 @@ fn extract_meta_fields(content: &str) -> std::collections::HashMap<String, Strin
 
 /// Enable backend import in backends.kdl
 /// 
-/// This function injects the backend import into the `imports { }` block,
-/// similar to how init modules work with declarch.kdl.
+/// For default backends (aur, pacman, flatpak): embed directly in backends.kdl
+/// For custom backends: add import "backends/name.kdl" at the end of file
 fn enable_backend_import(backends_kdl_path: &Path, import_path: &str, _force: bool) -> Result<()> {
     let content = fs::read_to_string(backends_kdl_path)?;
     
-    // Check for exact match anywhere in file (already imported)
-    // Support both formats: import "path" and "path" (inside imports block)
-    let import_line_full = format!(r#"import "{}""#, import_path);
-    let import_line_short = format!(r#"    "{}""#, import_path);
+    // Check if backend already defined inline (default backends: aur, pacman, flatpak)
+    let backend_name = import_path.trim_start_matches("backends/").trim_end_matches(".kdl");
+    let backend_pattern = format!(r#"backend\s+"{}""#, regex::escape(backend_name));
     
-    if content.contains(&import_line_full) || content.contains(&import_line_short) {
+    if regex::Regex::new(&backend_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
         output::info(&format!(
-            "Backend '{}' is already imported in backends.kdl",
+            "Backend '{}' is already defined in backends.kdl",
+            backend_name
+        ));
+        return Ok(());
+    }
+    
+    // Check if import already exists (using regex to match import "path")
+    let import_pattern = format!(r#"import\s+"{}""#, regex::escape(import_path));
+    if regex::Regex::new(&import_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+        output::info(&format!(
+            "Backend import '{}' is already in backends.kdl",
             import_path
         ));
         return Ok(());
     }
     
-    // Check if there's an imports { } block
-    let imports_pattern = r"imports\s*\{";
-    let imports_re = regex::Regex::new(imports_pattern).unwrap();
-    
-    if imports_re.is_match(&content) {
-        // Inject into existing imports block (using format like modules)
-        let pattern = r"(imports\s*\{)";
-        let re = regex::Regex::new(pattern).unwrap();
-        
-        let import_entry = format!(r#"    "{}""#, import_path);
-        let new_content = re.replace(&content, |caps: &regex::Captures| {
-            format!("{}\n{}", &caps[0], import_entry)
-        });
-        
-        fs::write(backends_kdl_path, new_content.as_ref())?;
-    } else {
-        // No imports block, add import line at the end
-        let import_line = format!(r#"import "{}""#, import_path);
-        let new_content = format!("{}\n{}", content.trim_end(), import_line);
-        fs::write(backends_kdl_path, new_content)?;
-    }
+    // Add import at the end of file (for custom backends)
+    let import_line = format!(r#"import "{}""#, import_path);
+    let new_content = format!("{}\n{}", content.trim_end(), import_line);
+    fs::write(backends_kdl_path, new_content)?;
     
     output::success(&format!(
-        "Added backend '{}' to backends.kdl",
+        "Added backend import '{}' to backends.kdl",
         import_path
     ));
 
