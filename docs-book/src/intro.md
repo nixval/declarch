@@ -2,59 +2,38 @@
 
 **Declarch** is a declarative package manager for Linux.
 
-## What is Declarch?
+Instead of running `pacman -S`, `npm install`, and `flatpak install` commands every time, you declare all your packages in one config file and run a single command to sync.
 
-Declarch lets you declare all your packages in one file and keeps them in sync.
+## What Does That Mean?
 
-## Why Use Declarch?
-
-**Without Declarch:**
+**Traditional way:**
 ```bash
-paru -S neovim
-npm install -g typescript
+# You install things one by one
+paru -S neovim bat fzf
+npm install -g typescript prettier
 flatpak install com.spotify.Client
-# A month later: why did I install these?
+
+# Months later, you forget what you installed and why
 ```
 
-**With Declarch:**
+**Declarch way:**
 ```kdl
-// One file, all your packages
-packages {
-  neovim
-}
-
-packages:npm {
-  typescript
-}
-
-packages:flatpak {
-  com.spotify.Client
-}
-```
-
-Then just run:
-```bash
-declarch sync
-```
-
-## Quick Example
-
-Save this as `~/.config/declarch/declarch.kdl`:
-
-```kdl
-packages {
-  bat     // Modern cat
-  exa     // Modern ls
-  ripgrep // Fast search
-}
-
-packages:npm {
-  typescript
-  prettier
-}
-
-packages:flatpak {
-  com.spotify.Client
+// ~/.config/declarch/modules/base.kdl
+pkg {
+    aur {
+        neovim
+        bat
+        fzf
+    }
+    
+    npm {
+        typescript
+        prettier
+    }
+    
+    flatpak {
+        com.spotify.Client
+    }
 }
 ```
 
@@ -63,29 +42,48 @@ Then run:
 declarch sync
 ```
 
-That's it! All your packages are now managed declaratively.
+Your system now matches your config. Add this file to Git and use it on all your machines.
 
-## Features
+## 30-Second Demo
 
-- **One config for all packages** - AUR, npm, flatpak, cargo, pip, and more
-- **Safe** - See what will change before syncing
-- **Modular** - Split config into multiple files
-- **Smart** - Auto-adopts existing packages
+```bash
+# 1. Install
+curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 
-## Who is This For?
+# 2. Initialize
+declarch init
 
-- Arch Linux users who want declarative package management
-- Developers managing tools across multiple package managers
-- People with multiple machines who want to share configs
-- Anyone tired of forgetting why they installed packages
+# 3. Add some packages
+declarch install bat fzf ripgrep
 
-## Status
+# 4. Sync
+declarch sync
+```
 
-⚠️ **Declarch is in BETA**
+Done! Your packages are now managed declaratively.
 
-- Tested on Arch-based distros (Arch Linux, EndeavourOS)
-- See [Troubleshooting](advanced/troubleshooting.html) for known issues
+## Key Features
 
----
+| Feature | What It Means |
+|---------|---------------|
+| **Declarative** | Define what you want, not how to get it |
+| **Multi-Backend** | One config for AUR, Flatpak, npm, cargo, etc. |
+| **Modular** | Split into multiple files (base, gaming, work) |
+| **Git-Friendly** | Track your setup in version control |
 
-**Ready?** See [Installation](getting-started/installation.html).
+## Who Is This For?
+
+- **Arch Linux users** who want reproducible setups
+- **Developers** using multiple package managers
+- **Multi-machine users** who want consistent environments
+- **Anyone** tired of forgetting what they installed
+
+## Requirements
+
+- Linux (Arch-based distros work best)
+- One of: `paru`, `yay`, or `pacman` installed
+
+## Next Steps
+
+→ [Installation](./getting-started/installation.md)  
+→ [Quick Start Guide](./getting-started/quick-start.md)

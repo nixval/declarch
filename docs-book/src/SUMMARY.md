@@ -16,13 +16,16 @@
 
 ## Commands
 
+- [Overview](./commands/index.md)
 - [init](./commands/init.md)
+- [install](./commands/install.md)
 - [sync](./commands/sync.md)
 - [check](./commands/check.md)
 - [info](./commands/info.md)
-- [switch](./commands/switch.md)
+- [list](./commands/list.md)
 - [search](./commands/search.md)
 - [edit](./commands/edit.md)
+- [switch](./commands/switch.md)
 - [settings](./commands/settings.md)
 
 ---
@@ -30,17 +33,8 @@
 ## Configuration
 
 - [KDL Syntax](./configuration/kdl-syntax.md)
-- [Package Backends](./configuration/backends.md)
+- [Backends](./configuration/backends.md)
 - [Modules](./configuration/modules.md)
-
----
-
-## Advanced Topics
-
-- [Lifecycle Actions](./advanced/lifecycle-actions.md)
-- [Remote Init](./advanced/remote-init.md)
-- [Custom Backends](./advanced/custom-backends.md)
-- [Troubleshooting](./advanced/troubleshooting.md)
 
 ---
 
@@ -48,9 +42,17 @@
 
 - [Minimal Setup](./examples/minimal.md)
 - [Desktop Environment](./examples/desktop.md)
-- [Development Environment](./examples/development.md)
+- [Development Setup](./examples/development.md)
 - [Modular Setup](./examples/modular.md)
 
 ---
 
-[Reference](./reference/reference.md)
+## Advanced Topics
+
+- [Custom Backends](./advanced/custom-backends.md)
+- [Remote Init](./advanced/remote-init.md)
+- [Troubleshooting](./advanced/troubleshooting.md)
+
+---
+
+[Cross-Distro Support](./cross-distro-support.md)

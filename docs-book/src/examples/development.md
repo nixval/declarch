@@ -1,148 +1,84 @@
-# Development Environment Setup
+# Development Setup
 
-Configuration for software development.
+A complete development environment.
 
-## Quick Example
-
-```kdl
-meta {
-  title "dev-machine"
-  description "Development computer"
-}
-
-// Core tools
-packages {
-  neovim
-  git
-  docker
-  gh       // GitHub CLI
-}
-
-// Rust tools
-packages:cargo {
-  ripgrep    // Fast search
-  fd-find    // Fast find
-  zoxide     // Smart cd
-  bat       // Better cat
-}
-
-// Node.js tools
-packages:npm {
-  typescript
-  prettier
-  eslint
-  vite
-}
-
-// Python tools
-packages:pip {
-  black     // Formatter
-  ruff      // Linter
-  jupyter   // Notebooks
-}
-```
-
-## What This Includes
-
-### Core Tools (System)
-- **Neovim** - Text editor
-- **Git** - Version control
-- **Docker** - Containers
-- **gh** - GitHub CLI
-
-### Language-Specific Tools
-
-**Rust (via cargo):**
-- ripgrep - Fast text search
-- fd-find - Fast file search
-- zoxide - Smart directory navigation
-- bat - Enhanced cat
-
-**Node.js (via npm):**
-- TypeScript - Type-safe JavaScript
-- Prettier - Code formatter
-- ESLint - Linter
-- Vite - Fast build tool
-
-**Python (via pip):**
-- black - Code formatter
-- ruff - Fast linter
-- Jupyter - Interactive notebooks
-
-## Package Managers Supported
-
-Declarch works with many package managers:
-
-| Backend | Command | Example Packages |
-|---------|---------|-----------------|
-| `packages` | paru/pacman | neovim, git, docker |
-| `packages:cargo` | cargo install | ripgrep, fd-find |
-| `packages:npm` | npm install -g | typescript, prettier |
-| `packages:pip` | pip install | black, ruff |
-| `packages:go` | go install | (custom backend) |
-| `packages:flatpak` | flatpak install | IDEs and apps |
-
-## Three Syntax Styles
-
-Choose the style you prefer:
-
-**Style 1: Backend blocks** (recommended):
-```kdl
-packages:npm {
-  typescript
-  prettier
-}
-
-packages:cargo {
-  ripgrep
-}
-```
-
-**Style 2: Embedded blocks**:
-```kdl
-packages {
-  npm {
-    typescript
-    prettier
-  }
-
-  cargo {
-    ripgrep
-  }
-}
-```
-
-**Style 3: Inline**:
-```kdl
-packages {
-  npm:typescript
-  npm:prettier
-  cargo:ripgrep
-}
-```
-
-## Development Workflow
+## Prerequisites
 
 ```bash
-# Setup
-declarch sync
-
-# Daily work
-rg "function"     # Search code (ripgrep)
-fd "test.rs"      # Find files (fd)
-zoxide proj       # Jump to project (zoxide)
-
-# JavaScript
-npm init vite     # Create new project
-
-# Python
-jupyter notebook  # Start notebook
+# Add required backends
+declarch init --backend npm
 ```
 
-## Source Files
+## Structure
 
-- [`development.kdl`](https://github.com/nixval/declarch/blob/main/examples/development.kdl)
+```
+modules/
+├── base.kdl      # Essential tools
+├── dev.kdl       # Development tools
+└── langs.kdl     # Programming languages
+```
 
----
+## modules/dev.kdl
 
-**Next:** See [Modular Setup](modular.html) to organize configs.
+```kdl
+pkg {
+    aur {
+        neovim
+        tmux
+        docker
+        docker-compose
+    }
+    
+    pacman {
+        git
+        github-cli
+        jq
+    }
+}
+```
+
+## modules/langs.kdl
+
+```kdl
+pkg {
+    aur {
+        rustup
+    }
+    
+    npm {
+        typescript
+        ts-node
+        prettier
+        eslint
+    }
+}
+```
+
+## declarch.kdl
+
+```kdl
+imports {
+    "modules/base.kdl"
+    "modules/dev.kdl"
+    "modules/langs.kdl"
+}
+```
+
+## Apply
+
+```bash
+declarch sync
+```
+
+## Post-Install
+
+Some tools need extra setup:
+
+```bash
+# Rust
+rustup default stable
+
+# Docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```

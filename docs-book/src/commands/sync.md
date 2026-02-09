@@ -1,61 +1,38 @@
-# declarch sync
+# sync
 
-Synchronize your system with the configuration.
+Synchronize system with configuration.
 
 ## Usage
 
 ```bash
-declarch sync [SUBCOMMAND] [OPTIONS]
+declarch sync [COMMAND] [OPTIONS]
 ```
 
 ## Subcommands
 
-- `sync` - Full sync (default)
-- `preview` - Preview changes without executing
-- `update` - Sync with system update
-- `prune` - Sync with package removal
-
-## Options
-
-- `--target <BACKEND>` - Sync only specific backend (e.g., `aur`, `flatpak`)
-- `--noconfirm` - Skip package manager confirmation prompts
-- `--hooks` - Enable hooks (disabled by default for security)
-- `--skip-soar-install` - Skip automatic Soar installation
-- `--modules <MODULES>` - Load additional modules temporarily
-- `--gc` - Garbage collect system orphans after sync
-
-## Quick Start
-
-```bash
-# Basic sync
-declarch sync
-
-# Sync with system update
-declarch sync update
-
-# Preview changes first
-declarch sync preview
-
-# Remove unwanted packages
-declarch sync prune
-```
-
-## What It Does
-
-1. Reads your configuration
-2. Installs missing packages
-3. Tracks existing packages
-4. Optionally removes unwanted packages (with `prune` subcommand)
+| Command | Description |
+|---------|-------------|
+| `sync` | Full sync (default) |
+| `preview` | Preview changes without executing |
+| `update` | Sync + update system packages |
+| `prune` | Sync + remove unmanaged packages |
 
 ## Examples
 
-### Daily Update
+### Basic Sync
 
 ```bash
-declarch sync update
+declarch sync
 ```
 
-Updates system and syncs packages.
+Shows:
+```
+Changes:
+  Adopt: (aur): neovim, bat, fzf
+  Install: (npm): typescript
+
+? Proceed with sync? [Y/n]
+```
 
 ### Preview Changes
 
@@ -63,75 +40,47 @@ Updates system and syncs packages.
 declarch sync preview
 ```
 
-Shows what would be installed, updated, or removed without making changes.
+Shows what would happen without doing it.
 
-### Remove Unwanted Packages
-
-```bash
-# First, preview what will be removed
-declarch sync prune --target aur
-
-# If satisfied, apply
-declarch sync prune
-```
-
-### Sync Specific Backend
+### Sync with System Update
 
 ```bash
-# Only AUR packages
-declarch sync --target aur
-
-# Only Flatpak apps
-declarch sync --target flatpak
-```
-
-### Update with Cleanup
-
-```bash
-declarch sync update --gc
-```
-
-Updates system, syncs packages, and removes orphan packages.
-
-### Automated/Script Usage
-
-```bash
-declarch sync --noconfirm --hooks
-```
-
-Skips prompts and runs hooks (for CI/CD).
-
-## Safety Tips
-
-1. **Always preview before pruning:**
-   ```bash
-   declarch sync prune --target aur --dry-run
-   ```
-
-2. **Check configuration first:**
-   ```bash
-   declarch check && declarch sync
-   ```
-
-## Migration from Flags
-
-Old flag-based syntax is deprecated but still works:
-
-```bash
-# Old (deprecated, will be removed in v0.7.0)
-declarch sync --dry-run
-declarch sync --update
-declarch sync --prune
-
-# New (recommended)
-declarch sync preview
 declarch sync update
+```
+
+Updates system packages first, then syncs.
+
+### Remove Unmanaged Packages
+
+```bash
 declarch sync prune
 ```
 
-## Related
+Removes packages not in your config.
 
-- [`check`](check.md) - Validate configuration
-- [`info`](info.md) - View system status
-- [`install`](install.md) - Add packages to config
+## Options
 
+| Option | Description |
+|--------|-------------|
+| `--gc` | Garbage collect orphans after sync |
+| `--target <NAME>` | Sync only specific package/backend |
+| `--noconfirm` | Skip package manager prompts |
+| `--hooks` | Enable lifecycle hooks |
+
+## What "Adopt" Means
+
+When you see:
+```
+Adopt: (aur): neovim
+```
+
+It means neovim is already installed. Declarch will "adopt" it into management.
+
+## Safety
+
+Sync always asks before making changes (unless `-y` flag).
+
+```bash
+# Auto-confirm
+declarch sync -y
+```

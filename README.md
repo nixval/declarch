@@ -1,51 +1,110 @@
+# ⚠️ BREAKING CHANGES IN v0.8.0
+
+> **ESPECT SOME ERRORS** when upgrading from v0.5.x or earlier
+
+## What Changed
+
+- **New architecture**: Backend system completely rewritten
+  - Official backends (aur, pacman, flatpak) are now built-in
+  - Custom backends use import pattern
+  - No more auto-loading from directories
+
+- **New KDL syntax**:
+  - Use `pkg` instead of `packages`
+  - All string values must be quoted: `"whitespace"`, `"true"`
+  - Backend blocks go inside `pkg { }`
+
+- **New CLI structure**:
+  - `declarch sync --update` → `declarch sync update`
+  - `declarch sync --prune` → `declarch sync prune`
+  - `declarch sync --dry-run` → `declarch sync preview`
+
+## Migration Guide
+
+```bash
+# Backup your config
+cp -r ~/.config/declarch ~/.config/declarch.backup
+
+# Re-initialize (keeps your modules)
+declarch init
+
+# Fix syntax in your .kdl files:
+# - Change 'packages {' to 'pkg {'
+# - Change 'format whitespace' to 'format "whitespace"'
+# - Change 'needs_sudo true' to 'needs_sudo "true"'
+
+# Sync
+declarch sync
+```
+
+---
+
 # declarch
 
 > **Declarative Package Manager for Linux**
 
 Define your packages once in config files, then sync your system with one command.
 
----
-
-## Installation
-
-### Arch Linux (AUR)
-
 ```bash
-paru -S declarch
-```
-
-### Any Linux (Binary)
-
-```bash
-curl -sSL https://raw.githubusercontent.com/nixval/declarch/v0.5.1/install.sh | sh
-```
-
-Or manual:
-
-```bash
-wget https://github.com/nixval/declarch/releases/download/v0.5.1/declarch-x86_64-unknown-linux-gnu.tar.gz
-tar xzf declarch-x86_64-unknown-linux-gnu.tar.gz
-sudo install declarch /usr/local/bin/
-```
-
-### From Source
-
-```bash
-cargo install declarch --git https://github.com/nixval/declarch
-```
-
----
-
-## Quick Start
-
-```bash
-# Initialize config
-declarch init
+# Initialize
+$ declarch init
+✓ Created config at ~/.config/declarch/
 
 # Add packages
-declarch install bat fzf ripgrep
+$ declarch install bat fzf ripgrep
+✓ Added to modules/others.kdl
 
 # Sync system
+$ declarch sync
+? Proceed with sync? [Y/n] y
+✓ System synchronized
+```
+
+---
+
+## Quick Start (3 minutes)
+
+### 1. Install
+
+```bash
+# Arch Linux (AUR)
+paru -S declarch
+
+# Any Linux (Binary)
+curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
+```
+
+### 2. Initialize
+
+```bash
+declarch init
+```
+
+This creates:
+```
+~/.config/declarch/
+├── declarch.kdl       # Main config
+├── backends.kdl       # Backend definitions (aur, pacman, flatpak)
+└── modules/
+    └── base.kdl       # Your packages
+```
+
+### 3. Add Packages
+
+```bash
+# Add to default module
+declarch install bat fzf ripgrep
+
+# Add to specific backend
+declarch install aur:neovim
+
+# Add to specific module
+declarch install firefox --module browsers
+```
+
+### 4. Sync
+
+```bash
 declarch sync
 ```
 
@@ -53,41 +112,26 @@ declarch sync
 
 ## Configuration
 
-Your config lives in `~/.config/declarch/`:
-
-```
-~/.config/declarch/
-├── declarch.kdl       # Main config
-├── state.json         # Installed packages
-└── modules/           # Package modules
-    ├── base.kdl
-    ├── gaming.kdl
-    └── work.kdl
-```
-
-### Example Config
+Edit `~/.config/declarch/modules/base.kdl`:
 
 ```kdl
-// modules/base.kdl
-packages {
-  bat          # Better cat
-  fzf          # Fuzzy finder
-  ripgrep      # Fast grep
-  fd           # Better find
-}
-
-// Environment variables
-env "EDITOR" {
-  nvim
-}
-
-// Different package managers
-packages:flatpak {
-  com.spotify.Client
-}
-
-packages:npm {
-  nodejs
+pkg {
+    // Official backends (aur, pacman, flatpak) work out of the box
+    aur {
+        neovim
+        bat
+        exa
+    }
+    
+    pacman {
+        firefox
+        thunderbird
+    }
+    
+    flatpak {
+        com.spotify.Client
+        com.discordapp.Discord
+    }
 }
 ```
 
@@ -96,26 +140,44 @@ packages:npm {
 ## Common Commands
 
 ```bash
-# Add packages to config
+# Add packages
 declarch install <package>
 
-# Install specific backend
-declarch install npm:nodejs
+# Add with backend prefix
+declarch install npm:typescript
 
-# Install to specific module
-declarch install firefox --module browsers
-
-# Sync system (install/remove packages)
+# Sync system
 declarch sync
 
-# Sync with system update
-declarch sync --update
+# Preview changes (dry-run)
+declarch sync preview
 
-# Show installed packages
-declarch info
+# Sync + update system packages
+declarch sync update
 
-# Preview changes
-declarch sync --dry-run
+# Remove unmanaged packages
+declarch sync prune
+
+# Search packages
+declarch search firefox
+
+# Check config
+declarch check
+```
+
+---
+
+## Custom Backends
+
+Need npm, cargo, or other package managers?
+
+```bash
+# Add npm backend
+declarch init --backend npm
+✓ Backend 'npm' adopted!
+
+# Use it
+declarch install npm:prettier
 ```
 
 ---
@@ -123,31 +185,18 @@ declarch sync --dry-run
 ## Features
 
 - **Declarative** - Define packages in KDL files
-- **Multi-Backend** - AUR, Flatpak, npm, yarn, pnpm, bun, pip, cargo, brew
-- **Modular** - Organize packages by purpose (base, gaming, work, etc.)
-- **Cross-Distro** - Works on Arch, Debian, Fedora, and more
-- **Git-Friendly** - Track configs in version control
-
----
-
-## Cross-Distribution
-
-| Backend | Arch | Debian | Fedora |
-|---------|------|--------|--------|
-| AUR     | ✓    | ✗      | ✗      |
-| Flatpak | ✓    | ✓      | ✓      |
-| npm     | ✓    | ✓      | ✓      |
-| Custom  | ✓    | ✓      | ✓      |
-
-For custom backends (nala, dnf, zypper, etc.), see [Cross-Distribution Support](https://nixval.github.io/declarch/cross-distro-support.html).
+- **Multi-Backend** - AUR, pacman, flatpak, npm, cargo, pip, and more
+- **Modular** - Split into multiple files (base, gaming, work, etc.)
+- **Smart Errors** - Clear error messages with line numbers
+- **Fast** - Only installs what you need
 
 ---
 
 ## Documentation
 
-- **[Full Documentation](https://nixval.github.io/declarch/)** - Complete guide
-- **[Getting Started](https://nixval.github.io/declarch/getting-started/quick-start.html)** - Detailed setup
-- **[All Commands](https://nixval.github.io/declarch/commands/)** - Command reference
+- **[Full Docs](https://nixval.github.io/declarch/)** - Complete guide
+- **[Getting Started](https://nixval.github.io/declarch/getting-started/quick-start.html)** - Detailed walkthrough
+- **[Command Reference](https://nixval.github.io/declarch/commands/)** - All commands
 
 ---
 

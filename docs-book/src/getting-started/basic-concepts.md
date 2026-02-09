@@ -1,142 +1,84 @@
 # Basic Concepts
 
-Understanding how declarch works.
+## Three Core Ideas
 
-## The Main Idea
+### 1. Declare, Don't Command
 
-**Traditional way (imperative):**
-```bash
-paru -S bat exa ripgrep
-# Oops, why did I install these again?
-```
-
-**Declarch way (declarative):**
-```bash
-# Add to config file
-declarch install bat exa ripgrep
-
-# Your system is now in sync with config
-```
-
-## How It Works
-
-### 1. Declare What You Want
-
-Edit `~/.config/declarch/declarch.kdl`:
+Instead of running install commands, you declare what you want:
 
 ```kdl
-packages {
-    bat
-    exa
-    ripgrep
+pkg {
+    aur {
+        neovim
+        firefox
+    }
 }
 ```
 
-Or use the install command:
+Not:
 ```bash
-declarch install bat exa ripgrep
+paru -S neovim firefox
 ```
 
-### 2. Sync Your System
+### 2. Sync to Apply
+
+After editing your config, run:
 
 ```bash
 declarch sync
 ```
 
-Declarch will:
-- ✅ Install missing packages
-- ✅ Track already-installed packages
-- ✅ Remove packages you deleted from config (with `--prune`)
+This makes your system match your config.
 
-## One File, Many Backends
+### 3. Modules Organize
 
-Single config, multiple package managers:
+Split your config into logical files:
 
-```kdl
-// AUR packages
-packages {
-    neovim
-}
-
-// Node.js packages
-packages:npm {
-    typescript
-}
-
-// Python packages
-packages:pip {
-    black
-}
-
-// Flatpak apps
-packages:flatpak {
-    com.spotify.Client
-}
+```
+modules/
+├── base.kdl       # Essential tools
+├── dev.kdl        # Development stuff
+└── gaming.kdl     # Games
 ```
 
-All managed with one command: `declarch sync`
-
-## Modules: Keep It Organized
-
-Split packages into logical groups:
-
+Import them in `declarch.kdl`:
 ```kdl
-// declarch.kdl
 imports {
     "modules/base.kdl"
     "modules/dev.kdl"
-    "modules/gaming.kdl"
 }
 ```
 
-```kdl
-// modules/base.kdl
-packages {
-    bat
-    exa
-    ripgrep
-}
-```
+## Backends
 
-```kdl
-// modules/dev.kdl
-packages:npm {
-    nodejs
-    typescript
-}
-```
+Backends are package managers:
 
-Benefits:
-- 📁 Organized by purpose
-- 🔄 Easy to enable/disable modules
-- 📦 Share specific setups with others
+| Backend | Description | Example Packages |
+|---------|-------------|------------------|
+| `aur` | AUR helper (paru/yay) | `neovim`, `brave-bin` |
+| `pacman` | Official repos | `firefox`, `git` |
+| `flatpak` | Flatpak apps | `com.spotify.Client` |
 
-## Why Use Declarch?
+Official backends (aur, pacman, flatpak) work out of the box.
 
-**Reproducibility:**
-```bash
-# Get a new machine
-git clone my-dotfiles.git
-# Copy declarch config to ~/.config/declarch/
-declarch sync
-# Done! All packages installed
-```
+## Key Commands
 
-**Clarity:**
-```bash
-# See what you have
-declarch info
+| Command | What It Does |
+|---------|--------------|
+| `declarch init` | Create initial config |
+| `declarch install <pkg>` | Add package to config |
+| `declarch sync` | Apply config to system |
+| `declarch sync preview` | Preview changes |
 
-# See what's in a module
-declarch info --module base
-```
+## Config Files
 
-**Safety:**
-- Config file is your documentation
-- Easy to review and edit
-- No mysterious packages
+| File | Purpose |
+|------|---------|
+| `declarch.kdl` | Main entry point, imports modules |
+| `backends.kdl` | Backend definitions |
+| `modules/*.kdl` | Your package lists |
+| `state.json` | Tracks installed packages |
 
-## Next Steps
+---
 
-- [Quick Start](quick-start.md) - Get started now
-- [Modules Guide](../configuration/modules.md) - Organize your config
+That's it! You now know the basics.
