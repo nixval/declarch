@@ -304,9 +304,15 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     let backend_created = if backend_file.exists() && !force {
         false
     } else {
+        // Fetch from remote repository - must exist
         let template = match remote::fetch_backend_content(&sanitized_name) {
             Ok(content) => content,
-            Err(_) => generate_backend_template(&sanitized_name),
+            Err(_) => {
+                return Err(DeclarchError::Other(format!(
+                    "Backend '{}' not found in repository. Available backends: declarch init --list backends",
+                    sanitized_name
+                )));
+            }
         };
         fs::write(&backend_file, &template)?;
         true
