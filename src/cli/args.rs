@@ -90,10 +90,6 @@ pub enum Command {
         #[arg(long, value_name = "NAMES", group = "init_target", num_args = 1.., value_delimiter = ',')]
         backend: Vec<String>,
 
-        /// Skip confirmation prompts
-        #[arg(short = 'y', long)]
-        yes: bool,
-
         /// List available modules/backends from registry
         ///
         /// Shows all available items in the declarch-packages registry
@@ -273,9 +269,9 @@ pub enum Command {
         #[arg(value_name = "QUERY")]
         query: String,
 
-        /// Filter by backends (comma-separated)
-        #[arg(short = 'b', long, value_name = "BACKENDS", help_heading = "Filtering")]
-        backends: Option<String>,
+        /// Filter by backends (comma-separated or multiple flags)
+        #[arg(short = 'b', long, value_name = "BACKENDS", value_delimiter = ',', help_heading = "Filtering")]
+        backends: Vec<String>,
 
         /// Limit results per backend (default: 10, use "all" or 0 for unlimited)
         #[arg(long, value_name = "NUM", help_heading = "Filtering")]
@@ -321,9 +317,6 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
 
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
-
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
@@ -348,9 +341,6 @@ pub enum SyncCommand {
         /// Enable hooks (disabled by default for security)
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
-
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
@@ -377,9 +367,6 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
 
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
-
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
@@ -404,9 +391,6 @@ pub enum SyncCommand {
         /// Enable hooks (disabled by default for security)
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
-
-        /// Skip automatic Soar installation
-        #[arg(long, help_heading = "Advanced")]
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]

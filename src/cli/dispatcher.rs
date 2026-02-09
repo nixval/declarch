@@ -20,7 +20,6 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             host,
             path,
             backend,
-            yes,
             list,
             local,
         }) => {
@@ -43,7 +42,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 path: path.clone(),
                 backends: backend.clone(),
                 force: args.global.force,
-                yes: *yes,
+                yes: args.global.yes,
                 local: *local,
             })
         }
@@ -319,9 +318,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
 
             commands::search::run(commands::search::SearchOptions {
                 query: query.clone(),
-                backends: backends
-                    .as_ref()
-                    .map(|b| b.split(',').map(|s| s.to_string()).collect()),
+                backends: if backends.is_empty() { None } else { Some(backends.clone()) },
                 limit: parsed_limit,
                 installed_only: *installed_only,
                 available_only: *available_only,
