@@ -4,8 +4,6 @@
     // These tests verify the new generic parser that uses packages_by_backend
     // for all package storage, regardless of backend.
 
-    use super::*;
-
     #[test]
     fn test_pkg_block_single_backend() {
         let kdl = r#"

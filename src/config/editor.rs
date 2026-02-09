@@ -251,7 +251,7 @@ impl ConfigEditor {
         for backend in ["aur", "paru", "yay", "pacman", "npm", "yarn", "pnpm", "bun", 
                         "pip", "cargo", "brew", "flatpak", "snap", "soar", "dnf", "apt"] {
             updated_content = updated_content
-                .replace(&format!("pkg:{}}{{", backend), &format!("pkg:{} {{", backend));
+                .replace(&format!("pkg:{}{{", backend), &format!("pkg:{} {{", backend));
         }
 
         // Problem 2: Add newlines between nodes (e.g., "}pkg" should be "}\npkg")
