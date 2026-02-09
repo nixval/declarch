@@ -121,15 +121,17 @@ meta {
 }
 
 // Essential packages for modern terminal experience
-pkg:aur {
-    bat         // Better cat with syntax highlighting
-    eza         // Better ls with colors (modern replacement for exa)
-    fd          // Better find command
-    ripgrep     // Faster grep alternative
-    zoxide      // Smart cd command
-    git         // Version control
-    curl        // Data transfer tool
-    wget        // Data transfer tool
+pkg {
+    aur {
+        bat         // Better cat with syntax highlighting
+        eza         // Better ls with colors (modern replacement for exa)
+        fd          // Better find command
+        ripgrep     // Faster grep alternative
+        zoxide      // Smart cd command
+        git         // Version control
+        curl        // Data transfer tool
+        wget        // Data transfer tool
+    }
 }
 "#
             .to_string(),
