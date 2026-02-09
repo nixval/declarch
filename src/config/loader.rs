@@ -1,5 +1,5 @@
 use crate::config::kdl::{
-    ConflictEntry, LifecycleConfig, PolicyConfig, ProjectMetadata, parse_kdl_content,
+    ConflictEntry, LifecycleConfig, PolicyConfig, ProjectMetadata, parse_kdl_content_with_path,
 };
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
@@ -109,7 +109,8 @@ fn recursive_load(
     visited.insert(canonical_path.clone());
 
     let content = std::fs::read_to_string(&canonical_path)?;
-    let raw = parse_kdl_content(&content)?;
+    let file_path_str = canonical_path.display().to_string();
+    let raw = parse_kdl_content_with_path(&content, Some(&file_path_str))?;
 
     // Process packages from unified storage (packages_by_backend)
     for (backend_name, packages) in raw.packages_by_backend {

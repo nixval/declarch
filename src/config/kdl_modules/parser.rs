@@ -68,40 +68,17 @@ pub fn parse_backend_options(
 /// This is the main entry point for parsing KDL configuration files.
 /// Uses fully unified package storage - no backend-specific fields.
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
-    let doc: KdlDocument = content.parse().map_err(|e: kdl::KdlError| {
-        let err_msg = e.to_string();
-        
-        // Extract line info if available
-        let line_info = if let Some(line) = err_msg.split(':').nth(1) {
-            if let Ok(line_num) = line.trim().parse::<usize>() {
-                // Get the problematic line content
-                let lines: Vec<&str> = content.lines().collect();
-                if line_num > 0 && line_num <= lines.len() {
-                    let line_content = lines[line_num - 1];
-                    format!("\n  Line {}: {}", line_num, line_content.trim())
-                } else {
-                    format!("\n  Line: {}", line_num)
-                }
-            } else {
-                String::new()
-            }
-        } else {
-            String::new()
-        };
-        
-        let hint = if err_msg.contains("unexpected token") || err_msg.contains("unknown token") {
-            "\nHint: Check for missing quotes, unmatched brackets, or invalid field names.\nCommon issues: Using 'sudo true' instead of 'sudo \"true\"', or unknown fields like 'examples'"
-        } else if err_msg.contains("unexpected end of file") {
-            "\nHint: You might be missing a closing brace '}' or parenthesis."
-        } else if err_msg.contains("expected") {
-            "\nHint: Check that your KDL syntax follows the format: node-name \"value\" { ... }"
-        } else {
-            ""
-        };
+    parse_kdl_content_with_path(content, None)
+}
 
-        crate::error::DeclarchError::ConfigError(
-            format!("KDL parsing error: {}{}{}", err_msg, line_info, hint)
-        )
+/// Parse KDL content with file path for better error reporting
+///
+/// Shows detailed error messages with line numbers, visual indicators,
+/// and helpful hints similar to Rust compiler errors.
+pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Result<RawConfig> {
+    let doc: KdlDocument = content.parse().map_err(|e: kdl::KdlError| {
+        let report = super::error_reporter::format_error_report(content, file_path, &e);
+        crate::error::DeclarchError::ConfigError(report)
     })?;
 
     let mut config = RawConfig::default();
@@ -191,6 +168,9 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             name if name == "packages" || name.starts_with("packages:") => {
                 parse_packages_node_legacy(node, &mut config)?;
             }
+            // Backend definitions - these are parsed separately by the backend registry
+            // Ignore them here since backends.kdl may be imported as a module
+            "backend" => {}
             _ => {}
         }
     }

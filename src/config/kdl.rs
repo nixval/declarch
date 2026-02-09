@@ -16,7 +16,7 @@ pub use crate::config::kdl_modules::registry::BackendParser;
 pub use crate::config::kdl_modules::registry::BackendParserRegistry;
 
 // Re-export parse_kdl_content function
-pub use crate::config::kdl_modules::parser::parse_kdl_content;
+pub use crate::config::kdl_modules::parser::{parse_kdl_content, parse_kdl_content_with_path};
 
 // Re-export helper functions for backward compatibility
 pub use crate::config::kdl_modules::helpers::{

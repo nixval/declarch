@@ -30,10 +30,9 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                 backends.push(config);
             }
             "import" => {
-                // Handle import statements - load referenced backend files
+                // Handle top-level import statements: import "backends/name.kdl"
                 if let Some(path_val) = node.entries().first()
                     .and_then(|e| e.value().as_string()) {
-                    // Resolve relative path from config directory
                     if let Ok(config_dir) = crate::utils::paths::config_dir() {
                         let import_path = config_dir.join(path_val);
                         match load_backend_file(&import_path) {
@@ -45,7 +44,64 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                             }
                             Err(e) => {
                                 eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
-                                // Continue loading other backends
+                            }
+                        }
+                    }
+                }
+            }
+            "imports" => {
+                // Handle imports { ... } block
+                // String entries like "backends/name.kdl" are entries (arguments) of the imports node
+                // Check entries first
+                for entry in node.entries() {
+                    if let Some(path_val) = entry.value().as_string() {
+                        if path_val.ends_with(".kdl") {
+                            if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                                let import_path = config_dir.join(path_val);
+                                match load_backend_file(&import_path) {
+                                    Ok(Some(config)) => backends.push(config),
+                                    Ok(None) => {}
+                                    Err(e) => {
+                                        eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Also check children (for import "path" style or other node types)
+                if let Some(children) = node.children() {
+                    for child in children.nodes() {
+                        let child_name = child.name().value();
+                        
+                        // Handle import "path" nodes
+                        if child_name == "import" {
+                            if let Some(path_val) = child.entries().first()
+                                .and_then(|e| e.value().as_string()) {
+                                if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                                    let import_path = config_dir.join(path_val);
+                                    match load_backend_file(&import_path) {
+                                        Ok(Some(config)) => backends.push(config),
+                                        Ok(None) => {}
+                                        Err(e) => {
+                                            eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Handle bare string child nodes like "backends/name.kdl"
+                        else if child_name.ends_with(".kdl") && child_name.contains('/') {
+                            if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                                let import_path = config_dir.join(child_name);
+                                match load_backend_file(&import_path) {
+                                    Ok(Some(config)) => backends.push(config),
+                                    Ok(None) => {}
+                                    Err(e) => {
+                                        eprintln!("Warning: Failed to load backend from '{}': {}", child_name, e);
+                                    }
+                                }
                             }
                         }
                     }
