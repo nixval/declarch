@@ -1,0 +1,73 @@
+// ============================================================================
+// MODULES/BASE.KDL - Base System Module
+// ============================================================================
+// This module contains essential packages for any Linux system.
+// Import this in your main declarch.kdl file.
+//
+// Location: ~/.config/declarch/modules/base.kdl
+// ============================================================================
+
+meta {
+    title "Base System"
+    description "Essential packages for any Linux system"
+    author "user"
+    version "1.0.0"
+    tags "base" "essential" "core"
+}
+
+// =============================================================================
+// System Essentials
+// =============================================================================
+pkg {
+    // Core utilities (via system package manager)
+    apt {
+        build-essential
+        curl
+        wget
+        git
+        vim
+        htop
+        tree
+        unzip
+    }
+    
+    // Modern CLI tools (AUR for Arch, or alternative backends)
+    aur {
+        bat          // Better cat with syntax highlighting
+        eza          // Modern ls replacement
+        fd           // Fast find alternative
+        ripgrep      // Fast grep alternative
+        zoxide       // Smart cd command
+        fzf          // Fuzzy finder
+        starship     // Cross-shell prompt
+    }
+    
+    // Shell
+    apt {
+        zsh
+        zsh-autosuggestions
+        zsh-syntax-highlighting
+    }
+}
+
+// =============================================================================
+// Alternative Syntax Examples (all equivalent)
+// =============================================================================
+
+// Option 2: Colon syntax for single backend
+// pkg:apt {
+//     htop
+//     vim
+// }
+
+// Option 3: Inline prefix syntax
+// pkg {
+//     apt:htop
+//     apt:vim
+//     aur:paru
+// }
+
+// =============================================================================
+// Module-specific environment variables
+// =============================================================================
+env EDITOR="nvim" VISUAL="nvim"

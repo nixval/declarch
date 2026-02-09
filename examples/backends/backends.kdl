@@ -1,0 +1,137 @@
+// ============================================================================
+// BACKENDS.KDL - Complete Example
+// ============================================================================
+// This file defines all package manager backends for declarch.
+// Each backend describes how to list, install, and remove packages.
+//
+// Location: ~/.config/declarch/backends.kdl
+// ============================================================================
+
+// =============================================================================
+// APT (Debian/Ubuntu)
+// =============================================================================
+backend "apt" {
+    // Binary to use (can specify multiple alternatives)
+    binary "apt"
+    
+    // Command to list installed packages
+    list "apt list --installed" {
+        format regex
+        // Pattern: package_name/... [installed,...] version ...
+        regex {
+            pattern "^(\S+)/\S+\s+\S+\s+\[installed.*\]"
+            name_group 1
+        }
+    }
+    
+    // Install command - {packages} will be replaced with space-separated list
+    install "apt install {packages}"
+    
+    // Remove command
+    remove "apt remove {packages}"
+    
+    // Auto-confirmation flag
+    noconfirm "-y"
+    
+    // APT requires sudo for install/remove
+    needs_sudo true
+}
+
+// =============================================================================
+// AUR Helper (paru/yay with pacman fallback)
+// =============================================================================
+backend "aur" {
+    meta {
+        title "AUR Helper"
+        description "Meta backend for Arch User Repository"
+        platforms "arch"
+    }
+    
+    // Try paru first, then yay (fallback chain)
+    binary "paru" "yay"
+    
+    // List all installed packages (including AUR and official repo)
+    list "{binary} -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    // Install from AUR or official repos
+    install "{binary} -S --needed {packages}"
+    
+    // Remove packages
+    remove "{binary} -R {packages}"
+    
+    // Search packages (optional)
+    search "{binary} -Ss {query}" {
+        format whitespace
+        name_col 0
+        desc_col 1
+    }
+    
+    // If no AUR helper found, use pacman
+    fallback "pacman"
+}
+
+// =============================================================================
+// Flatpak
+// =============================================================================
+backend "flatpak" {
+    binary "flatpak"
+    
+    // List installed flatpaks (app ID format: com.vendor.AppName)
+    list "flatpak list --app --columns=application,version" {
+        format tsv
+        name_col 0
+        version_col 1
+    }
+    
+    // Install from flathub
+    install "flatpak install flathub {packages}"
+    
+    // Remove
+    remove "flatpak uninstall {packages}"
+    
+    // Auto-confirm
+    noconfirm "-y"
+    
+    // Flatpak doesn't need sudo for user installs
+    needs_sudo false
+}
+
+// =============================================================================
+// NPM (Node.js)
+// =============================================================================
+backend "npm" {
+    binary "npm"
+    
+    // List globally installed packages
+    list "npm list -g --json" {
+        format json
+        json {
+            path "dependencies"
+            name_key "name"
+            version_key "version"
+        }
+    }
+    
+    // Global install
+    install "npm install -g {packages}"
+    
+    // Global remove
+    remove "npm uninstall -g {packages}"
+    
+    needs_sudo false
+}
+
+// =============================================================================
+// Alternative: Import from separate files (recommended for many backends)
+// =============================================================================
+// Instead of defining all backends here, you can split them into files:
+//
+// import "backends/apt.kdl"
+// import "backends/aur.kdl"
+// import "backends/flatpak.kdl"
+// import "backends/npm.kdl"
+// import "backends/cargo.kdl"

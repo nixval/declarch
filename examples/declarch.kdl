@@ -1,0 +1,123 @@
+// ============================================================================
+// DECLARCH.KDL - Main Configuration File
+// ============================================================================
+// This is your main declarch configuration file.
+// It imports backends and modules, then defines packages.
+//
+// Location: ~/.config/declarch/declarch.kdl
+// ============================================================================
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+// Import all backend definitions
+import "backends.kdl"
+
+// Import modules (reusable package groups)
+import "modules/base.kdl"
+import "modules/development.kdl"
+
+// =============================================================================
+// METADATA
+// =============================================================================
+meta {
+    title "My Linux Setup"
+    description "Personal workstation configuration"
+    author "user"
+    version "1.0.0"
+    tags "personal" "workstation"
+}
+
+// =============================================================================
+// PACKAGES - Syntax Options
+// =============================================================================
+
+// Option 1: Nested blocks (RECOMMENDED - most readable)
+pkg {
+    // System packages via apt
+    apt {
+        vim
+        git
+        curl
+        wget
+        htop
+        zsh
+    }
+    
+    // AUR packages (Arch Linux)
+    aur {
+        paru
+        yay-bin
+        visual-studio-code-bin
+        google-chrome
+    }
+    
+    // Flatpak apps
+    flatpak {
+        com.spotify.Client
+        com.discordapp.Discord
+        org.videolan.VLC
+    }
+    
+    // Node.js tools
+    npm {
+        typescript
+        eslint
+        prettier
+    }
+}
+
+// =============================================================================
+// EXCLUDES (packages to never manage/remove)
+// =============================================================================
+excludes {
+    // System critical packages
+    linux
+    linux-firmware
+    systemd
+    grub
+}
+
+// =============================================================================
+// CONFLICTS (mutually exclusive packages)
+// =============================================================================
+// conflicts {
+//     vim neovim
+//     pipewire pulseaudio
+// }
+
+// =============================================================================
+// PACKAGE ALIASES (map config name to actual package name)
+// =============================================================================
+// aliases-pkg my-vim vim-enhanced
+// aliases-pkg my-node nodejs-lts
+
+// =============================================================================
+// BACKEND OPTIONS
+// =============================================================================
+options:apt {
+    noconfirm
+}
+
+options:aur {
+    noconfirm
+}
+
+// =============================================================================
+// POLICY
+// =============================================================================
+policy {
+    protected {
+        linux
+        linux-headers
+        systemd
+        networkmanager
+    }
+    orphans "ask"  // What to do with orphaned packages: keep/remove/ask
+}
+
+// =============================================================================
+// HOOKS (lifecycle commands)
+// =============================================================================
+// on-sync "notify-send 'Declarch sync complete!'"
+// on-sync-sudo "systemctl daemon-reload"
