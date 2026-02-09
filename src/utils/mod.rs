@@ -1,5 +1,3 @@
-pub mod cache;
-pub mod distro;
 pub mod install;
 pub mod paths;
 pub mod remote;

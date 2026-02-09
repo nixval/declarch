@@ -22,10 +22,3 @@ pub use crate::config::kdl_modules::parser::parse_kdl_content;
 pub use crate::config::kdl_modules::helpers::{
     conflicts, env, hooks, meta, package_mappings, packages, policy, repositories,
 };
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    include!("kdl_tests.rs");
-}

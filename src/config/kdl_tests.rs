@@ -1,8 +1,9 @@
+// KDL Parser Tests for v0.6+ (Unified Package Storage)
+//
+// These tests verify the new generic parser that uses packages_by_backend
+// for all package storage, regardless of backend.
 
-    // KDL Parser Tests for v0.6+ (Unified Package Storage)
-    //
-    // These tests verify the new generic parser that uses packages_by_backend
-    // for all package storage, regardless of backend.
+use crate::config::kdl_modules::parse_kdl_content;
 
     #[test]
     fn test_pkg_block_single_backend() {
