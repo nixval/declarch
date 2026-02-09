@@ -523,25 +523,50 @@ impl GenericManager {
         })?;
 
         let mut results = Vec::new();
-        for line in stdout.lines() {
-            if let Some(captures) = regex.captures(line) {
-                let name = captures
-                    .get(name_group)
-                    .map(|m| m.as_str().to_string())
-                    .ok_or_else(|| {
-                        DeclarchError::PackageManagerError(
-                            "Regex name group didn't capture anything".into(),
-                        )
-                    })?;
 
-                let description = captures.get(desc_group).map(|m| m.as_str().to_string());
+        // Try matching against entire stdout first (for multiline patterns)
+        for captures in regex.captures_iter(stdout) {
+            let name = captures
+                .get(name_group)
+                .map(|m| m.as_str().to_string())
+                .ok_or_else(|| {
+                    DeclarchError::PackageManagerError(
+                        "Regex name group didn't capture anything".into(),
+                    )
+                })?;
 
-                results.push(PackageSearchResult {
-                    name,
-                    version: None,
-                    description,
-                    backend: self.backend_type.clone(),
-                });
+            let description = captures.get(desc_group).map(|m| m.as_str().to_string());
+
+            results.push(PackageSearchResult {
+                name,
+                version: None,
+                description,
+                backend: self.backend_type.clone(),
+            });
+        }
+
+        // If no matches and pattern doesn't have multiline flag, try line-by-line
+        if results.is_empty() && !regex_str.contains("(?m)") {
+            for line in stdout.lines() {
+                if let Some(captures) = regex.captures(line) {
+                    let name = captures
+                        .get(name_group)
+                        .map(|m| m.as_str().to_string())
+                        .ok_or_else(|| {
+                            DeclarchError::PackageManagerError(
+                                "Regex name group didn't capture anything".into(),
+                            )
+                        })?;
+
+                    let description = captures.get(desc_group).map(|m| m.as_str().to_string());
+
+                    results.push(PackageSearchResult {
+                        name,
+                        version: None,
+                        description,
+                        backend: self.backend_type.clone(),
+                    });
+                }
             }
         }
 

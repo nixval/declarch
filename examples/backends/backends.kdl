@@ -63,11 +63,12 @@ backend "aur" {
     // Remove packages
     remove "{binary} -R {packages}"
     
-    // Search packages (optional)
+    // Search packages - uses regex for multiline output
     search "{binary} -Ss {query}" {
-        format whitespace
-        name_col 0
-        desc_col 1
+        format regex
+        regex "(?m)^(\\S+)\\s+.*\\n\\s+(.*)$"
+        name_group 1
+        desc_group 2
     }
     
     // If no AUR helper found, use pacman

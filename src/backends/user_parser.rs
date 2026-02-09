@@ -607,6 +607,38 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                             })
                     });
                 }
+                // Regex pattern for search
+                "regex" => {
+                    config.search_regex = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "name_group" => {
+                    config.search_regex_name_group = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                "desc_group" => {
+                    config.search_regex_desc_group = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
                 _ => {}
             }
         }

@@ -43,9 +43,10 @@ backend "aur" {
     remove "{binary} -R {packages}"
     
     search "{binary} -Ss {query}" {
-        format "whitespace"
-        name_col 0
-        desc_col 2
+        format "regex"
+        regex "(?m)^(\\S+)\\s+.*\\n\\s+(.*)$"
+        name_group 1
+        desc_group 2
     }
     
     fallback "pacman"
