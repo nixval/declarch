@@ -966,13 +966,16 @@ pub fn list_available_backends() -> Result<()> {
     Ok(())
 }
 
+/// Module info tuple: (path, description, tags)
+type ModuleInfo<'a> = (&'a str, &'a str, Vec<&'a str>);
+
 /// List available modules from the registry
 pub fn list_available_modules() -> Result<()> {
     output::header("Available Modules");
     
     // Static list of known modules in the registry
     // This could be fetched dynamically from the registry API in the future
-    let modules = vec![
+    let modules: Vec<ModuleInfo> = vec![
         ("system/base", "Essential packages for any Linux system", vec!["base", "essential", "core"]),
         ("desktop/hyprland", "Hyprland Wayland compositor setup", vec!["desktop", "wayland", "hyprland"]),
         ("apps/flatpak-common", "Common GUI applications via Flatpak", vec!["apps", "gui", "flatpak"]),
@@ -982,7 +985,7 @@ pub fn list_available_modules() -> Result<()> {
     ];
     
     // Group by category
-    let mut by_category: std::collections::HashMap<&str, Vec<&(&str, &str, Vec<&str>)>> = std::collections::HashMap::new();
+    let mut by_category: std::collections::HashMap<&str, Vec<&ModuleInfo>> = std::collections::HashMap::new();
     for m in &modules {
         let category = m.0.split('/').next().unwrap_or("other");
         by_category.entry(category).or_default().push(m);

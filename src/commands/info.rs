@@ -43,11 +43,10 @@ fn run_info(options: &InfoOptions) -> Result<()> {
                 .filter(|(key, pkg_state)| {
                     let name = extract_package_name(key);
 
-                    if let Some(filter_pkg) = package_filter {
-                        if !name.contains(filter_pkg) {
+                    if let Some(filter_pkg) = package_filter
+                        && !name.contains(filter_pkg) {
                             return false;
                         }
-                    }
 
                     if let Some(filter_backend) = backend_filter {
                         pkg_state.backend == crate::core::types::Backend::from(filter_backend)
@@ -353,15 +352,14 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
 
     // Display each backend group
     for backend in backends {
-        if let Some(pkg_names) = grouped.get(&backend) {
-            if !pkg_names.is_empty() {
+        if let Some(pkg_names) = grouped.get(&backend)
+            && !pkg_names.is_empty() {
                 println!(
                     "  {}: {}",
                     backend.bold().cyan(),
                     format_packages_inline(pkg_names, term_width)
                 );
             }
-        }
     }
 }
 

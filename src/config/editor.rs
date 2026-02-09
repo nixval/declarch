@@ -248,9 +248,9 @@ impl ConfigEditor {
 
         if let Some(backend_idx) = backend_node_idx {
             // Backend node exists, check if package already exists
-            if let Some(children) = pkg_node.children() {
-                if let Some(backend_node) = children.nodes().get(backend_idx) {
-                    if let Some(backend_children) = backend_node.children() {
+            if let Some(children) = pkg_node.children()
+                && let Some(backend_node) = children.nodes().get(backend_idx)
+                    && let Some(backend_children) = backend_node.children() {
                         for child in backend_children.nodes() {
                             if child.name().value() == package {
                                 // Already exists, return unchanged
@@ -258,8 +258,6 @@ impl ConfigEditor {
                             }
                         }
                     }
-                }
-            }
 
             // Add package to existing backend node
             if let Some(children) = pkg_node.children_mut() {

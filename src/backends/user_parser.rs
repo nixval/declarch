@@ -32,8 +32,8 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
             "import" => {
                 // Handle top-level import statements: import "backends/name.kdl"
                 if let Some(path_val) = node.entries().first()
-                    .and_then(|e| e.value().as_string()) {
-                    if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                    .and_then(|e| e.value().as_string())
+                    && let Ok(config_dir) = crate::utils::paths::config_dir() {
                         let import_path = config_dir.join(path_val);
                         match load_backend_file(&import_path) {
                             Ok(Some(config)) => {
@@ -47,16 +47,15 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                             }
                         }
                     }
-                }
             }
             "imports" => {
                 // Handle imports { ... } block
                 // String entries like "backends/name.kdl" are entries (arguments) of the imports node
                 // Check entries first
                 for entry in node.entries() {
-                    if let Some(path_val) = entry.value().as_string() {
-                        if path_val.ends_with(".kdl") {
-                            if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                    if let Some(path_val) = entry.value().as_string()
+                        && path_val.ends_with(".kdl")
+                            && let Ok(config_dir) = crate::utils::paths::config_dir() {
                                 let import_path = config_dir.join(path_val);
                                 match load_backend_file(&import_path) {
                                     Ok(Some(config)) => backends.push(config),
@@ -66,8 +65,6 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                     }
                                 }
                             }
-                        }
-                    }
                 }
                 
                 // Also check children (for import "path" style or other node types)
@@ -78,8 +75,8 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                         // Handle import "path" nodes
                         if child_name == "import" {
                             if let Some(path_val) = child.entries().first()
-                                .and_then(|e| e.value().as_string()) {
-                                if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                                .and_then(|e| e.value().as_string())
+                                && let Ok(config_dir) = crate::utils::paths::config_dir() {
                                     let import_path = config_dir.join(path_val);
                                     match load_backend_file(&import_path) {
                                         Ok(Some(config)) => backends.push(config),
@@ -89,11 +86,10 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                         }
                                     }
                                 }
-                            }
                         }
                         // Handle bare string child nodes like "backends/name.kdl"
-                        else if child_name.ends_with(".kdl") && child_name.contains('/') {
-                            if let Ok(config_dir) = crate::utils::paths::config_dir() {
+                        else if child_name.ends_with(".kdl") && child_name.contains('/')
+                            && let Ok(config_dir) = crate::utils::paths::config_dir() {
                                 let import_path = config_dir.join(child_name);
                                 match load_backend_file(&import_path) {
                                     Ok(Some(config)) => backends.push(config),
@@ -103,7 +99,6 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                     }
                                 }
                             }
-                        }
                     }
                 }
             }
@@ -382,15 +377,14 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         }
                     }
                     // Also support flat format: regex "pattern"
-                    if config.list_regex.is_none() {
-                        if let Some(pattern) = child
+                    if config.list_regex.is_none()
+                        && let Some(pattern) = child
                             .entries()
                             .first()
                             .and_then(|entry| entry.value().as_string())
                         {
                             config.list_regex = Some(pattern.to_string());
                         }
-                    }
                 }
                 // Flat format (legacy support)
                 "pattern" | "regex_pat" | "myregex" => {

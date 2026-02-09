@@ -122,11 +122,10 @@ impl GenericManager {
                     format!("Failed to load backend configs: {}", e)
                 ))?;
             
-            if let Some(fallback_config) = all_backends.get(fallback_name) {
-                if let Some(fallback_bin) = fallback_config.binary.find_available() {
+            if let Some(fallback_config) = all_backends.get(fallback_name)
+                && let Some(fallback_bin) = fallback_config.binary.find_available() {
                     return Ok(fallback_bin);
                 }
-            }
         }
         
         // Neither primary nor fallback available
@@ -294,13 +293,11 @@ impl PackageManager for GenericManager {
         }
         
         // Check fallback if configured
-        if let Some(fallback_name) = &self.config.fallback {
-            if let Ok(all_backends) = crate::backends::load_all_backends() {
-                if let Some(fallback_config) = all_backends.get(fallback_name) {
+        if let Some(fallback_name) = &self.config.fallback
+            && let Ok(all_backends) = crate::backends::load_all_backends()
+                && let Some(fallback_config) = all_backends.get(fallback_name) {
                     return fallback_config.binary.find_available().is_some();
                 }
-            }
-        }
         
         false
     }

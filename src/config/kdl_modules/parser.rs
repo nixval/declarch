@@ -222,14 +222,13 @@ fn parse_pkg_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
 
     // Handle inline entries: pkg { "paru:package1" "npm:package2" }
     for entry in node.entries() {
-        if let Some(val) = entry.value().as_string() {
-            if let Some((backend, package)) = val.split_once(':') {
+        if let Some(val) = entry.value().as_string()
+            && let Some((backend, package)) = val.split_once(':') {
                 config.packages_by_backend
                     .entry(backend.to_string())
                     .or_default()
                     .push(PackageEntry { name: package.to_string() });
             }
-        }
     }
 
     Ok(())

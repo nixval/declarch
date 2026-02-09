@@ -8,11 +8,6 @@ use std::fmt::Write;
 
 /// Format a beautiful error report from KdlError
 /// 
-/// The KdlError contains diagnostics with detailed span information.
-/// We extract this to show line numbers, context, and hints.
-
-/// Format a beautiful error report from KdlError
-/// 
 /// Example output:
 /// ```text
 /// error: Unexpected token in KDL document
@@ -136,7 +131,7 @@ fn build_source_context(content: &str, error_line: usize, error_col: Option<usiz
             if let Some(col) = error_col {
                 let indent = " ".repeat(line_num_width + 1);
                 let spaces = " ".repeat(col.saturating_sub(1));
-                let highlight_len = span_len.max(1).min(20); // Limit highlight length
+                let highlight_len = span_len.clamp(1, 20); // Limit highlight length
                 let carets = "^".repeat(highlight_len);
                 // Build the indicator line piece by piece to avoid format string issues
                 let _ = write!(&mut output, " {}", indent);

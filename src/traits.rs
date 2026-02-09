@@ -89,13 +89,24 @@ impl AppContext {
         }
     }
 
-    /// Create a default context using filesystem-based implementations
-    pub fn default() -> Result<Self> {
+    /// Create a new context using filesystem-based implementations
+    pub fn new_filesystem() -> Result<Self> {
         Ok(Self {
             config_loader: Box::new(crate::config::loader::FilesystemConfigLoader),
             state_store: Box::new(crate::state::io::FilesystemStateStore),
             backend_registry: Box::new(crate::backends::registry::FilesystemBackendRegistry),
         })
+    }
+}
+
+impl Default for AppContext {
+    /// Create a default context using filesystem-based implementations
+    fn default() -> Self {
+        Self {
+            config_loader: Box::new(crate::config::loader::FilesystemConfigLoader),
+            state_store: Box::new(crate::state::io::FilesystemStateStore),
+            backend_registry: Box::new(crate::backends::registry::FilesystemBackendRegistry),
+        }
     }
 }
 
