@@ -15,22 +15,15 @@ const DEFAULT_BACKENDS_KDL: &str = r#"// Backend Aggregator
 // This file contains all backend configurations for declarch.
 // You can define backends directly here or import from separate files.
 //
-// Default backends included:
-// - aur: AUR helper (paru → yay → pacman fallback chain)
-// - flatpak: Flatpak applications
+// NOTE: All .kdl files in the backends/ directory are automatically loaded.
+// You don't need to add import statements for them.
 //
 // To add more backends: declarch init --backend <name>
 
 // =============================================================================
 // AUR Helper (Arch Linux)
+// Fallback chain: paru → yay → pacman
 // =============================================================================
-// Supports paru/yay as primary with automatic fallback to pacman.
-// Fallback chain: aur → paru → yay → pacman
-//
-// This backend will:
-// 1. Try 'paru' first
-// 2. If not found, try 'yay'
-// 3. If neither found, fallback to 'pacman' (for official repos only)
 backend "aur" {
     meta {
         title "AUR Helper"
@@ -41,38 +34,30 @@ backend "aur" {
         requires "paru" "yay" "pacman"
     }
     
-    // Try paru first, then yay (first available will be used)
     binary "paru" "yay"
     
-    // List all installed packages (official repo + AUR)
     list "{binary} -Q" {
         format whitespace
         name_col 0
         version_col 1
     }
     
-    // Install packages (AUR or official repos)
     install "{binary} -S --needed {packages}"
-    
-    // Remove packages
     remove "{binary} -R {packages}"
     
-    // Search packages (optional)
     search "{binary} -Ss {query}" {
         format whitespace
         name_col 0
         desc_col 1
     }
     
-    // If no AUR helper found, fallback to pacman
     fallback "pacman"
 }
 
 // =============================================================================
 // Pacman (Arch Linux native)
+// Used as ultimate fallback when no AUR helper is available
 // =============================================================================
-// Native Arch package manager for official repositories only.
-// Used as ultimate fallback when no AUR helper is available.
 backend "pacman" {
     meta {
         title "Pacman"
@@ -98,7 +83,7 @@ backend "pacman" {
 }
 
 // =============================================================================
-// Flatpak
+// Flatpak (Universal Linux apps)
 // =============================================================================
 backend "flatpak" {
     meta {
@@ -112,20 +97,15 @@ backend "flatpak" {
     
     binary "flatpak"
     
-    // List installed applications
     list "flatpak list --app --columns=application,version" {
         format tsv
         name_col 0
         version_col 1
     }
     
-    // Install from flathub
     install "flatpak install flathub {packages}"
-    
-    // Remove applications
     remove "flatpak uninstall {packages}"
     
-    // Search (optional)
     search "flatpak search {query}" {
         format whitespace
         name_col 0
@@ -133,6 +113,7 @@ backend "flatpak" {
     }
     
     noconfirm "-y"
+    needs_sudo false
 }
 "#;
 
