@@ -111,6 +111,34 @@ backend "flatpak" {
 }
 
 // =============================================================================
+// NPM (Node.js packages)
+// =============================================================================
+backend "npm" {
+    meta {
+        title "NPM"
+        description "Node.js package manager"
+        maintained "declarch"
+        tags "package-manager" "nodejs" "javascript"
+        platforms "linux" "macos"
+        requires "npm"
+    }
+    
+    binary "npm"
+    
+    list "npm list -g --json" {
+        format "json"
+        json_path "dependencies"
+        name_key "name"
+        version_key "version"
+    }
+    
+    install "npm install -g --silent {packages}"
+    remove "npm uninstall -g --silent {packages}"
+    
+    needs_sudo "false"
+}
+
+// =============================================================================
 // Custom Backends
 // Use 'declarch init --backend <name>' to add custom backends
 // =============================================================================

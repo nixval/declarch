@@ -116,11 +116,11 @@ backend "npm" {
         }
     }
     
-    // Global install
-    install "npm install -g {packages}"
+    // Global install (silent to reduce noise)
+    install "npm install -g --silent {packages}"
     
-    // Global remove
-    remove "npm uninstall -g {packages}"
+    // Global remove (silent to reduce noise)  
+    remove "npm uninstall -g --silent {packages}"
     
     needs_sudo false
 }
