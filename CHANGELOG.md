@@ -34,11 +34,10 @@ This is a major refactor with breaking changes. Expect errors when upgrading fro
 - **Consistent backend input**: Vec<String> with delimiter support
 
 ### Fixed
-- **Search output formatting**: Added dedicated AUR search format for multi-line output
-  - AUR (`paru -Ss`): New `format "aur"` handles the two-line output format correctly
-    - First line: repo/package version [info]
-    - Second line: 4-space indented description
-  - AUR search now shows complete descriptions instead of truncated text
+- **Search output formatting**: Fixed AUR and Flatpak search configurations
+  - AUR (`paru -Ss`): Uses `format "whitespace"` with proper column mapping
+    - `name_col 0`: repo/package name
+    - `desc_col 2`: description (skipping version column)
   - Flatpak: Uses TSV format with Application ID as name for easy config reference
 - **Config rollback on cancel**: Fixed rollback when user cancels sync during install
   - Install command now properly rolls back config changes when user cancels

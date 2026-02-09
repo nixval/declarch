@@ -28,12 +28,6 @@ pub fn parse_package_list(
                 "Custom format requires Rust implementation".to_string(),
             ))
         }
-        crate::backends::config::OutputFormat::AurSearch => {
-            // AUR search format is only for search, not for list
-            Err(crate::error::DeclarchError::Other(
-                "AUR search format is not valid for list commands".to_string(),
-            ))
-        }
     }
 }
 

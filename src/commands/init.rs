@@ -43,7 +43,9 @@ backend "aur" {
     remove "{binary} -R {packages}"
     
     search "{binary} -Ss {query}" {
-        format "aur"
+        format "whitespace"
+        name_col 0
+        desc_col 2
     }
     
     fallback "pacman"

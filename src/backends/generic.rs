@@ -363,9 +363,6 @@ impl GenericManager {
                 self.parse_search_tab(&stdout_str)
             }
             crate::backends::config::OutputFormat::Regex => self.parse_search_regex(&stdout_str),
-            crate::backends::config::OutputFormat::AurSearch => {
-                self.parse_search_aur(&stdout_str)
-            }
             crate::backends::config::OutputFormat::Custom => {
                 // Custom format - not supported for search
                 Ok(Vec::new())
@@ -551,57 +548,6 @@ impl GenericManager {
         Ok(results)
     }
 
-    /// Parse AUR helper search results (multi-line format)
-    ///
-    /// Format:
-    ///   repo/package version [size] [Installed]
-    ///       description...
-    fn parse_search_aur(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
-        let mut results = Vec::new();
-        let lines: Vec<&str> = stdout.lines().collect();
-        
-        let mut i = 0;
-        while i < lines.len() {
-            let line = lines[i].trim();
-            
-            // Skip empty lines
-            if line.is_empty() {
-                i += 1;
-                continue;
-            }
-            
-            // Parse the first line: repo/package version [info]
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.is_empty() {
-                i += 1;
-                continue;
-            }
-            
-            // First part is repo/package
-            let name = parts[0].to_string();
-            
-            // Look for description on next line (indented with 4 spaces)
-            let mut description = None;
-            if i + 1 < lines.len() {
-                let next_line = lines[i + 1];
-                if next_line.starts_with("    ") {
-                    description = Some(next_line.trim().to_string());
-                    i += 1; // Skip the description line
-                }
-            }
-            
-            results.push(PackageSearchResult {
-                name,
-                version: None,
-                description,
-                backend: self.backend_type.clone(),
-            });
-            
-            i += 1;
-        }
-        
-        Ok(results)
-    }
 }
 
 #[cfg(test)]

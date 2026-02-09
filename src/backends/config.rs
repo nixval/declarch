@@ -161,9 +161,6 @@ pub enum OutputFormat {
 
     /// Custom Rust parser (fallback to existing implementations)
     Custom,
-
-    /// AUR helper multi-line search format (name/version on first line, description on second)
-    AurSearch,
 }
 
 impl Default for BackendConfig {
