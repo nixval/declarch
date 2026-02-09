@@ -246,17 +246,21 @@ fn init_root(host: Option<String>, force: bool) -> Result<()> {
     Ok(())
 }
 
-/// Initialize a new backend configuration file
-/// 
-/// This function:
-/// 1. Creates the backend file in backends/<name>.kdl
-/// 2. Adds/enables the import in backends.kdl
-/// 3. Uses explicit import pattern (no auto-loading)
 /// Official backends that are embedded in backends.kdl
 const OFFICIAL_BACKENDS: &[&str] = &["aur", "pacman", "flatpak"];
 
+/// Initialize a new backend configuration file
+/// 
+/// Flow:
+/// 1. Show "fetching [name] from nixval/declarch-packages"
+/// 2. If not found → error
+/// 3. Prompt "Are you sure you want this [name] being adopted? Y/n"
+/// 4. If no → cancel
+/// 5. If yes → write file
+/// 6. Prompt "Need to import this automatically to backends.kdl? Y/n"
+/// 7. If yes → add import, show "Backend 'name' adopted"
+/// 8. If no → show "Backend 'name' fetched. please import it to use it"
 fn init_backend(backend_name: &str, force: bool) -> Result<()> {
-
     let root_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
 
@@ -289,6 +293,7 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     // STEP 2: Check if official backend
     if OFFICIAL_BACKENDS.contains(&sanitized_name.as_str()) {
         // Official backends are already embedded in backends.kdl - nothing to do
+        output::info(&format!("Backend '{}' is already built-in.", sanitized_name));
         return Ok(());
     }
 
@@ -298,93 +303,159 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         fs::create_dir_all(&backends_dir)?;
     }
 
-    // STEP 4: Create backend file
-    let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
-
-    let backend_created = if backend_file.exists() && !force {
-        false
-    } else {
-        // Fetch from remote repository - must exist
-        let template = match remote::fetch_backend_content(&sanitized_name) {
-            Ok(content) => content,
-            Err(_) => {
-                return Err(DeclarchError::Other(format!(
-                    "Backend '{}' not found in repository. Available backends: declarch init --list backends",
-                    sanitized_name
-                )));
-            }
-        };
-        fs::write(&backend_file, &template)?;
-        true
+    // STEP 4: Show fetching message and fetch backend content
+    println!("fetching '{}' from nixval/declarch-packages", sanitized_name);
+    
+    let backend_content = match remote::fetch_backend_content(&sanitized_name) {
+        Ok(content) => content,
+        Err(_) => {
+            return Err(DeclarchError::Other(
+                "not found, please check 'declarch init --list backends'".to_string()
+            ));
+        }
     };
 
-    // STEP 5: Add import to backends.kdl
-    let backends_kdl_path = root_dir.join("backends.kdl");
-    let backend_entry = format!("backends/{}.kdl", sanitized_name);
-    let import_added = enable_backend_import(&backends_kdl_path, &backend_entry, force)?;
+    // STEP 5: Check if file already exists
+    let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
+    if backend_file.exists() && !force {
+        output::warning(&format!("Backend file already exists: {}", backend_file.display()));
+        output::info("Use --force to overwrite.");
+        return Ok(());
+    }
 
-    // Show concise message
-    if backend_created || import_added {
-        println!("Backend '{}' adopted.", sanitized_name);
+    // STEP 6: Prompt for adoption confirmation (skip if force)
+    if !force && !output::prompt_yes_no(&format!("Are you sure you want this '{}' being adopted", sanitized_name)) {
+        output::info("Cancelled.");
+        return Ok(());
+    }
+
+    // STEP 7: Write backend file
+    fs::write(&backend_file, &backend_content)?;
+
+    // STEP 8: Prompt for auto-import (skip if force)
+    let want_import = if force {
+        true
+    } else {
+        output::prompt_yes_no("Need to import this automatically to backends.kdl")
+    };
+
+    if want_import {
+        let backends_kdl_path = root_dir.join("backends.kdl");
+        let import_result = add_backend_import(&backends_kdl_path, &sanitized_name);
+        
+        match import_result {
+            Ok(ImportResult::Added) => {
+                println!("Backend '{}' adopted.", sanitized_name);
+            }
+            Ok(ImportResult::AlreadyImported) => {
+                // Import already exists
+                println!("Backend '{}' adopted.", sanitized_name);
+            }
+            Ok(ImportResult::AlreadyExistsInline) => {
+                // Backend defined inline (built-in)
+                println!("Backend '{}' adopted.", sanitized_name);
+            }
+            Ok(ImportResult::FileNotFound) => {
+                output::warning("not automatically imported, please import it manually");
+            }
+            Ok(ImportResult::NoImportsBlock) => {
+                output::warning("not automatically imported, please import it manually");
+            }
+            Err(e) => {
+                // Error during import
+                output::warning(&format!("not automatically imported: {}", e));
+            }
+        }
+    } else {
+        println!("Backend '{}' fetched. please import it to use it", sanitized_name);
     }
 
     Ok(())
 }
 
-
-
-
-
-/// Enable backend import in backends.kdl
-/// 
-/// Injects the backend import into the 'imports { }' block,
-/// similar to how modules are imported in declarch.kdl.
-/// Returns true if import was added, false if already exists.
-fn enable_backend_import(backends_kdl_path: &Path, import_path: &str, _force: bool) -> Result<bool> {
-    let content = fs::read_to_string(backends_kdl_path)?;
-    
-    // Check if backend already defined inline (default backends: aur, pacman, flatpak)
-    let backend_name = import_path.trim_start_matches("backends/").trim_end_matches(".kdl");
-    let backend_pattern = format!(r#"backend\s+"{}""#, regex::escape(backend_name));
-    
-    if regex::Regex::new(&backend_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
-        return Ok(false); // Already defined inline
-    }
-    
-    // Check if already imported as active import (not commented)
-    let active_import_pattern = format!(r#"(?m)^\s+"{}""#, regex::escape(import_path));
-    if regex::Regex::new(&active_import_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
-        return Ok(false); // Already imported
-    }
-    
-    // Format import line (4 spaces indent like modules)
-    let import_line = format!(r#"    "{}""#, import_path);
-    
-    // Regex to find imports { block
-    let re = regex::Regex::new(r#"(?m)^(.*imports\s*\{)"#)
-        .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
-    
-    let new_content = if re.is_match(&content) {
-        // Inject into existing imports block
-        re.replace(&content, |caps: &regex::Captures| {
-            format!("{}\n{}", &caps[0], import_line)
-        })
-        .to_string()
-    } else {
-        // Create new imports block at end of file
-        format!(
-            "{}\n\nimports {{\n{}\n}}\n",
-            content.trim_end(),
-            import_line
-        )
-    };
-    
-    fs::write(backends_kdl_path, new_content)?;
-    Ok(true)
+/// Result of attempting to add backend import
+#[derive(Debug, PartialEq)]
+enum ImportResult {
+    /// Import was successfully added
+    Added,
+    /// Backend already defined inline (aur, pacman, flatpak)
+    AlreadyExistsInline,
+    /// Import already exists in imports block
+    AlreadyImported,
+    /// backends.kdl doesn't exist
+    FileNotFound,
+    /// No imports { } block found
+    NoImportsBlock,
 }
 
-/// Generate a backend template based on the backend name
-/// Creates a complete, production-ready backend configuration
+/// Add backend import to backends.kdl imports block
+fn add_backend_import(backends_kdl_path: &Path, backend_name: &str) -> Result<ImportResult> {
+    // Check if backends.kdl exists
+    if !backends_kdl_path.exists() {
+        return Ok(ImportResult::FileNotFound);
+    }
+    
+    let content = fs::read_to_string(backends_kdl_path)?;
+    let import_path = format!("backends/{}.kdl", backend_name);
+    
+    // Check if backend already defined inline (default backends: aur, pacman, flatpak)
+    let backend_pattern = format!(r#"(?m)^backend\s+"{}""#, regex::escape(backend_name));
+    if regex::Regex::new(&backend_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+        return Ok(ImportResult::AlreadyExistsInline);
+    }
+    
+    // Check if already imported as an active import (not commented)
+    // Look for the exact import line pattern
+    let active_import_pattern = format!(r#"(?m)^\s+"{}""#, regex::escape(&import_path));
+    if regex::Regex::new(&active_import_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+        return Ok(ImportResult::AlreadyImported);
+    }
+    
+    // Find imports block using regex that handles various formats:
+    // - imports {
+    // - imports{ 
+    // - imports  {
+    // And handles position anywhere in file (start, middle, end)
+    let imports_re = regex::Regex::new(r#"(?m)^(\s*imports\s*\{)"#)
+        .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
+    
+    if !imports_re.is_match(&content) {
+        // No imports block found
+        return Ok(ImportResult::NoImportsBlock);
+    }
+    
+    // Format import line with proper indentation (4 spaces)
+    let import_line = format!(r#"    "{}""#, import_path);
+    
+    // Find the imports block and add the import line
+    let new_content = imports_re.replace(&content, |caps: &regex::Captures| {
+        format!("{}\n{}", &caps[0], import_line)
+    }).to_string();
+    
+    fs::write(backends_kdl_path, new_content)?;
+    Ok(ImportResult::Added)
+}
+
+/// Remove backend import from backends.kdl (cleanup when removing backend)
+#[allow(dead_code)]
+fn remove_backend_import(backends_kdl_path: &Path, backend_name: &str) -> Result<()> {
+    if !backends_kdl_path.exists() {
+        return Ok(());
+    }
+    
+    let content = fs::read_to_string(backends_kdl_path)?;
+    let import_pattern = format!(r#"(?m)^\s+"backends/{}\.kdl"\s*$"#, regex::escape(backend_name));
+    
+    let re = regex::Regex::new(&import_pattern)
+        .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
+    
+    let new_content = re.replace_all(&content, "").to_string();
+    fs::write(backends_kdl_path, new_content)?;
+    Ok(())
+}
+
+// Note: Template generation is kept for future local backend creation feature
+#[allow(dead_code)]
 fn generate_backend_template(name: &str) -> String {
     match name {
         "aur" => generate_aur_backend_template(),
@@ -394,7 +465,7 @@ fn generate_backend_template(name: &str) -> String {
     }
 }
 
-/// AUR helper backend with paru → yay → pacman fallback chain
+#[allow(dead_code)]
 fn generate_aur_backend_template() -> String {
     r#"// aur - AUR Helper with Fallback Chain
 // 
@@ -453,7 +524,7 @@ backend "aur" {
 "#.to_string()
 }
 
-/// Native pacman backend (for official repos only)
+#[allow(dead_code)]
 fn generate_pacman_backend_template() -> String {
     r#"// pacman - Arch Linux Native Package Manager
 //
@@ -492,7 +563,7 @@ backend "pacman" {
 "#.to_string()
 }
 
-/// Flatpak backend
+#[allow(dead_code)]
 fn generate_flatpak_backend_template() -> String {
     r#"// flatpak - Universal Linux Application Sandboxing
 //
@@ -541,7 +612,7 @@ backend "flatpak" {
 "#.to_string()
 }
 
-/// Generic backend template for unknown package managers
+#[allow(dead_code)]
 fn generate_generic_backend_template(name: &str) -> String {
     let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
     
@@ -937,4 +1008,185 @@ pub fn list_available_modules() -> Result<()> {
     println!("  {}             Auto-confirm import", "declarch init <module> -y".green());
     
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_add_backend_import_success() {
+        // Test with imports block in the middle of file
+        let content = r#"// Backend Aggregator
+
+backend "aur" {
+    binary "paru"
+}
+
+imports {
+    // Custom backends
+}
+
+// Footer comment
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "npm").unwrap();
+        assert_eq!(result, ImportResult::Added);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(new_content.contains("backends/npm.kdl"));
+        assert!(new_content.contains("imports {"));
+    }
+
+    #[test]
+    fn test_add_backend_import_at_start() {
+        // Test with imports block at start of file
+        let content = r#"imports {
+    // empty
+}
+
+backend "aur" {
+    binary "paru"
+}"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "cargo").unwrap();
+        assert_eq!(result, ImportResult::Added);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(new_content.contains("backends/cargo.kdl"));
+    }
+
+    #[test]
+    fn test_add_backend_import_at_end() {
+        // Test with imports block at end of file
+        let content = r#"backend "aur" {
+    binary "paru"
+}
+
+imports {
+    // empty
+}"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "pip").unwrap();
+        assert_eq!(result, ImportResult::Added);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(new_content.contains("backends/pip.kdl"));
+    }
+
+    #[test]
+    fn test_add_backend_import_no_imports_block() {
+        // Test when no imports block exists
+        let content = r#"backend "aur" {
+    binary "paru"
+}"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "npm").unwrap();
+        assert_eq!(result, ImportResult::NoImportsBlock);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(!new_content.contains("backends/npm.kdl")); // Should not be modified
+    }
+
+    #[test]
+    fn test_add_backend_import_file_not_exist() {
+        // Test when backends.kdl doesn't exist
+        let non_existent_path = PathBuf::from("/tmp/non_existent_backends.kdl");
+        
+        let result = add_backend_import(&non_existent_path, "npm").unwrap();
+        assert_eq!(result, ImportResult::FileNotFound);
+    }
+
+    #[test]
+    fn test_add_backend_import_already_exists() {
+        // Test when import already exists
+        let content = r#"imports {
+    "backends/npm.kdl"
+}"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "npm").unwrap();
+        assert_eq!(result, ImportResult::AlreadyImported);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        // Should not add duplicate
+        let count = new_content.matches("backends/npm.kdl").count();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_add_backend_import_inline_backend_exists() {
+        // Test when backend is already defined inline
+        let content = r#"backend "npm" {
+    binary "npm"
+}
+
+imports {
+    // empty
+}"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "npm").unwrap();
+        assert_eq!(result, ImportResult::AlreadyExistsInline);
+    }
+
+    #[test]
+    fn test_add_backend_import_various_whitespace() {
+        // Test with various whitespace formats
+        let content = r#"imports{
+}
+
+backend "aur" {
+    binary "paru"
+}"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "cargo").unwrap();
+        assert_eq!(result, ImportResult::Added);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(new_content.contains("backends/cargo.kdl"));
+    }
+
+    #[test]
+    fn test_add_backend_import_with_indentation() {
+        // Test with indented imports block
+        let content = r#"backend "aur" {
+    binary "paru"
+}
+
+    imports {
+        // Custom backends
+    }"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content.as_bytes()).unwrap();
+        
+        let result = add_backend_import(temp_file.path(), "pip").unwrap();
+        assert_eq!(result, ImportResult::Added);
+        
+        let new_content = fs::read_to_string(temp_file.path()).unwrap();
+        assert!(new_content.contains("backends/pip.kdl"));
+    }
 }
