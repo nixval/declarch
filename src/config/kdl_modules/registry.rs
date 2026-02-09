@@ -7,7 +7,7 @@
 //!
 //! This module will be removed in v0.7.
 
-use crate::config::kdl_modules::types::{PackageEntry, RawConfig};
+use crate::config::kdl_modules::types::RawConfig;
 use crate::error::Result;
 use kdl::KdlNode;
 

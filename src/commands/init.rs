@@ -21,20 +21,41 @@ const DEFAULT_BACKENDS_KDL: &str = r#"// Backend Aggregator
 pub struct InitOptions {
     pub path: Option<String>,
     pub host: Option<String>,
-    pub backend: Option<String>,
+    pub backends: Vec<String>,
     pub force: bool,
-    pub skip_soar_install: bool, // Deprecated: kept for compatibility
+    pub yes: bool,
+    pub local: bool,
 }
 
 pub fn run(options: InitOptions) -> Result<()> {
     // CASE A: MODULE INITIALIZATION
     if let Some(target_path) = options.path {
-        return init_module(&target_path, options.force);
+        return init_module(&target_path, options.force, options.yes, options.local);
     }
 
-    // CASE A2: BACKEND INITIALIZATION
-    if let Some(backend_name) = options.backend {
-        return init_backend(&backend_name, options.force);
+    // CASE A2: BACKEND INITIALIZATION (supports multiple)
+    if !options.backends.is_empty() {
+        let force = options.force || options.yes;
+        let total = options.backends.len();
+        
+        // Ensure root config exists first
+        let config_file = paths::config_file()?;
+        if !config_file.exists() {
+            init_root(options.host.clone(), force)?;
+        }
+        
+        if total > 1 {
+            output::header(&format!("Initializing {} backends", total));
+        }
+        
+        for (i, backend_name) in options.backends.iter().enumerate() {
+            if total > 1 {
+                println!();
+                output::info(&format!("[{}/{}] Initializing '{}'", i + 1, total, backend_name));
+            }
+            init_backend(backend_name, force)?;
+        }
+        return Ok(());
     }
 
     // CASE B: ROOT INITIALIZATION
@@ -112,7 +133,6 @@ fn init_root(host: Option<String>, force: bool) -> Result<()> {
 
 /// Initialize a new backend configuration file
 fn init_backend(backend_name: &str, force: bool) -> Result<()> {
-    output::header("Initializing Backend");
 
     let root_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
@@ -226,38 +246,64 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
-/// Display backend meta information
-fn display_backend_meta(_content: &str, name: &str) {
-    // Get description based on known backends
-    let description = match name {
-        "cargo" => "Rust package manager",
-        "npm" => "Node.js package manager",
-        "pip" | "pip3" => "Python package installer",
-        "pnpm" => "Fast, disk space efficient package manager",
-        "yarn" => "Fast, reliable dependency management",
-        "gem" => "Ruby package manager",
-        "go" | "golang" => "Go package manager",
-        "composer" => "PHP package manager",
-        "luarocks" => "Lua package manager",
-        "cabal" => "Haskell package manager",
-        "stack" => "Haskell build tool",
-        "conan" => "C/C++ package manager",
-        "vcpkg" => "C++ package manager",
-        "nix" => "Nix package manager",
-        "guix" => "GNU Guix package manager",
-        "snap" => "Universal Linux package",
-        "appimage" => "Portable Linux apps",
-        _ => "Custom package manager backend",
-    };
-
+/// Display backend meta information from KDL content
+fn display_backend_meta(content: &str, name: &str) {
+    // Parse KDL to extract meta fields
+    let meta_fields = extract_meta_fields(content);
+    
     output::separator();
-    println!("{}", "Backend Information:".bold().cyan());
+    println!("{}", "Backend:".bold().cyan());
     println!("  {}", name.bold());
-    println!();
-    println!("  {}", description.dimmed());
-    println!();
-    println!("  {}", format!("Type: Package Manager").green());
+    
+    // Display meta fields if available
+    if let Some(title) = meta_fields.get("title") {
+        println!("  {}: {}", "Title".dimmed(), title);
+    }
+    if let Some(description) = meta_fields.get("description") {
+        println!("  {}: {}", "Description".dimmed(), description);
+    }
+    if let Some(maintained) = meta_fields.get("maintained") {
+        println!("  {}: {}", "Maintained by".dimmed(), maintained);
+    }
+    if let Some(homepage) = meta_fields.get("homepage") {
+        if homepage != "-" && !homepage.is_empty() {
+            println!("  {}: {}", "Homepage".dimmed(), homepage.italic());
+        }
+    }
+    if let Some(platforms) = meta_fields.get("platforms") {
+        println!("  {}: {}", "Platforms".dimmed(), platforms);
+    }
+    
     output::separator();
+}
+
+/// Extract meta fields from KDL content
+fn extract_meta_fields(content: &str) -> std::collections::HashMap<String, String> {
+    let mut fields = std::collections::HashMap::new();
+    
+    // Simple regex-based extraction for meta fields
+    // Matches: field_name "value" or field_name "value" "value2"
+    let re = regex::Regex::new(r#"(?m)^\s+(\w+)\s+"([^"]+)""#).unwrap();
+    
+    // Find meta block
+    let meta_start = content.find("meta {");
+    let meta_end = content.find("}");
+    
+    if let (Some(start), Some(end)) = (meta_start, meta_end) {
+        if start < end {
+            let meta_block = &content[start..end];
+            for cap in re.captures_iter(meta_block) {
+                let key = cap[1].to_string();
+                let value = cap[2].to_string();
+                // Skip fields with "-" value
+                if value != "-" {
+                    fields.insert(key, value);
+                }
+            }
+        }
+    }
+    
+    fields
 }
 
 /// Inject import into backends.kdl
@@ -284,36 +330,128 @@ fn inject_import_to_backends_kdl(backends_kdl_path: &Path, import_path: &str) ->
 }
 
 /// Generate a backend template based on the backend name
+/// Unknown metadata values are set to "-" and will be skipped in output
 fn generate_backend_template(name: &str) -> String {
-    // Try to guess the package manager based on name
-    let (binary, pm_name, description, homepage): (&str, &str, String, String) = match name {
-        "cargo" => ("cargo", "Cargo", "Rust package manager".to_string(), "https://doc.rust-lang.org/cargo/".to_string()),
-        "npm" => ("npm", "NPM", "Node.js package manager".to_string(), "https://www.npmjs.com".to_string()),
-        "pip" | "pip3" => ("pip3", "pip", "Python package installer".to_string(), "https://pip.pypa.io".to_string()),
-        "pnpm" => ("pnpm", "pnpm", "Fast, disk space efficient package manager".to_string(), "https://pnpm.io".to_string()),
-        "yarn" => ("yarn", "Yarn", "Fast, reliable, and secure dependency management".to_string(), "https://yarnpkg.com".to_string()),
-        "gem" => ("gem", "RubyGems", "Ruby package manager".to_string(), "https://rubygems.org".to_string()),
-        "go" | "golang" => ("go", "Go Modules", "Go package manager".to_string(), "https://go.dev".to_string()),
-        "composer" => ("composer", "Composer", "PHP package manager".to_string(), "https://getcomposer.org".to_string()),
-        "luarocks" => ("luarocks", "LuaRocks", "Lua package manager".to_string(), "https://luarocks.org".to_string()),
-        "cabal" => ("cabal", "Cabal", "Haskell package manager".to_string(), "https://www.haskell.org/cabal/".to_string()),
-        "stack" => ("stack", "Stack", "Haskell build tool".to_string(), "https://docs.haskellstack.org".to_string()),
-        "conan" => ("conan", "Conan", "C/C++ package manager".to_string(), "https://conan.io".to_string()),
-        "vcpkg" => ("vcpkg", "vcpkg", "C++ package manager".to_string(), "https://vcpkg.io".to_string()),
-        "nix" => ("nix-env", "Nix", "Nix package manager".to_string(), "https://nixos.org".to_string()),
-        "guix" => ("guix", "Guix", "GNU Guix package manager".to_string(), "https://guix.gnu.org".to_string()),
-        "snap" => ("snap", "Snap", "Universal Linux package".to_string(), "https://snapcraft.io".to_string()),
-        "appimage" => ("appimage", "AppImage", "Portable Linux apps".to_string(), "https://appimage.org".to_string()),
-        _ => (name, name, format!("{} package manager", name), String::new()),
+    // Backend-agnostic template generation
+    // Unknown values use "-" which means "skip this field"
+    // Special cases: aur, pacman, flatpak have specific fallback chains
+
+    // Determine binary and fallback chain for known backends
+    let (binary, fallback) = match name {
+        "aur" => ("paru", Some("yay")),  // paru -> yay -> pacman
+        "yay" => ("yay", Some("pacman")),
+        "paru" => ("paru", Some("yay")),
+        "flatpak" => ("flatpak", None),
+        _ => (name, None),
     };
+    
+    let pm_name = name;
+    let description = format!("{} package manager", name);
+    
+    // Use "-" for unknown optional fields (will be skipped in output)
+    let version = "-";
+    let author = "-";
+    let maintained = "nixval";
+    let url = "-";
+    let homepage = "-";
+    let license = "-";
+    let install_guide = "-";
 
     let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
 
-    let homepage_line = if homepage.is_empty() {
-        String::new()
-    } else {
-        format!("        homepage \"{}\"", &homepage)
-    };
+    // Build meta section dynamically, skipping "-" values
+    let mut meta_lines = vec![
+        format!(r#"        title "{}""#, pm_name),
+        format!(r#"        description "{}""#, description),
+    ];
+    
+    if version != "-" {
+        meta_lines.push(format!(r#"        version "{}""#, version));
+    }
+    
+    if author != "-" {
+        meta_lines.push(format!(r#"        author "{}""#, author));
+    }
+    
+    meta_lines.push(format!(r#"        maintained "{}""#, maintained));
+    meta_lines.push(format!(r#"        tags "package-manager" "{}""#, name));
+    
+    if url != "-" {
+        meta_lines.push(format!(r#"        url "{}""#, url));
+    }
+    
+    if homepage != "-" {
+        meta_lines.push(format!(r#"        homepage "{}""#, homepage));
+    }
+    
+    if license != "-" {
+        meta_lines.push(format!(r#"        license "{}""#, license));
+    }
+    
+    meta_lines.push(format!(r#"        created "{}""#, current_date));
+    meta_lines.push(r#"        platforms "linux""#.to_string());
+    meta_lines.push(format!(r#"        requires "{}""#, binary));
+    
+    if install_guide != "-" {
+        meta_lines.push(format!(r#"        install-guide "{}""#, install_guide));
+    }
+
+    let meta_section = meta_lines.join("\n");
+    
+    // Build fallback section if needed
+    let fallback_section = fallback.map(|fb| {
+        format!(r#"
+    // Fallback backend if binary not found
+    fallback "{}"
+"#, fb)
+    }).unwrap_or_default();
+
+    // Special template for AUR helpers (paru/yay)
+    if name == "aur" || name == "paru" || name == "yay" {
+        return format!(
+            r#"// {name} - AUR Helper
+// 
+// Supports paru/yay as primary, with pacman as ultimate fallback.
+
+backend "{name}" {{
+    meta {{
+{meta_section}
+    }}
+    
+    // Try paru first, then yay
+    binary "paru" "yay"
+    
+    // List all installed packages (official repo + AUR)
+    // Use -Q (all) instead of -Qm (AUR only) for broader package detection
+    list "{{binary}} -Q" {{
+        format whitespace
+        name_col 0
+    }}
+    
+    // Install from AUR or official repos
+    install "{{binary}} -S --needed {{packages}}"
+    
+    // Remove packages
+    remove "{{binary}} -R {{packages}}"
+    
+    // Search packages
+    // search "{{binary}} -Ss {{query}}" {{
+    //     format whitespace
+    //     name_col 0
+    //     desc_col 1
+    // }}
+    
+    // Auto-confirmation (use with caution)
+    // noconfirm "--noconfirm"
+    
+    // Fallback chain: aur -> pacman (if no AUR helper installed)
+    fallback "pacman"
+}}
+"#,
+            name = name,
+            meta_section = meta_section
+        );
+    }
 
     format!(
         r#"// {name} - {description}
@@ -323,16 +461,7 @@ fn generate_backend_template(name: &str) -> String {
 
 backend "{name}" {{
     meta {{
-        title "{pm_name}"
-        description "{description}"
-        version "1.0.0"
-        author "declarch-user"
-        tags "package-manager" "{name}"
-{homepage_line}
-        license "Unknown"
-        created "{date}"
-        platforms "linux"
-        requires "{binary}"
+{meta_section}
     }}
     
     // The binary to use (can specify multiple alternatives)
@@ -364,21 +493,18 @@ backend "{name}" {{
     
     // Whether this backend requires sudo (optional)
     // needs_sudo true
-    
-    // Fallback backend if binary not found (optional, v0.6+)
-    // fallback "apt"
+{fallback_section}
 }}
 "#,
         name = name,
-        pm_name = pm_name,
         description = description,
         binary = binary,
-        date = current_date,
-        homepage_line = homepage_line
+        meta_section = meta_section,
+        fallback_section = fallback_section
     )
 }
 
-fn init_module(target_path: &str, force: bool) -> Result<()> {
+fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Result<()> {
     output::header("Importing Module");
 
     let root_dir = paths::config_dir()?;
@@ -431,20 +557,39 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
         .to_string_lossy()
         .to_string();
 
+    // Check if user requested a namespaced module (e.g., "category/name")
+    let is_registry_path = target_path.contains('/') || target_path.contains('\\');
+
     // STRATEGY A: Hardcoded Template (Fastest, Offline)
     let content = if let Some(local_tmpl) = utils::templates::get_template_by_name(&slug) {
         local_tmpl
     }
-    // STRATEGY B: Remote Registry (The "Marketplace")
-    else {
-        // Use the full target_path (e.g., "hyprland/niri-nico") for remote fetch
+    // STRATEGY B: Remote Registry (The "Marketplace") - skip if --local flag
+    else if is_registry_path && !local {
+        // User explicitly requested a registry module - fail if not found
         match remote::fetch_module_content(target_path) {
             Ok(remote_content) => remote_content,
             Err(e) => {
-                output::warning(&format!("Remote fetch failed: {}", e));
-                utils::templates::default_module(&slug)
+                return Err(DeclarchError::ConfigError(format!(
+                    "Failed to fetch module '{}' from registry: {}\n\n\
+                    Try one of these alternatives:\n\
+                    1. List available modules:    declarch init --list modules\n\
+                    2. Create local module:       declarch init --local {}\n\
+                    3. Use simple name:           declarch init {}",
+                    target_path, e, slug, slug
+                )));
             }
         }
+    }
+    // STRATEGY C: Create new local module from template
+    else {
+        // User just wants to create a new module locally (or --local flag used)
+        if local {
+            output::info(&format!("Creating local module: {}", slug));
+        } else {
+            output::info(&format!("Creating new local module: {}", slug));
+        }
+        utils::templates::default_module(&slug)
     };
 
     // Display module meta information before proceeding
@@ -456,7 +601,7 @@ fn init_module(target_path: &str, force: bool) -> Result<()> {
     // 5. AUTO INJECT IMPORT
     let root_config_path = paths::config_file()?;
     let import_path = modules_path.to_string_lossy().replace("\\", "/");
-    inject_import_to_root(&root_config_path, &import_path, force)?;
+    inject_import_to_root(&root_config_path, &import_path, force, yes)?;
 
     output::success("Done");
 
@@ -521,7 +666,7 @@ fn display_module_meta(content: &str) {
 }
 
 /// Helper to inject the import statement into main config file using Regex
-fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> Result<()> {
+fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool, yes: bool) -> Result<()> {
     let content = fs::read_to_string(config_path)?;
 
     // Pattern to insert: "path/to/module.{extension}"
@@ -539,8 +684,8 @@ fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> 
         return Ok(());
     }
 
-    // Prompt for consent unless force is active
-    if !force
+    // Prompt for consent unless force or yes is active
+    if !force && !yes
         && !output::prompt_yes_no(&format!(
             "Add '{}' to imports in {}?",
             import_path, CONFIG_FILE_NAME
@@ -574,5 +719,103 @@ fn inject_import_to_root(config_path: &Path, import_path: &str, force: bool) -> 
 
     fs::write(config_path, new_content)?;
 
+    Ok(())
+}
+
+
+/// List available backends from the registry
+pub fn list_available_backends() -> Result<()> {
+    output::header("Available Backends");
+    
+    // Static list of known backends in the registry
+    // This could be fetched dynamically from the registry API in the future
+    let backends = vec![
+        ("apt", "Debian/Ubuntu package manager", vec!["debian", "ubuntu", "linux"]),
+        ("aur", "Meta backend for AUR (paru→yay→pacman fallback)", vec!["arch", "linux", "meta"]),
+        ("brew", "Homebrew for macOS/Linux", vec!["macos", "linux", "homebrew"]),
+        ("bun", "Fast JavaScript toolkit", vec!["nodejs", "javascript", "fast"]),
+        ("cargo", "Rust package manager", vec!["rust", "build-system"]),
+        ("dnf", "Fedora/RHEL package manager", vec!["fedora", "rhel", "linux"]),
+        ("flatpak", "Universal Linux apps", vec!["linux", "universal", "desktop"]),
+        ("gem", "Ruby package manager", vec!["ruby", "gems"]),
+        ("go", "Go package installer", vec!["go", "golang"]),
+        ("nix", "Nix functional package manager", vec!["nix", "nixos", "functional"]),
+        ("npm", "Node.js package manager", vec!["nodejs", "javascript"]),
+        ("pacman", "Arch Linux native package manager", vec!["arch", "linux", "native"]),
+        ("paru", "Feature-packed AUR helper", vec!["arch", "linux", "aur", "rust"]),
+        ("pip", "Python package installer", vec!["python", "pypi"]),
+        ("pnpm", "Fast, disk space efficient package manager", vec!["nodejs", "javascript", "fast"]),
+        ("snap", "Universal packages by Canonical", vec!["linux", "universal", "canonical"]),
+        ("soar", "Static binary package manager", vec!["linux", "static", "fast"]),
+        ("yarn", "Fast, reliable dependency management", vec!["nodejs", "javascript"]),
+        ("yay", "Yet Another Yogurt AUR helper", vec!["arch", "linux", "aur", "go"]),
+    ];
+    
+    println!();
+    println!("{}", "System Package Managers:".bold().cyan());
+    for (name, desc, _) in &backends {
+        if vec!["apt", "aur", "dnf", "pacman", "paru", "yay", "flatpak", "snap", "nix", "soar", "brew"].contains(name) {
+            println!("  {} - {}", name.bold(), desc.dimmed());
+        }
+    }
+    
+    println!();
+    println!("{}", "Language-Specific Package Managers:".bold().cyan());
+    for (name, desc, _) in &backends {
+        if vec!["npm", "yarn", "pnpm", "bun", "pip", "cargo", "gem", "go"].contains(name) {
+            println!("  {} - {}", name.bold(), desc.dimmed());
+        }
+    }
+    
+    println!();
+    output::info("To initialize a backend:");
+    println!("  {}        Initialize single backend", "declarch init --backend <name>".green());
+    println!("  {}  Initialize multiple backends", "declarch init --backend a,b,c".green());
+    println!("  {}        Initialize with auto-yes", "declarch init --backend <name> -y".green());
+    
+    Ok(())
+}
+
+/// List available modules from the registry
+pub fn list_available_modules() -> Result<()> {
+    output::header("Available Modules");
+    
+    // Static list of known modules in the registry
+    // This could be fetched dynamically from the registry API in the future
+    let modules = vec![
+        ("system/base", "Essential packages for any Linux system", vec!["base", "essential", "core"]),
+        ("desktop/hyprland", "Hyprland Wayland compositor setup", vec!["desktop", "wayland", "hyprland"]),
+        ("apps/flatpak-common", "Common GUI applications via Flatpak", vec!["apps", "gui", "flatpak"]),
+        ("development/nodejs", "Node.js development environment", vec!["dev", "nodejs", "javascript"]),
+        ("dev/rust", "Rust development tools", vec!["dev", "rust", "cargo"]),
+        ("apps/multimedia", "Multimedia applications", vec!["apps", "media", "audio", "video"]),
+    ];
+    
+    // Group by category
+    let mut by_category: std::collections::HashMap<&str, Vec<&(&str, &str, Vec<&str>)>> = std::collections::HashMap::new();
+    for m in &modules {
+        let category = m.0.split('/').next().unwrap_or("other");
+        by_category.entry(category).or_default().push(m);
+    }
+    
+    println!();
+    for (category, cat_modules) in by_category {
+        println!("{}", format!("{}/", category).bold().cyan());
+        for (name, desc, tags) in cat_modules {
+            let module_name = name.split('/').nth(1).unwrap_or(name);
+            println!("  {} - {} {}", 
+                module_name.bold(), 
+                desc.dimmed(),
+                format!("[{}]", tags.join(", ")).purple().dimmed()
+            );
+        }
+        println!();
+    }
+    
+    output::info("To initialize a module:");
+    println!("  {}     Initialize from registry", "declarch init <category>/<name>".green());
+    println!("  {}          Create local module", "declarch init --local <name>".green());
+    println!("  {}             Auto-confirm import", "declarch init <module> -y".green());
+    
     Ok(())
 }

@@ -1,25 +1,25 @@
 //! Package Identity Module
 //!
-//! Handles package identity resolution, especially for Arch/AUR "provides" relationships
+//! Handles package identity resolution for system package managers with "provides" relationships
 //! and variant detection (e.g., hyprland vs hyprland-git).
 //!
 //! # Problem
 //!
-//! In Arch/AUR, a package can provide a different name than its package name:
+//! In system package managers (pacman, apt, etc.), a package can provide a different name:
 //! - Package: `pipewire-full` → Provides: `pipewire`
 //! - Package: `python-poetry-core` → Provides: `python-poetry`
 //!
 //! This causes issues when tracking packages because:
 //! - Config says: `pipewire`
-//! - AUR installs: `pipewire-full`
+//! - System installs: `pipewire-full`
 //! - `pacman -Q` shows: `pipewire` (the provided name)
 //!
 //! # Solution
 //!
 //! Track multiple identities:
 //! - **config_name**: What user wrote in config (e.g., "hyprland")
-//! - **provides_name**: What `pacman -Q` shows (e.g., "hyprland")
-//! - **aur_package_name**: Actual AUR package (e.g., "hyprland-git")
+//! - **provides_name**: What package manager shows (e.g., "hyprland")
+//! - **actual_package_name**: Actual package installed (e.g., "hyprland-git")
 //!
 //! Then use provides_name as the primary identity for matching.
 
@@ -29,7 +29,7 @@ use std::fmt;
 /// Identity of a package across different contexts
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PackageIdentity {
-    /// Backend (aur, flatpak, etc.)
+    /// Backend (system package manager, flatpak, etc.)
     pub backend: Backend,
 
     /// Name from config file (what user wrote)
@@ -39,10 +39,10 @@ pub struct PackageIdentity {
     /// This is the primary identity for matching
     pub provides_name: String,
 
-    /// Actual AUR/Flatpak package name
-    /// For AUR: this might differ from provides_name
-    /// For Flatpak: usually the same as provides_name
-    pub aur_package_name: Option<String>,
+    /// Actual system package name
+    /// This might differ from provides_name when package has a different install name
+    /// e.g., google-chrome-stable vs google-chrome
+    pub actual_package_name: Option<String>,
 }
 
 impl PackageIdentity {
@@ -51,31 +51,31 @@ impl PackageIdentity {
     /// When user writes package in config, we start with:
     /// - config_name = what user wrote
     /// - provides_name = same as config (we'll discover the actual later)
-    /// - aur_package_name = None (unknown until we query system)
+    /// - actual_package_name = None (unknown until we query system)
     pub fn from_config(config_name: String, backend: Backend) -> Self {
         Self {
             backend,
             config_name: config_name.clone(),
             provides_name: config_name,
-            aur_package_name: None,
+            actual_package_name: None,
         }
     }
 
     /// Create identity from installed package
     ///
     /// When we discover what's actually installed:
-    /// - provides_name: what `pacman -Q` shows
-    /// - aur_package_name: the actual package name
+    /// - provides_name: what package manager shows
+    /// - actual_package_name: the actual package name
     pub fn from_installed(
         provides_name: String,
-        aur_package_name: Option<String>,
+        actual_package_name: Option<String>,
         backend: Backend,
     ) -> Self {
         Self {
             backend,
             config_name: provides_name.clone(), // Assume matches initially
             provides_name,
-            aur_package_name,
+            actual_package_name,
         }
     }
 
@@ -91,14 +91,14 @@ impl PackageIdentity {
 
     /// Check if this is a variant transition (same package, different variant)
     ///
-    /// Variant transition = same provides_name but different aur_package_name
+    /// Variant transition = same provides_name but different actual_package_name
     /// Example: hyprland → hyprland-git
     pub fn is_variant_transition(&self, other: &Self) -> bool {
         if self.provides_name != other.provides_name {
             return false;
         }
 
-        match (&self.aur_package_name, &other.aur_package_name) {
+        match (&self.actual_package_name, &other.actual_package_name) {
             (Some(a), Some(b)) => a != b,
             _ => false,
         }
@@ -121,9 +121,9 @@ impl PackageIdentity {
 
     /// Get display name for user messages
     pub fn display_name(&self) -> String {
-        if let Some(aur_pkg) = &self.aur_package_name {
-            if aur_pkg != &self.provides_name {
-                format!("{} (installed as {})", self.config_name, aur_pkg)
+        if let Some(actual) = &self.actual_package_name {
+            if actual != &self.provides_name {
+                format!("{} (installed as {})", self.config_name, actual)
             } else {
                 self.config_name.clone()
             }
@@ -135,9 +135,9 @@ impl PackageIdentity {
 
 impl fmt::Display for PackageIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.aur_package_name {
-            Some(aur) if aur != &self.provides_name => {
-                write!(f, "{} [{}]", self.config_name, aur)
+        match &self.actual_package_name {
+            Some(actual) if actual != &self.provides_name => {
+                write!(f, "{} [{}]", self.config_name, actual)
             }
             _ => write!(f, "{}", self.config_name),
         }
@@ -154,7 +154,7 @@ mod tests {
 
         assert_eq!(identity.config_name, "hyprland");
         assert_eq!(identity.provides_name, "hyprland");
-        assert_eq!(identity.aur_package_name, None);
+        assert_eq!(identity.actual_package_name, None);
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
 
         assert_eq!(identity.config_name, "hyprland");
         assert_eq!(identity.provides_name, "hyprland");
-        assert_eq!(identity.aur_package_name, Some("hyprland-git".to_string()));
+        assert_eq!(identity.actual_package_name, Some("hyprland-git".to_string()));
     }
 
     #[test]

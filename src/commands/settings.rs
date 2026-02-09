@@ -93,6 +93,6 @@ fn show_all_settings(settings: &Settings) {
     println!("  verbose:      true, false");
     println!("  editor:       <editor-command> (e.g., nvim, code, vim)");
     println!("  compact:      true, false");
-    println!("  backends:     comma-separated list (aur,flatpak,soar,npm,cargo,pip,brew,etc)");
+    println!("  backends:     comma-separated list (paru,flatpak,soar,npm,cargo,pip,brew,etc)");
     println!("  backend_mode: auto, enabled-only");
 }

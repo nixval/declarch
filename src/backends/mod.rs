@@ -58,7 +58,7 @@
 //! - No special initialization needed
 //!
 //! **Use Custom Implementation** (`packages/` module) when:
-//! - Package manager requires complex logic (AUR helpers, Flatpak remotes)
+//! - Package manager requires complex logic (system package helpers, Flatpak remotes)
 //! - Special detection or initialization needed
 //! - Non-standard command patterns
 //! - Backend-specific features required

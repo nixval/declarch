@@ -171,7 +171,7 @@ mod tests {
                     backend: backend.clone(),
                     config_name: name.to_string(),
                     provides_name: name.to_string(),
-                    aur_package_name: None,
+                    actual_package_name: None,
                     installed_at: Utc::now(),
                     version: Some(version.to_string()),
                 },

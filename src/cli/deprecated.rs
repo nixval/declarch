@@ -16,6 +16,9 @@ pub fn handle_deprecated_sync_flags(
     prune: bool,
     gc: bool,
 ) -> (bool, SyncCommand, &'static str) {
+    // Check if any deprecated flag is actually used
+    let has_deprecated_flags = dry_run || update || prune;
+    
     let deprecated_command = if dry_run {
         SyncCommand::Preview {
             gc,
@@ -57,7 +60,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Sync { .. } => "declarch sync",
     };
 
-    (true, deprecated_command, new_cmd)
+    (has_deprecated_flags, deprecated_command, new_cmd)
 }
 
 /// Convert deprecated check flags to CheckCommand

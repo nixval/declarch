@@ -1,7 +1,7 @@
 /// Default global configuration
 pub fn default_config() -> String {
     r#"// Global declarch configuration
-aur_helper "paru"
+// Add global settings here
 "#
     .to_string()
 }
@@ -29,7 +29,7 @@ imports {{
 }}
 
 // === PACKAGES ===
-packages {{
+pkg {{
     // Uncomment packages to install them
     // Example packages:
     // hyprland
@@ -44,16 +44,16 @@ packages {{
 // }}
 
 // === BACKEND OPTIONS ===
-// options:aur {{
+// options:paru {{
 //     noconfirm
 // }}
 
 // === ENVIRONMENT VARIABLES ===
 // env EDITOR="nvim" VISUAL="nvim"
-// env:aur MAKEFLAGS="-j4"
+// env:paru MAKEFLAGS="-j4"
 
 // === REPOSITORIES ===
-// repos:aur {{
+// repos:paru {{
 //     "https://aur.archlinux.org"
 // }}
 
@@ -68,7 +68,7 @@ packages {{
 
 // === HOOKS ===
 // Note: Hooks are disabled by default for security.
-// Use --hooks flag to enable: dc sync --hooks
+// Use --hooks flag to enable: declarch sync --hooks
 //
 // on-sync "notify-send 'Packages updated'"
 // on-sync-sudo "systemctl restart gdm"
@@ -92,7 +92,7 @@ meta {{
     author "nixval"
 }}
 
-packages {{
+pkg {{
     // Add packages here
     // zsh
     // git
@@ -120,13 +120,16 @@ meta {
     tags "base" "essential"
 }
 
-// Uncomment packages to install them
-packages {
-    // bat         // Better cat with syntax highlighting
-    // exa         // Better ls with colors
-    // fd          // Better find command
-    // ripgrep     // Faster grep alternative
-    // zoxide      // Smart cd command
+// Essential packages for modern terminal experience
+pkg:aur {
+    bat         // Better cat with syntax highlighting
+    eza         // Better ls with colors (modern replacement for exa)
+    fd          // Better find command
+    ripgrep     // Faster grep alternative
+    zoxide      // Smart cd command
+    git         // Version control
+    curl        // Data transfer tool
+    wget        // Data transfer tool
 }
 "#
             .to_string(),
@@ -144,7 +147,7 @@ meta {
     tags "development" "tools"
 }
 
-packages {
+pkg {
     // mise        // Version manager for various tools
     // lazydocker  // Docker TUI
 }

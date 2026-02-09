@@ -185,8 +185,8 @@ pub fn run(
             }
 
             println!("\n{}", "Example:".bold());
-            println!("  If 'claude-cli' exists in both AUR and npm:");
-            println!("    • AUR installs to: {}", "/usr/bin/claude-cli".dimmed());
+            println!("  If 'claude-cli' exists in both system packages and npm:");
+            println!("    • System package installs to: {}", "/usr/bin/claude-cli".dimmed());
             println!(
                 "    • npm installs to:  {}",
                 "~/.npm-global/bin/claude-cli".dimmed()
@@ -268,7 +268,7 @@ fn show_diff(config: &loader::MergedConfig) -> Result<()> {
     }
 
     println!();
-    output::info("Run 'dcl sync' to apply these changes");
+    output::info("Run 'declarch sync' to apply these changes");
 
     Ok(())
 }

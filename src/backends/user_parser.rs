@@ -36,8 +36,17 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                     // Resolve relative path from config directory
                     if let Ok(config_dir) = crate::utils::paths::config_dir() {
                         let import_path = config_dir.join(path_val);
-                        if let Ok(Some(config)) = load_backend_file(&import_path) {
-                            backends.push(config);
+                        match load_backend_file(&import_path) {
+                            Ok(Some(config)) => {
+                                backends.push(config);
+                            }
+                            Ok(None) => {
+                                // File doesn't exist, skip
+                            }
+                            Err(e) => {
+                                eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                // Continue loading other backends
+                            }
                         }
                     }
                 }
@@ -107,7 +116,7 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "remove" => parse_remove_cmd(child, &mut config)?,
                 "search" => parse_search_cmd(child, &mut config)?,
                 "noconfirm" => parse_noconfirm(child, &mut config)?,
-                "needs_sudo" => config.needs_sudo = parse_bool(child)?,
+                "needs_sudo" | "sudo" => config.needs_sudo = parse_bool(child)?,
                 "env" => parse_env(child, &mut config)?,
                 "fallback" => parse_fallback(child, &mut config)?,
                 _ => {
@@ -215,6 +224,40 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         .and_then(|entry| entry.value().as_string())
                         .map(|s| s.to_string());
                 }
+                // Nested json block: json { path "..." name_key "..." version_key "..." }
+                "json" => {
+                    if let Some(json_children) = child.children() {
+                        for json_child in json_children.nodes() {
+                            match json_child.name().value() {
+                                "path" => {
+                                    config.list_json_path = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "name_key" => {
+                                    config.list_name_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "version_key" => {
+                                    config.list_version_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "desc_key" => {
+                                    // Store somewhere if needed for search
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
                 "name_col" => {
                     config.list_name_col = child.entries().first().and_then(|entry| {
                         // Try as string first, then as integer representation
@@ -241,7 +284,60 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                             })
                     });
                 }
-                "regex" | "pattern" | "regex_pat" | "myregex" => {
+                // Handle nested regex block: regex { pattern "..." name_group 1 }
+                "regex" => {
+                    // Check if regex has children (nested format)
+                    if let Some(regex_children) = child.children() {
+                        for regex_child in regex_children.nodes() {
+                            match regex_child.name().value() {
+                                "pattern" => {
+                                    config.list_regex = regex_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "name_group" => {
+                                    config.list_regex_name_group = regex_child.entries().first().and_then(|entry| {
+                                        entry
+                                            .value()
+                                            .as_string()
+                                            .and_then(|s| s.parse::<usize>().ok())
+                                            .or_else(|| {
+                                                let val_str = entry.value().to_string();
+                                                val_str.parse::<usize>().ok()
+                                            })
+                                    });
+                                }
+                                "version_group" => {
+                                    config.list_regex_version_group = regex_child.entries().first().and_then(|entry| {
+                                        entry
+                                            .value()
+                                            .as_string()
+                                            .and_then(|s| s.parse::<usize>().ok())
+                                            .or_else(|| {
+                                                let val_str = entry.value().to_string();
+                                                val_str.parse::<usize>().ok()
+                                            })
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    // Also support flat format: regex "pattern"
+                    if config.list_regex.is_none() {
+                        if let Some(pattern) = child
+                            .entries()
+                            .first()
+                            .and_then(|entry| entry.value().as_string())
+                        {
+                            config.list_regex = Some(pattern.to_string());
+                        }
+                    }
+                }
+                // Flat format (legacy support)
+                "pattern" | "regex_pat" | "myregex" => {
                     config.list_regex = child
                         .entries()
                         .first()
@@ -393,6 +489,44 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         .and_then(|entry| entry.value().as_string())
                         .map(|s| s.to_string());
                 }
+                // Nested json block for search: json { path "..." name_key "..." }
+                "json" => {
+                    if let Some(json_children) = child.children() {
+                        for json_child in json_children.nodes() {
+                            match json_child.name().value() {
+                                "path" => {
+                                    config.search_json_path = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "name_key" => {
+                                    config.search_name_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "version_key" => {
+                                    config.search_version_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "desc_key" => {
+                                    config.search_desc_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
                 "name_col" => {
                     config.search_name_col = child.entries().first().and_then(|entry| {
                         entry
@@ -436,13 +570,25 @@ fn parse_fallback(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 }
 
 /// Parse boolean value
+/// Accepts both boolean literals (true/false) and strings ("true"/"false")
 fn parse_bool(node: &KdlNode) -> Result<bool> {
-    node.entries()
-        .first()
-        .and_then(|entry| entry.value().as_bool())
-        .ok_or_else(|| {
-            DeclarchError::Other("Boolean value required. Usage: needs_sudo true".to_string())
-        })
+    let entry = node.entries().first();
+    
+    // Try as boolean literal first
+    if let Some(val) = entry.and_then(|e| e.value().as_bool()) {
+        return Ok(val);
+    }
+    
+    // Try as string "true" or "false"
+    if let Some(s) = entry.and_then(|e| e.value().as_string()) {
+        match s.to_lowercase().as_str() {
+            "true" => return Ok(true),
+            "false" => return Ok(false),
+            _ => {}
+        }
+    }
+    
+    Err(DeclarchError::Other("Boolean value required. Usage: needs_sudo true or needs_sudo \"true\"".to_string()))
 }
 
 /// Parse environment variables

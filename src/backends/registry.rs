@@ -51,8 +51,18 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
             
             // Only process .kdl files
             if path.extension().map(|e| e == "kdl").unwrap_or(false) {
-                if let Some(config) = load_backend_file(&path)? {
-                    backends.insert(config.name.clone(), config);
+                match load_backend_file(&path) {
+                    Ok(Some(config)) => {
+                        backends.insert(config.name.clone(), config);
+                    }
+                    Ok(None) => {
+                        // File doesn't exist or empty
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Failed to load backend file '{}': {}", 
+                            path.display(), e);
+                        // Continue loading other backends
+                    }
                 }
             }
         }

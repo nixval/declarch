@@ -77,6 +77,7 @@ pub fn resolve_installed_package_name(
 }
 
 /// Check if a package name looks like a variant (has known suffix)
+#[allow(dead_code)]
 pub fn is_variant(package_name: &str) -> bool {
     VARIANT_SUFFIXES.iter().any(|suffix| package_name.ends_with(suffix))
 }

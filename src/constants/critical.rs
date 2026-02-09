@@ -7,7 +7,7 @@
 /// - future: docs generation
 ///
 /// Only packages critical to system operation are included.
-/// User-choice packages (AUR helpers like paru, yay) are NOT included.
+/// User-choice packages (system package manager helpers like paru, yay) are NOT included.
 pub const ALL: &[&str] = &[
     // Kernels & base (6)
     "linux",

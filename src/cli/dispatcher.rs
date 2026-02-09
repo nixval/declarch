@@ -5,7 +5,7 @@
 
 use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand};
 use crate::commands;
-use crate::error::Result;
+use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 
 use super::deprecated::{
@@ -20,13 +20,31 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             host,
             path,
             backend,
+            yes,
+            list,
+            local,
         }) => {
+            // Handle --list flag first
+            if let Some(what) = list {
+                if what == "backends" {
+                    return commands::init::list_available_backends();
+                } else if what == "modules" {
+                    return commands::init::list_available_modules();
+                } else {
+                    return Err(DeclarchError::Other(format!(
+                        "Unknown list target: '{}'. Available: backends, modules",
+                        what
+                    )));
+                }
+            }
+            
             commands::init::run(commands::init::InitOptions {
                 host: host.clone(),
                 path: path.clone(),
-                backend: backend.clone(),
+                backends: backend.clone(),
                 force: args.global.force,
-                skip_soar_install: false, // Deprecated, kept for compatibility
+                yes: *yes,
+                local: *local,
             })
         }
 

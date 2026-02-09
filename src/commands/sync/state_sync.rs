@@ -51,7 +51,7 @@ pub fn update_state(
                 backend: pkg.backend.clone(),
                 config_name: pkg.name.clone(),
                 provides_name: pkg.name.clone(),
-                aur_package_name: None, // Deprecated field, kept for compatibility
+                actual_package_name: None, // Actual system package name, if different
                 installed_at: Utc::now(),
                 version,
             },

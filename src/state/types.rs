@@ -35,10 +35,12 @@ pub struct PackageState {
     #[serde(default)]
     pub provides_name: String,
 
-    /// Actual AUR package name (if different from provides_name)
-    /// None for flatpak or when aur_package_name == provides_name
+    /// Actual system package name (if different from provides_name)
+    /// None for flatpak/npm/etc or when actual == provides_name
+    /// Previously called aur_package_name for backward compatibility
     #[serde(default)]
-    pub aur_package_name: Option<String>,
+    #[serde(alias = "aur_package_name")]
+    pub actual_package_name: Option<String>,
 
     pub installed_at: DateTime<Utc>,
     pub version: Option<String>,
@@ -51,7 +53,7 @@ impl Default for PackageState {
             backend: Backend::from("unknown"),
             config_name: String::new(),
             provides_name: String::new(),
-            aur_package_name: None,
+            actual_package_name: None,
             installed_at: Utc::now(),
             version: None,
         }
@@ -65,7 +67,7 @@ impl PackageState {
             backend,
             config_name: config_name.clone(),
             provides_name: config_name,
-            aur_package_name: None,
+            actual_package_name: None,
             installed_at: Utc::now(),
             version,
         }
@@ -75,10 +77,10 @@ impl PackageState {
     pub fn with_installed_info(
         mut self,
         provides_name: String,
-        aur_package_name: Option<String>,
+        actual_package_name: Option<String>,
     ) -> Self {
         self.provides_name = provides_name;
-        self.aur_package_name = aur_package_name;
+        self.actual_package_name = actual_package_name;
         self
     }
 

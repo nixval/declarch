@@ -2,39 +2,24 @@
 //!
 //! Smart matching logic to find packages across variants and naming schemes.
 //!
-//! # Problem
-//!
-//! In Arch/AUR, packages can have multiple variants:
-//! - hyprland, hyprland-git, hyprland-bin
-//! - pipewire, pipewire-full, pipewire-jack2
-//!
-//! Users specify the base name, but the system might have a variant installed.
-//!
-//! # Solution
-//!
-//! Smart matching strategies:
-//! 1. Exact match
-//! 2. Suffix matching (try common variants)
-//! 3. Prefix matching (strip suffixes)
-//! 4. Fuzzy matching (for Flatpak)
+//! Works with any backend - variant detection is generic, not AUR-specific.
 
-use crate::core::types::{Backend, PackageId, PackageMetadata};
+use crate::core::types::{PackageId, PackageMetadata};
 use std::collections::HashMap;
 
-/// Common AUR package suffixes
-const AUR_SUFFIXES: &[&str] = &[
+/// Common package variant suffixes
+/// These apply to any backend that supports variants (not just AUR)
+const VARIANT_SUFFIXES: &[&str] = &[
     "-bin", "-git", "-hg", "-nightly", "-beta", "-wayland", "-fs", "-alpha", "-rc", "-pre",
 ];
 
 /// Smart matcher for finding packages across variants
-pub struct PackageMatcher {
-    // Future: add configurable suffixes, aliases, etc.
-}
+pub struct PackageMatcher;
 
 impl PackageMatcher {
     /// Create new matcher
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 
     /// Find a package in the installed snapshot using smart matching
@@ -50,41 +35,46 @@ impl PackageMatcher {
             return Some(target.clone());
         }
 
-        match target.backend.0.as_str() {
-            "aur" => self.find_aur_package(target, installed_snapshot),
-            "flatpak" => self.find_flatpak_package(target, installed_snapshot),
-            _ => {
-                // These backends require exact matching (no variants)
-                None
-            }
+        // Strategy 2: Variant matching (suffix/prefix) - works for any backend
+        if let Some(variant) = self.find_variant_match(target, installed_snapshot) {
+            return Some(variant);
         }
+
+        // Strategy 3: Fuzzy/substring matching - useful for long package IDs (flatpak-style)
+        if let Some(fuzzy) = self.find_fuzzy_match(target, installed_snapshot) {
+            return Some(fuzzy);
+        }
+
+        None
     }
 
-    /// Find AUR package using suffix and prefix matching
-    fn find_aur_package(
+    /// Find variant match using suffix and prefix matching
+    /// Works for any backend, not just AUR
+    fn find_variant_match(
         &self,
         target: &PackageId,
         installed_snapshot: &HashMap<PackageId, PackageMetadata>,
     ) -> Option<PackageId> {
-        // Strategy A: Try suffixes
-        for suffix in AUR_SUFFIXES {
+        let backend = &target.backend;
+
+        // Strategy A: Try adding suffixes to target name
+        for suffix in VARIANT_SUFFIXES {
             let alt_name = format!("{}{}", target.name, suffix);
             let alt_id = PackageId {
                 name: alt_name,
-                backend: Backend::from("aur"),
+                backend: backend.clone(),
             };
             if installed_snapshot.contains_key(&alt_id) {
                 return Some(alt_id);
             }
         }
 
-        // Strategy B: Try prefix (strip suffix from target)
-        // Only strip if the suffix is a known variant suffix
-        for suffix in AUR_SUFFIXES {
+        // Strategy B: Try stripping suffixes from target name
+        for suffix in VARIANT_SUFFIXES {
             if let Some(base) = target.name.strip_suffix(suffix) {
                 let alt_id = PackageId {
                     name: base.to_string(),
-                    backend: Backend::from("aur"),
+                    backend: backend.clone(),
                 };
                 if installed_snapshot.contains_key(&alt_id) {
                     return Some(alt_id);
@@ -95,22 +85,27 @@ impl PackageMatcher {
         None
     }
 
-    /// Find Flatpak package using fuzzy matching
-    fn find_flatpak_package(
+    /// Find fuzzy match using substring matching
+    /// Useful for backends with long package IDs (e.g., com.spotify.Client)
+    fn find_fuzzy_match(
         &self,
         target: &PackageId,
         installed_snapshot: &HashMap<PackageId, PackageMetadata>,
     ) -> Option<PackageId> {
-        // Strategy C: Fuzzy match
-        // Config: "spotify" -> System: "com.spotify.Client"
         let search = target.name.to_lowercase();
+        let backend = &target.backend;
 
         for installed_id in installed_snapshot.keys() {
-            if installed_id.backend.0 == "flatpak" {
-                let installed_name = installed_id.name.to_lowercase();
-                if installed_name.contains(&search) {
-                    return Some(installed_id.clone());
-                }
+            // Only match within same backend
+            if &installed_id.backend != backend {
+                continue;
+            }
+
+            let installed_name = installed_id.name.to_lowercase();
+            
+            // Check if one contains the other
+            if installed_name.contains(&search) || search.contains(&installed_name) {
+                return Some(installed_id.clone());
             }
         }
 
@@ -130,25 +125,11 @@ impl PackageMatcher {
             return true;
         }
 
-        match pkg1.backend.0.as_str() {
-            "aur" => {
-                // Check if one is suffix of the other
-                self.is_variant_match(pkg1, pkg2)
-            }
-            "flatpak" => {
-                // Check if one name contains the other
-                let name1 = pkg1.name.to_lowercase();
-                let name2 = pkg2.name.to_lowercase();
-                name1.contains(&name2) || name2.contains(&name1)
-            }
-            _ => {
-                // These backends require exact matching
-                false
-            }
-        }
+        // Check if one is variant of the other
+        self.is_variant_match(pkg1, pkg2)
     }
 
-    /// Check if two AUR package names are variants of each other
+    /// Check if two package names are variants of each other
     fn is_variant_match(&self, pkg1: &PackageId, pkg2: &PackageId) -> bool {
         // Strip suffixes from both and compare
         let base1 = self.strip_suffix(&pkg1.name);
@@ -159,7 +140,7 @@ impl PackageMatcher {
 
     /// Strip known suffixes from package name
     fn strip_suffix(&self, name: &str) -> String {
-        for suffix in AUR_SUFFIXES {
+        for suffix in VARIANT_SUFFIXES {
             if let Some(base) = name.strip_suffix(suffix) {
                 return base.to_string();
             }
@@ -171,7 +152,7 @@ impl PackageMatcher {
     pub fn get_variants(&self, base_name: &str) -> Vec<String> {
         let mut variants = vec![base_name.to_string()];
 
-        for suffix in AUR_SUFFIXES {
+        for suffix in VARIANT_SUFFIXES {
             variants.push(format!("{}{}", base_name, suffix));
         }
 
@@ -188,6 +169,7 @@ impl Default for PackageMatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::types::Backend;
     use chrono::Utc;
 
     fn mock_metadata() -> PackageMetadata {
@@ -287,5 +269,27 @@ mod tests {
         };
 
         assert!(!matcher.is_same_package(&pkg1, &pkg2));
+    }
+
+    #[test]
+    fn test_variant_detection_works_for_any_backend() {
+        let matcher = PackageMatcher::new();
+        let mut snapshot = HashMap::new();
+
+        // Test with a custom backend (not just aur)
+        let git_pkg = PackageId {
+            name: "myapp-git".to_string(),
+            backend: Backend::from("custom"),
+        };
+        snapshot.insert(git_pkg.clone(), mock_metadata());
+
+        let target = PackageId {
+            name: "myapp".to_string(),
+            backend: Backend::from("custom"),
+        };
+
+        let result = matcher.find_package(&target, &snapshot);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().name, "myapp-git");
     }
 }

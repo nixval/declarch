@@ -47,22 +47,22 @@ pub fn resolve_and_filter_packages(
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
 
-    // Warn about packages from unavailable backends
+    // Warn about packages from unavailable backends (concise format)
     let skipped_count = total_packages - filtered_packages.len();
     if skipped_count > 0 {
-        output::warning(&format!(
-            "Skipping {} package(s) from unavailable backends.",
-            skipped_count
-        ));
-
-        // Show which packages were skipped
+        // Group skipped packages by backend for concise output
+        let mut skipped_by_backend: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
         for (pkg_id, _) in config.packages.iter() {
             if !available_backends.contains(&pkg_id.backend) {
-                output::info(&format!(
-                    "  Skipping {} (backend '{}' not available)",
-                    pkg_id.name, pkg_id.backend
-                ));
+                *skipped_by_backend.entry(pkg_id.backend.to_string()).or_insert(0) += 1;
             }
+        }
+        
+        for (backend, count) in skipped_by_backend {
+            output::warning(&format!(
+                "Skipping {} package(s), backend '{}' not available. Run 'declarch init --backend {}'",
+                count, backend, backend
+            ));
         }
     }
 
@@ -122,7 +122,7 @@ pub fn check_variant_transitions(
                     // Only report if not tracked (means user might have manually changed it)
                     if state_pkg.is_none()
                         || state_pkg
-                            .and_then(|s| s.aur_package_name.as_ref())
+                            .and_then(|s| s.actual_package_name.as_ref())
                             .map(|n| n != &matched_id.name)
                             .unwrap_or(false)
                     {
@@ -204,52 +204,80 @@ pub fn warn_partial_upgrade(state: &State, tx: &resolver::Transaction, options: 
     }
 }
 
-/// Display the transaction plan to the user
+/// Group packages by backend for display
+fn group_by_backend(packages: &[crate::core::types::PackageId]) -> std::collections::HashMap<String, Vec<String>> {
+    let mut groups: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for pkg in packages {
+        groups.entry(pkg.backend.to_string()).or_default().push(pkg.name.clone());
+    }
+    // Sort packages within each backend
+    for packages in groups.values_mut() {
+        packages.sort();
+    }
+    groups
+}
+
+/// Format package groups for display
+fn format_backend_groups(groups: &std::collections::HashMap<String, Vec<String>>) -> String {
+    let mut backends: Vec<_> = groups.keys().collect();
+    backends.sort();
+    
+    let mut result = String::new();
+    for (i, backend) in backends.iter().enumerate() {
+        if let Some(packages) = groups.get(*backend) {
+            if i > 0 {
+                result.push_str("\n         ");
+            }
+            result.push_str(&format!("({}): {}", 
+                backend.cyan(),
+                packages.join(", ").dimmed()
+            ));
+        }
+    }
+    result
+}
+
+/// Display the transaction plan to the user with backend grouping
 pub fn display_transaction_plan(
     tx: &resolver::Transaction,
     should_prune: bool,
 ) {
-    // Display in compact format
-    if !tx.to_install.is_empty() || !tx.to_adopt.is_empty() || (!tx.to_prune.is_empty() && should_prune) {
-        println!("{}", "Changes:".green().bold());
+    let has_changes = !tx.to_install.is_empty() || !tx.to_adopt.is_empty() || (!tx.to_prune.is_empty() && should_prune);
+    
+    if !has_changes {
+        return;
+    }
+    
+    println!("{}", "Changes:".green().bold());
 
-        if !tx.to_install.is_empty() {
-            println!(
-                "  Install: {}",
-                tx.to_install
-                    .iter()
-                    .map(|p| format!("{} ({})", p.name, p.backend))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
+    if !tx.to_install.is_empty() {
+        let groups = group_by_backend(&tx.to_install);
+        println!("  {} {}", "Install:".green(), format_backend_groups(&groups));
+    }
 
-        if !tx.to_adopt.is_empty() {
-            println!(
-                "  Adopt:   {}",
-                tx.to_adopt
-                    .iter()
-                    .map(|p| format!("{} ({})", p.name, p.backend))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
+    if !tx.to_adopt.is_empty() {
+        let groups = group_by_backend(&tx.to_adopt);
+        println!("  {}   {}", "Adopt:".yellow(), format_backend_groups(&groups));
+    }
 
-        if !tx.to_prune.is_empty() && should_prune {
-            println!(
-                "  Remove:  {}",
-                tx.to_prune
-                    .iter()
+    if !tx.to_prune.is_empty() && should_prune {
+        let groups = group_by_backend(&tx.to_prune);
+        let formatted: std::collections::HashMap<String, Vec<String>> = groups
+            .into_iter()
+            .map(|(backend, packages)| {
+                let modified: Vec<String> = packages
+                    .into_iter()
                     .map(|p| {
-                        if CRITICAL_PACKAGES.contains(&p.name.as_str()) {
-                            format!("{} ({}) [keep]", p.name, p.backend)
+                        if CRITICAL_PACKAGES.contains(&p.as_str()) {
+                            format!("{} [keep]", p)
                         } else {
-                            format!("{} ({})", p.name, p.backend)
+                            p
                         }
                     })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
+                    .collect();
+                (backend, modified)
+            })
+            .collect();
+        println!("  {}  {}", "Remove:".red(), format_backend_groups(&formatted));
     }
 }

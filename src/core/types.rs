@@ -13,7 +13,7 @@ pub struct PackageId {
 /// Backend identifier - purely generic, no hardcoded variants
 /// 
 /// In v0.6+, all backends are treated equally. There are no special cases
-/// for AUR, npm, etc. Each backend is defined by its configuration in
+/// for system package managers, npm, etc. Each backend is defined by its configuration in
 /// ~/.config/declarch/backends/*.kdl
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]

@@ -6,8 +6,8 @@
 //! stored in unified storage (packages_by_backend).
 
 use crate::config::kdl_modules::types::{
-    ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
-    PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
+    ActionType, ErrorBehavior, LifecycleAction, LifecyclePhase,
+    PackageEntry, RawConfig,
 };
 use crate::config::kdl_modules::helpers::{
     conflicts, env, hooks, meta, package_mappings, packages, policy, repositories,
@@ -70,8 +70,27 @@ pub fn parse_backend_options(
 pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
     let doc: KdlDocument = content.parse().map_err(|e: kdl::KdlError| {
         let err_msg = e.to_string();
-        let hint = if err_msg.contains("unexpected token") {
-            "\nHint: Check for missing quotes, unmatched brackets, or invalid characters."
+        
+        // Extract line info if available
+        let line_info = if let Some(line) = err_msg.split(':').nth(1) {
+            if let Ok(line_num) = line.trim().parse::<usize>() {
+                // Get the problematic line content
+                let lines: Vec<&str> = content.lines().collect();
+                if line_num > 0 && line_num <= lines.len() {
+                    let line_content = lines[line_num - 1];
+                    format!("\n  Line {}: {}", line_num, line_content.trim())
+                } else {
+                    format!("\n  Line: {}", line_num)
+                }
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+        
+        let hint = if err_msg.contains("unexpected token") || err_msg.contains("unknown token") {
+            "\nHint: Check for missing quotes, unmatched brackets, or invalid field names.\nCommon issues: Using 'sudo true' instead of 'sudo \"true\"', or unknown fields like 'examples'"
         } else if err_msg.contains("unexpected end of file") {
             "\nHint: You might be missing a closing brace '}' or parenthesis."
         } else if err_msg.contains("expected") {
@@ -80,7 +99,9 @@ pub fn parse_kdl_content(content: &str) -> Result<RawConfig> {
             ""
         };
 
-        crate::error::DeclarchError::ConfigError(format!("KDL parsing error: {}{}", err_msg, hint))
+        crate::error::DeclarchError::ConfigError(
+            format!("KDL parsing error: {}{}{}", err_msg, line_info, hint)
+        )
     })?;
 
     let mut config = RawConfig::default();

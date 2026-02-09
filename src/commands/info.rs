@@ -175,7 +175,7 @@ fn run_doctor() -> Result<()> {
         }
     } else {
         output::warning(&format!("Config not found: {}", config_path.display()));
-        output::info("Run 'dcl init' to create a configuration");
+        output::info("Run 'declarch init' to create a configuration");
         all_ok = false;
     }
 
@@ -216,8 +216,8 @@ fn run_doctor() -> Result<()> {
                             "Found {} orphan packages (not in config)",
                             orphan_count
                         ));
-                        output::info("Run 'dcl list --orphans' to see them");
-                        output::info("Run 'dcl sync --prune' to remove orphans");
+                        output::info("Run 'declarch list --orphans' to see them");
+                        output::info("Run 'declarch sync --prune' to remove orphans");
                     } else {
                         output::success("No orphan packages found");
                     }
@@ -230,7 +230,7 @@ fn run_doctor() -> Result<()> {
         }
     } else {
         output::warning("State not found");
-        output::info("Run 'dcl sync' to create initial state");
+        output::info("Run 'declarch sync' to create initial state");
     }
 
     // Check 3: Backend availability (dynamic)
@@ -259,7 +259,7 @@ fn run_doctor() -> Result<()> {
     let days_since_sync = (now - state.meta.last_sync).num_days();
     if days_since_sync > 7 {
         output::warning(&format!("Last sync was {} days ago", days_since_sync));
-        output::info("Consider running 'dcl sync' to update");
+        output::info("Consider running 'declarch sync' to update");
     } else {
         output::success(&format!("Last sync: {} day(s) ago", days_since_sync));
     }
@@ -312,7 +312,7 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
     
     if available.is_empty() {
         output::warning("No backends configured or available");
-        output::info("Run 'dcl init --backend <name>' to add a backend");
+        output::info("Run 'declarch init --backend <name>' to add a backend");
     }
     
     Ok(available)

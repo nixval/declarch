@@ -2,13 +2,13 @@ use crate::error::Result;
 use kdl::KdlNode;
 use std::collections::HashMap;
 
-/// Parse environment variables: env { "EDITOR=nvim" } or env:aur { "MAKEFLAGS=-j4" }
+/// Parse environment variables: env { "EDITOR=nvim" } or env:paru { "MAKEFLAGS=-j4" }
 pub fn parse_env_vars(
     node: &KdlNode,
     env: &mut HashMap<String, Vec<String>>,
     backend: Option<&str>,
 ) -> Result<()> {
-    // Check for colon syntax: env:aur
+    // Check for colon syntax: env:paru
     let backend_name = if let Some((_, b)) = node.name().value().split_once(':') {
         b.to_string()
     } else {

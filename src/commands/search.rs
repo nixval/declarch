@@ -65,7 +65,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     if backends_to_search.is_empty() {
         output::warning("No backends available for search");
-        output::info("Run 'dcl init --backend <name>' to add a backend");
+        output::info("Run 'declarch init --backend <name>' to add a backend");
         return Ok(());
     }
 
@@ -160,7 +160,7 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
             
             if result.is_empty() {
                 output::warning("No backends with search support configured");
-                output::info("Run 'dcl init --backend <name>' to add a backend");
+                output::info("Run 'declarch init --backend <name>' to add a backend");
             }
             
             Ok(result)

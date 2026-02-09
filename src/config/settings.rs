@@ -159,16 +159,18 @@ impl Settings {
                 }
             }
             "backends" => {
-                let valid_backends = [
-                    "aur", "flatpak", "soar", "npm", "yarn", "pnpm", "bun", "pip", "cargo", "brew",
-                ];
+                // Backend-agnostic: accept any backend name
+                // Validation happens at runtime when loading backend configs
                 for backend in value.split(',') {
                     let backend = backend.trim();
-                    if !valid_backends.contains(&backend) {
+                    if backend.is_empty() {
+                        continue;
+                    }
+                    // Basic validation: alphanumeric and hyphens only
+                    if !backend.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
                         return Err(DeclarchError::Other(format!(
-                            "Invalid backend: '{}'. Valid backends: {}",
-                            backend,
-                            valid_backends.join(", ")
+                            "Invalid backend name: '{}'. Use only letters, numbers, and hyphens.",
+                            backend
                         )));
                     }
                 }
@@ -226,16 +228,9 @@ impl Settings {
         defaults.insert("editor".to_string(), "".to_string()); // Empty = use system default
         defaults.insert("compact".to_string(), "false".to_string()); // Compact mode disabled by default
 
-        // Distro-aware backend defaults
-        let distro = crate::utils::distro::DistroType::detect();
-        let backend_list = if distro.supports_aur() {
-            // Arch-based: include AUR
-            "aur,flatpak,soar,npm,cargo,pip,brew".to_string()
-        } else {
-            // Non-Arch: exclude AUR
-            "flatpak,soar,npm,cargo,pip,brew".to_string()
-        };
-        defaults.insert("backends".to_string(), backend_list);
+        // No default backends - user must configure via declarch init --backend
+        // or set backends in settings file. This makes declarch fully backend-agnostic.
+        defaults.insert("backends".to_string(), "".to_string());
 
         defaults.insert("backend_mode".to_string(), "auto".to_string());
         defaults

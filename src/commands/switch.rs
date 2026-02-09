@@ -150,7 +150,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
                 backend: backend.clone(),
                 config_name: options.new_package.clone(),
                 provides_name: options.new_package.clone(),
-                aur_package_name: None, // Deprecated field, kept for compatibility
+                actual_package_name: None, // Actual system package name, if different
                 installed_at: Utc::now(),
                 version: installed
                     .get(&options.new_package)

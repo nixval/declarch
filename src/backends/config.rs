@@ -4,7 +4,7 @@ use std::collections::HashMap;
 /// Configuration for a package manager backend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendConfig {
-    /// Backend identifier (e.g., "aur", "npm", "pip")
+    /// Backend identifier (e.g., "paru", "npm", "pip")
     pub name: String,
 
     /// Binary name or path (e.g., "paru", "npm")
