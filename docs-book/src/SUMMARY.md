@@ -33,6 +33,7 @@
 ## Configuration
 
 - [KDL Syntax](./configuration/kdl-syntax.md)
+- [Syntax Reference](./configuration/syntax.md)
 - [Backends](./configuration/backends.md)
 - [Modules](./configuration/modules.md)
 
