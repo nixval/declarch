@@ -34,21 +34,12 @@ pub struct InstallOptions {
 /// Run the install command
 pub fn run(options: InstallOptions) -> Result<()> {
     if options.dry_run {
-        output::header("Dry Run: Installing Packages");
-        output::info("Would install the following packages:");
+        println!("Would add packages:");
         for pkg in &options.packages {
-            let module = options.module.as_deref().unwrap_or("others");
-            output::indent(&format!("• {} → module: {}", pkg, module), 2);
-        }
-        if !options.no_sync {
-            output::info("Would sync after installation");
-        } else {
-            output::info("Would NOT sync (no-sync flag set)");
+            println!("  {}", pkg);
         }
         return Ok(());
     }
-
-    output::header("Installing Packages");
 
     // Step 1: Load existing config to check for duplicates
     let config_path = paths::config_file()?;
@@ -196,11 +187,6 @@ pub fn run(options: InstallOptions) -> Result<()> {
             .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("default")))
             .collect();
 
-        output::info(&format!(
-            "Syncing packages: {} ...",
-            packages_with_backend.join(", ")
-        ));
-
         // Import sync command at top to avoid circular dependency
         use crate::commands::sync::{self, SyncOptions};
 
@@ -213,27 +199,18 @@ pub fn run(options: InstallOptions) -> Result<()> {
             yes: options.yes,
             force: false,
             noconfirm: false,
-            hooks: true, // Always run hooks during install
-            modules: modified_modules.clone(), // Sync only modified modules
+            hooks: true,
+            modules: modified_modules.clone(),
         });
 
         match sync_result {
             Ok(()) => {
-                // Show success message with module name
-                if let Some(module) = modified_modules.first() {
-                    output::success(&format!("Sync completed, added to '{}.kdl'", module));
-                } else {
-                    output::success("Sync completed");
-                }
-
                 // Clean up backups on successful install
                 for edit in &all_edits {
                     let Some(ref backup) = edit.backup_path else {
                         continue;
                     };
-                    if let Err(e) = std::fs::remove_file(backup) {
-                        output::warning(&format!("Failed to cleanup backup file: {}", e));
-                    }
+                    let _ = std::fs::remove_file(backup);
                 }
             }
             Err(e) => {
@@ -251,9 +228,6 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 return Err(e);
             }
         }
-    } else {
-        output::info("Skipped sync (--no-sync)");
-        output::info("Run 'declarch sync' to apply changes");
     }
 
     Ok(())

@@ -168,23 +168,13 @@ pub fn run(options: InitOptions) -> Result<()> {
 
 /// Initialize root configuration
 fn init_root(host: Option<String>, force: bool) -> Result<()> {
-    output::header("Initializing declarch root");
-
     let config_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
 
     if config_file.exists() && !force {
-        output::warning("Configuration already exists.");
-        output::info(&format!("Location: {}", config_file.display()));
+        println!("Declarch is already initialized.");
+        println!("  {}", config_dir.display());
         return Ok(());
-    }
-
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)?;
-        output::success(&format!(
-            "Created config directory: {}",
-            config_dir.display()
-        ));
     }
 
     let hostname = host.unwrap_or_else(|| {
@@ -193,50 +183,36 @@ fn init_root(host: Option<String>, force: bool) -> Result<()> {
             .unwrap_or_else(|_| "unknown".to_string())
     });
 
-    // Create backends directory (for custom backends)
+    // Create directory structure
     let backends_dir = config_dir.join("backends");
-    if !backends_dir.exists() {
-        fs::create_dir_all(&backends_dir)?;
-    }
+    let modules_dir = config_dir.join("modules");
+    
+    fs::create_dir_all(&config_dir)?;
+    fs::create_dir_all(&backends_dir)?;
+    fs::create_dir_all(&modules_dir)?;
 
-    // Create backends.kdl with embedded default backends
+    // Create default files
     let backends_kdl_path = config_dir.join("backends.kdl");
     if !backends_kdl_path.exists() {
         fs::write(&backends_kdl_path, DEFAULT_BACKENDS_KDL)?;
-        output::success(&format!(
-            "Created backends configuration: {}",
-            backends_kdl_path.display()
-        ));
     }
 
     let template = utils::templates::default_host(&hostname);
-
     fs::write(&config_file, template)?;
-    output::success(&format!("Created config file: {}", config_file.display()));
-
-    // Create modules/base.kdl with default template
-    let modules_dir = config_dir.join("modules");
-    if !modules_dir.exists() {
-        fs::create_dir_all(&modules_dir)?;
-        output::success(&format!(
-            "Created modules directory: {}",
-            modules_dir.display()
-        ));
-    }
 
     let base_module_path = modules_dir.join(format!("base.{}", CONFIG_EXTENSION));
     if !base_module_path.exists() {
         let base_template = utils::templates::get_template_by_name("base")
             .unwrap_or_else(|| utils::templates::default_module("base"));
         fs::write(&base_module_path, base_template)?;
-        output::success(&format!(
-            "Created base module: {}",
-            base_module_path.display()
-        ));
     }
 
     let _state = state::io::init_state(hostname.clone())?;
-    output::success(&format!("Initialized state for host: {}", hostname.green()));
+    
+    // Simple, clean output
+    println!("Created declarch directory:");
+    println!("  {}", config_dir.display());
+    println!("Initializing declarch for host: {}", hostname);
 
     Ok(())
 }
@@ -283,8 +259,7 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     // STEP 2: Check if official backend
     if OFFICIAL_BACKENDS.contains(&sanitized_name.as_str()) {
-        // Official backends are already embedded in backends.kdl
-        output::info(&format!("Backend '{}' is built-in (official)", sanitized_name));
+        // Official backends are already embedded in backends.kdl - nothing to do
         return Ok(());
     }
 
@@ -314,10 +289,8 @@ fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     let import_added = enable_backend_import(&backends_kdl_path, &backend_entry, force)?;
 
     // Show concise message
-    if !backend_created && !import_added {
-        output::info(&format!("Backend '{}' already adopted", sanitized_name));
-    } else {
-        output::success(&format!("Backend '{}' adopted!", sanitized_name));
+    if backend_created || import_added {
+        println!("Backend '{}' adopted.", sanitized_name);
     }
 
     Ok(())
