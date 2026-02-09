@@ -157,8 +157,16 @@ impl GenericManager {
     }
 
     /// Format package list for command
+    /// 
+    /// SECURITY: Each package name is shell-escaped to prevent injection attacks.
+    /// Even though packages are validated before calling this function, we add
+    /// an extra layer of protection through proper escaping.
     fn format_packages(&self, packages: &[String]) -> String {
-        packages.join(" ")
+        packages
+            .iter()
+            .map(|p| sanitize::shell_escape(p))
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 
@@ -308,6 +316,9 @@ impl PackageManager for GenericManager {
     }
 
     fn search(&self, query: &str) -> Result<Vec<PackageSearchResult>> {
+        // Security: Validate search query before shell execution
+        sanitize::validate_search_query(query)?;
+
         let search_cmd = self.config.search_cmd.as_ref().ok_or_else(|| {
             DeclarchError::PackageManagerError(format!(
                 "Backend '{}' does not support search",
@@ -318,10 +329,10 @@ impl PackageManager for GenericManager {
         // Get the binary (respecting fallback if needed)
         let binary = self.get_binary()?;
         
-        // Replace {binary} and {query} placeholders
+        // Replace {binary} and {query} placeholders with escaped values
         let cmd_str = search_cmd
             .replace("{binary}", &binary)
-            .replace("{query}", query);
+            .replace("{query}", &sanitize::shell_escape(query));
 
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(&cmd_str);

@@ -81,6 +81,54 @@ pub fn sanitize_for_display(input: &str) -> String {
     }
 }
 
+/// Escape a string for safe use in shell contexts
+/// 
+/// This wraps the string in single quotes and handles existing single quotes
+/// by ending the quoted string, adding an escaped quote, and starting a new quote.
+/// 
+/// Example: "hello'world" -> "'hello'\''world'"
+pub fn shell_escape(input: &str) -> String {
+    if input.is_empty() {
+        return "''".to_string();
+    }
+    
+    // If the string is already safe (alphanumeric and some safe chars), return as-is
+    if input.chars().all(|c| c.is_alphanumeric() || "._-:/@+".contains(c)) {
+        return input.to_string();
+    }
+    
+    // Use single quote escaping: ' -> '\''
+    format!("'{}'", input.replace('"', "'\"'\"'"))
+}
+
+/// Validate a search query is safe
+/// 
+/// Search queries are less restrictive than package names but still
+/// must not contain shell metacharacters.
+pub fn validate_search_query(query: &str) -> Result<()> {
+    if query.is_empty() {
+        return Err(DeclarchError::ConfigError(
+            "Search query cannot be empty".to_string(),
+        ));
+    }
+
+    if query.len() > 256 {
+        return Err(DeclarchError::ConfigError(
+            "Search query too long (max 256 chars)".to_string(),
+        ));
+    }
+
+    // Check for dangerous shell characters
+    if SHELL_DANGEROUS.is_match(query) {
+        return Err(DeclarchError::ConfigError(format!(
+            "Search query contains unsafe characters: {}",
+            query
+        )));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

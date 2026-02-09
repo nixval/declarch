@@ -5,7 +5,15 @@ use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use crate::utils::sanitize;
 use colored::Colorize;
+use regex::Regex;
 use std::process::{Command, Stdio};
+use std::sync::LazyLock;
+
+/// Safe character regex for hook command validation
+/// Compiled once and reused for performance and safety
+static SAFE_CHAR_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[a-zA-Z0-9_\-.\s/:]+$").expect("Valid regex pattern")
+});
 
 /// Execute hooks for a specific phase
 pub fn execute_hooks_by_phase(
@@ -111,8 +119,7 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
     // Security: Validate command contains only safe characters before parsing
     // Allow: alphanumeric, spaces, slashes, dots, hyphens, underscores, colons
     // More restrictive to prevent command injection attempts
-    let safe_char_regex = regex::Regex::new(r"^[a-zA-Z0-9_\-\.\s/:]+$").unwrap();
-    if !safe_char_regex.is_match(&hook.command) {
+    if !SAFE_CHAR_REGEX.is_match(&hook.command) {
         return Err(DeclarchError::ConfigError(format!(
             "Hook command contains unsafe characters.\n  Command: {}\n  Allowed: a-zA-Z0-9_-./: and whitespace",
             sanitize::sanitize_for_display(&hook.command)

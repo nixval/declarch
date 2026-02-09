@@ -194,12 +194,22 @@ fn recursive_load(
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
             PathBuf::from(import_str)
         } else {
-            // Security check: Block path traversal
-            if import_str.contains("..") {
+            // Security check: Block path traversal attempts
+            // Check for .. in path components (not just substring)
+            let normalized = import_str.replace('\\', "/");
+            if normalized.split('/').any(|part| part == "..") {
                 return Err(DeclarchError::ConfigError(
                     "Path traversal blocked: import paths cannot contain '..'".to_string()
                 ));
             }
+            
+            // Additional check: ensure import doesn't start with /
+            if import_str.starts_with('/') {
+                return Err(DeclarchError::ConfigError(
+                    "Invalid import path: absolute paths not allowed".to_string()
+                ));
+            }
+            
             parent_dir.join(import_str)
         };
 

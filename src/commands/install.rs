@@ -275,10 +275,14 @@ fn prompt_yes_no(question: &str, default: bool) -> bool {
     };
 
     print!("{}", prompt);
-    io::stdout().flush().unwrap();
+    if io::stdout().flush().is_err() {
+        return default;
+    }
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
+    if io::stdin().read_line(&mut input).is_err() {
+        return default;
+    }
 
     let input = input.trim().to_lowercase();
 
