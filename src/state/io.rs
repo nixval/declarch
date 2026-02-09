@@ -270,3 +270,23 @@ pub fn init_state(hostname: String) -> Result<State> {
     save_state(&state)?;
     Ok(state)
 }
+
+/// Filesystem-based state store implementing the StateStore trait
+pub struct FilesystemStateStore;
+
+impl crate::traits::StateStore for FilesystemStateStore {
+    fn load(&self) -> Result<State> {
+        load_state()
+    }
+
+    fn save(&self, state: &State) -> Result<()> {
+        save_state_locked(state)
+    }
+
+    fn init(&self) -> Result<State> {
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| "unknown".to_string());
+        init_state(hostname)
+    }
+}

@@ -94,6 +94,24 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
     Ok(backends)
 }
 
+/// Filesystem-based backend registry implementing the BackendRegistry trait
+pub struct FilesystemBackendRegistry;
+
+impl crate::traits::BackendRegistry for FilesystemBackendRegistry {
+    fn load_all(&self) -> crate::error::Result<HashMap<String, BackendConfig>> {
+        load_all_backends()
+    }
+
+    fn get(&self, name: &str) -> crate::error::Result<Option<BackendConfig>> {
+        let all = self.load_all()?;
+        Ok(all.get(name).cloned())
+    }
+
+    fn has(&self, name: &str) -> bool {
+        self.get(name).map(|b| b.is_some()).unwrap_or(false)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -83,6 +83,19 @@ pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
     Ok(merged)
 }
 
+/// Filesystem-based configuration loader implementing the ConfigLoader trait
+pub struct FilesystemConfigLoader;
+
+impl crate::traits::ConfigLoader for FilesystemConfigLoader {
+    fn load_root(&self, path: &Path) -> Result<MergedConfig> {
+        load_root_config(path)
+    }
+
+    fn exists(&self, path: &Path) -> bool {
+        path.exists()
+    }
+}
+
 fn recursive_load(
     path: &Path,
     merged: &mut MergedConfig,

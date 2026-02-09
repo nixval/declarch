@@ -7,5 +7,6 @@ pub mod core;
 pub mod error;
 pub mod packages;
 pub mod state;
+pub mod traits;
 pub mod ui;
 pub mod utils;
