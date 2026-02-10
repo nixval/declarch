@@ -2,21 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.8.0] - 2026-02-09
+## [0.8.0] - 2026-02-10
 
 ### ⚠️ BREAKING CHANGES
 
-This is a major refactor with breaking changes. Expect errors when upgrading from v0.5.x.
+This is a major refactor with breaking changes. Expect errors when upgrading from v0.5.x or earlier.
 
 #### New Architecture
 - **Backend system rewritten**: Official backends (aur, pacman, flatpak) now built into backends.kdl
 - **Import pattern**: Custom backends use `imports { "backends/name.kdl" }` pattern
 - **No auto-loading**: Backends are no longer auto-loaded from directories
+- **Generic backend manager**: Unified backend implementation via `GenericManager`
 
 #### New KDL Syntax
 - Use `pkg` instead of `packages`
 - All string values must be quoted: `format "whitespace"`, `needs_sudo "true"`
 - Backend blocks go inside `pkg { }`
+- Editor configuration in declarch.kdl: `editor "vim"`
 
 #### New CLI Structure
 - `declarch sync --update` → `declarch sync update`
@@ -27,11 +29,24 @@ This is a major refactor with breaking changes. Expect errors when upgrading fro
 - **Enhanced error reporting**: Rust-like error messages with line numbers and hints
 - **Backend import system**: Explicit imports for custom backends
 - **Official backends embedded**: aur, pacman, flatpak work out of the box
+- **Meta info display**: Shows backend metadata (title, description, platforms, etc.) during init
+- **Multi-backend init**: Initialize multiple backends at once: `declarch init --backend npm --backend cargo`
+- **Force flag for backend init**: `--force` to overwrite existing backend files
+- **Editor setting in KDL**: Configure editor in declarch.kdl with `editor "vim"`
 
 ### Changed
 - **Simplified CLI**: Removed duplicate flags, standardized naming
 - **Better error messages**: File path, line:column, visual indicators
-- **Consistent backend input**: Vec<String> with delimiter support
+- **Backend init multiple flags**: Use multiple `--backend` flags instead of comma-separated
+- **Template updated**: New declarch.kdl template with v0.8.0 syntax
+
+### Fixed
+- **Backend format compatibility**: Fixed soar, pnpm, bun backend configurations
+  - soar: Uses `json_lines` format for NDJSON output
+  - pnpm: Uses `regex` for list, `npm_json` for search
+  - bun: Uses `regex` for tree output parsing
+- **JSON parser robustness**: Skip invalid JSON lines in NDJSON output
+- **Backend validation**: Proper error messages for missing `name_key` in JSON formats
 
 ### Fixed
 - **Search output formatting**: Fixed AUR and Flatpak search configurations

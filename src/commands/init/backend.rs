@@ -98,6 +98,30 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         }
     };
 
+    // STEP 4b: Parse and display meta information
+    if let Ok(meta) = extract_backend_meta(&backend_content) {
+        println!();
+        if !meta.title.is_empty() && meta.title != "-" {
+            println!("  Title:       {}", meta.title);
+        }
+        if !meta.description.is_empty() && meta.description != "-" {
+            println!("  Description: {}", meta.description);
+        }
+        if !meta.maintained.is_empty() && meta.maintained != "-" {
+            println!("  Maintained:  {}", meta.maintained);
+        }
+        if !meta.homepage.is_empty() && meta.homepage != "-" {
+            println!("  Homepage:    {}", meta.homepage);
+        }
+        if !meta.platforms.is_empty() {
+            println!("  Platforms:   {}", meta.platforms.join(", "));
+        }
+        if !meta.requires.is_empty() && meta.requires != "-" {
+            println!("  Requires:    {}", meta.requires);
+        }
+        println!();
+    }
+
     // STEP 5: Check if file already exists
     let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
     if backend_file.exists() && !force {
@@ -220,6 +244,87 @@ pub fn remove_backend_import(backends_kdl_path: &Path, backend_name: &str) -> Re
     let new_content = re.replace_all(&content, "").to_string();
     fs::write(backends_kdl_path, new_content)?;
     Ok(())
+}
+
+/// Backend meta information extracted from KDL
+#[derive(Debug, Default)]
+pub struct BackendMeta {
+    pub title: String,
+    pub description: String,
+    pub maintained: String,
+    pub homepage: String,
+    pub platforms: Vec<String>,
+    pub requires: String,
+}
+
+/// Extract meta information from backend KDL content
+pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
+    let doc = kdl::KdlDocument::parse(content)
+        .map_err(|e| DeclarchError::Other(format!("Failed to parse backend KDL: {}", e)))?;
+    
+    let mut meta = BackendMeta::default();
+    
+    // Find the backend node
+    for node in doc.nodes() {
+        if node.name().value() == "backend" {
+            // Look for meta block in children
+            if let Some(children) = node.children() {
+                for child in children.nodes() {
+                    if child.name().value() == "meta" {
+                        if let Some(meta_children) = child.children() {
+                            for meta_node in meta_children.nodes() {
+                                let name = meta_node.name().value();
+                                match name {
+                                    "title" => {
+                                        meta.title = meta_node.entries().first()
+                                            .and_then(|e| e.value().as_string())
+                                            .unwrap_or("")
+                                            .to_string();
+                                    }
+                                    "description" => {
+                                        meta.description = meta_node.entries().first()
+                                            .and_then(|e| e.value().as_string())
+                                            .unwrap_or("")
+                                            .to_string();
+                                    }
+                                    "maintained" => {
+                                        meta.maintained = meta_node.entries().first()
+                                            .and_then(|e| e.value().as_string())
+                                            .unwrap_or("")
+                                            .to_string();
+                                    }
+                                    "homepage" => {
+                                        meta.homepage = meta_node.entries().first()
+                                            .and_then(|e| e.value().as_string())
+                                            .unwrap_or("")
+                                            .to_string();
+                                    }
+                                    "requires" => {
+                                        meta.requires = meta_node.entries().first()
+                                            .and_then(|e| e.value().as_string())
+                                            .unwrap_or("")
+                                            .to_string();
+                                    }
+                                    "platforms" => {
+                                        for entry in meta_node.entries() {
+                                            if let Some(platform) = entry.value().as_string() {
+                                                meta.platforms.push(platform.to_string());
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    
+    Ok(meta)
 }
 
 #[cfg(test)]

@@ -81,13 +81,13 @@ pub enum Command {
         /// Create new backend configuration file(s)
         ///
         /// Creates backend definition files in ~/.config/declarch/backends/
-        /// Supports multiple backends: --backend apt,cargo or --backend apt --backend cargo
+        /// Supports multiple backends via multiple flags
         /// 
         /// Examples:
         ///   declarch init --backend cargo
-        ///   declarch init --backend apt,cargo
+        ///   declarch init --backend apt --backend cargo
         ///   declarch init --backend apt --backend cargo -y
-        #[arg(long, value_name = "NAMES", group = "init_target", num_args = 1.., value_delimiter = ',')]
+        #[arg(long, value_name = "NAME", group = "init_target", num_args = 1..)]
         backend: Vec<String>,
 
         /// List available modules/backends from registry

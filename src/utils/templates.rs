@@ -10,6 +10,7 @@ pub fn default_config() -> String {
 pub fn default_host(hostname: &str) -> String {
     format!(
         r#"// Host configuration for {hostname}
+// Declarch v0.8.0
 
 // === META ===
 meta {{
@@ -28,42 +29,65 @@ imports {{
     // "modules/development.kdl"
 }}
 
+// === EDITOR ===
+// Editor used for 'declarch edit' command
+editor "vim"
+
 // === PACKAGES ===
+// Packages are grouped by backend
 pkg {{
-    // Uncomment packages to install them
-    // Example packages:
-    // hyprland
-    // waybar
-    // bat
+    // aur {{
+    //     // AUR packages
+    //     hyprland
+    //     waybar
+    // }}
+    
+    // pacman {{
+    //     // Official repo packages
+    //     bat
+    //     eza
+    //     fd
+    //     ripgrep
+    // }}
+    
+    // flatpak {{
+    //     // Flatpak applications
+    //     com.spotify.Client
+    // }}
 }}
 
 // === CONFLICTS ===
+// Define packages that cannot be installed together
 // conflicts {{
 //     vim neovim
 //     pipewire pulseaudio
 // }}
 
 // === BACKEND OPTIONS ===
+// Per-backend configuration
 // options:paru {{
 //     noconfirm
 // }}
 
 // === ENVIRONMENT VARIABLES ===
-// env EDITOR="nvim" VISUAL="nvim"
+// Global and per-backend environment variables
+// env EDITOR="vim" VISUAL="vim"
 // env:paru MAKEFLAGS="-j4"
 
 // === REPOSITORIES ===
+// Custom repositories for backends
 // repos:paru {{
 //     "https://aur.archlinux.org"
 // }}
 
 // === POLICY ===
+// System protection and orphan handling
 // policy {{
 //     protected {{
 //         linux
 //         systemd
 //     }}
-//     orphans "ask"
+//     orphans "ask"  // ask, remove, or keep
 // }}
 
 // === HOOKS ===
@@ -74,7 +98,7 @@ pkg {{
 // on-sync-sudo "systemctl restart gdm"
 
 excludes {{
-    // Add packages to exclude
+    // Add packages to exclude from sync
 }}
 "#,
         hostname = hostname
