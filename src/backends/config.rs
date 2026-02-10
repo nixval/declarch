@@ -159,6 +159,10 @@ pub enum OutputFormat {
     /// JSON Lines (NDJSON) - each line is a separate JSON object
     JsonLines,
 
+    /// NPM-style JSON - pseudo-array with inline commas
+    /// Format: [\n{...}\n,\n{...}\n]
+    NpmJson,
+
     /// Regex-based parsing
     Regex,
 

@@ -146,6 +146,70 @@ pub fn parse_json_lines(
     Ok(installed)
 }
 
+/// Parse NPM-style JSON output
+/// Format: [
+///   {"name": "pkg1", ...}
+///   ,
+///   {"name": "pkg2", ...}
+/// ]
+pub fn parse_npm_json(
+    output: &str,
+    config: &BackendConfig,
+) -> Result<HashMap<String, PackageMetadata>> {
+    let name_key = config
+        .list_name_key
+        .as_ref()
+        .ok_or_else(|| DeclarchError::Other("Missing list_name_key for NPM JSON parser".to_string()))?;
+
+    let version_key = config.list_version_key.as_ref().ok_or_else(|| {
+        DeclarchError::Other("Missing list_version_key for NPM JSON parser".to_string())
+    })?;
+
+    let mut installed = HashMap::new();
+
+    // NPM output format is: [\n{...}\n,\n{...}\n]
+    // Each line can be: "[", "{...}", ",", or "]"
+    for line in output.lines() {
+        let line = line.trim();
+        
+        // Skip array markers and commas
+        if line.is_empty() || line == "[" || line == "]" || line == "," {
+            continue;
+        }
+        
+        // Lines might end with comma, remove it
+        let line = line.trim_end_matches(',');
+        
+        // Try to parse as JSON object
+        match serde_json::from_str::<Value>(line) {
+            Ok(json) => {
+                if let Some(Value::String(name)) = json.get(name_key) {
+                    let version = json
+                        .get(version_key)
+                        .and_then(|v: &Value| v.as_str())
+                        .map(|v| v.to_string());
+
+                    installed.insert(
+                        name.to_string(),
+                        PackageMetadata {
+                            version,
+                            variant: None,
+                            installed_at: Utc::now(),
+                            source_file: None,
+                        },
+                    );
+                }
+            }
+            Err(_) => {
+                // Skip non-JSON lines
+                continue;
+            }
+        }
+    }
+
+    Ok(installed)
+}
+
 /// Navigate through JSON structure using dot notation path
 fn navigate_json_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     let parts: Vec<&str> = path.split('.').collect();

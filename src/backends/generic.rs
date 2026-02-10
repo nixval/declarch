@@ -366,6 +366,7 @@ impl GenericManager {
         match format {
             crate::backends::config::OutputFormat::Json => self.parse_search_json(&stdout_str),
             crate::backends::config::OutputFormat::JsonLines => self.parse_search_json_lines(&stdout_str),
+            crate::backends::config::OutputFormat::NpmJson => self.parse_search_npm_json(&stdout_str),
             crate::backends::config::OutputFormat::SplitWhitespace => {
                 self.parse_search_whitespace(&stdout_str)
             }
@@ -479,6 +480,62 @@ impl GenericManager {
                 }
                 Err(_) => {
                     // Skip lines that aren't valid JSON
+                    continue;
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Parse NPM-style JSON search results
+    /// Format: [\n{...}\n,\n{...}\n]
+    fn parse_search_npm_json(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
+        let name_key = self.config.search_name_key.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(
+                "search_name_key not configured for NPM JSON search".into(),
+            )
+        })?;
+
+        let version_key = self.config.search_version_key.as_deref();
+        let desc_key = self.config.search_desc_key.as_deref();
+        let mut results = Vec::new();
+
+        for line in stdout.lines() {
+            let line = line.trim();
+            
+            // Skip array markers and commas
+            if line.is_empty() || line == "[" || line == "]" || line == "," {
+                continue;
+            }
+            
+            // Lines might end with comma, remove it
+            let line = line.trim_end_matches(',');
+            
+            // Try to parse as JSON object
+            match serde_json::from_str::<serde_json::Value>(line) {
+                Ok(json) => {
+                    if let Some(Value::String(name)) = json.get(name_key) {
+                        let version = version_key
+                            .and_then(|key| json.get(key))
+                            .and_then(|v| v.as_str())
+                            .map(String::from);
+
+                        let description = desc_key
+                            .and_then(|key| json.get(key))
+                            .and_then(|v| v.as_str())
+                            .map(String::from);
+
+                        results.push(PackageSearchResult {
+                            name: name.to_string(),
+                            version,
+                            description,
+                            backend: self.backend_type.clone(),
+                        });
+                    }
+                }
+                Err(_) => {
+                    // Skip non-JSON lines
                     continue;
                 }
             }

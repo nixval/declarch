@@ -533,8 +533,12 @@ backend "npm" {
     install "npm install -g --silent {packages}"
     remove "npm uninstall -g --silent {packages}"
     
-    // Note: npm search disabled due to non-standard JSON output format
-    // Output is array-like but with commas between objects, not valid JSON
+    search "npm search {query} --json" {
+        format "npm_json"
+        name_key "name"
+        version_key "version"
+        desc_key "description"
+    }
     
     needs_sudo "false"
 }
