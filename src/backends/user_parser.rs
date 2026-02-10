@@ -209,13 +209,27 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     Ok(())
 }
 
+/// Get string value from KDL entry, handling both quoted strings and bare words
+fn get_entry_string(entry: &kdl::KdlEntry) -> Option<String> {
+    // Try as string first
+    if let Some(s) = entry.value().as_string() {
+        return Some(s.to_string());
+    }
+    // Fallback: convert value to string (handles bare words/identifiers)
+    let val_str = entry.value().to_string();
+    if !val_str.is_empty() {
+        return Some(val_str);
+    }
+    None
+}
+
 /// Parse list command with output format
 fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     // Extract command from argument
     let cmd = node
         .entries()
         .first()
-        .and_then(|entry| entry.value().as_string())
+        .and_then(|entry| get_entry_string(entry))
         .ok_or_else(|| {
             DeclarchError::Other(
                 "List command required. Usage: list \"command\" { ... }".to_string(),
@@ -233,7 +247,7 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     let format_str = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
+                        .and_then(|entry| get_entry_string(entry))
                         .ok_or_else(|| {
                             DeclarchError::Other(
                                 "Format value required. Usage: format json|whitespace|tsv|regex"
@@ -241,7 +255,7 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                             )
                         })?;
 
-                    config.list_format = match format_str {
+                    config.list_format = match format_str.as_str() {
                         "json" => OutputFormat::Json,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
@@ -258,22 +272,19 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     config.list_json_path = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 "name_key" => {
                     config.list_name_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 "version_key" => {
                     config.list_version_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 // Nested json block: json { path "..." name_key "..." version_key "..." }
                 "json" => {
@@ -490,7 +501,7 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     let format_str = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
+                        .and_then(|entry| get_entry_string(entry))
                         .ok_or_else(|| {
                             DeclarchError::Other(
                                 "Format value required. Usage: format json|whitespace|tsv|regex"
@@ -498,7 +509,7 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                             )
                         })?;
 
-                    config.search_format = Some(match format_str {
+                    config.search_format = Some(match format_str.as_str() {
                         "json" => OutputFormat::Json,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
@@ -515,29 +526,25 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     config.search_json_path = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 "name_key" => {
                     config.search_name_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 "version_key" => {
                     config.search_version_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 "desc_key" => {
                     config.search_desc_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
+                        .and_then(|entry| get_entry_string(entry));
                 }
                 // Nested json block for search: json { path "..." name_key "..." }
                 "json" => {
