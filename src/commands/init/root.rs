@@ -1,7 +1,7 @@
 //! Root initialization logic
 //!
 //! Handles the `declarch init` command (without arguments):
-//! Creates the initial directory structure and config files.
+//! Creates the initial directory structure and config files atomically.
 
 use crate::constants::CONFIG_EXTENSION;
 use crate::error::Result;
@@ -11,7 +11,7 @@ use std::fs;
 
 /// Initialize root configuration directory
 ///
-/// Creates:
+/// Creates atomically (all or nothing):
 /// - ~/.config/declarch/ (config directory)
 /// - ~/.config/declarch/backends/ (backend definitions)
 /// - ~/.config/declarch/modules/ (module files)
@@ -34,7 +34,16 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
             .unwrap_or_else(|_| "unknown".to_string())
     });
 
-    // Create directory structure
+    // STEP 1: Prepare all content in memory (NO DISK OPERATIONS YET)
+    let template = utils::templates::default_host(&hostname);
+    let base_template = utils::templates::get_template_by_name("base")
+        .unwrap_or_else(|| utils::templates::default_module("base"));
+    let backends_kdl = super::backend::default_backends_kdl();
+    
+    // STEP 2: Initialize state first (may fail)
+    let _state = state::io::init_state(hostname.clone())?;
+
+    // STEP 3: Create directory structure
     let backends_dir = config_dir.join("backends");
     let modules_dir = config_dir.join("modules");
     
@@ -42,24 +51,15 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     fs::create_dir_all(&backends_dir)?;
     fs::create_dir_all(&modules_dir)?;
 
-    // Create default files
+    // STEP 4: Write all files (atomic - all succeed or all fail)
     let backends_kdl_path = config_dir.join("backends.kdl");
-    if !backends_kdl_path.exists() {
-        fs::write(&backends_kdl_path, super::backend::default_backends_kdl())?;
-    }
-
-    let template = utils::templates::default_host(&hostname);
+    fs::write(&backends_kdl_path, backends_kdl)?;
+    
     fs::write(&config_file, template)?;
 
     let base_module_path = modules_dir.join(format!("base.{}", CONFIG_EXTENSION));
-    if !base_module_path.exists() {
-        let base_template = utils::templates::get_template_by_name("base")
-            .unwrap_or_else(|| utils::templates::default_module("base"));
-        fs::write(&base_module_path, base_template)?;
-    }
+    fs::write(&base_module_path, base_template)?;
 
-    let _state = state::io::init_state(hostname.clone())?;
-    
     // Simple, clean output
     println!("Created declarch directory:");
     println!("  {}", config_dir.display());
