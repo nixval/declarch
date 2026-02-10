@@ -257,12 +257,13 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
                     config.list_format = match format_str.as_str() {
                         "json" => OutputFormat::Json,
+                        "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
@@ -511,12 +512,13 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
                     config.search_format = Some(match format_str.as_str() {
                         "json" => OutputFormat::Json,
+                        "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
@@ -733,7 +735,7 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
 
     // Validate format-specific requirements
     match config.list_format {
-        OutputFormat::Json => {
+        OutputFormat::Json | OutputFormat::JsonLines => {
             if config.list_name_key.is_none() {
                 return Err(DeclarchError::Other(
                     "JSON format requires 'name_key' to be specified in list block".to_string(),

@@ -153,8 +153,11 @@ pub enum OutputFormat {
     /// Tab-separated columns
     TabSeparated,
 
-    /// JSON output
+    /// JSON output (single JSON object/array)
     Json,
+
+    /// JSON Lines (NDJSON) - each line is a separate JSON object
+    JsonLines,
 
     /// Regex-based parsing
     Regex,

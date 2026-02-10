@@ -21,6 +21,7 @@ pub fn parse_package_list(
         }
         crate::backends::config::OutputFormat::TabSeparated => tsv::parse_tsv(&stdout, config),
         crate::backends::config::OutputFormat::Json => json_parser::parse_json(&stdout, config),
+        crate::backends::config::OutputFormat::JsonLines => json_parser::parse_json_lines(&stdout, config),
         crate::backends::config::OutputFormat::Regex => regex_parser::parse_regex(&stdout, config),
         crate::backends::config::OutputFormat::Custom => {
             // Custom parsers use Rust implementations

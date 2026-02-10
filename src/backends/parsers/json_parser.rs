@@ -91,6 +91,61 @@ pub fn parse_json(
     Ok(installed)
 }
 
+/// Parse JSON Lines (NDJSON) output - each line is a separate JSON object
+/// Used by tools like soar, docker, etc.
+pub fn parse_json_lines(
+    output: &str,
+    config: &BackendConfig,
+) -> Result<HashMap<String, PackageMetadata>> {
+    let name_key = config
+        .list_name_key
+        .as_ref()
+        .ok_or_else(|| DeclarchError::Other("Missing list_name_key for JSON Lines parser".to_string()))?;
+
+    let version_key = config.list_version_key.as_ref().ok_or_else(|| {
+        DeclarchError::Other("Missing list_version_key for JSON Lines parser".to_string())
+    })?;
+
+    let mut installed = HashMap::new();
+
+    // Parse each line as a separate JSON object
+    for line in output.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        // Try to parse the line as JSON
+        match serde_json::from_str::<Value>(line) {
+            Ok(json) => {
+                // Extract package name
+                if let Some(Value::String(name)) = json.get(name_key) {
+                    let version = json
+                        .get(version_key)
+                        .and_then(|v: &Value| v.as_str())
+                        .map(|v| v.to_string());
+
+                    installed.insert(
+                        name.to_string(),
+                        PackageMetadata {
+                            version,
+                            variant: None,
+                            installed_at: Utc::now(),
+                            source_file: None,
+                        },
+                    );
+                }
+            }
+            Err(_) => {
+                // Skip lines that aren't valid JSON (like log messages, tables, etc.)
+                continue;
+            }
+        }
+    }
+
+    Ok(installed)
+}
+
 /// Navigate through JSON structure using dot notation path
 fn navigate_json_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     let parts: Vec<&str> = path.split('.').collect();
