@@ -70,5 +70,6 @@ pub fn run(options: InitOptions) -> Result<()> {
 }
 
 // Re-export list functions for CLI
+pub use list::is_module_available;
 pub use list::list_available_backends;
 pub use list::list_available_modules;

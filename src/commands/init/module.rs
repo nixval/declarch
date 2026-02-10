@@ -107,15 +107,43 @@ pub fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Re
             }
         }
     }
-    // STRATEGY C: Create new local module from template
-    else {
-        // User just wants to create a new module locally (or --local flag used)
-        if local {
-            output::info(&format!("Creating local module: {}", slug));
-        } else {
-            output::info(&format!("Creating new local module: {}", slug));
-        }
+    // STRATEGY C: Local module creation (--local flag or simple name not in registry)
+    else if local {
+        // User explicitly wants local module with --local flag
+        output::info(&format!("Creating local module: {}", slug));
         utils::templates::default_module(&slug)
+    }
+    // STRATEGY D: Check if simple name exists in registry
+    else {
+        // Simple name without namespace - check if it exists in registry
+        let is_available = super::is_module_available(target_path);
+        
+        if !is_available {
+            return Err(DeclarchError::ConfigError(format!(
+                "Module '{}' not found in registry.
+
+\
+                Try one of these alternatives:
+\
+                1. List available modules:    declarch init --list modules
+\
+                2. Create local module:       declarch init --local {}
+\
+                3. Check module path:           declarch init <category>/{}",
+                target_path, slug, slug
+            )));
+        }
+        
+        // Try to fetch from registry
+        match remote::fetch_module_content(target_path) {
+            Ok(remote_content) => remote_content,
+            Err(e) => {
+                return Err(DeclarchError::ConfigError(format!(
+                    "Failed to fetch module '{}' from registry: {}",
+                    target_path, e
+                )));
+            }
+        }
     };
 
     // Display module meta information before proceeding

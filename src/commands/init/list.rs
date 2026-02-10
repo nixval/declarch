@@ -69,6 +69,20 @@ pub fn list_available_backends() -> Result<()> {
     Ok(())
 }
 
+/// Check if a module exists in the registry
+pub fn is_module_available(name: &str) -> bool {
+    let modules: Vec<ModuleInfo> = vec![
+        ("system/base", "Essential packages for any Linux system", vec!["base", "essential", "core"]),
+        ("desktop/hyprland", "Hyprland Wayland compositor setup", vec!["desktop", "wayland", "hyprland"]),
+        ("apps/flatpak-common", "Common GUI applications via Flatpak", vec!["apps", "gui", "flatpak"]),
+        ("development/nodejs", "Node.js development environment", vec!["dev", "nodejs", "javascript"]),
+        ("dev/rust", "Rust development tools", vec!["dev", "rust", "cargo"]),
+        ("apps/multimedia", "Multimedia applications", vec!["apps", "media", "audio", "video"]),
+    ];
+    
+    modules.iter().any(|(path, _, _)| *path == name)
+}
+
 /// List available modules from the registry
 pub fn list_available_modules() -> Result<()> {
     output::header("Available Modules");
