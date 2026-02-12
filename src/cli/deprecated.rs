@@ -58,6 +58,8 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Update { .. } => "declarch sync update",
         SyncCommand::Prune { .. } => "declarch sync prune",
         SyncCommand::Sync { .. } => "declarch sync",
+        SyncCommand::Cache { .. } => "declarch sync cache",
+        SyncCommand::Upgrade { .. } => "declarch sync upgrade",
     };
 
     (has_deprecated_flags, deprecated_command, new_cmd)
@@ -250,5 +252,9 @@ pub fn sync_command_to_options(
             hooks: *hooks,
             modules: modules.clone(),
         },
+        // Cache and Upgrade are handled directly in dispatcher, not through sync options
+        SyncCommand::Cache { .. } | SyncCommand::Upgrade { .. } => {
+            unreachable!("Cache and Upgrade should be handled directly in dispatcher")
+        }
     }
 }

@@ -112,21 +112,13 @@ pub enum Command {
     },
 
     /// Synchronize system state with configuration
+    ///
+    /// Main command for managing packages. Subcommands provide additional
+    /// functionality like previewing changes, updating package indices,
+    /// upgrading packages, and cleaning caches.
     Sync {
         #[command(subcommand)]
         command: Option<SyncCommand>,
-
-        /// [DEPRECATED] Use `declarch sync preview` instead
-        #[arg(long, hide = true)]
-        dry_run: bool,
-
-        /// [DEPRECATED] Use `declarch sync prune` instead
-        #[arg(long, hide = true)]
-        prune: bool,
-
-        /// [DEPRECATED] Use `declarch sync update` instead
-        #[arg(short = 'u', long, hide = true)]
-        update: bool,
 
         /// Garbage collect system orphans after sync
         #[arg(long, help_heading = "Advanced")]
@@ -292,39 +284,6 @@ pub enum Command {
         available_only: bool,
     },
 
-    /// Clean package manager caches
-    ///
-    /// Removes cached package files for configured backends.
-    /// Useful for freeing disk space or resolving cache corruption issues.
-    ///
-    /// Examples:
-    ///   declarch cache          Clean all backend caches
-    ///   declarch cache --backend npm    Clean only npm cache
-    Cache {
-        /// Target specific backend(s)
-        #[arg(short, long, value_name = "BACKEND")]
-        backend: Vec<String>,
-    },
-
-    /// Upgrade packages to latest versions
-    ///
-    /// Upgrades all packages managed by declarch to their latest versions
-    /// across all configured backends. After upgrading, automatically runs
-    /// sync to adopt the new versions into state.
-    ///
-    /// Examples:
-    ///   declarch upgrade          Upgrade all packages
-    ///   declarch upgrade --backend npm  Upgrade only npm packages
-    Upgrade {
-        /// Target specific backend(s)
-        #[arg(short, long, value_name = "BACKEND")]
-        backend: Vec<String>,
-
-        /// Skip automatic sync after upgrade
-        #[arg(long)]
-        no_sync: bool,
-    },
-
     /// Generate shell completions (hidden from main help)
     #[command(hide = true)]
     Completions {
@@ -435,6 +394,40 @@ pub enum SyncCommand {
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
+    },
+
+    /// Clean package manager caches
+    ///
+    /// Removes cached package files for configured backends.
+    /// Useful for freeing disk space or resolving cache corruption issues.
+    ///
+    /// Examples:
+    ///   declarch sync cache              Clean all backend caches
+    ///   declarch sync cache --backend npm  Clean only npm cache
+    Cache {
+        /// Target specific backend(s)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Vec<String>,
+    },
+
+    /// Upgrade packages to latest versions
+    ///
+    /// Upgrades all packages managed by declarch to their latest versions
+    /// across all configured backends. After upgrading, automatically runs
+    /// sync to adopt the new versions into state.
+    ///
+    /// Examples:
+    ///   declarch sync upgrade              Upgrade all packages
+    ///   declarch sync upgrade --backend npm  Upgrade only npm packages
+    ///   declarch sync upgrade --no-sync    Upgrade without auto-sync
+    Upgrade {
+        /// Target specific backend(s)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Vec<String>,
+
+        /// Skip automatic sync after upgrade
+        #[arg(long)]
+        no_sync: bool,
     },
 }
 
