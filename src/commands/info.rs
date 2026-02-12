@@ -7,6 +7,13 @@ use colored::Colorize;
 use std::collections::HashMap;
 use terminal_size::{Width, terminal_size};
 
+/// Indentation width used for package display formatting
+const PACKAGE_INDENT_WIDTH: usize = 4;
+/// Prefix length reserved for backend name in package listing
+const BACKEND_PREFIX_LEN: usize = 10;
+/// Indentation for line continuation in multi-line package lists
+const CONTINUATION_INDENT: &str = "     ";
+
 pub struct InfoOptions {
     pub doctor: bool,
     pub debug: bool,
@@ -65,8 +72,8 @@ fn run_info(options: &InfoOptions) -> Result<()> {
     let format_str = options.format.as_deref().unwrap_or("table");
 
     match format_str {
-        "json" => output_json_filtered(&filtered_packages, &state),
-        "yaml" => output_yaml_filtered(&filtered_packages, &state),
+        "json" => output_json_filtered(&filtered_packages),
+        "yaml" => output_yaml_filtered(&filtered_packages),
         _ => output_table_filtered(&state, &filtered_packages),
     }
 }
@@ -114,7 +121,6 @@ fn output_table_filtered(
 
 fn output_json_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
-    _state: &state::types::State,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
@@ -126,7 +132,6 @@ fn output_json_filtered(
 
 fn output_yaml_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
-    _state: &state::types::State,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
@@ -363,8 +368,7 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
 }
 
 fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
-    let prefix_len = 10;
-    let available_width = term_width.saturating_sub(prefix_len + 4);
+    let available_width = term_width.saturating_sub(BACKEND_PREFIX_LEN + PACKAGE_INDENT_WIDTH);
 
     if available_width < 20 {
         return pkg_names.join(" ");
@@ -396,7 +400,7 @@ fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
     }
 
     if lines.len() > 1 {
-        lines.join("\n     ")
+        lines.join(&format!("\n{CONTINUATION_INDENT}"))
     } else {
         lines.join("\n")
     }
