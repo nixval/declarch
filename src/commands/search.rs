@@ -8,6 +8,7 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
+use rayon::prelude::*;
 
 pub struct SearchOptions {
     pub query: String,
@@ -69,60 +70,64 @@ pub fn run(options: SearchOptions) -> Result<()> {
         return Ok(());
     }
 
-    // Search across backends and collect results
-    let mut all_results: Vec<PackageSearchResult> = Vec::new();
-    let mut total_count = 0;
-
     // Default limit is 10 if not specified
     let effective_limit = updated_options.limit.or(Some(10));
 
-    for backend in backends_to_search {
-        match create_manager_for_backend(&backend) {
-            Ok(manager) if manager.supports_search() => {
-                output::info(&format!("Searching {}...", backend));
-
-                match manager.search(&actual_query) {
-                    Ok(mut results) => {
-                        total_count += results.len();
-
-                        // Apply result limiting
-                        if let Some(limit_value) = effective_limit
-                            && results.len() > limit_value
-                        {
-                            results.truncate(limit_value);
-                        }
-
-                        // Mark installed packages
-                        for result in &mut results {
-                            let pkg_id = PackageId {
-                                name: result.name.clone(),
-                                backend: result.backend.clone(),
-                            };
-                            let state_key = crate::core::resolver::make_state_key(&pkg_id);
-                            let is_installed = state.packages.contains_key(&state_key);
-                            if is_installed {
-                                result.name = format!("{} ✓", result.name);
-                            }
-                        }
-
-                        all_results.extend(results);
-                    }
-                    Err(e) => {
-                        output::warning(&format!("Failed to search {}: {}", backend, e));
+    // Search across backends in parallel for better performance
+    let search_results: Vec<(Backend, Vec<PackageSearchResult>, Option<String>)> = backends_to_search
+        .par_iter()
+        .map(|backend| {
+            match create_manager_for_backend(backend) {
+                Ok(manager) if manager.supports_search() => {
+                    match manager.search(&actual_query) {
+                        Ok(results) => (backend.clone(), results, None),
+                        Err(e) => (backend.clone(), Vec::new(), Some(format!("Search failed: {}", e))),
                     }
                 }
+                Ok(_) => {
+                    // Backend doesn't support search
+                    (backend.clone(), Vec::new(), Some("Does not support search".to_string()))
+                }
+                Err(e) => {
+                    (backend.clone(), Vec::new(), Some(format!("Initialization failed: {}", e)))
+                }
             }
-            Ok(_) => {
-                // Backend doesn't support search
-                output::warning(&format!(
-                    "Backend '{}' does not support search",
-                    backend
-                ));
-            }
-            Err(e) => {
-                output::warning(&format!("Failed to initialize {}: {}", backend, e));
+        })
+        .collect();
+
+    // Collect results and warnings (sequential for output consistency)
+    let mut all_results: Vec<PackageSearchResult> = Vec::new();
+    let mut total_count = 0;
+
+    for (backend, mut results, error) in search_results {
+        if let Some(e) = error {
+            output::warning(&format!("{}: {}", backend, e));
+            continue;
+        }
+
+        total_count += results.len();
+
+        // Apply result limiting per backend
+        if let Some(limit_value) = effective_limit
+            && results.len() > limit_value
+        {
+            results.truncate(limit_value);
+        }
+
+        // Mark installed packages
+        for result in &mut results {
+            let pkg_id = PackageId {
+                name: result.name.clone(),
+                backend: result.backend.clone(),
+            };
+            let state_key = crate::core::resolver::make_state_key(&pkg_id);
+            let is_installed = state.packages.contains_key(&state_key);
+            if is_installed {
+                result.name = format!("{} ✓", result.name);
             }
         }
+
+        all_results.extend(results);
     }
 
     // Filter results based on options
