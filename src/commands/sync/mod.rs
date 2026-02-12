@@ -33,6 +33,9 @@ use crate::state::types::Backend;
 use crate::state;
 use std::collections::HashMap;
 
+// Re-export dry-run display function
+pub use planner::display_dry_run_details;
+
 // Type aliases to reduce complexity
 pub type InstalledSnapshot = HashMap<PackageId, PackageMetadata>;
 pub type ManagerMap = HashMap<Backend, Box<dyn PackageManager>>;
@@ -88,7 +91,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
         return Ok(());
     }
 
-    display_transaction_plan(&transaction, options.prune);
+    // Show detailed dry-run info or regular plan
+    if options.dry_run {
+        display_dry_run_details(&transaction, options.prune, &installed_snapshot);
+    } else {
+        display_transaction_plan(&transaction, options.prune);
+    }
 
     // 7. Execute
     if !options.dry_run {
@@ -102,6 +110,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
         // 8. Update State
         let new_state = update_state(&state, &transaction, &installed_snapshot, &options)?;
         state::io::save_state_locked(&new_state)?;
+    } else {
+        // Dry-run complete
+        output::success("Dry-run completed - no changes were made");
     }
 
     // Execute post-sync hooks
