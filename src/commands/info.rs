@@ -5,7 +5,6 @@ use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
-use std::process::Command;
 use terminal_size::{Width, terminal_size};
 
 pub struct InfoOptions {
@@ -317,11 +316,7 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
 }
 
 fn is_command_available(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    which::which(cmd).is_ok()
 }
 
 /// Print packages grouped by backend with horizontal display per group
