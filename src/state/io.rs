@@ -133,6 +133,10 @@ fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
 }
 
 /// Rotate backup files, keeping last 3 versions
+///
+/// # Errors
+/// Returns an error only if the initial backup copy fails. Rotation failures
+/// are logged as warnings but don't prevent the operation from continuing.
 fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
     // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
     // Shift: .bak.2 -> .bak.3
@@ -145,12 +149,24 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
             let old_bak = dir.join(format!("state.json.bak.{}", i));
             let new_bak = dir.join(format!("state.json.bak.{}", i + 1));
             if old_bak.exists() {
-                let _ = fs::rename(&old_bak, &new_bak);
+                if let Err(e) = fs::rename(&old_bak, &new_bak) {
+                    eprintln!(
+                        "Warning: Failed to rotate backup {} -> {}: {}",
+                        old_bak.display(),
+                        new_bak.display(),
+                        e
+                    );
+                }
             }
         }
 
         let first_bak = dir.join("state.json.bak.1");
-        let _ = fs::copy(path, &first_bak);
+        if let Err(e) = fs::copy(path, &first_bak) {
+            return Err(DeclarchError::IoError {
+                path: first_bak,
+                source: e,
+            });
+        }
     }
     // ----------------------------------------------------
 
@@ -255,7 +271,9 @@ pub fn save_state_locked(state: &State) -> Result<()> {
 
     // Sync directory to ensure rename is persisted
     if let Ok(dir_file) = fs::File::open(dir) {
-        let _ = dir_file.sync_all();
+        if let Err(e) = dir_file.sync_all() {
+            eprintln!("Warning: Failed to sync state directory: {}", e);
+        }
     }
 
     // Release lock (happens automatically when lock_file is dropped)
