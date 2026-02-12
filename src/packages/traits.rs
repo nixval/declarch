@@ -63,4 +63,15 @@ pub trait PackageManager: Send + Sync {
     fn supports_upgrade(&self) -> bool {
         false // Default: no upgrade support
     }
+
+    /// Search for packages in locally installed packages only
+    /// Default: no local search support
+    fn search_local(&self, _query: &str) -> Result<Vec<PackageSearchResult>> {
+        Ok(Vec::new()) // Default: no local search support
+    }
+
+    /// Check if this package manager supports local search
+    fn supports_search_local(&self) -> bool {
+        false // Default: no local search support
+    }
 }

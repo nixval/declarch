@@ -167,6 +167,7 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "install" => parse_install_cmd(child, &mut config)?,
                 "remove" => parse_remove_cmd(child, &mut config)?,
                 "search" => parse_search_cmd(child, &mut config)?,
+                "search_local" => parse_search_local_cmd(child, &mut config)?,
                 "update" => parse_update_cmd(child, &mut config)?,
                 "cache_clean" => parse_cache_clean_cmd(child, &mut config)?,
                 "upgrade" => parse_upgrade_cmd(child, &mut config)?,
@@ -228,6 +229,7 @@ fn get_entry_string(entry: &kdl::KdlEntry) -> Option<String> {
 }
 
 /// Parse list command with output format
+/// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     // Extract command from argument
     let cmd = node
@@ -240,7 +242,10 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             )
         })?;
 
-    config.list_cmd = Some(cmd.to_string());
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.list_cmd = Some(cmd.to_string());
+    }
 
     // Parse output format from children
     if let Some(children) = node.children() {
@@ -460,6 +465,7 @@ fn parse_install_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 }
 
 /// Parse remove command
+/// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     let cmd = node
         .entries()
@@ -470,12 +476,15 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         })?
         .to_string();
     
-    config.remove_cmd = Some(cmd);
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.remove_cmd = Some(cmd);
+    }
     Ok(())
 }
 
 /// Parse update command
-/// Format: update "command"
+/// Format: update "command" or update "-" to disable
 /// Example: update "apt update"
 fn parse_update_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     let cmd = node
@@ -487,12 +496,15 @@ fn parse_update_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         })?
         .to_string();
     
-    config.update_cmd = Some(cmd);
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.update_cmd = Some(cmd);
+    }
     Ok(())
 }
 
 /// Parse cache clean command
-/// Format: cache_clean "command"
+/// Format: cache_clean "command" or cache_clean "-" to disable
 /// Example: cache_clean "npm cache clean --force"
 fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     let cmd = node
@@ -504,12 +516,15 @@ fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<(
         })?
         .to_string();
     
-    config.cache_clean_cmd = Some(cmd);
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.cache_clean_cmd = Some(cmd);
+    }
     Ok(())
 }
 
 /// Parse upgrade command
-/// Format: upgrade "command"
+/// Format: upgrade "command" or upgrade "-" to disable
 /// Example: upgrade "paru -Syu"
 fn parse_upgrade_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     let cmd = node
@@ -521,7 +536,10 @@ fn parse_upgrade_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         })?
         .to_string();
     
-    config.upgrade_cmd = Some(cmd);
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.upgrade_cmd = Some(cmd);
+    }
     Ok(())
 }
 
@@ -536,6 +554,7 @@ fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 }
 
 /// Parse search command with output format
+/// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     // Extract command from argument
     let cmd = node
@@ -548,6 +567,11 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             )
         })?;
 
+    // "-" means explicitly disabled (no warning)
+    if cmd == "-" {
+        return Ok(());
+    }
+    
     config.search_cmd = Some(cmd.to_string());
 
     // Parse output format from children
@@ -705,6 +729,150 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Parse search_local command for searching installed packages
+/// Format: search_local "command" { ... } or search_local "-" to disable
+/// Example: search_local "pacman -Q {query}" { format whitespace name_col 0 }
+/// Use {query} placeholder for search term
+fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other(
+                "Search local command required. Usage: search_local \"command\" { ... }".to_string(),
+            )
+        })?
+        .to_string();
+    
+    // "-" means explicitly disabled (no warning)
+    if cmd == "-" {
+        return Ok(());
+    }
+    
+    config.search_local_cmd = Some(cmd);
+    
+    // Parse output format from children (same as search)
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+            match child_name {
+                "format" => {
+                    let format_str = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string)
+                        .ok_or_else(|| {
+                            DeclarchError::Other(
+                                "Format value required. Usage: format json|whitespace|tsv|regex"
+                                    .to_string(),
+                            )
+                        })?;
+
+                    config.search_local_format = Some(match format_str.as_str() {
+                        "json" => OutputFormat::Json,
+                        "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
+                        "npm_json" => OutputFormat::NpmJson,
+                        "whitespace" => OutputFormat::SplitWhitespace,
+                        "tsv" => OutputFormat::TabSeparated,
+                        "regex" => OutputFormat::Regex,
+                        _ => {
+                            return Err(DeclarchError::Other(format!(
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, whitespace, tsv, regex",
+                                format_str
+                            )));
+                        }
+                    });
+                }
+                "json_path" => {
+                    config.search_local_json_path = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string);
+                }
+                "name_key" => {
+                    config.search_local_name_key = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string);
+                }
+                "version_key" => {
+                    config.search_local_version_key = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string);
+                }
+                // Nested json block
+                "json" => {
+                    if let Some(json_children) = child.children() {
+                        for json_child in json_children.nodes() {
+                            match json_child.name().value() {
+                                "path" => {
+                                    config.search_local_json_path = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "name_key" => {
+                                    config.search_local_name_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "version_key" => {
+                                    config.search_local_version_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                "name_col" => {
+                    config.search_local_name_col = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                // Regex pattern for search
+                "regex" => {
+                    config.search_local_regex = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "name_group" => {
+                    config.search_local_regex_name_group = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+    
     Ok(())
 }
 

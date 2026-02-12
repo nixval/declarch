@@ -52,12 +52,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 Some(SyncCommand::Cache { backend }) => {
                     commands::cache::run(commands::cache::CacheOptions {
                         backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+                        verbose: args.global.verbose,
                     })
                 }
                 Some(SyncCommand::Upgrade { backend, no_sync }) => {
                     commands::upgrade::run(commands::upgrade::UpgradeOptions {
                         backends: if backend.is_empty() { None } else { Some(backend.clone()) },
                         no_sync: *no_sync,
+                        verbose: args.global.verbose,
                     })
                 }
                 _ => {
@@ -313,6 +315,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             limit,
             installed_only,
             available_only,
+            local,
         }) => {
             // Parse limit option: "all" or "0" means unlimited, otherwise parse as number
             let parsed_limit = if let Some(limit_str) = limit {
@@ -331,6 +334,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 limit: parsed_limit,
                 installed_only: *installed_only,
                 available_only: *available_only,
+                local: *local,
             })
         }
 

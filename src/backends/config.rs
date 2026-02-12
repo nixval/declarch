@@ -126,6 +126,34 @@ pub struct BackendConfig {
     /// Use {binary} as placeholder for binary name
     /// Note: Some backends use {packages} for selective upgrade
     pub upgrade_cmd: Option<String>,
+
+    /// ===== LOCAL SEARCH SUPPORT =====
+    /// Optional: Command to search locally installed packages
+    /// Example: "pacman -Q {query}", "dpkg -l {query}"
+    /// Use {query} as placeholder for search term
+    /// Use {binary} as placeholder for binary name
+    pub search_local_cmd: Option<String>,
+
+    /// How to parse the output of search_local_cmd
+    pub search_local_format: Option<OutputFormat>,
+
+    /// JSON path to results array for local search (for Json format)
+    pub search_local_json_path: Option<String>,
+
+    /// Key name for package name in local search results
+    pub search_local_name_key: Option<String>,
+
+    /// Key name for package version in local search results
+    pub search_local_version_key: Option<String>,
+
+    /// Column index for package name in local search results (for SplitWhitespace/TabSeparated)
+    pub search_local_name_col: Option<usize>,
+
+    /// Regex pattern to extract local search results
+    pub search_local_regex: Option<String>,
+
+    /// Capture group index for package name in local search regex
+    pub search_local_regex_name_group: Option<usize>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -229,6 +257,14 @@ impl Default for BackendConfig {
             update_cmd: None,
             cache_clean_cmd: None,
             upgrade_cmd: None,
+            search_local_cmd: None,
+            search_local_format: None,
+            search_local_json_path: None,
+            search_local_name_key: None,
+            search_local_version_key: None,
+            search_local_name_col: None,
+            search_local_regex: None,
+            search_local_regex_name_group: None,
         }
     }
 }

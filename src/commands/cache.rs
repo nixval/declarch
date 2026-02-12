@@ -11,12 +11,12 @@ use crate::ui as output;
 pub struct CacheOptions {
     /// Target specific backends (None = all backends)
     pub backends: Option<Vec<String>>,
+    /// Verbose output
+    pub verbose: bool,
 }
 
 /// Run cache clean for configured backends
 pub fn run(options: CacheOptions) -> Result<()> {
-    output::info("Loading backend configurations...");
-
     // Load all configured backends
     let all_backends = load_all_backends()?;
 
@@ -41,61 +41,74 @@ pub fn run(options: CacheOptions) -> Result<()> {
     }
 
     let global_config = GlobalConfig::default();
-    let mut cleaned_count = 0;
-    let mut skipped_count = 0;
+    
+    // First pass: check which backends can clean cache
+    let mut cleanable_backends = Vec::new();
+    let mut skipped_no_cmd = Vec::new();
+    let mut skipped_not_available = Vec::new();
 
     for (name, config) in backends_to_clean {
-        // Check if backend has cache_clean_cmd configured
         if config.cache_clean_cmd.is_none() {
-            output::info(&format!(
-                "Skipping '{}': no cache_clean_cmd configured",
-                name
-            ));
-            skipped_count += 1;
+            skipped_no_cmd.push(name);
             continue;
         }
-
-        // Create manager for this backend
-        match create_manager(
-            &crate::core::types::Backend::from(name.as_str()),
-            &global_config,
-            false,
-        ) {
+        
+        match create_manager(&crate::core::types::Backend::from(name.as_str()), &global_config, false) {
             Ok(manager) => {
-                if !manager.is_available() {
-                    output::warning(&format!("Backend '{}' is not available", name));
-                    skipped_count += 1;
-                    continue;
-                }
-
-                if !manager.supports_cache_clean() {
-                    output::warning(&format!(
-                        "Backend '{}' does not support cache cleaning",
-                        name
-                    ));
-                    skipped_count += 1;
-                    continue;
-                }
-
-                match manager.clean_cache() {
-                    Ok(()) => {
-                        cleaned_count += 1;
-                    }
-                    Err(e) => {
-                        output::warning(&format!(
-                            "Failed to clean cache for '{}': {}",
-                            name, e
-                        ));
-                        skipped_count += 1;
-                    }
+                if manager.is_available() && manager.supports_cache_clean() {
+                    cleanable_backends.push((name, manager));
+                } else if !manager.is_available() {
+                    skipped_not_available.push(name);
                 }
             }
             Err(e) => {
-                output::warning(&format!(
-                    "Failed to create manager for '{}': {}",
-                    name, e
-                ));
-                skipped_count += 1;
+                if options.verbose {
+                    output::warning(&format!("Failed to initialize '{}': {}", name, e));
+                }
+                skipped_not_available.push(name);
+            }
+        }
+    }
+
+    // Show compact summary of skipped backends
+    if !skipped_no_cmd.is_empty() {
+        output::warning(&format!(
+            "Skipped (no cache_clean_cmd): {}",
+            skipped_no_cmd.join(", ")
+        ));
+    }
+    if !skipped_not_available.is_empty() {
+        output::warning(&format!(
+            "Skipped (not available): {}",
+            skipped_not_available.join(", ")
+        ));
+    }
+
+    if cleanable_backends.is_empty() {
+        output::info("No backends to clean");
+        return Ok(());
+    }
+
+    // Clean backends
+    output::info("Cleaning caches...");
+    output::separator();
+
+    let mut cleaned_count = 0;
+    let mut failed_count = 0;
+
+    for (name, manager) in cleanable_backends {
+        match manager.clean_cache() {
+            Ok(()) => {
+                cleaned_count += 1;
+            }
+            Err(e) => {
+                if options.verbose {
+                    output::warning(&format!("Failed to clean '{}': {}", name, e));
+                    output::info(&format!("  Recommendation: Check backend configuration or run with --force to ignore errors"));
+                } else {
+                    output::warning(&format!("Failed to clean '{}' (use --verbose for details)", name));
+                }
+                failed_count += 1;
             }
         }
     }
@@ -104,8 +117,8 @@ pub fn run(options: CacheOptions) -> Result<()> {
     if cleaned_count > 0 {
         output::success(&format!("Cleaned {} backend cache(s)", cleaned_count));
     }
-    if skipped_count > 0 {
-        output::info(&format!("Skipped {} backend(s)", skipped_count));
+    if failed_count > 0 {
+        output::warning(&format!("Failed {} backend(s)", failed_count));
     }
 
     Ok(())

@@ -37,12 +37,13 @@ pub enum ImportResult {
 /// Flow:
 /// 1. Show "fetching [name] from nixval/declarch-packages"
 /// 2. If not found → error
-/// 3. Prompt "Are you sure you want this [name] being adopted? Y/n"
-/// 4. If no → cancel
-/// 5. If yes → write file
-/// 6. Prompt "Need to import this automatically to backends.kdl? Y/n"
-/// 7. If yes → add import, show "Backend 'name' adopted"
-/// 8. If no → show "Backend 'name' fetched. please import it to use it"
+/// 3. Validate KDL (warning if invalid, can bypass with --force)
+/// 4. Prompt "Are you sure you want this [name] being adopted? Y/n"
+/// 5. If no → cancel
+/// 6. If yes → write file
+/// 7. Prompt "Need to import this automatically to backends.kdl? Y/n"
+/// 8. If yes → add import, show "Backend 'name' adopted"
+/// 9. If no → show "Backend 'name' fetched. please import it to use it"
 pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     let root_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
@@ -98,7 +99,21 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         }
     };
 
-    // STEP 4b: Parse and display meta information
+    // STEP 4b: Validate KDL (warning only, can bypass with --force)
+    if let Err(e) = super::validate_kdl(&backend_content, &format!("backend '{}'", sanitized_name)) {
+        if !force {
+            output::warning(&format!("{}", e));
+            output::info("The backend may be malformed or incompatible with your declarch version.");
+            output::info("You can still adopt it with --force, then edit the file manually.");
+            
+            if !output::prompt_yes_no("Continue with potentially invalid backend") {
+                output::info("Cancelled. You can try a different backend or use --force to override.");
+                return Ok(());
+            }
+        }
+    }
+
+    // STEP 4c: Parse and display meta information
     if let Ok(meta) = extract_backend_meta(&backend_content) {
         println!();
         if !meta.title.is_empty() && meta.title != "-" {
@@ -136,7 +151,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         return Ok(());
     }
 
-    // STEP 7: Write backend file
+    // STEP 7: Write backend file (KDL already validated or bypassed)
     fs::write(&backend_file, &backend_content)?;
 
     // STEP 8: Prompt for auto-import (skip if force)
@@ -510,16 +525,71 @@ backend "aur" {
 
 /// Generate default backends.kdl content
 pub fn default_backends_kdl() -> &'static str {
-    r#"// Backend Aggregator
-// 
-// Official backends (aur, pacman, flatpak) are embedded and ready to use.
-// Custom backends can be added via 'declarch init --backend <name>'
+    r#"// ============================================================================
+// BACKENDS.KDL - Declarch Backend Configuration
+// ============================================================================
 //
-// To disable: Comment out the backend block
+// This file defines all package manager backends for declarch.
+// Each backend describes how to interact with a package manager.
+//
+// LOCATION: ~/.config/declarch/backends.kdl
+//
+// ============================================================================
+// COMMAND REFERENCE
+// ============================================================================
+//
+// Required commands:
+//   install "cmd {packages}"     - Install packages ({packages} = space-separated list)
+//
+// Optional commands (omit or use "-" to disable without warning):
+//   list "cmd" { ... }          - List installed packages (omit = install-only backend)
+//   remove "cmd {packages}"      - Remove packages (omit = cannot remove via declarch)
+//   update "cmd"                 - Update package index (use "-" if not applicable)
+//   upgrade "cmd"                - Upgrade packages to latest version
+//   cache_clean "cmd"            - Clean package cache
+//   search "cmd {query}" { ... } - Search remote repositories
+//   search_local "cmd {query}" { ... } - Search locally installed packages
+//
+// Sentinel value "-" (dash):
+//   Use "-" to explicitly disable a command without getting warnings.
+//   Example: update "-"  (NPM doesn't have an update index command)
+//
+// Placeholders:
+//   {binary}  - Replaced with the actual binary name (respects fallback chain)
+//   {packages} - Space-separated package list (for install/remove)
+//   {query}   - Search term (for search/search_local)
+//
+// ============================================================================
+// OUTPUT FORMATS
+// ============================================================================
+//
+// For list, search, and search_local commands, specify how to parse output:
+//
+//   format "whitespace"          - Space-separated columns (default)
+//     name_col 0                 - Column index for package name
+//     version_col 1              - Column index for version (optional)
+//
+//   format "tsv"                 - Tab-separated columns
+//     name_col 0
+//     version_col 1
+//
+//   format "json"                - JSON output
+//     json_path "dependencies"   - Path to array in JSON (dot notation)
+//     name_key "name"            - Key for package name
+//     version_key "version"      - Key for version (optional)
+//
+//   format "regex"               - Regex pattern matching
+//     regex "pattern"            - Regex with capture groups
+//     name_group 1               - Capture group for package name
+//     version_group 2            - Capture group for version (optional)
+//
+// ============================================================================
 
 // =============================================================================
 // AUR Helper (Arch Linux)
-// Fallback chain: paru → yay → pacman
+// =============================================================================
+// Supports: paru, yay (with pacman fallback)
+// Features: Full support (install, remove, update, upgrade, cache clean, search)
 // =============================================================================
 backend "aur" {
     meta {
@@ -531,17 +601,26 @@ backend "aur" {
         requires "paru" "yay" "pacman"
     }
     
+    // Try paru first, then yay
     binary "paru" "yay"
     
+    // List installed packages
     list "{binary} -Q" {
         format "whitespace"
         name_col 0
         version_col 1
     }
     
+    // Package operations
     install "{binary} -S --needed {packages}"
     remove "{binary} -R {packages}"
     
+    // System operations
+    update "{binary} -Sy"              // Update package database
+    upgrade "{binary} -Syu"            // Upgrade all packages
+    cache_clean "{binary} -Sc --noconfirm"  // Clean package cache
+    
+    // Search remote repositories
     search "{binary} -Ss {query}" {
         format "regex"
         regex "(?m)^(\\S+)\\s+.*\\n\\s+(.*)$"
@@ -549,11 +628,21 @@ backend "aur" {
         desc_group 2
     }
     
+    // Search locally installed packages
+    search_local "{binary} -Q {query}" {
+        format "whitespace"
+        name_col 0
+        version_col 1
+    }
+    
+    // Fallback to pacman if no AUR helper available
     fallback "pacman"
 }
 
 // =============================================================================
 // Pacman (Arch Linux native)
+// =============================================================================
+// Features: Official repo only (no AUR support)
 // =============================================================================
 backend "pacman" {
     meta {
@@ -576,11 +665,23 @@ backend "pacman" {
     install "pacman -S --needed {packages}"
     remove "pacman -R {packages}"
     
+    update "pacman -Sy"
+    upgrade "pacman -Syu"
+    cache_clean "pacman -Sc --noconfirm"
+    
+    search_local "pacman -Q {query}" {
+        format "whitespace"
+        name_col 0
+        version_col 1
+    }
+    
     needs_sudo "true"
 }
 
 // =============================================================================
 // Flatpak (Universal Linux apps)
+// =============================================================================
+// Features: Sandbox apps from Flathub
 // =============================================================================
 backend "flatpak" {
     meta {
@@ -603,6 +704,10 @@ backend "flatpak" {
     install "flatpak install flathub {packages}"
     remove "flatpak uninstall {packages}"
     
+    update "flatpak update --appstream"
+    upgrade "flatpak update -y"
+    cache_clean "flatpak uninstall --unused -y"
+    
     search "flatpak search {query}" {
         format "tsv"
         name_col 2
@@ -615,6 +720,9 @@ backend "flatpak" {
 
 // =============================================================================
 // NPM (Node.js packages)
+// =============================================================================
+// Note: NPM doesn't have a traditional "update" command (no package index).
+// Use "-" sentinel to explicitly disable without warning.
 // =============================================================================
 backend "npm" {
     meta {
@@ -638,6 +746,11 @@ backend "npm" {
     install "npm install -g --silent {packages}"
     remove "npm uninstall -g --silent {packages}"
     
+    // Sentinel "-" = explicitly disabled (NPM has no package index update)
+    update "-"
+    upgrade "npm update -g"
+    cache_clean "npm cache clean --force"
+    
     search "npm search {query} --json" {
         format "npm_json"
         name_key "name"
@@ -645,15 +758,59 @@ backend "npm" {
         desc_key "description"
     }
     
+    // Search locally installed packages
+    search_local "npm list -g {query} --json" {
+        format "json"
+        json_path "dependencies"
+        name_key "name"
+        version_key "version"
+    }
+    
     needs_sudo "false"
 }
 
 // =============================================================================
+// EXAMPLE: APT (Debian/Ubuntu) - Uncomment to use
+// =============================================================================
+// backend "apt" {
+//     binary "apt"
+//     
+//     list "apt list --installed" {
+//         format "regex"
+//         regex {
+//             pattern "^(\\S+)/\\S+\\s+\\S+\\s+\\[installed.*\]"
+//             name_group 1
+//         }
+//     }
+//     
+//     install "apt install {packages}"
+//     remove "apt remove {packages}"
+//     update "apt update"
+//     upgrade "apt upgrade -y"
+//     cache_clean "apt clean"
+//     
+//     noconfirm "-y"
+//     needs_sudo "true"
+// }
+
+// =============================================================================
+// EXAMPLE: Install-only backend (no list/remove)
+// =============================================================================
+// For tools that can install but declarch can't track/uninstall:
+//
+// backend "mycustom" {
+//     binary "mycustom"
+//     install "mycustom install {packages}"
+//     // Omit list/remove = install-only backend
+// }
+
+// =============================================================================
 // Custom Backends
-// Use 'declarch init --backend <name>' to add custom backends
+// Use 'declarch init --backend <name>' to fetch from remote registry
 // =============================================================================
 imports {
-    // Custom backend imports will be added here
+    // Custom backend imports will be added here automatically
+    // Example: "backends/cargo.kdl"
 }
 "#
 }

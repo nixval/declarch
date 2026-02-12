@@ -262,6 +262,7 @@ pub enum Command {
     ///   declarch search firefox --backends aur   Search in specific backend only
     ///   declarch search bat --installed-only   Show only installed matches
     ///   declarch search backend:package        Search in specific backend (alternative syntax)
+    ///   declarch search firefox --local        Search only in installed packages
     Search {
         /// Search query (can use "backend:query" syntax for specific backend)
         #[arg(value_name = "QUERY")]
@@ -282,6 +283,10 @@ pub enum Command {
         /// Show only available packages (not installed)
         #[arg(long, help_heading = "Filtering")]
         available_only: bool,
+
+        /// Search only in locally installed packages (uses search_local_cmd)
+        #[arg(long, help_heading = "Filtering")]
+        local: bool,
     },
 
     /// Generate shell completions (hidden from main help)

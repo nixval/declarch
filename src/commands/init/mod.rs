@@ -7,8 +7,15 @@
 //! - `declarch init --list backends` - List available backends
 //! - `declarch init --list modules` - List available modules
 
-use crate::error::Result;
+use crate::error::{DeclarchError, Result};
 use crate::ui as output;
+
+/// Validate KDL content
+pub fn validate_kdl(content: &str, context: &str) -> Result<()> {
+    kdl::KdlDocument::parse(content)
+        .map_err(|e| DeclarchError::ConfigError(format!("Invalid KDL in {}: {}", context, e)))?;
+    Ok(())
+}
 
 pub mod backend;
 pub mod list;

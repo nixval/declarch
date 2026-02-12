@@ -16,6 +16,8 @@ pub struct UpgradeOptions {
     pub backends: Option<Vec<String>>,
     /// Skip automatic sync after upgrade
     pub no_sync: bool,
+    /// Verbose output
+    pub verbose: bool,
 }
 
 /// Run upgrade for configured backends
@@ -48,61 +50,62 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
 
     let global_config = GlobalConfig::default();
 
-    // Upgrade backends in parallel for better performance
+    // First pass: check which backends can be upgraded
+    let mut upgradable_backends = Vec::new();
+    let mut skipped_no_cmd = Vec::new();
+    let mut skipped_not_available = Vec::new();
+
+    for (name, config) in backends_to_upgrade {
+        if config.upgrade_cmd.is_none() {
+            skipped_no_cmd.push(name);
+            continue;
+        }
+        
+        match create_manager(&Backend::from(name.as_str()), &global_config, false) {
+            Ok(manager) => {
+                if manager.is_available() && manager.supports_upgrade() {
+                    upgradable_backends.push((name, manager));
+                } else if !manager.is_available() {
+                    skipped_not_available.push(name);
+                }
+            }
+            Err(_) => {
+                skipped_not_available.push(name);
+            }
+        }
+    }
+
+    // Show compact summary of skipped backends
+    if !skipped_no_cmd.is_empty() {
+        output::warning(&format!(
+            "Skipped (no upgrade_cmd): {}",
+            skipped_no_cmd.join(", ")
+        ));
+    }
+    if !skipped_not_available.is_empty() {
+        output::warning(&format!(
+            "Skipped (not available): {}",
+            skipped_not_available.join(", ")
+        ));
+    }
+
+    if upgradable_backends.is_empty() {
+        output::info("No backends to upgrade");
+        return Ok(());
+    }
+
+    // Upgrade backends in parallel
     output::info("Upgrading packages...");
     output::separator();
 
-    let upgrade_results: Vec<(String, bool)> = backends_to_upgrade
-        .par_iter()
-        .filter_map(|(name, config)| {
-            // Check if backend has upgrade_cmd configured
-            if config.upgrade_cmd.is_none() {
-                output::info(&format!(
-                    "Skipping '{}': no upgrade_cmd configured",
-                    name
-                ));
-                return Some((name.clone(), false));
-            }
-
-            // Create manager for this backend
-            match create_manager(
-                &Backend::from(name.as_str()),
-                &global_config,
-                false,
-            ) {
-                Ok(manager) => {
-                    if !manager.is_available() {
-                        output::warning(&format!("Backend '{}' is not available", name));
-                        return Some((name.clone(), false));
-                    }
-
-                    if !manager.supports_upgrade() {
-                        output::warning(&format!(
-                            "Backend '{}' does not support upgrade",
-                            name
-                        ));
-                        return Some((name.clone(), false));
-                    }
-
-                    match manager.upgrade() {
-                        Ok(()) => {
-                            Some((name.clone(), true))
-                        }
-                        Err(e) => {
-                            output::warning(&format!(
-                                "Failed to upgrade '{}': {}",
-                                name, e
-                            ));
-                            Some((name.clone(), false))
-                        }
-                    }
-                }
+    let upgrade_results: Vec<(String, bool)> = upgradable_backends
+        .into_par_iter()
+        .map(|(name, manager)| {
+            match manager.upgrade() {
+                Ok(()) => (name, true),
                 Err(e) => {
-                    output::warning(&format!(
-                        "Failed to create manager for '{}': {}",
-                        name, e
-                    ));
-                    Some((name.clone(), false))
+                    output::warning(&format!("Failed to upgrade '{}': {}", name, e));
+                    (name, false)
                 }
             }
         })
@@ -110,14 +113,14 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
 
     // Count results
     let upgraded_count = upgrade_results.iter().filter(|(_, success)| *success).count();
-    let skipped_count = upgrade_results.len() - upgraded_count;
+    let failed_count = upgrade_results.len() - upgraded_count;
 
     output::separator();
     if upgraded_count > 0 {
         output::success(&format!("Upgraded {} backend(s)", upgraded_count));
     }
-    if skipped_count > 0 {
-        output::info(&format!("Skipped {} backend(s)", skipped_count));
+    if failed_count > 0 {
+        output::warning(&format!("Failed {} backend(s)", failed_count));
     }
 
     // Auto-sync after upgrade (unless --no-sync)

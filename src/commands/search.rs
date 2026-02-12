@@ -16,6 +16,7 @@ pub struct SearchOptions {
     pub limit: Option<usize>,
     pub installed_only: bool,
     pub available_only: bool,
+    pub local: bool,
 }
 
 /// Parse query for optional "backend:query" syntax
@@ -59,6 +60,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
         limit: options.limit,
         installed_only: options.installed_only,
         available_only: options.available_only,
+        local: options.local,
     };
 
     // Get backends to search
@@ -78,15 +80,28 @@ pub fn run(options: SearchOptions) -> Result<()> {
         .par_iter()
         .map(|backend| {
             match create_manager_for_backend(backend) {
-                Ok(manager) if manager.supports_search() => {
-                    match manager.search(&actual_query) {
-                        Ok(results) => (backend.clone(), results, None),
-                        Err(e) => (backend.clone(), Vec::new(), Some(format!("Search failed: {}", e))),
+                Ok(manager) => {
+                    if options.local {
+                        // Local search mode
+                        if manager.supports_search_local() {
+                            match manager.search_local(&actual_query) {
+                                Ok(results) => (backend.clone(), results, None),
+                                Err(e) => (backend.clone(), Vec::new(), Some(format!("Local search failed: {}", e))),
+                            }
+                        } else {
+                            (backend.clone(), Vec::new(), Some("Does not support local search".to_string()))
+                        }
+                    } else {
+                        // Remote search mode
+                        if manager.supports_search() {
+                            match manager.search(&actual_query) {
+                                Ok(results) => (backend.clone(), results, None),
+                                Err(e) => (backend.clone(), Vec::new(), Some(format!("Search failed: {}", e))),
+                            }
+                        } else {
+                            (backend.clone(), Vec::new(), Some("Does not support search".to_string()))
+                        }
                     }
-                }
-                Ok(_) => {
-                    // Backend doesn't support search
-                    (backend.clone(), Vec::new(), Some("Does not support search".to_string()))
                 }
                 Err(e) => {
                     (backend.clone(), Vec::new(), Some(format!("Initialization failed: {}", e)))
@@ -114,16 +129,25 @@ pub fn run(options: SearchOptions) -> Result<()> {
             results.truncate(limit_value);
         }
 
-        // Mark installed packages
-        for result in &mut results {
-            let pkg_id = PackageId {
-                name: result.name.clone(),
-                backend: result.backend.clone(),
-            };
-            let state_key = crate::core::resolver::make_state_key(&pkg_id);
-            let is_installed = state.packages.contains_key(&state_key);
-            if is_installed {
-                result.name = format!("{} ✓", result.name);
+        // Mark installed packages (skip for local search - already installed)
+        if !options.local {
+            for result in &mut results {
+                let pkg_id = PackageId {
+                    name: result.name.clone(),
+                    backend: result.backend.clone(),
+                };
+                let state_key = crate::core::resolver::make_state_key(&pkg_id);
+                let is_installed = state.packages.contains_key(&state_key);
+                if is_installed {
+                    result.name = format!("{} ✓", result.name);
+                }
+            }
+        } else {
+            // For local search, mark all results as installed
+            for result in &mut results {
+                if !result.name.contains('✓') {
+                    result.name = format!("{} ✓", result.name);
+                }
             }
         }
 

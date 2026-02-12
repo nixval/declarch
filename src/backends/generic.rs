@@ -489,6 +489,48 @@ impl PackageManager for GenericManager {
         ui::success(&format!("{} packages upgraded", self.config.name));
         Ok(())
     }
+
+    fn supports_search_local(&self) -> bool {
+        self.config.search_local_cmd.is_some()
+    }
+
+    fn search_local(&self, query: &str) -> Result<Vec<PackageSearchResult>> {
+        // Security: Validate search query before shell execution
+        sanitize::validate_search_query(query)?;
+
+        let search_local_cmd = self.config.search_local_cmd.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "Backend '{}' does not support local search",
+                self.config.name
+            ))
+        })?;
+
+        // Get the binary (respecting fallback if needed)
+        let binary = self.get_binary()?;
+        
+        // Replace {binary} and {query} placeholders with escaped values
+        let cmd_str = search_local_cmd
+            .replace("{binary}", &binary)
+            .replace("{query}", &sanitize::shell_escape(query));
+
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&cmd_str);
+        
+        // Use shorter timeout for search (30 seconds)
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: cmd_str.clone(),
+                reason: e.to_string(),
+            })?;
+
+        if !output.status.success() {
+            return Ok(Vec::new());
+        }
+
+        // Parse search results using the configured format
+        // For local search, we use list parsing format since it's typically simpler output
+        self.parse_local_search_results(&output.stdout)
+    }
 }
 
 impl GenericManager {
@@ -824,6 +866,200 @@ impl GenericManager {
                         backend: self.backend_type.clone(),
                     });
                 }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Parse local search results using search_local format configuration
+    fn parse_local_search_results(&self, stdout: &[u8]) -> Result<Vec<PackageSearchResult>> {
+        let stdout_str = String::from_utf8_lossy(stdout);
+        
+        // Use search_local format if configured, otherwise fall back to list_format
+        let format = self.config.search_local_format.as_ref()
+            .unwrap_or(&self.config.list_format);
+
+        match format {
+            crate::backends::config::OutputFormat::Json => {
+                self.parse_local_search_json(&stdout_str)
+            }
+            crate::backends::config::OutputFormat::SplitWhitespace => {
+                self.parse_local_search_whitespace(&stdout_str)
+            }
+            crate::backends::config::OutputFormat::TabSeparated => {
+                self.parse_local_search_tab(&stdout_str)
+            }
+            crate::backends::config::OutputFormat::Regex => {
+                self.parse_local_search_regex(&stdout_str)
+            }
+            _ => {
+                // For other formats, just use line-by-line parsing
+                let mut results = Vec::new();
+                for line in stdout_str.lines() {
+                    let name = line.trim().to_string();
+                    if !name.is_empty() {
+                        results.push(PackageSearchResult {
+                            name,
+                            version: None,
+                            description: None,
+                            backend: self.backend_type.clone(),
+                        });
+                    }
+                }
+                Ok(results)
+            }
+        }
+    }
+
+    /// Parse whitespace-separated local search results
+    fn parse_local_search_whitespace(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
+        let name_col = self.config.search_local_name_col
+            .or(self.config.list_name_col)
+            .unwrap_or(0);
+        let version_col = self.config.search_local_version_key.as_ref()
+            .and_then(|_| None) // version_key is for JSON, use version_col from list for whitespace
+            .or(self.config.list_version_col);
+        
+        let mut results = Vec::new();
+        
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() > name_col {
+                let name = parts[name_col].to_string();
+                let version = version_col
+                    .and_then(|col| parts.get(col).map(|&v| v.to_string()));
+                
+                if !name.is_empty() {
+                    results.push(PackageSearchResult {
+                        name,
+                        version,
+                        description: None,
+                        backend: self.backend_type.clone(),
+                    });
+                }
+            }
+        }
+        
+        Ok(results)
+    }
+
+    /// Parse tab-separated local search results
+    fn parse_local_search_tab(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
+        let name_col = self.config.search_local_name_col
+            .or(self.config.list_name_col)
+            .unwrap_or(0);
+        
+        let mut results = Vec::new();
+        
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() > name_col {
+                let name = parts[name_col].to_string();
+                if !name.is_empty() {
+                    results.push(PackageSearchResult {
+                        name,
+                        version: None,
+                        description: None,
+                        backend: self.backend_type.clone(),
+                    });
+                }
+            }
+        }
+        
+        Ok(results)
+    }
+
+    /// Parse JSON local search results
+    fn parse_local_search_json(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
+        let json_path = self.config.search_local_json_path.as_deref()
+            .or(self.config.list_json_path.as_deref())
+            .unwrap_or("");
+        let name_key = self.config.search_local_name_key.as_ref()
+            .or(self.config.list_name_key.as_ref())
+            .ok_or_else(|| {
+                DeclarchError::PackageManagerError(
+                    "search_local_name_key not configured for JSON search".into(),
+                )
+            })?;
+
+        // Get the results array
+        let results_value = if json_path.is_empty() {
+            serde_json::from_str::<serde_json::Value>(stdout)?
+        } else {
+            let value: serde_json::Value = serde_json::from_str(stdout)?;
+            self.navigate_json_path(&value, json_path)?
+        };
+
+        let results_array = results_value.as_array().ok_or_else(|| {
+            DeclarchError::PackageManagerError("Local search results is not a JSON array".into())
+        })?;
+
+        let version_key = self.config.search_local_version_key.as_deref()
+            .or(self.config.list_version_key.as_deref());
+
+        let mut results = Vec::new();
+        for item in results_array {
+            if let Some(obj) = item.as_object() {
+                let name = obj.get(name_key).and_then(|v| v.as_str()).ok_or_else(|| {
+                    DeclarchError::PackageManagerError(
+                        "Missing or invalid 'name' field in local search result".to_string(),
+                    )
+                })?;
+
+                let version = version_key
+                    .and_then(|key| obj.get(key))
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+
+                results.push(PackageSearchResult {
+                    name: name.to_string(),
+                    version,
+                    description: None,
+                    backend: self.backend_type.clone(),
+                });
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Parse regex-based local search results
+    fn parse_local_search_regex(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
+        let regex_str = self.config.search_local_regex.as_ref()
+            .or(self.config.list_regex.as_ref())
+            .ok_or_else(|| {
+                DeclarchError::PackageManagerError(
+                    "search_local_regex not configured for regex format".into(),
+                )
+            })?;
+
+        let name_group = self.config.search_local_regex_name_group
+            .or(self.config.list_regex_name_group)
+            .unwrap_or(1);
+
+        let regex = regex_cache::get_cached_regex(regex_str)
+            .map_err(|e| DeclarchError::PackageManagerError(format!("Invalid local search regex: {}", e)))?;
+        
+        let mut results = Vec::new();
+
+        for line in stdout.lines() {
+            if let Some(captures) = regex.captures(line) {
+                let name = captures
+                    .get(name_group)
+                    .map(|m: regex::Match<'_>| m.as_str().to_string())
+                    .ok_or_else(|| {
+                        DeclarchError::PackageManagerError(
+                            "Regex name group didn't capture anything".into(),
+                        )
+                    })?;
+
+                results.push(PackageSearchResult {
+                    name,
+                    version: None,
+                    description: None,
+                    backend: self.backend_type.clone(),
+                });
             }
         }
 
