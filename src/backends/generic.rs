@@ -3,6 +3,7 @@ use crate::backends::parsers;
 use crate::core::types::{Backend as CoreBackend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
 use crate::packages::traits::{PackageManager, PackageSearchResult};
+use crate::utils::regex_cache;
 use crate::utils::sanitize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -636,9 +637,8 @@ impl GenericManager {
 
         let desc_group = self.config.search_regex_desc_group.unwrap_or(1);
 
-        let regex = regex::Regex::new(regex_str).map_err(|e| {
-            DeclarchError::PackageManagerError(format!("Invalid search regex: {}", e))
-        })?;
+        let regex = regex_cache::get_cached_regex(regex_str)
+            .map_err(|e| DeclarchError::PackageManagerError(format!("Invalid search regex: {}", e)))?;
 
         let mut results = Vec::new();
 
