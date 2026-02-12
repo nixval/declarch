@@ -177,7 +177,7 @@ fn output_json(packages: &[&state::types::PackageState]) -> Result<()> {
 /// Output packages as YAML
 fn output_yaml(packages: &[&state::types::PackageState]) -> Result<()> {
     let json_value = serde_json::to_value(packages)?;
-    let yaml = serde_yaml::to_string(&json_value)?;
+    let yaml = serde_yml::to_string(&json_value)?;
     println!("{}", yaml);
     Ok(())
 }

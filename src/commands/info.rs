@@ -137,7 +137,7 @@ fn output_yaml_filtered(
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
 
     let json_value = serde_json::to_value(&packages)?;
-    let yaml = serde_yaml::to_string(&json_value)?;
+    let yaml = serde_yml::to_string(&json_value)?;
     println!("{}", yaml);
     Ok(())
 }
