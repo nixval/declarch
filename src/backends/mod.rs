@@ -71,9 +71,9 @@
 //! let config = BackendConfig {
 //!     name: "mybackend".to_string(),
 //!     binary: BinarySpecifier::Single("mybackend".to_string()),
-//!     list_cmd: "mybackend list --json".to_string(),
+//!     list_cmd: Some("mybackend list --json".to_string()),
 //!     install_cmd: "mybackend install {packages}".to_string(),
-//!     remove_cmd: "mybackend uninstall {packages}".to_string(),
+//!     remove_cmd: Some("mybackend uninstall {packages}".to_string()),
 //!     query_cmd: None,
 //!     list_format: OutputFormat::Json,
 //!     list_name_col: None,

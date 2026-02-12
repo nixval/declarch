@@ -198,7 +198,25 @@ fn execute_pruning(
             && let Some(mgr) = managers.get(&backend)
         {
             output::info(&format!("Removing {} packages...", backend));
-            mgr.remove(&pkgs)?;
+            match mgr.remove(&pkgs) {
+                Ok(()) => (),
+                Err(e) => {
+                    // Check if this is a "not supported" error
+                    let error_msg = format!("{}", e);
+                    if error_msg.contains("does not support removing") {
+                        output::warning(&format!(
+                            "Cannot remove {} package(s) - backend '{}' does not support removal",
+                            pkgs.len(), backend
+                        ));
+                        output::info(&format!(
+                            "Packages not removed: {}",
+                            pkgs.join(", ")
+                        ));
+                    } else {
+                        return Err(e);
+                    }
+                }
+            }
         }
     }
 

@@ -178,9 +178,17 @@ impl PackageManager for GenericManager {
     }
 
     fn list_installed(&self) -> Result<HashMap<String, PackageMetadata>> {
+        // Get list command or return error if not configured
+        let list_cmd = self.config.list_cmd.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "Backend '{}' does not support listing installed packages (no list_cmd configured)",
+                self.config.name
+            ))
+        })?;
+
         // Get the binary (respecting fallback if needed)
         let binary = self.get_binary()?;
-        let cmd_str = self.config.list_cmd.replace("{binary}", &binary);
+        let cmd_str = list_cmd.replace("{binary}", &binary);
         
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(&cmd_str);
@@ -254,10 +262,16 @@ impl PackageManager for GenericManager {
             return Ok(());
         }
 
+        // Get remove command or return error if not configured
+        let cmd_template = self.config.remove_cmd.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "Backend '{}' does not support removing packages (no remove_cmd configured)",
+                self.config.name
+            ))
+        })?;
+
         // Security: Validate all package names before shell execution
         sanitize::validate_package_names(packages)?;
-
-        let cmd_template = &self.config.remove_cmd;
         let package_list = self.format_packages(packages);
         let mut cmd_str = cmd_template.replace("{packages}", &package_list);
 

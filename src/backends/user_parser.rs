@@ -237,7 +237,7 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             )
         })?;
 
-    config.list_cmd = cmd.to_string();
+    config.list_cmd = Some(cmd.to_string());
 
     // Parse output format from children
     if let Some(children) = node.children() {
@@ -458,7 +458,7 @@ fn parse_install_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
 /// Parse remove command
 fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.remove_cmd = node
+    let cmd = node
         .entries()
         .first()
         .and_then(|entry| entry.value().as_string())
@@ -466,7 +466,8 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             DeclarchError::Other("Remove command required. Usage: remove \"command\"".to_string())
         })?
         .to_string();
-
+    
+    config.remove_cmd = Some(cmd);
     Ok(())
 }
 
@@ -718,31 +719,28 @@ fn parse_env(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 
 /// Validate backend configuration
 fn validate_backend_config(config: &BackendConfig) -> Result<()> {
-    if config.list_cmd.is_empty() {
-        return Err(DeclarchError::Other(
-            "Backend 'list_cmd' cannot be empty".to_string(),
-        ));
-    }
-
+    // install_cmd is required - backend must at least support install
     if config.install_cmd.is_empty() {
         return Err(DeclarchError::Other(
             "Backend 'install_cmd' cannot be empty".to_string(),
         ));
     }
 
-    if config.remove_cmd.is_empty() {
-        return Err(DeclarchError::Other(
-            "Backend 'remove_cmd' cannot be empty".to_string(),
-        ));
-    }
-
     // Validate required placeholders in commands
     // This prevents runtime errors due to typos in backend definitions
     
-    // list_cmd should contain {binary} placeholder
-    if !config.list_cmd.contains("{binary}") {
+    // list_cmd is optional but recommended
+    if let Some(ref list_cmd) = config.list_cmd {
+        // list_cmd should contain {binary} placeholder
+        if !list_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' list_cmd should contain '{{binary}}' placeholder for proper binary substitution",
+                config.name
+            ));
+        }
+    } else {
         ui::warning(&format!(
-            "Backend '{}' list_cmd should contain '{{binary}}' placeholder for proper binary substitution",
+            "Backend '{}' has no list_cmd - packages won't be tracked in state (install-only mode)",
             config.name
         ));
     }
@@ -755,12 +753,20 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         )));
     }
     
-    // remove_cmd should contain {packages} placeholder
-    if !config.remove_cmd.contains("{packages}") {
-        return Err(DeclarchError::ConfigError(format!(
-            "Backend '{}' remove_cmd must contain '{{packages}}' placeholder",
+    // remove_cmd is optional
+    if let Some(ref remove_cmd) = config.remove_cmd {
+        // remove_cmd should contain {packages} placeholder
+        if !remove_cmd.contains("{packages}") {
+            return Err(DeclarchError::ConfigError(format!(
+                "Backend '{}' remove_cmd must contain '{{packages}}' placeholder",
+                config.name
+            )));
+        }
+    } else {
+        ui::warning(&format!(
+            "Backend '{}' has no remove_cmd - packages cannot be removed via declarch",
             config.name
-        )));
+        ));
     }
     
     // search_cmd should contain {binary} and {query} if configured
@@ -839,9 +845,9 @@ mod tests {
         let config = parse_backend_node(node).unwrap();
 
         assert_eq!(config.name, "test");
-        assert_eq!(config.list_cmd, "test list");
+        assert_eq!(config.list_cmd, Some("test list".to_string()));
         assert_eq!(config.install_cmd, "test install {packages}");
-        assert_eq!(config.remove_cmd, "test remove {packages}");
+        assert_eq!(config.remove_cmd, Some("test remove {packages}".to_string()));
     }
 
     #[test]
@@ -953,33 +959,36 @@ mod tests {
 
     #[test]
     fn test_validate_missing_list_cmd() {
+        // list_cmd is now optional - should pass with warning
         let config = BackendConfig {
             name: "test".to_string(),
-            install_cmd: "test install".to_string(),
-            remove_cmd: "test remove".to_string(),
+            list_cmd: None, // Optional - no list command
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: Some("test remove {packages}".to_string()),
             fallback: None,
             ..Default::default()
         };
-        // list_cmd is empty
 
         let result = validate_backend_config(&config);
-        assert!(result.is_err());
+        // Should pass - list_cmd is optional now
+        assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_json_missing_name_key() {
         let config = BackendConfig {
             name: "test".to_string(),
-            list_cmd: "test list".to_string(),
+            list_cmd: Some("test list {binary}".to_string()),
             list_format: OutputFormat::Json,
-            install_cmd: "test install".to_string(),
-            remove_cmd: "test remove".to_string(),
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: Some("test remove {packages}".to_string()),
             fallback: None,
             ..Default::default()
         };
-        // Missing name_key
+        // Missing name_key - should error for JSON format
 
         let result = validate_backend_config(&config);
+        // Should error because JSON format requires name_key
         assert!(result.is_err());
     }
 
@@ -987,16 +996,34 @@ mod tests {
     fn test_validate_regex_missing_regex() {
         let config = BackendConfig {
             name: "test".to_string(),
-            list_cmd: "test list".to_string(),
+            list_cmd: Some("test list {binary}".to_string()),
             list_format: OutputFormat::Regex,
-            install_cmd: "test install".to_string(),
-            remove_cmd: "test remove".to_string(),
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: Some("test remove {packages}".to_string()),
             fallback: None,
             ..Default::default()
         };
-        // Missing regex
+        // Missing regex - should error for Regex format
 
         let result = validate_backend_config(&config);
+        // Should error because Regex format requires list_regex
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_missing_remove_cmd() {
+        // remove_cmd is now optional - should pass with warning
+        let config = BackendConfig {
+            name: "test".to_string(),
+            list_cmd: Some("test list".to_string()),
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: None, // Optional - no remove command
+            fallback: None,
+            ..Default::default()
+        };
+
+        let result = validate_backend_config(&config);
+        // Should pass - remove_cmd is optional now
+        assert!(result.is_ok());
     }
 }

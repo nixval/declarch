@@ -12,15 +12,17 @@ pub struct BackendConfig {
     pub binary: BinarySpecifier,
 
     /// Command to list installed packages
-    pub list_cmd: String,
+    /// Optional: if not set, backend cannot track installed packages (install-only mode)
+    pub list_cmd: Option<String>,
 
     /// Command to install packages
     /// Use {packages} as placeholder for package list
+    /// Required: backend must at least support install
     pub install_cmd: String,
 
     /// Command to remove packages
-    /// Use {packages} as placeholder for package list
-    pub remove_cmd: String,
+    /// Optional: if not set, packages cannot be removed via declarch
+    pub remove_cmd: Option<String>,
 
     /// Optional: Command to query package info (for dependencies)
     pub query_cmd: Option<String>,
@@ -175,9 +177,9 @@ impl Default for BackendConfig {
         Self {
             name: "unknown".to_string(),
             binary: BinarySpecifier::Single("unknown".to_string()),
-            list_cmd: String::new(),
+            list_cmd: None,
             install_cmd: String::new(),
-            remove_cmd: String::new(),
+            remove_cmd: None,
             query_cmd: None,
             list_format: OutputFormat::SplitWhitespace,
             list_name_col: Some(0),
