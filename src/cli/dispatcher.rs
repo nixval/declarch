@@ -325,6 +325,12 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             })
         }
 
+        Some(Command::Cache { backend }) => {
+            commands::cache::run(commands::cache::CacheOptions {
+                backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+            })
+        }
+
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
 
         None => {

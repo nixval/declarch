@@ -30,4 +30,26 @@ pub trait PackageManager: Send + Sync {
     fn supports_search(&self) -> bool {
         false // Default: no search support
     }
+
+    /// Update package list/index (e.g., apt update, pacman -Sy)
+    /// Default: no update support
+    fn update(&self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Check if this package manager supports update
+    fn supports_update(&self) -> bool {
+        false // Default: no update support
+    }
+
+    /// Clean package cache
+    /// Default: no cache clean support
+    fn clean_cache(&self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Check if this package manager supports cache cleaning
+    fn supports_cache_clean(&self) -> bool {
+        false // Default: no cache clean support
+    }
 }

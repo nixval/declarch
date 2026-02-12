@@ -107,6 +107,18 @@ pub struct BackendConfig {
     /// Optional fallback backend name if this backend is not available
     /// Example: paru → pacman, yarn → npm
     pub fallback: Option<String>,
+
+    /// ===== UPDATE SUPPORT =====
+    /// Optional: Command to update package list/index
+    /// Example: "apt update", "pacman -Sy", "npm update"
+    /// Use {binary} as placeholder for binary name
+    pub update_cmd: Option<String>,
+
+    /// ===== CACHE MANAGEMENT =====
+    /// Optional: Command to clean package cache
+    /// Example: "apt clean", "npm cache clean --force", "cargo cache --autoclean"
+    /// Use {binary} as placeholder for binary name
+    pub cache_clean_cmd: Option<String>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -207,6 +219,8 @@ impl Default for BackendConfig {
             search_regex_name_group: None,
             search_regex_desc_group: None,
             fallback: None,
+            update_cmd: None,
+            cache_clean_cmd: None,
         }
     }
 }

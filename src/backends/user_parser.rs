@@ -167,6 +167,8 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "install" => parse_install_cmd(child, &mut config)?,
                 "remove" => parse_remove_cmd(child, &mut config)?,
                 "search" => parse_search_cmd(child, &mut config)?,
+                "update" => parse_update_cmd(child, &mut config)?,
+                "cache_clean" => parse_cache_clean_cmd(child, &mut config)?,
                 "noconfirm" => parse_noconfirm(child, &mut config)?,
                 "needs_sudo" | "sudo" => config.needs_sudo = parse_bool(child)?,
                 "env" => parse_env(child, &mut config)?,
@@ -468,6 +470,40 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         .to_string();
     
     config.remove_cmd = Some(cmd);
+    Ok(())
+}
+
+/// Parse update command
+/// Format: update "command"
+/// Example: update "apt update"
+fn parse_update_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other("Update command required. Usage: update \"command\"".to_string())
+        })?
+        .to_string();
+    
+    config.update_cmd = Some(cmd);
+    Ok(())
+}
+
+/// Parse cache clean command
+/// Format: cache_clean "command"
+/// Example: cache_clean "npm cache clean --force"
+fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other("Cache clean command required. Usage: cache_clean \"command\"".to_string())
+        })?
+        .to_string();
+    
+    config.cache_clean_cmd = Some(cmd);
     Ok(())
 }
 
@@ -782,6 +818,26 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
                 "Backend '{}' search_cmd must contain '{{query}}' placeholder",
                 config.name
             )));
+        }
+    }
+
+    // update_cmd should contain {binary} if configured
+    if let Some(ref update_cmd) = config.update_cmd {
+        if !update_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' update_cmd should contain '{{binary}}' placeholder",
+                config.name
+            ));
+        }
+    }
+
+    // cache_clean_cmd should contain {binary} if configured
+    if let Some(ref cache_clean_cmd) = config.cache_clean_cmd {
+        if !cache_clean_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' cache_clean_cmd should contain '{{binary}}' placeholder",
+                config.name
+            ));
         }
     }
 

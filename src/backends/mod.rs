@@ -100,6 +100,8 @@
 //!     search_regex: None,
 //!     search_regex_name_group: None,
 //!     search_regex_desc_group: None,
+//!     update_cmd: None,
+//!     cache_clean_cmd: None,
 //! };
 //! ```
 //!

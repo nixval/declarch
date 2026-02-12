@@ -77,6 +77,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let (installed_snapshot, managers) =
         initialize_managers_and_snapshot(&config, &options, &sync_target)?;
 
+    // 3.5. Run backend updates if --update flag is set
+    if options.update && !options.dry_run {
+        execute_backend_updates(&managers)?;
+    }
+
     // 4. Load State & Resolve
     let state = state::io::load_state()?;
 
@@ -191,6 +196,52 @@ fn initialize_managers_and_snapshot(
     }
 
     Ok((installed_snapshot, managers))
+}
+
+/// Execute update for all backends that support it
+fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
+    output::separator();
+    output::info("Updating package indices...");
+
+    let mut updated_count = 0;
+    let mut skipped_count = 0;
+
+    for (backend, manager) in managers {
+        if !manager.is_available() {
+            continue;
+        }
+
+        if !manager.supports_update() {
+            output::info(&format!(
+                "Skipping '{}': no update_cmd configured",
+                backend
+            ));
+            skipped_count += 1;
+            continue;
+        }
+
+        match manager.update() {
+            Ok(()) => {
+                updated_count += 1;
+            }
+            Err(e) => {
+                output::warning(&format!(
+                    "Failed to update '{}': {}",
+                    backend, e
+                ));
+                skipped_count += 1;
+            }
+        }
+    }
+
+    if updated_count > 0 {
+        output::info(&format!("Updated {} backend(s)", updated_count));
+    }
+    if skipped_count > 0 {
+        output::info(&format!("Skipped {} backend(s)", skipped_count));
+    }
+
+    Ok(())
 }
 
 fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::MergedConfig> {

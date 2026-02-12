@@ -292,6 +292,20 @@ pub enum Command {
         available_only: bool,
     },
 
+    /// Clean package manager caches
+    ///
+    /// Removes cached package files for configured backends.
+    /// Useful for freeing disk space or resolving cache corruption issues.
+    ///
+    /// Examples:
+    ///   declarch cache          Clean all backend caches
+    ///   declarch cache --backend npm    Clean only npm cache
+    Cache {
+        /// Target specific backend(s)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Vec<String>,
+    },
+
     /// Generate shell completions (hidden from main help)
     #[command(hide = true)]
     Completions {

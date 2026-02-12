@@ -365,6 +365,89 @@ impl PackageManager for GenericManager {
         // Parse search results using the configured format
         self.parse_search_results(&output.stdout)
     }
+
+    fn supports_update(&self) -> bool {
+        self.config.update_cmd.is_some()
+    }
+
+    fn update(&self) -> Result<()> {
+        let update_cmd = self.config.update_cmd.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "Backend '{}' does not support update (no update_cmd configured)",
+                self.config.name
+            ))
+        })?;
+
+        // Get the binary (respecting fallback if needed)
+        let binary = self.get_binary()?;
+        
+        // Replace {binary} placeholder
+        let cmd_str = update_cmd.replace("{binary}", &binary);
+
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&cmd_str);
+        
+        ui::info(&format!("Updating {} package index...", self.config.name));
+        
+        // Use standard timeout for update (2 minutes)
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(120))
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: cmd_str.clone(),
+                reason: e.to_string(),
+            })?;
+
+        if !output.status.success() {
+            return Err(DeclarchError::PackageManagerError(format!(
+                "Failed to update {} package index: {}",
+                self.config.name,
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn supports_cache_clean(&self) -> bool {
+        self.config.cache_clean_cmd.is_some()
+    }
+
+    fn clean_cache(&self) -> Result<()> {
+        let cache_clean_cmd = self.config.cache_clean_cmd.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "Backend '{}' does not support cache cleaning (no cache_clean_cmd configured)",
+                self.config.name
+            ))
+        })?;
+
+        // Get the binary (respecting fallback if needed)
+        let binary = self.get_binary()?;
+        
+        // Replace {binary} placeholder
+        let cmd_str = cache_clean_cmd.replace("{binary}", &binary);
+
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&cmd_str);
+        
+        ui::info(&format!("Cleaning {} cache...", self.config.name));
+        
+        // Use standard timeout for cache clean (5 minutes - can be slow)
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(300))
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: cmd_str.clone(),
+                reason: e.to_string(),
+            })?;
+
+        if !output.status.success() {
+            return Err(DeclarchError::PackageManagerError(format!(
+                "Failed to clean {} cache: {}",
+                self.config.name,
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+
+        ui::success(&format!("{} cache cleaned", self.config.name));
+        Ok(())
+    }
 }
 
 impl GenericManager {
