@@ -4,11 +4,18 @@ use clap_complete::Shell;
 #[derive(Parser, Debug)]
 #[command(
     name = "declarch",
-    about = "Universal declarative package manager for Linux",
-    long_about = "Universal declarative package manager - unify packages from any source (system package managers, language-specific tools, containers, custom backends) under one declarative config.",
+    about = "Universal declarative package manager - unify aur, flatpak, npm, nix, cargo, pip, and custom backends under one declarative config(s).",
     version,
-    next_line_help = false,
-    term_width = 120,
+    help_template = "{about-with-newline}
+{usage-heading} {usage}
+
+Commands:
+{subcommands}
+
+Options:
+{options}
+",
+    term_width = 100,
     max_term_width = 120
 )]
 pub struct Cli {
@@ -285,7 +292,8 @@ pub enum Command {
         available_only: bool,
     },
 
-    /// Generate shell completions
+    /// Generate shell completions (hidden from main help)
+    #[command(hide = true)]
     Completions {
         /// The shell to generate completions for
         #[arg(value_enum)]
