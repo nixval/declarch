@@ -57,13 +57,18 @@ pub fn execute_hooks(
             phase_name
         ));
         display_hooks(hooks, phase_name, true);
-        println!("\n{}", "To enable hooks, use the --hooks flag:".dimmed());
-        println!("  {}", "dc sync --hooks".bold());
-        println!(
-            "\n{}",
-            "Security: Hooks from remote configs may contain arbitrary commands.".yellow()
-        );
-        println!("{}", "Review the config before enabling hooks.".yellow());
+        
+        println!("\n{}", "⚠️  Security Warning:".yellow().bold());
+        println!("{}", "   Hooks can execute arbitrary system commands.".yellow());
+        println!("{}", "   Only enable hooks from sources you trust.".yellow());
+        
+        println!("\n{}", "To enable hooks after reviewing:".dimmed());
+        println!("  {}", "declarch sync --hooks".bold());
+        println!("  {}", "dc sync --hooks".dimmed());
+        
+        println!("\n{}", "To review the full config:".dimmed());
+        println!("  {}", "cat ~/.config/declarch/declarch.kdl".dimmed());
+        
         return Ok(());
     }
 
