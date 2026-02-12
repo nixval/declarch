@@ -3,6 +3,7 @@ use crate::backends::parsers;
 use crate::core::types::{Backend as CoreBackend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
 use crate::packages::traits::{PackageManager, PackageSearchResult};
+use crate::ui;
 use crate::utils::regex_cache;
 use crate::utils::sanitize;
 use serde_json::Value;
@@ -70,7 +71,7 @@ fn run_interactive_command_with_timeout(
             reason: e.to_string(),
         }),
         Err(_) => {
-            eprintln!("\n⚠️  Command timed out after {} seconds", timeout.as_secs());
+            ui::warning(&format!("Command timed out after {} seconds", timeout.as_secs()));
             Err(DeclarchError::SystemCommandFailed {
                 command: cmd_debug,
                 reason: format!("Command timed out after {} seconds", timeout.as_secs()),

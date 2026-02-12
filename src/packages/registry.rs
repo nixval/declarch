@@ -17,6 +17,7 @@ use crate::backends::{GenericManager, load_all_backends};
 use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::packages::PackageManager;
+use crate::ui;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -73,7 +74,7 @@ impl BackendRegistry {
 impl Default for BackendRegistry {
     fn default() -> Self {
         Self::new().unwrap_or_else(|e| {
-            eprintln!("Warning: Failed to load backend configs: {}", e);
+            ui::warning(&format!("Failed to load backend configs: {}", e));
             Self {
                 configs: HashMap::new(),
             }

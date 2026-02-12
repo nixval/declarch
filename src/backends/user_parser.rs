@@ -5,6 +5,7 @@
 
 use crate::backends::config::{BackendConfig, BinarySpecifier, OutputFormat};
 use crate::error::{DeclarchError, Result};
+use crate::ui;
 use kdl::{KdlDocument, KdlNode};
 use std::path::Path;
 
@@ -43,7 +44,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                 // File doesn't exist, skip
                             }
                             Err(e) => {
-                                eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                ui::warning(&format!("Failed to load backend from '{}': {}", path_val, e));
                             }
                         }
                     }
@@ -82,7 +83,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                         Ok(Some(config)) => backends.push(config),
                                         Ok(None) => {}
                                         Err(e) => {
-                                            eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                            ui::warning(&format!("Failed to load backend from '{}': {}", path_val, e));
                                         }
                                     }
                                 }
@@ -95,7 +96,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                     Ok(Some(config)) => backends.push(config),
                                     Ok(None) => {}
                                     Err(e) => {
-                                        eprintln!("Warning: Failed to load backend from '{}': {}", child_name, e);
+                                        ui::warning(&format!("Failed to load backend from '{}': {}", child_name, e));
                                     }
                                 }
                             }
@@ -740,10 +741,10 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
     
     // list_cmd should contain {binary} placeholder
     if !config.list_cmd.contains("{binary}") {
-        eprintln!(
-            "⚠️  Warning: Backend '{}' list_cmd should contain '{{binary}}' placeholder for proper binary substitution",
+        ui::warning(&format!(
+            "Backend '{}' list_cmd should contain '{{binary}}' placeholder for proper binary substitution",
             config.name
-        );
+        ));
     }
     
     // install_cmd should contain {packages} placeholder
@@ -765,10 +766,10 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
     // search_cmd should contain {binary} and {query} if configured
     if let Some(ref search_cmd) = config.search_cmd {
         if !search_cmd.contains("{binary}") {
-            eprintln!(
-                "⚠️  Warning: Backend '{}' search_cmd should contain '{{binary}}' placeholder",
+            ui::warning(&format!(
+                "Backend '{}' search_cmd should contain '{{binary}}' placeholder",
                 config.name
-            );
+            ));
         }
         if !search_cmd.contains("{query}") {
             return Err(DeclarchError::ConfigError(format!(

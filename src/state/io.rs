@@ -1,5 +1,6 @@
 use crate::error::{DeclarchError, Result};
 use crate::state::types::State;
+use crate::ui;
 use directories::ProjectDirs;
 use fs2::FileExt;
 use std::fs::{self, OpenOptions};
@@ -150,12 +151,12 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
             let new_bak = dir.join(format!("state.json.bak.{}", i + 1));
             if old_bak.exists()
                 && let Err(e) = fs::rename(&old_bak, &new_bak) {
-                    eprintln!(
-                        "Warning: Failed to rotate backup {} -> {}: {}",
+                    ui::warning(&format!(
+                        "Failed to rotate backup {} -> {}: {}",
                         old_bak.display(),
                         new_bak.display(),
                         e
-                    );
+                    ));
                 }
         }
 
@@ -271,7 +272,7 @@ pub fn save_state_locked(state: &State) -> Result<()> {
     // Sync directory to ensure rename is persisted
     if let Ok(dir_file) = fs::File::open(dir)
         && let Err(e) = dir_file.sync_all() {
-            eprintln!("Warning: Failed to sync state directory: {}", e);
+            ui::warning(&format!("Failed to sync state directory: {}", e));
         }
 
     // Release lock (happens automatically when lock_file is dropped)
