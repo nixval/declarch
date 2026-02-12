@@ -5,6 +5,7 @@
 use crate::core::{resolver, types::{PackageId, PackageMetadata}};
 use crate::error::Result;
 use crate::state::types::{State, PackageState};
+use crate::ui;
 use super::{InstalledSnapshot, SyncOptions};
 use chrono::Utc;
 
@@ -62,6 +63,17 @@ pub fn update_state(
     for pkg in &transaction.to_prune {
         let key = resolver::make_state_key(pkg);
         state.packages.remove(&key);
+    }
+
+    // Report failed installations
+    if !failed_packages.is_empty() {
+        ui::warning(&format!(
+            "{} package(s) failed to install and were not added to state",
+            failed_packages.len()
+        ));
+        for pkg in &failed_packages {
+            ui::warning(&format!("  - {} ({})", pkg.name, pkg.backend));
+        }
     }
 
     Ok(state)
