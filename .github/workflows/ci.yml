@@ -47,16 +47,31 @@ jobs:
       - name: Run Tests
         run: cargo test --verbose
 
-  # Security audit temporarily disabled due to permission issues
-  # Can be re-enabled later with proper configuration
-  # security-audit:
-  #   name: Security Audit
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #     security-events: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: rustsec/audit-check@v1.4.1
-  #       with:
-  #         token: ${{ secrets.GITHUB_TOKEN }}
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run cargo-audit
+        uses: rustsec/audit-check@v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cargo-deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.checks }}
