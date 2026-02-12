@@ -331,6 +331,13 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             })
         }
 
+        Some(Command::Upgrade { backend, no_sync }) => {
+            commands::upgrade::run(commands::upgrade::UpgradeOptions {
+                backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+                no_sync: *no_sync,
+            })
+        }
+
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
 
         None => {

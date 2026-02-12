@@ -306,6 +306,25 @@ pub enum Command {
         backend: Vec<String>,
     },
 
+    /// Upgrade packages to latest versions
+    ///
+    /// Upgrades all packages managed by declarch to their latest versions
+    /// across all configured backends. After upgrading, automatically runs
+    /// sync to adopt the new versions into state.
+    ///
+    /// Examples:
+    ///   declarch upgrade          Upgrade all packages
+    ///   declarch upgrade --backend npm  Upgrade only npm packages
+    Upgrade {
+        /// Target specific backend(s)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Vec<String>,
+
+        /// Skip automatic sync after upgrade
+        #[arg(long)]
+        no_sync: bool,
+    },
+
     /// Generate shell completions (hidden from main help)
     #[command(hide = true)]
     Completions {

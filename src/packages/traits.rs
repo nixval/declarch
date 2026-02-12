@@ -52,4 +52,15 @@ pub trait PackageManager: Send + Sync {
     fn supports_cache_clean(&self) -> bool {
         false // Default: no cache clean support
     }
+
+    /// Upgrade packages to latest version
+    /// Default: no upgrade support
+    fn upgrade(&self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Check if this package manager supports upgrade
+    fn supports_upgrade(&self) -> bool {
+        false // Default: no upgrade support
+    }
 }

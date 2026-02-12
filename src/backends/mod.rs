@@ -102,6 +102,7 @@
 //!     search_regex_desc_group: None,
 //!     update_cmd: None,
 //!     cache_clean_cmd: None,
+//!     upgrade_cmd: None,
 //! };
 //! ```
 //!

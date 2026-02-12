@@ -169,6 +169,7 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "search" => parse_search_cmd(child, &mut config)?,
                 "update" => parse_update_cmd(child, &mut config)?,
                 "cache_clean" => parse_cache_clean_cmd(child, &mut config)?,
+                "upgrade" => parse_upgrade_cmd(child, &mut config)?,
                 "noconfirm" => parse_noconfirm(child, &mut config)?,
                 "needs_sudo" | "sudo" => config.needs_sudo = parse_bool(child)?,
                 "env" => parse_env(child, &mut config)?,
@@ -507,6 +508,23 @@ fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<(
     Ok(())
 }
 
+/// Parse upgrade command
+/// Format: upgrade "command"
+/// Example: upgrade "paru -Syu"
+fn parse_upgrade_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other("Upgrade command required. Usage: upgrade \"command\"".to_string())
+        })?
+        .to_string();
+    
+    config.upgrade_cmd = Some(cmd);
+    Ok(())
+}
+
 /// Parse noconfirm flag
 fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     config.noconfirm_flag = node
@@ -836,6 +854,16 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         if !cache_clean_cmd.contains("{binary}") {
             ui::warning(&format!(
                 "Backend '{}' cache_clean_cmd should contain '{{binary}}' placeholder",
+                config.name
+            ));
+        }
+    }
+
+    // upgrade_cmd should contain {binary} if configured
+    if let Some(ref upgrade_cmd) = config.upgrade_cmd {
+        if !upgrade_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' upgrade_cmd should contain '{{binary}}' placeholder",
                 config.name
             ));
         }

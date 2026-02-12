@@ -448,6 +448,47 @@ impl PackageManager for GenericManager {
         ui::success(&format!("{} cache cleaned", self.config.name));
         Ok(())
     }
+
+    fn supports_upgrade(&self) -> bool {
+        self.config.upgrade_cmd.is_some()
+    }
+
+    fn upgrade(&self) -> Result<()> {
+        let upgrade_cmd = self.config.upgrade_cmd.as_ref().ok_or_else(|| {
+            DeclarchError::PackageManagerError(format!(
+                "Backend '{}' does not support upgrade (no upgrade_cmd configured)",
+                self.config.name
+            ))
+        })?;
+
+        // Get the binary (respecting fallback if needed)
+        let binary = self.get_binary()?;
+        
+        // Replace {binary} placeholder
+        let cmd_str = upgrade_cmd.replace("{binary}", &binary);
+
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&cmd_str);
+        
+        ui::info(&format!("Upgrading {} packages...", self.config.name));
+        
+        // Use longer timeout for upgrade (10 minutes - can be slow)
+        let output = run_interactive_command_with_timeout(&mut cmd, Duration::from_secs(600))
+            .map_err(|e| DeclarchError::SystemCommandFailed {
+                command: cmd_str.clone(),
+                reason: e.to_string(),
+            })?;
+
+        if !output.success() {
+            return Err(DeclarchError::PackageManagerError(format!(
+                "Failed to upgrade {} packages",
+                self.config.name
+            )));
+        }
+
+        ui::success(&format!("{} packages upgraded", self.config.name));
+        Ok(())
+    }
 }
 
 impl GenericManager {

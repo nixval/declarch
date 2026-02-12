@@ -119,6 +119,13 @@ pub struct BackendConfig {
     /// Example: "apt clean", "npm cache clean --force", "cargo cache --autoclean"
     /// Use {binary} as placeholder for binary name
     pub cache_clean_cmd: Option<String>,
+
+    /// ===== UPGRADE SUPPORT =====
+    /// Optional: Command to upgrade packages to latest version
+    /// Example: "apt upgrade", "paru -Syu", "npm update -g"
+    /// Use {binary} as placeholder for binary name
+    /// Note: Some backends use {packages} for selective upgrade
+    pub upgrade_cmd: Option<String>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -221,6 +228,7 @@ impl Default for BackendConfig {
             fallback: None,
             update_cmd: None,
             cache_clean_cmd: None,
+            upgrade_cmd: None,
         }
     }
 }
