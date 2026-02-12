@@ -201,6 +201,26 @@ pub enum Command {
         /// If provided, edits specific module (e.g., "hyprland/niri-nico")
         #[arg(value_name = "TARGET")]
         target: Option<String>,
+
+        /// Preview content without opening editor (like cat)
+        #[arg(long, short)]
+        preview: bool,
+
+        /// Show line numbers in preview
+        #[arg(long, requires = "preview")]
+        number: bool,
+
+        /// Create new module from template if it doesn't exist
+        #[arg(long, short)]
+        create: bool,
+
+        /// Auto-format KDL before opening
+        #[arg(long, short)]
+        format: bool,
+
+        /// Only validate syntax, don't open editor (exit 0/1)
+        #[arg(long)]
+        validate_only: bool,
     },
 
     /// Install packages to configuration
