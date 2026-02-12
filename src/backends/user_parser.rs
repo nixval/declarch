@@ -735,6 +735,49 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         ));
     }
 
+    // Validate required placeholders in commands
+    // This prevents runtime errors due to typos in backend definitions
+    
+    // list_cmd should contain {binary} placeholder
+    if !config.list_cmd.contains("{binary}") {
+        eprintln!(
+            "⚠️  Warning: Backend '{}' list_cmd should contain '{{binary}}' placeholder for proper binary substitution",
+            config.name
+        );
+    }
+    
+    // install_cmd should contain {packages} placeholder
+    if !config.install_cmd.contains("{packages}") {
+        return Err(DeclarchError::ConfigError(format!(
+            "Backend '{}' install_cmd must contain '{{packages}}' placeholder",
+            config.name
+        )));
+    }
+    
+    // remove_cmd should contain {packages} placeholder
+    if !config.remove_cmd.contains("{packages}") {
+        return Err(DeclarchError::ConfigError(format!(
+            "Backend '{}' remove_cmd must contain '{{packages}}' placeholder",
+            config.name
+        )));
+    }
+    
+    // search_cmd should contain {binary} and {query} if configured
+    if let Some(ref search_cmd) = config.search_cmd {
+        if !search_cmd.contains("{binary}") {
+            eprintln!(
+                "⚠️  Warning: Backend '{}' search_cmd should contain '{{binary}}' placeholder",
+                config.name
+            );
+        }
+        if !search_cmd.contains("{query}") {
+            return Err(DeclarchError::ConfigError(format!(
+                "Backend '{}' search_cmd must contain '{{query}}' placeholder",
+                config.name
+            )));
+        }
+    }
+
     // Validate format-specific requirements
     match config.list_format {
         OutputFormat::Json | OutputFormat::JsonLines | OutputFormat::NpmJson => {
