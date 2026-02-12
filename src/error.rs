@@ -46,6 +46,30 @@ pub enum DeclarchError {
     #[error("System command '{command}' failed: {reason}")]
     SystemCommandFailed { command: String, reason: String },
 
+    /// Invalid regex pattern
+    #[error("Invalid regex pattern: {0}")]
+    InvalidRegex(String),
+
+    /// Lock acquisition failed (e.g., mutex poisoned)
+    #[error("Lock acquisition failed: {0}")]
+    LockError(String),
+
+    /// Path resolution or validation error
+    #[error("Path error: {0}")]
+    PathError(String),
+
+    /// Remote resource fetch error (HTTP, network, etc.)
+    #[error("Failed to fetch remote resource: {0}")]
+    RemoteFetchError(String),
+
+    /// Serialization/Deserialization error
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
+    /// Backup operation error
+    #[error("Backup operation failed: {0}")]
+    BackupError(String),
+
     #[error("{0}")]
     Other(String),
 }

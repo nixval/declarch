@@ -33,11 +33,10 @@ static REGEX_CACHE: LazyLock<Mutex<HashMap<String, Regex>>> =
 /// ```
 pub fn get_cached_regex(pattern: &str) -> Result<Regex, regex::Error> {
     // Try to get from cache first
-    if let Ok(cache) = REGEX_CACHE.lock() {
-        if let Some(regex) = cache.get(pattern) {
+    if let Ok(cache) = REGEX_CACHE.lock()
+        && let Some(regex) = cache.get(pattern) {
             return Ok(regex.clone());
         }
-    }
 
     // Compile new regex
     let regex = Regex::new(pattern)?;

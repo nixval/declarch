@@ -229,7 +229,7 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     let cmd = node
         .entries()
         .first()
-        .and_then(|entry| get_entry_string(entry))
+        .and_then(get_entry_string)
         .ok_or_else(|| {
             DeclarchError::Other(
                 "List command required. Usage: list \"command\" { ... }".to_string(),
@@ -247,7 +247,7 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     let format_str = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry))
+                        .and_then(get_entry_string)
                         .ok_or_else(|| {
                             DeclarchError::Other(
                                 "Format value required. Usage: format json|whitespace|tsv|regex"
@@ -274,19 +274,19 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     config.list_json_path = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "name_key" => {
                     config.list_name_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "version_key" => {
                     config.list_version_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 // Nested json block: json { path "..." name_key "..." version_key "..." }
                 "json" => {
@@ -503,7 +503,7 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     let format_str = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry))
+                        .and_then(get_entry_string)
                         .ok_or_else(|| {
                             DeclarchError::Other(
                                 "Format value required. Usage: format json|whitespace|tsv|regex"
@@ -530,25 +530,25 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     config.search_json_path = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "name_key" => {
                     config.search_name_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "version_key" => {
                     config.search_version_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "desc_key" => {
                     config.search_desc_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 // Nested json block for search: json { path "..." name_key "..." }
                 "json" => {

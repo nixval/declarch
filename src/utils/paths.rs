@@ -14,7 +14,7 @@ pub fn expand_home(path: &Path) -> Result<PathBuf> {
     }
 
     let user_dirs = UserDirs::new().ok_or_else(|| {
-        DeclarchError::Other("Could not determine user home directory".to_string())
+        DeclarchError::PathError("Could not determine user home directory".to_string())
     })?;
 
     let home = user_dirs.home_dir();
@@ -25,14 +25,14 @@ pub fn expand_home(path: &Path) -> Result<PathBuf> {
 
     let stripped = path_str
         .strip_prefix("~/")
-        .ok_or_else(|| DeclarchError::Other(format!("Invalid path format: {}", path_str)))?;
+        .ok_or_else(|| DeclarchError::PathError(format!("Invalid path format: {}", path_str)))?;
 
     Ok(home.join(stripped))
 }
 
 pub fn config_dir() -> Result<PathBuf> {
     let proj = ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME)
-        .ok_or_else(|| DeclarchError::Other("Could not determine config directory".to_string()))?;
+        .ok_or_else(|| DeclarchError::PathError("Could not determine config directory".to_string()))?;
     Ok(proj.config_dir().to_path_buf())
 }
 

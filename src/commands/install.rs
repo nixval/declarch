@@ -142,7 +142,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         if let Some(backend) = backend_str {
             let registry = get_registry();
             let registry_guard = registry.lock().map_err(|e| {
-                DeclarchError::Other(format!("Failed to lock backend registry: {}", e))
+                DeclarchError::LockError(format!("Backend registry: {}", e))
             })?;
             
             // Check if backend config exists

@@ -8,10 +8,10 @@ use std::path::{Path, PathBuf};
 
 pub fn get_state_path() -> Result<PathBuf> {
     let proj_dirs = ProjectDirs::from("com", "declarch", "declarch").ok_or(
-        DeclarchError::Other("Could not determine home directory".into()),
+        DeclarchError::PathError("Could not determine home directory".into()),
     )?;
 
-    let state_dir = proj_dirs.state_dir().ok_or(DeclarchError::Other(
+    let state_dir = proj_dirs.state_dir().ok_or(DeclarchError::PathError(
         "System does not support state directory".into(),
     ))?;
 
@@ -102,7 +102,7 @@ pub fn load_state() -> Result<State> {
 /// Attempt to restore state from the most recent backup
 fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
     let dir = state_path.parent().ok_or_else(|| {
-        DeclarchError::Other(format!(
+        DeclarchError::PathError(format!(
             "Invalid state path (no parent directory): {}",
             state_path.display()
         ))
@@ -148,8 +148,8 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
         for i in (1..max_backups).rev() {
             let old_bak = dir.join(format!("state.json.bak.{}", i));
             let new_bak = dir.join(format!("state.json.bak.{}", i + 1));
-            if old_bak.exists() {
-                if let Err(e) = fs::rename(&old_bak, &new_bak) {
+            if old_bak.exists()
+                && let Err(e) = fs::rename(&old_bak, &new_bak) {
                     eprintln!(
                         "Warning: Failed to rotate backup {} -> {}: {}",
                         old_bak.display(),
@@ -157,7 +157,6 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
                         e
                     );
                 }
-            }
         }
 
         let first_bak = dir.join("state.json.bak.1");
@@ -178,7 +177,7 @@ pub fn save_state(state: &State) -> Result<()> {
 
     // Get parent directory - state paths should always have a parent
     let dir = path.parent().ok_or_else(|| {
-        DeclarchError::Other(format!(
+        DeclarchError::PathError(format!(
             "Invalid state path (no parent directory): {}",
             path.display()
         ))
@@ -189,11 +188,11 @@ pub fn save_state(state: &State) -> Result<()> {
 
     // 1. Serialize to string first
     let content = serde_json::to_string_pretty(state)
-        .map_err(|e| DeclarchError::Other(format!("Failed to serialize state: {}", e)))?;
+        .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
     // 2. Validate JSON is well-formed by parsing it back
     let _: State = serde_json::from_str(&content)
-        .map_err(|e| DeclarchError::Other(format!("Generated invalid JSON: {}", e)))?;
+        .map_err(|e| DeclarchError::SerializationError(format!("Invalid JSON generated: {}", e)))?;
 
     // 3. Write to temp file
     let tmp_path = dir.join("state.tmp");
@@ -246,11 +245,11 @@ pub fn save_state_locked(state: &State) -> Result<()> {
 
     // Serialize to string
     let content = serde_json::to_string_pretty(state)
-        .map_err(|e| DeclarchError::Other(format!("Failed to serialize state: {}", e)))?;
+        .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
     // Validate JSON
     let _: State = serde_json::from_str(&content)
-        .map_err(|e| DeclarchError::Other(format!("Generated invalid JSON: {}", e)))?;
+        .map_err(|e| DeclarchError::SerializationError(format!("Invalid JSON generated: {}", e)))?;
 
     // Write to temp file
     let tmp_path = dir.join("state.tmp");
@@ -270,11 +269,10 @@ pub fn save_state_locked(state: &State) -> Result<()> {
     })?;
 
     // Sync directory to ensure rename is persisted
-    if let Ok(dir_file) = fs::File::open(dir) {
-        if let Err(e) = dir_file.sync_all() {
+    if let Ok(dir_file) = fs::File::open(dir)
+        && let Err(e) = dir_file.sync_all() {
             eprintln!("Warning: Failed to sync state directory: {}", e);
         }
-    }
 
     // Release lock (happens automatically when lock_file is dropped)
     drop(lock_file);
