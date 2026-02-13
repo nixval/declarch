@@ -5,6 +5,7 @@ use colored::Colorize;
 use kdl::KdlDocument;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use which;
 
 #[derive(Debug)]
 pub struct EditOptions {
@@ -86,28 +87,32 @@ pub fn run(options: EditOptions) -> Result<()> {
         return Ok(());
     }
 
+    // Get editor with fallback chain
+    let (editor, editor_source, was_fallback) = get_editor_with_fallback()?;
+
     // Handle dry-run mode
     if options.dry_run {
         output::header("Dry Run: Edit Configuration");
-        let editor = get_editor_from_config()?;
         output::info(&format!(
             "Would open: {}",
             file_to_edit.display().to_string().cyan()
         ));
-        output::info(&format!("With editor: {}", editor.green()));
+        output::info(&format!("With editor: {} (from {})", editor.green(), editor_source));
         return Ok(());
     }
 
-    // Get editor from config file or environment
-    let editor = get_editor_from_config()?;
-
-    // Show info
+    // Show info with editor source
     output::header("Editing Configuration");
     output::info(&format!(
         "File: {}",
         file_to_edit.display().to_string().cyan()
     ));
-    output::info(&format!("Editor: {}", editor.green()));
+    
+    if was_fallback {
+        output::info(&format!("Editor: {} (fallback)", editor.green()));
+    } else {
+        output::info(&format!("Editor: {} (from {})", editor.green(), editor_source));
+    }
 
     // Open editor
     let status = Command::new(&editor)
@@ -226,36 +231,57 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
     Ok(full_path)
 }
 
-/// Get editor to use from settings or environment
+/// Check if editor binary exists in PATH
+fn editor_exists(editor: &str) -> bool {
+    // Handle editors with arguments (e.g., "code -w")
+    let binary = editor.split_whitespace().next().unwrap_or(editor);
+    which::which(binary).is_ok()
+}
+
+/// Get editor with validation and fallback chain
 ///
-/// Priority:
-/// 1. Settings (declarch settings set editor nvim)
-/// 2. $EDITOR environment variable
-/// 3. $VISUAL environment variable
-/// 4. "nano" (default fallback)
-fn get_editor_from_config() -> Result<String> {
-    // Priority 1: Settings system (NEW)
-    if let Ok(settings) = crate::config::settings::Settings::load()
-        && let Some(editor) = settings.get("editor")
-        && !editor.is_empty()
-    {
-        return Ok(editor.clone());
+/// Tries editors in priority order until finding one that exists:
+/// 1. KDL config 'editor' field (declarative)
+/// 2. $VISUAL environment variable (GUI editors)
+/// 3. $EDITOR environment variable (terminal editors)
+/// 4. "nano" (fallback)
+///
+/// Returns: (editor, source, was_fallback)
+fn get_editor_with_fallback() -> Result<(String, &'static str, bool)> {
+    // Priority 1: KDL config 'editor' field
+    if let Ok(config) = crate::config::loader::load_root_config(&crate::utils::paths::config_file()?) {
+        if let Some(ref editor) = config.editor {
+            if editor_exists(editor) {
+                return Ok((editor.clone(), "config", false));
+            } else {
+                output::warning(&format!("Configured editor '{}' not found in PATH", editor));
+            }
+        }
     }
 
-    // Priority 2: Check environment variables
-    if let Ok(ed) = std::env::var("EDITOR")
-        && !ed.is_empty()
-    {
-        return Ok(ed);
+    // Priority 2: $VISUAL environment variable
+    if let Ok(ed) = std::env::var("VISUAL") {
+        if !ed.is_empty() && editor_exists(&ed) {
+            return Ok((ed, "$VISUAL", false));
+        }
     }
-    if let Ok(ed) = std::env::var("VISUAL")
-        && !ed.is_empty()
-    {
-        return Ok(ed);
+    
+    // Priority 3: $EDITOR environment variable
+    if let Ok(ed) = std::env::var("EDITOR") {
+        if !ed.is_empty() && editor_exists(&ed) {
+            return Ok((ed, "$EDITOR", false));
+        }
     }
 
-    // Priority 3: Fallback to nano
-    Ok("nano".to_string())
+    // Priority 4: Fallback to nano
+    if editor_exists("nano") {
+        output::info("Falling back to 'nano' editor");
+        Ok(("nano".to_string(), "default", true))
+    } else {
+        Err(DeclarchError::Other(
+            "No editor found. Please install nano or set $EDITOR environment variable.".into()
+        ))
+    }
 }
 
 /// Create a new module from template

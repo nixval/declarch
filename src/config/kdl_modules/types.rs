@@ -8,6 +8,10 @@ use std::collections::{HashMap, HashSet};
 pub struct RawConfig {
     /// Import statements
     pub imports: Vec<String>,
+
+    /// Preferred editor for 'declarch edit' command
+    /// Priority: $VISUAL env → $EDITOR env → this field → "nano"
+    pub editor: Option<String>,
     
     /// Unified package storage: backend_name -> packages
     /// 

@@ -151,6 +151,7 @@ mod tests {
             package_sources: std::collections::HashMap::new(),
             policy: None,
             lifecycle_actions: None,
+            editor: None,
         }
     }
 

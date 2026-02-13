@@ -103,6 +103,13 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
                     config.project_metadata.description = Some(val.to_string());
                 }
             }
+            "editor" => {
+                if let Some(entry) = node.entries().first()
+                    && let Some(val) = entry.value().as_string()
+                {
+                    config.editor = Some(val.to_string());
+                }
+            }
             "meta" => {
                 meta::parse_meta_block(node, &mut config.project_metadata)?;
             }

@@ -29,6 +29,8 @@ pub struct MergedConfig {
     pub policy: Option<PolicyConfig>,
     /// Pre/post sync hooks (accumulated from all configs)
     pub lifecycle_actions: Option<LifecycleConfig>,
+    /// Preferred editor from KDL config
+    pub editor: Option<String>,
 }
 
 impl MergedConfig {
@@ -153,6 +155,11 @@ fn recursive_load(
         if has_description || has_author {
             merged.project_metadata = Some(raw.project_metadata);
         }
+    }
+
+    // Editor: Only keep the first one (root config has priority)
+    if merged.editor.is_none() && raw.editor.is_some() {
+        merged.editor = raw.editor;
     }
 
     // Conflicts: Accumulate from all configs
