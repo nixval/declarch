@@ -268,19 +268,6 @@ pub enum Command {
         no_sync: bool,
     },
 
-    /// Manage declarch settings
-    ///
-    /// Configure output format, colors, and other preferences.
-    ///
-    /// Examples:
-    ///   declarch settings set color never     Disable colors
-    ///   declarch settings set format json     Set output format to JSON
-    ///   declarch settings show                Show all settings
-    Settings {
-        #[command(subcommand)]
-        command: SettingsCommand,
-    },
-
     /// Search for packages across backends
     ///
     /// Search for packages across all configured backends.
@@ -602,46 +589,4 @@ pub enum CheckCommand {
     },
 }
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum SettingsCommand {
-    /// Set a setting value
-    ///
-    /// Examples:
-    ///   declarch settings set color never
-    ///   declarch settings set format json
-    Set {
-        /// Setting name (color, progress, format, verbose)
-        #[arg(value_name = "KEY")]
-        key: String,
 
-        /// Setting value
-        #[arg(value_name = "VALUE")]
-        value: String,
-    },
-
-    /// Get a setting value
-    ///
-    /// Example:
-    ///   declarch settings get color
-    Get {
-        /// Setting name
-        #[arg(value_name = "KEY")]
-        key: String,
-    },
-
-    /// Show all settings
-    ///
-    /// Example:
-    ///   declarch settings show
-    Show,
-
-    /// Reset setting to default
-    ///
-    /// Example:
-    ///   declarch settings reset color
-    Reset {
-        /// Setting name
-        #[arg(value_name = "KEY")]
-        key: String,
-    },
-}

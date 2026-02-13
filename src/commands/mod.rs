@@ -8,7 +8,6 @@ pub mod init;
 pub mod install;
 pub mod list;
 pub mod search;
-pub mod settings;
 pub mod switch;
 pub mod sync;
 pub mod upgrade;

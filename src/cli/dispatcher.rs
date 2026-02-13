@@ -3,7 +3,7 @@
 //! Routes CLI commands to their appropriate handlers and manages
 //! deprecated flag handling.
 
-use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand, SyncCommand};
+use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
@@ -304,25 +304,6 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             yes: args.global.yes,
             dry_run: args.global.dry_run,
         }),
-
-        Some(Command::Settings { command }) => {
-            // Convert CLI SettingsCommand to command SettingsCommand
-            let cmd = match command {
-                SettingsCommand::Set { key, value } => commands::settings::SettingsCommand::Set {
-                    key: key.clone(),
-                    value: value.clone(),
-                },
-                SettingsCommand::Get { key } => {
-                    commands::settings::SettingsCommand::Get { key: key.clone() }
-                }
-                SettingsCommand::Show => commands::settings::SettingsCommand::Show,
-                SettingsCommand::Reset { key } => {
-                    commands::settings::SettingsCommand::Reset { key: key.clone() }
-                }
-            };
-
-            commands::settings::run(cmd)
-        }
 
         Some(Command::Search {
             query,
