@@ -3,7 +3,7 @@
 //! Routes CLI commands to their appropriate handlers and manages
 //! deprecated flag handling.
 
-use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SyncCommand};
+use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListSubcommand, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
@@ -181,7 +181,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         }
 
         Some(Command::Info { command, doctor }) => {
-            // Handle deprecated flag
+            // Handle deprecated --doctor flag
             let (has_deprecated_flag, deprecated_command) = handle_deprecated_info_flags(*doctor);
 
             // Use the command from subcommand if provided, otherwise use deprecated flag
@@ -194,7 +194,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 show_deprecation_warning("declarch info doctor");
             }
 
-            // Map InfoCommand to info::run parameters
+            // Map InfoCommand to appropriate handler
             match info_cmd {
                 InfoCommand::Status {
                     debug,
@@ -207,6 +207,47 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     backend,
                     package,
                 }),
+                InfoCommand::List { command, orphans, synced } => {
+                    // Handle deprecated --orphans and --synced flags
+                    let (has_deprecated_flags, deprecated_command, new_cmd_str) =
+                        handle_deprecated_list_flags(orphans, synced);
+
+                    // Use the command from subcommand if provided, otherwise use deprecated flags
+                    let list_cmd = command
+                        .clone()
+                        .unwrap_or_else(|| deprecated_command.clone());
+
+                    // Show deprecation warning if old flags were used
+                    if has_deprecated_flags {
+                        show_deprecation_warning(&new_cmd_str);
+                    }
+
+                    // Map ListSubcommand to list::run parameters
+                    match list_cmd {
+                        ListSubcommand::All { backend } => commands::list::run(commands::list::ListOptions {
+                            backend,
+                            orphans: false,
+                            synced: false,
+                            format: args.global.format.clone(),
+                        }),
+                        ListSubcommand::Orphans { backend } => {
+                            commands::list::run(commands::list::ListOptions {
+                                backend,
+                                orphans: true,
+                                synced: false,
+                                format: args.global.format.clone(),
+                            })
+                        }
+                        ListSubcommand::Synced { backend } => {
+                            commands::list::run(commands::list::ListOptions {
+                                backend,
+                                orphans: false,
+                                synced: true,
+                                format: args.global.format.clone(),
+                            })
+                        }
+                    }
+                }
                 InfoCommand::Doctor {
                     debug,
                     backend,
@@ -218,52 +259,6 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     backend,
                     package,
                 }),
-            }
-        }
-
-        Some(Command::List {
-            command,
-            orphans,
-            synced,
-        }) => {
-            // Handle deprecated flags
-            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_list_flags(*orphans, *synced);
-
-            // Use the command from subcommand if provided, otherwise use deprecated flags
-            let list_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
-
-            // Show deprecation warning if old flags were used
-            if has_deprecated_flags {
-                show_deprecation_warning(new_cmd_str);
-            }
-
-            // Map ListCommand to list::run parameters
-            match list_cmd {
-                ListCommand::All { backend } => commands::list::run(commands::list::ListOptions {
-                    backend,
-                    orphans: false,
-                    synced: false,
-                    format: args.global.format.clone(),
-                }),
-                ListCommand::Orphans { backend } => {
-                    commands::list::run(commands::list::ListOptions {
-                        backend,
-                        orphans: true,
-                        synced: false,
-                        format: args.global.format.clone(),
-                    })
-                }
-                ListCommand::Synced { backend } => {
-                    commands::list::run(commands::list::ListOptions {
-                        backend,
-                        orphans: false,
-                        synced: true,
-                        format: args.global.format.clone(),
-                    })
-                }
             }
         }
 

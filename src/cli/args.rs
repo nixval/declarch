@@ -169,20 +169,6 @@ pub enum Command {
         doctor: bool,
     },
 
-    /// List installed packages
-    List {
-        #[command(subcommand)]
-        command: Option<ListCommand>,
-
-        /// [DEPRECATED] Use `declarch list orphans` instead
-        #[arg(long, hide = true)]
-        orphans: bool,
-
-        /// [DEPRECATED] Use `declarch list synced` instead
-        #[arg(long, hide = true)]
-        synced: bool,
-    },
-
     /// Switch package variant (e.g., hyprland -> hyprland-git)
     Switch {
         /// Old package name to remove
@@ -471,6 +457,22 @@ pub enum InfoCommand {
         package: Option<String>,
     },
 
+    /// List installed packages
+    ///
+    /// Lists packages managed by declarch with filtering options.
+    List {
+        #[command(subcommand)]
+        command: Option<ListSubcommand>,
+
+        /// [DEPRECATED] Use `declarch info list orphans` instead
+        #[arg(long, hide = true)]
+        orphans: bool,
+
+        /// [DEPRECATED] Use `declarch info list synced` instead
+        #[arg(long, hide = true)]
+        synced: bool,
+    },
+
     /// Diagnose system issues
     ///
     /// Runs diagnostic checks to identify configuration issues,
@@ -490,8 +492,9 @@ pub enum InfoCommand {
     },
 }
 
+/// Subcommands for list (now under info)
 #[derive(Subcommand, Debug, Clone)]
-pub enum ListCommand {
+pub enum ListSubcommand {
     /// List all packages (default)
     ///
     /// Lists all installed packages managed by declarch.
@@ -522,6 +525,8 @@ pub enum ListCommand {
         backend: Option<String>,
     },
 }
+
+
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum CheckCommand {

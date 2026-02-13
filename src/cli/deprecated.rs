@@ -3,7 +3,7 @@
 //! Handles conversion from deprecated CLI flags to new command structure
 //! and shows appropriate warnings to users.
 
-use crate::cli::args::{CheckCommand, InfoCommand, ListCommand, SyncCommand};
+use crate::cli::args::{CheckCommand, InfoCommand, ListSubcommand, SyncCommand};
 use crate::ui as output;
 use colored::Colorize;
 
@@ -140,23 +140,23 @@ pub fn handle_deprecated_info_flags(doctor: bool) -> (bool, InfoCommand) {
     }
 }
 
-/// Convert deprecated list flags to ListCommand
+/// Convert deprecated list flags to ListSubcommand
 pub fn handle_deprecated_list_flags(
     orphans: bool,
     synced: bool,
-) -> (bool, ListCommand, &'static str) {
+) -> (bool, ListSubcommand, String) {
     let (has_deprecated, deprecated_command) = if orphans {
-        (true, ListCommand::Orphans { backend: None })
+        (true, ListSubcommand::Orphans { backend: None })
     } else if synced {
-        (true, ListCommand::Synced { backend: None })
+        (true, ListSubcommand::Synced { backend: None })
     } else {
-        (false, ListCommand::All { backend: None })
+        (false, ListSubcommand::All { backend: None })
     };
 
     let new_cmd = match deprecated_command {
-        ListCommand::Orphans { .. } => "declarch list orphans",
-        ListCommand::Synced { .. } => "declarch list synced",
-        ListCommand::All { .. } => "declarch list",
+        ListSubcommand::Orphans { .. } => "declarch info list orphans".to_string(),
+        ListSubcommand::Synced { .. } => "declarch info list synced".to_string(),
+        ListSubcommand::All { .. } => "declarch info list".to_string(),
     };
 
     (has_deprecated, deprecated_command, new_cmd)
