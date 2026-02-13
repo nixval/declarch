@@ -939,6 +939,11 @@ fn parse_env(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     Ok(())
 }
 
+/// Check if backend has multiple binary alternatives (needs {binary} placeholder)
+fn has_multiple_binaries(config: &BackendConfig) -> bool {
+    matches!(config.binary, BinarySpecifier::Multiple(_))
+}
+
 /// Validate backend configuration
 fn validate_backend_config(config: &BackendConfig) -> Result<()> {
     // install_cmd is required - backend must at least support install
@@ -948,21 +953,26 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         ));
     }
 
+    // Check if this backend has multiple binary alternatives
+    let needs_binary_placeholder = has_multiple_binaries(config);
+
     // Validate required placeholders in commands
     // This prevents runtime errors due to typos in backend definitions
     
     // list_cmd is optional but recommended
     if let Some(ref list_cmd) = config.list_cmd {
-        // list_cmd should contain {binary} placeholder
-        if !list_cmd.contains("{binary}") {
+        // Only warn about {binary} if backend has multiple binaries
+        if needs_binary_placeholder && !list_cmd.contains("{binary}") {
             ui::warning(&format!(
-                "Backend '{}' list_cmd should contain '{{binary}}' placeholder for proper binary substitution",
+                "Backend '{}' has multiple binaries but list_cmd missing '{{binary}}' placeholder",
                 config.name
             ));
         }
     } else {
-        ui::warning(&format!(
-            "Backend '{}' has no list_cmd - packages won't be tracked in state (install-only mode)",
+        // Only show install-only warning for backends that have list capability
+        // (i.e., not intentionally install-only)
+        ui::info(&format!(
+            "Backend '{}' install-only mode (no list_cmd)",
             config.name
         ));
     }
@@ -984,18 +994,14 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
                 config.name
             )));
         }
-    } else {
-        ui::warning(&format!(
-            "Backend '{}' has no remove_cmd - packages cannot be removed via declarch",
-            config.name
-        ));
     }
+    // Note: remove_cmd being None is normal (install-only backends), no warning needed
     
     // search_cmd should contain {binary} and {query} if configured
     if let Some(ref search_cmd) = config.search_cmd {
-        if !search_cmd.contains("{binary}") {
+        if needs_binary_placeholder && !search_cmd.contains("{binary}") {
             ui::warning(&format!(
-                "Backend '{}' search_cmd should contain '{{binary}}' placeholder",
+                "Backend '{}' has multiple binaries but search_cmd missing '{{binary}}' placeholder",
                 config.name
             ));
         }
@@ -1007,31 +1013,31 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         }
     }
 
-    // update_cmd should contain {binary} if configured
+    // update_cmd should contain {binary} if backend has multiple binaries
     if let Some(ref update_cmd) = config.update_cmd {
-        if !update_cmd.contains("{binary}") {
+        if needs_binary_placeholder && !update_cmd.contains("{binary}") {
             ui::warning(&format!(
-                "Backend '{}' update_cmd should contain '{{binary}}' placeholder",
+                "Backend '{}' has multiple binaries but update_cmd missing '{{binary}}' placeholder",
                 config.name
             ));
         }
     }
 
-    // cache_clean_cmd should contain {binary} if configured
+    // cache_clean_cmd should contain {binary} if backend has multiple binaries
     if let Some(ref cache_clean_cmd) = config.cache_clean_cmd {
-        if !cache_clean_cmd.contains("{binary}") {
+        if needs_binary_placeholder && !cache_clean_cmd.contains("{binary}") {
             ui::warning(&format!(
-                "Backend '{}' cache_clean_cmd should contain '{{binary}}' placeholder",
+                "Backend '{}' has multiple binaries but cache_clean_cmd missing '{{binary}}' placeholder",
                 config.name
             ));
         }
     }
 
-    // upgrade_cmd should contain {binary} if configured
+    // upgrade_cmd should contain {binary} if backend has multiple binaries
     if let Some(ref upgrade_cmd) = config.upgrade_cmd {
-        if !upgrade_cmd.contains("{binary}") {
+        if needs_binary_placeholder && !upgrade_cmd.contains("{binary}") {
             ui::warning(&format!(
-                "Backend '{}' upgrade_cmd should contain '{{binary}}' placeholder",
+                "Backend '{}' has multiple binaries but upgrade_cmd missing '{{binary}}' placeholder",
                 config.name
             ));
         }

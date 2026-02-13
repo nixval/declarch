@@ -28,17 +28,17 @@
 backend "apt" {
     binary "apt"
     
-    list "apt list --installed" {
+    list "{binary} list --installed" {
         format regex
-        pattern "^(\S+)/\S+\s+\S+\s+\[installed.*\]"
+        regex "^(\\S+)/\\S+\\s+\\S+\\s+\\[installed.*\]"
         name_group 1
     }
     
-    install "apt install {packages}"
-    remove "apt remove {packages}"
-    update "apt update"
-    upgrade "apt upgrade -y"
-    cache_clean "apt clean"
+    install "{binary} install {packages}"
+    remove "{binary} remove {packages}"
+    update "{binary} update"
+    upgrade "{binary} upgrade -y"
+    cache_clean "{binary} clean"
     
     noconfirm "-y"
     needs_sudo true
@@ -46,6 +46,7 @@ backend "apt" {
 
 // =============================================================================
 // AUR Helper (paru/yay with pacman fallback)
+// Uses {binary} placeholder for fallback chain support
 // =============================================================================
 backend "aur" {
     meta {
@@ -75,7 +76,6 @@ backend "aur" {
         desc_group 2
     }
     
-    // Local search with format specification
     search_local "{binary} -Q {query}" {
         format whitespace
         name_col 0
@@ -86,24 +86,52 @@ backend "aur" {
 }
 
 // =============================================================================
+// Pacman (Arch Linux native)
+// Single binary - {binary} optional but recommended for consistency
+// =============================================================================
+backend "pacman" {
+    binary "pacman"
+    
+    list "{binary} -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "{binary} -S --needed {packages}"
+    remove "{binary} -R {packages}"
+    update "{binary} -Sy"
+    upgrade "{binary} -Syu"
+    cache_clean "{binary} -Sc --noconfirm"
+    
+    search_local "{binary} -Q {query}" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    needs_sudo true
+}
+
+// =============================================================================
 // Flatpak
 // =============================================================================
 backend "flatpak" {
     binary "flatpak"
     
-    list "flatpak list --app --columns=application,version" {
+    list "{binary} list --app --columns=application,version" {
         format tsv
         name_col 0
         version_col 1
     }
     
-    install "flatpak install flathub {packages}"
-    remove "flatpak uninstall {packages}"
-    update "flatpak update --appstream"
-    upgrade "flatpak update -y"
-    cache_clean "flatpak uninstall --unused -y"
+    install "{binary} install flathub {packages}"
+    remove "{binary} uninstall {packages}"
+    update "{binary} update --appstream"
+    upgrade "{binary} update -y"
+    cache_clean "{binary} uninstall --unused -y"
     
-    search "flatpak search {query}" {
+    search "{binary} search {query}" {
         format tsv
         name_col 2
         desc_col 1
@@ -119,7 +147,7 @@ backend "flatpak" {
 backend "npm" {
     binary "npm"
     
-    list "npm list -g --json" {
+    list "{binary} list -g --json" {
         format json
         json {
             path "dependencies"
@@ -128,24 +156,22 @@ backend "npm" {
         }
     }
     
-    install "npm install -g --silent {packages}"
-    remove "npm uninstall -g --silent {packages}"
+    install "{binary} install -g --silent {packages}"
+    remove "{binary} uninstall -g --silent {packages}"
     
     // NPM has no package index update - use "-" to disable without warning
     update "-"
-    upgrade "npm update -g"
-    cache_clean "npm cache clean --force"
+    upgrade "{binary} update -g"
+    cache_clean "{binary} cache clean --force"
     
-    // Remote search
-    search "npm search {query} --json" {
+    search "{binary} search {query} --json" {
         format npm_json
         name_key "name"
         version_key "version"
         desc_key "description"
     }
     
-    // Local search (in installed packages)
-    search_local "npm list -g {query} --json" {
+    search_local "{binary} list -g {query} --json" {
         format json
         json {
             path "dependencies"
@@ -160,7 +186,6 @@ backend "npm" {
 // =============================================================================
 // Cargo (Rust) - Install-only backend example
 // =============================================================================
-// This backend can only install packages (no list/remove support)
 backend "cargo" {
     meta {
         title "Cargo"
@@ -170,15 +195,15 @@ backend "cargo" {
     binary "cargo"
     
     // Install-only: no list_cmd, no remove_cmd
-    install "cargo install {packages}"
+    install "{binary} install {packages}"
     
     // Explicitly disable unsupported features
     list "-"
     remove "-"
     update "-"
     
-    upgrade "cargo install {packages} --force"
-    cache_clean "cargo cache --autoclean"
+    upgrade "{binary} install {packages} --force"
+    cache_clean "{binary} cache --autoclean"
     
     needs_sudo false
 }

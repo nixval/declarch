@@ -176,6 +176,12 @@ fn ensure_root_config() -> Result<()> {
     
     crate::ui::success(&format!("Created config file: {}", config_file.display()));
 
+    // Also create default backends.kdl
+    let backends_file = paths::backend_config()?;
+    let backends_template = crate::commands::init::backend::default_backends_kdl();
+    fs::write(&backends_file, backends_template)?;
+    crate::ui::success(&format!("Created backends file: {}", backends_file.display()));
+
     let _ = crate::state::io::init_state(hostname)?;
 
     Ok(())

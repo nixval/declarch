@@ -13,7 +13,7 @@ pub struct EditOptions {
     pub preview: bool,
     pub number: bool,
     pub create: bool,
-    pub format: bool,
+    pub auto_format: bool,
     pub validate_only: bool,
 }
 
@@ -55,7 +55,7 @@ pub fn run(options: EditOptions) -> Result<()> {
     }
 
     // Handle --format: Auto-format KDL before opening
-    if options.format {
+    if options.auto_format {
         format_kdl_file(&file_to_edit)?;
     }
 

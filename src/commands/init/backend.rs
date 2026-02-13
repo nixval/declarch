@@ -656,20 +656,20 @@ backend "pacman" {
     
     binary "pacman"
     
-    list "pacman -Q" {
+    list "{binary} -Q" {
         format "whitespace"
         name_col 0
         version_col 1
     }
     
-    install "pacman -S --needed {packages}"
-    remove "pacman -R {packages}"
+    install "{binary} -S --needed {packages}"
+    remove "{binary} -R {packages}"
     
-    update "pacman -Sy"
-    upgrade "pacman -Syu"
-    cache_clean "pacman -Sc --noconfirm"
+    update "{binary} -Sy"
+    upgrade "{binary} -Syu"
+    cache_clean "{binary} -Sc --noconfirm"
     
-    search_local "pacman -Q {query}" {
+    search_local "{binary} -Q {query}" {
         format "whitespace"
         name_col 0
         version_col 1
@@ -695,20 +695,20 @@ backend "flatpak" {
     
     binary "flatpak"
     
-    list "flatpak list --app --columns=application,version" {
+    list "{binary} list --app --columns=application,version" {
         format "tsv"
         name_col 0
         version_col 1
     }
     
-    install "flatpak install flathub {packages}"
-    remove "flatpak uninstall {packages}"
+    install "{binary} install flathub {packages}"
+    remove "{binary} uninstall {packages}"
     
-    update "flatpak update --appstream"
-    upgrade "flatpak update -y"
-    cache_clean "flatpak uninstall --unused -y"
+    update "{binary} update --appstream"
+    upgrade "{binary} update -y"
+    cache_clean "{binary} uninstall --unused -y"
     
-    search "flatpak search {query}" {
+    search "{binary} search {query}" {
         format "tsv"
         name_col 2
         desc_col 1
@@ -736,22 +736,22 @@ backend "npm" {
     
     binary "npm"
     
-    list "npm list -g --json" {
+    list "{binary} list -g --json" {
         format "json"
         json_path "dependencies"
         name_key "name"
         version_key "version"
     }
     
-    install "npm install -g --silent {packages}"
-    remove "npm uninstall -g --silent {packages}"
+    install "{binary} install -g --silent {packages}"
+    remove "{binary} uninstall -g --silent {packages}"
     
     // Sentinel "-" = explicitly disabled (NPM has no package index update)
     update "-"
-    upgrade "npm update -g"
-    cache_clean "npm cache clean --force"
+    upgrade "{binary} update -g"
+    cache_clean "{binary} cache clean --force"
     
-    search "npm search {query} --json" {
+    search "{binary} search {query} --json" {
         format "npm_json"
         name_key "name"
         version_key "version"
@@ -759,7 +759,7 @@ backend "npm" {
     }
     
     // Search locally installed packages
-    search_local "npm list -g {query} --json" {
+    search_local "{binary} list -g {query} --json" {
         format "json"
         json_path "dependencies"
         name_key "name"

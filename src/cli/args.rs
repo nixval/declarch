@@ -215,8 +215,8 @@ pub enum Command {
         create: bool,
 
         /// Auto-format KDL before opening
-        #[arg(long, short)]
-        format: bool,
+        #[arg(long)]
+        auto_format: bool,
 
         /// Only validate syntax, don't open editor (exit 0/1)
         #[arg(long)]
