@@ -121,6 +121,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 CheckCommand::All {
                     backend,
                     diff,
+                    fix,
                     benchmark,
                     modules,
                 } => commands::check::run(
@@ -134,8 +135,9 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     false, // validate_only
                     benchmark,
                     modules,
+                    fix,
                 ),
-                CheckCommand::Duplicates { backend, diff } => {
+                CheckCommand::Duplicates { backend, diff, fix } => {
                     commands::check::run(
                         args.global.verbose,
                         true,  // check_duplicates
@@ -147,9 +149,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         false, // validate_only
                         false, // benchmark
                         vec![],
+                        fix,
                     )
                 }
-                CheckCommand::Conflicts { backend, diff } => {
+                CheckCommand::Conflicts { backend, diff, fix } => {
                     commands::check::run(
                         args.global.verbose,
                         false, // check_duplicates
@@ -161,9 +164,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         false, // validate_only
                         false, // benchmark
                         vec![],
+                        fix,
                     )
                 }
-                CheckCommand::Validate { benchmark, modules } => {
+                CheckCommand::Validate { benchmark, fix, modules } => {
                     commands::check::run(
                         args.global.verbose,
                         false, // check_duplicates
@@ -175,6 +179,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         true,  // validate_only
                         benchmark,
                         modules,
+                        fix,
                     )
                 }
             }

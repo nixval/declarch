@@ -77,6 +77,7 @@ pub fn handle_deprecated_check_flags(
             CheckCommand::Duplicates {
                 backend: None,
                 diff: false,
+                fix: false,
             },
         )
     } else if conflicts {
@@ -85,6 +86,7 @@ pub fn handle_deprecated_check_flags(
             CheckCommand::Conflicts {
                 backend: None,
                 diff: false,
+                fix: false,
             },
         )
     } else if validate {
@@ -92,6 +94,7 @@ pub fn handle_deprecated_check_flags(
             true,
             CheckCommand::Validate {
                 benchmark: false,
+                fix: false,
                 modules: vec![],
             },
         )
@@ -101,6 +104,7 @@ pub fn handle_deprecated_check_flags(
             CheckCommand::All {
                 backend: None,
                 diff: false,
+                fix: false,
                 benchmark: false,
                 modules: vec![],
             },

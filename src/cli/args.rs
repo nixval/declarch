@@ -543,6 +543,10 @@ pub enum CheckCommand {
         #[arg(long)]
         diff: bool,
 
+        /// Auto-fix issues where possible
+        #[arg(long)]
+        fix: bool,
+
         /// Show performance metrics
         #[arg(long)]
         benchmark: bool,
@@ -564,6 +568,10 @@ pub enum CheckCommand {
         /// Show planned changes without executing
         #[arg(long)]
         diff: bool,
+
+        /// Auto-fix issues where possible
+        #[arg(long)]
+        fix: bool,
     },
 
     /// Check for cross-backend package name conflicts
@@ -578,6 +586,10 @@ pub enum CheckCommand {
         /// Show planned changes without executing
         #[arg(long)]
         diff: bool,
+
+        /// Auto-fix issues where possible
+        #[arg(long)]
+        fix: bool,
     },
 
     /// Validate syntax only
@@ -587,6 +599,10 @@ pub enum CheckCommand {
         /// Show performance metrics
         #[arg(long)]
         benchmark: bool,
+
+        /// Auto-fix issues where possible (formats and sorts)
+        #[arg(long)]
+        fix: bool,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES")]
