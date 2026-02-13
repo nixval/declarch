@@ -11,68 +11,89 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Maximum age of a lock file in seconds before it's considered stale
 const LOCK_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
 
-/// Check if another declarch process is running
-/// Returns warning message if concurrent access detected, but doesn't fail
-pub fn check_concurrent_access() -> Option<String> {
-    let path = match get_state_path() {
-        Ok(p) => p,
-        Err(_) => return None,
-    };
-    let dir = match path.parent() {
-        Some(d) => d,
-        None => return None,
-    };
+/// Lock file handle - keeps lock active until dropped
+pub struct StateLock {
+    _file: std::fs::File,
+    path: PathBuf,
+}
+
+impl Drop for StateLock {
+    fn drop(&mut self) {
+        // Remove lock file when lock is released
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+/// Acquire exclusive lock for state operations
+/// Returns lock handle that must be kept alive during the operation
+/// Returns error if another process is already running
+pub fn acquire_lock() -> Result<StateLock> {
+    let path = get_state_path()?;
+    let dir = path.parent().ok_or_else(|| {
+        DeclarchError::Other("Could not determine state directory".into())
+    })?;
     let lock_path = dir.join("state.lock");
     
-    if !lock_path.exists() {
-        return None;
-    }
-    
-    // Check if lock file is stale (older than timeout)
-    let metadata = match fs::metadata(&lock_path) {
-        Ok(m) => m,
-        Err(_) => return None,
-    };
-    
-    let modified = match metadata.modified() {
-        Ok(m) => m,
-        Err(_) => return None,
-    };
-    
-    let now = SystemTime::now();
-    
-    if let Ok(age) = now.duration_since(modified) {
-        if age.as_secs() > LOCK_TIMEOUT_SECONDS {
-            // Stale lock, remove it
-            ui::warning("Removing stale lock file (older than 5 minutes)");
-            let _ = fs::remove_file(&lock_path);
-            return None;
+    // Check if lock file exists
+    if lock_path.exists() {
+        // Check if lock file is stale
+        let metadata = fs::metadata(&lock_path)?;
+        
+        if let Ok(modified) = metadata.modified() {
+            let now = SystemTime::now();
+            if let Ok(age) = now.duration_since(modified) {
+                if age.as_secs() > LOCK_TIMEOUT_SECONDS {
+                    ui::warning("Removing stale lock file (older than 5 minutes)");
+                    let _ = fs::remove_file(&lock_path);
+                } else {
+                    // Lock is still valid - check if it's actually held
+                    let existing_file = OpenOptions::new()
+                        .write(true)
+                        .open(&lock_path)?;
+                    
+                    match existing_file.try_lock_exclusive() {
+                        Ok(()) => {
+                            // We got the lock, previous process died without cleaning up
+                            let _ = fs::remove_file(&lock_path);
+                        }
+                        Err(_) => {
+                            return Err(DeclarchError::Other(format!(
+                                "Another declarch process is currently running.\n\
+                                 Lock file: {}\n\
+                                 Wait for it to complete, or delete the lock file if you're sure no other process is running.",
+                                lock_path.display()
+                            )));
+                        }
+                    }
+                }
+            }
         }
     }
     
-    // Try to acquire lock to test if it's really held
-    let lock_file = match OpenOptions::new()
+    // Create and lock the file
+    let lock_file = OpenOptions::new()
         .write(true)
-        .open(&lock_path) {
-        Ok(f) => f,
-        Err(_) => return Some("Cannot open lock file".to_string()),
-    };
+        .create(true)
+        .truncate(true)
+        .open(&lock_path)
+        .map_err(|e| DeclarchError::IoError {
+            path: lock_path.clone(),
+            source: e,
+        })?;
     
-    // Try non-blocking lock
-    match lock_file.try_lock_exclusive() {
-        Ok(()) => {
-            // We got the lock, so it's not held by another process
-            // Don't remove it here - let the owner clean up
-            drop(lock_file);
-            None
-        }
-        Err(_) => Some(format!(
-            "Another declarch process is currently running.\n\
-             Lock file: {}\n\
-             If you're sure no other process is running, delete the lock file.",
-            lock_path.display()
-        )),
-    }
+    lock_file.lock_exclusive().map_err(|e| DeclarchError::Other(format!(
+        "Failed to lock state file: {}",
+        e
+    )))?;
+    
+    // Write PID to lock file for debugging
+    let pid = std::process::id();
+    let _ = writeln!(&lock_file, "{}", pid);
+    
+    Ok(StateLock {
+        _file: lock_file,
+        path: lock_path,
+    })
 }
 
 /// Validate state integrity and report issues
@@ -175,12 +196,6 @@ fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
 }
 
 pub fn load_state() -> Result<State> {
-    // Check for concurrent access first
-    if let Some(warning) = check_concurrent_access() {
-        ui::warning(&warning);
-        ui::info("Another process is running - proceeding with caution...");
-    }
-
     let path = get_state_path()?;
 
     if !path.exists() {
@@ -364,31 +379,14 @@ pub fn save_state(state: &State) -> Result<()> {
 
 /// Save state with file locking to prevent concurrent access corruption
 /// This is the preferred method for saving state in production
-pub fn save_state_locked(state: &State) -> Result<()> {
+/// 
+/// IMPORTANT: The lock is acquired at the START of the sync operation (not just during save)
+/// to prevent concurrent modifications. Use `acquire_lock()` at the beginning of sync.
+pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
     let path = get_state_path()?;
     let dir = path.parent().ok_or(DeclarchError::Other(
         "Could not determine state directory".into(),
     ))?;
-
-    // Create lock file path
-    let lock_path = dir.join("state.lock");
-    
-    // Open or create lock file
-    let lock_file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&lock_path)
-        .map_err(|e| DeclarchError::IoError {
-            path: lock_path.clone(),
-            source: e,
-        })?;
-
-    // Acquire exclusive lock - blocks other processes
-    lock_file.lock_exclusive().map_err(|e| DeclarchError::Other(format!(
-        "Failed to lock state file: {}. Another declarch process may be running.",
-        e
-    )))?;
 
     // Perform backup rotation (same as save_state)
     rotate_backups(dir, &path)?;
@@ -419,14 +417,13 @@ pub fn save_state_locked(state: &State) -> Result<()> {
     })?;
 
     // Sync directory to ensure rename is persisted
-    if let Ok(dir_file) = fs::File::open(dir)
-        && let Err(e) = dir_file.sync_all() {
+    if let Ok(dir_file) = fs::File::open(dir) {
+        if let Err(e) = dir_file.sync_all() {
             ui::warning(&format!("Failed to sync state directory: {}", e));
         }
+    }
 
-    // Release lock (happens automatically when lock_file is dropped)
-    drop(lock_file);
-
+    // Lock is released when StateLock is dropped (RAII)
     Ok(())
 }
 
@@ -446,7 +443,9 @@ impl crate::traits::StateStore for FilesystemStateStore {
     }
 
     fn save(&self, state: &State) -> Result<()> {
-        save_state_locked(state)
+        // Trait implementation uses non-locking save
+        // (locking is handled by caller when needed)
+        save_state(state)
     }
 
     fn init(&self) -> Result<State> {

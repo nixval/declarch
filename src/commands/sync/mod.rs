@@ -56,6 +56,28 @@ pub struct SyncOptions {
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
+    // Acquire exclusive lock at the very beginning to prevent concurrent sync
+    // Lock is held until this function returns (RAII pattern)
+    let lock = if options.dry_run {
+        // Dry-run doesn't need exclusive lock, but we check if another process is running
+        match state::io::acquire_lock() {
+            Ok(lock) => Some(lock),
+            Err(_) => {
+                output::warning("Another declarch process is running. Dry-run may show stale state.");
+                None
+            }
+        }
+    } else {
+        // Real sync requires exclusive lock
+        Some(state::io::acquire_lock().map_err(|e| {
+            crate::error::DeclarchError::Other(format!(
+                "Cannot start sync: {}\n\
+                 If no other declarch process is running, delete the lock file manually.",
+                e
+            ))
+        })?)
+    };
+
     // 1. Target Resolution
     let sync_target = resolve_target(&options.target);
 
@@ -127,7 +149,14 @@ pub fn run(options: SyncOptions) -> Result<()> {
             &options,
             &successfully_installed,
         )?;
-        state::io::save_state_locked(&new_state)?;
+        
+        // Save state with lock held (ensures no concurrent modifications)
+        if let Some(ref lock) = lock {
+            state::io::save_state_locked(&new_state, lock)?;
+        } else {
+            // This shouldn't happen for non-dry-run, but handle gracefully
+            state::io::save_state(&new_state)?;
+        }
     } else {
         // Dry-run complete
         output::success("Dry-run completed - no changes were made");

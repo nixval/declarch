@@ -20,6 +20,15 @@ pub struct SwitchOptions {
 pub fn run(options: SwitchOptions) -> Result<()> {
     output::header("Switching Package Variant");
 
+    // Acquire exclusive lock to prevent concurrent state modifications
+    let lock = state::io::acquire_lock().map_err(|e| {
+        crate::error::DeclarchError::Other(format!(
+            "Cannot start switch: {}\n\
+             If no other declarch process is running, delete the lock file manually.",
+            e
+        ))
+    })?;
+
     output::info("Analyzing package transition...");
     output::separator();
 
@@ -163,7 +172,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             state.meta.last_sync = Utc::now();
 
             // Save state with file locking
-            state::io::save_state_locked(&state)?;
+            state::io::save_state_locked(&state, &lock)?;
 
             output::separator();
             output::success(&format!(
@@ -179,7 +188,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             output::error(&format!("Transition failed: {}", e));
             output::warning("Rolling back state changes...");
 
-            if let Err(e2) = state::io::save_state_locked(&state_backup) {
+            if let Err(e2) = state::io::save_state_locked(&state_backup, &lock) {
                 output::error(&format!("Failed to restore state: {}", e2));
                 return Err(DeclarchError::Other(format!(
                     "Transition failed and state rollback failed: {} - {}",
