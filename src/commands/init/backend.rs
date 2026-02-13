@@ -711,6 +711,11 @@ backend "flatpak" {
 // =============================================================================
 // Note: NPM doesn't have a traditional "update" command (no package index).
 // Use "-" sentinel to explicitly disable without warning.
+//
+// IMPORTANT: npm list -g --json outputs:
+//   {"dependencies": {"package-name": {"version": "1.0"}}}
+// The keys ARE the package names (not a "name" field inside).
+// Use format "json_object_keys" for this structure.
 // =============================================================================
 backend "npm" {
     meta {
@@ -725,9 +730,8 @@ backend "npm" {
     binary "npm"
     
     list "{binary} list -g --json" {
-        format "json"
+        format "json_object_keys"
         json_path "dependencies"
-        name_key "name"
         version_key "version"
     }
     
@@ -748,9 +752,8 @@ backend "npm" {
     
     // Search locally installed packages
     search_local "{binary} list -g {query} --json" {
-        format "json"
+        format "json_object_keys"
         json_path "dependencies"
-        name_key "name"
         version_key "version"
     }
     

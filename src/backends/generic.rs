@@ -549,6 +549,12 @@ impl GenericManager {
             crate::backends::config::OutputFormat::Json => self.parse_search_json(&stdout_str),
             crate::backends::config::OutputFormat::JsonLines => self.parse_search_json_lines(&stdout_str),
             crate::backends::config::OutputFormat::NpmJson => self.parse_search_npm_json(&stdout_str),
+            crate::backends::config::OutputFormat::JsonObjectKeys => {
+                // JsonObjectKeys is for list operations only (object keys as package names)
+                Err(DeclarchError::PackageManagerError(
+                    "JsonObjectKeys format is not supported for search operations".into(),
+                ))
+            }
             crate::backends::config::OutputFormat::SplitWhitespace => {
                 self.parse_search_whitespace(&stdout_str)
             }

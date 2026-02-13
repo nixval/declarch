@@ -1052,6 +1052,15 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
                 ));
             }
         }
+        OutputFormat::JsonObjectKeys => {
+            // JsonObjectKeys uses object keys as package names
+            // Only requires version_key, not name_key
+            if config.list_version_key.is_none() {
+                return Err(DeclarchError::Other(
+                    "JsonObjectKeys format requires 'version_key' to be specified in list block".to_string(),
+                ));
+            }
+        }
         OutputFormat::Regex => {
             if config.list_regex.is_none() {
                 return Err(DeclarchError::Other(

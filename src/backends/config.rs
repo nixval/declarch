@@ -212,6 +212,11 @@ pub enum OutputFormat {
     /// Format: [\n{...}\n,\n{...}\n]
     NpmJson,
 
+    /// JSON Object with keys as package names
+    /// Format: {"pkg-name": {"version": "1.0"}, ...}
+    /// The object keys are used as package names
+    JsonObjectKeys,
+
     /// Regex-based parsing
     Regex,
 

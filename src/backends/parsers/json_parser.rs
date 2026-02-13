@@ -1,3 +1,7 @@
+//! JSON parsers for backend outputs
+//!
+//! Supports various JSON formats used by package managers.
+
 use crate::backends::config::BackendConfig;
 use crate::core::types::PackageMetadata;
 use crate::error::{DeclarchError, Result};
@@ -210,6 +214,66 @@ pub fn parse_npm_json(
     Ok(installed)
 }
 
+/// Parse JSON Object with keys as package names
+/// Format: {"pkg-name": {"version": "1.0"}, ...}
+/// Used by npm list -g --json, pip list --format=json, etc.
+pub fn parse_json_object_keys(
+    output: &str,
+    config: &BackendConfig,
+) -> Result<HashMap<String, PackageMetadata>> {
+    let version_key = config.list_version_key.as_ref().ok_or_else(|| {
+        DeclarchError::Other("Missing list_version_key for JsonObjectKeys parser".to_string())
+    })?;
+
+    let json: Value = serde_json::from_str(output)
+        .map_err(|e| DeclarchError::Other(format!("Failed to parse JSON: {}", e)))?;
+
+    let mut installed = HashMap::new();
+
+    // Navigate to the packages object using json_path
+    let packages = match &config.list_json_path {
+        Some(path) if !path.is_empty() => {
+            // Navigate through JSON structure (e.g., "dependencies")
+            navigate_json_path(&json, path)
+        }
+        _ => {
+            // Root is the object
+            Some(&json)
+        }
+    };
+
+    // Parse object where keys are package names
+    if let Some(Value::Object(obj)) = packages {
+        for (name, metadata) in obj.iter() {
+            // Skip special npm keys
+            if name.starts_with("_") || name == "version" {
+                continue;
+            }
+
+            let version = if let Some(metadata_obj) = metadata.as_object() {
+                metadata_obj
+                    .get(version_key)
+                    .and_then(|v: &Value| v.as_str())
+                    .map(|v| v.to_string())
+            } else {
+                None
+            };
+
+            installed.insert(
+                name.to_string(),
+                PackageMetadata {
+                    version,
+                    variant: None,
+                    installed_at: Utc::now(),
+                    source_file: None,
+                },
+            );
+        }
+    }
+
+    Ok(installed)
+}
+
 /// Navigate through JSON structure using dot notation path
 fn navigate_json_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     let parts: Vec<&str> = path.split('.').collect();
@@ -336,5 +400,54 @@ mod tests {
             result.get("npms").unwrap().version.as_deref(),
             Some("0.3.2")
         );
+    }
+
+    #[test]
+    fn test_parse_json_object_keys() {
+        // npm list -g --json format
+        let output = r#"{
+            "version": "10.2.3",
+            "dependencies": {
+                "npm": {
+                    "version": "10.2.3",
+                    "resolved": "https://registry.npmjs.org/npm/-/npm-10.2.3.tgz"
+                },
+                "typescript": {
+                    "version": "5.3.2"
+                },
+                "pnpm": {
+                    "version": "8.10.0"
+                }
+            }
+        }"#;
+
+        let config = BackendConfig {
+            list_json_path: Some("dependencies".to_string()),
+            list_version_key: Some("version".to_string()),
+            fallback: None,
+            ..Default::default()
+        };
+
+        let result = parse_json_object_keys(output, &config).unwrap();
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result["npm"].version.as_deref(), Some("10.2.3"));
+        assert_eq!(result["typescript"].version.as_deref(), Some("5.3.2"));
+        assert_eq!(result["pnpm"].version.as_deref(), Some("8.10.0"));
+    }
+
+    #[test]
+    fn test_parse_json_object_keys_empty() {
+        let output = r#"{"dependencies": {}}"#;
+
+        let config = BackendConfig {
+            list_json_path: Some("dependencies".to_string()),
+            list_version_key: Some("version".to_string()),
+            fallback: None,
+            ..Default::default()
+        };
+
+        let result = parse_json_object_keys(output, &config).unwrap();
+        assert!(result.is_empty());
     }
 }
