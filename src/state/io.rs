@@ -201,7 +201,17 @@ pub fn load_state() -> Result<State> {
                     ui::error(&format!("State file corrupted: {}", e));
                     ui::info("Attempting to restore from backup...");
                     // Main state file is corrupted, try to restore from backup
-                    restore_from_backup(&path)?
+                    match restore_from_backup(&path) {
+                        Ok(state) => {
+                            ui::success("State restored from backup successfully");
+                            state
+                        }
+                        Err(restore_err) => {
+                            ui::warning(&format!("Failed to restore from backup: {}", restore_err));
+                            ui::info("Using default state");
+                            State::default()
+                        }
+                    }
                 }
             }
         }
@@ -209,7 +219,17 @@ pub fn load_state() -> Result<State> {
             ui::error(&format!("Failed to read state file: {}", e));
             ui::info("Attempting to restore from backup...");
             // Failed to read state file, try to restore from backup
-            restore_from_backup(&path)?
+            match restore_from_backup(&path) {
+                Ok(state) => {
+                    ui::success("State restored from backup successfully");
+                    state
+                }
+                Err(restore_err) => {
+                    ui::warning(&format!("Failed to restore from backup: {}", restore_err));
+                    ui::info("Using default state");
+                    State::default()
+                }
+            }
         }
     };
 
