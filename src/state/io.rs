@@ -12,20 +12,33 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const LOCK_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
 
 /// Check if another declarch process is running
-pub fn check_concurrent_access() -> Result<()> {
-    let path = get_state_path()?;
-    let dir = path.parent().ok_or(DeclarchError::Other(
-        "Could not determine state directory".into(),
-    ))?;
+/// Returns warning message if concurrent access detected, but doesn't fail
+pub fn check_concurrent_access() -> Option<String> {
+    let path = match get_state_path() {
+        Ok(p) => p,
+        Err(_) => return None,
+    };
+    let dir = match path.parent() {
+        Some(d) => d,
+        None => return None,
+    };
     let lock_path = dir.join("state.lock");
     
     if !lock_path.exists() {
-        return Ok(());
+        return None;
     }
     
     // Check if lock file is stale (older than timeout)
-    let metadata = fs::metadata(&lock_path)?;
-    let modified = metadata.modified()?;
+    let metadata = match fs::metadata(&lock_path) {
+        Ok(m) => m,
+        Err(_) => return None,
+    };
+    
+    let modified = match metadata.modified() {
+        Ok(m) => m,
+        Err(_) => return None,
+    };
+    
     let now = SystemTime::now();
     
     if let Ok(age) = now.duration_since(modified) {
@@ -33,30 +46,31 @@ pub fn check_concurrent_access() -> Result<()> {
             // Stale lock, remove it
             ui::warning("Removing stale lock file (older than 5 minutes)");
             let _ = fs::remove_file(&lock_path);
-            return Ok(());
+            return None;
         }
     }
     
     // Try to acquire lock to test if it's really held
-    let lock_file = OpenOptions::new()
+    let lock_file = match OpenOptions::new()
         .write(true)
-        .open(&lock_path)
-        .map_err(|e| DeclarchError::Other(format!(
-            "Cannot open lock file: {}. Check permissions.",
-            e
-        )))?;
+        .open(&lock_path) {
+        Ok(f) => f,
+        Err(_) => return Some("Cannot open lock file".to_string()),
+    };
     
     // Try non-blocking lock
     match lock_file.try_lock_exclusive() {
         Ok(()) => {
             // We got the lock, so it's not held by another process
+            // Don't remove it here - let the owner clean up
             drop(lock_file);
-            let _ = fs::remove_file(&lock_path);
-            Ok(())
+            None
         }
-        Err(_) => Err(DeclarchError::Other(
-            "Another declarch process is currently running. \
-             If you're sure no other process is running, delete: {}".into()
+        Err(_) => Some(format!(
+            "Another declarch process is currently running.\n\
+             Lock file: {}\n\
+             If you're sure no other process is running, delete the lock file.",
+            lock_path.display()
         )),
     }
 }
@@ -162,10 +176,9 @@ fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
 
 pub fn load_state() -> Result<State> {
     // Check for concurrent access first
-    if let Err(e) = check_concurrent_access() {
-        ui::warning(&format!("{}", e));
-        ui::info("Waiting for other process to complete...");
-        // Still continue, the lock will be acquired during save
+    if let Some(warning) = check_concurrent_access() {
+        ui::warning(&warning);
+        ui::info("Another process is running - proceeding with caution...");
     }
 
     let path = get_state_path()?;

@@ -8,6 +8,7 @@ use crate::state::types::{State, PackageState};
 use crate::ui;
 use super::{InstalledSnapshot, SyncOptions};
 use chrono::Utc;
+use std::collections::HashSet;
 
 /// Update state based on transaction execution results
 pub fn update_state(
@@ -16,6 +17,18 @@ pub fn update_state(
     installed_snapshot: &InstalledSnapshot,
     options: &SyncOptions,
 ) -> Result<State> {
+    // For backwards compatibility, call new function with empty success list
+    update_state_with_success(state, transaction, installed_snapshot, options, &[])
+}
+
+/// Update state with knowledge of which packages successfully installed
+pub fn update_state_with_success(
+    state: &State,
+    transaction: &resolver::Transaction,
+    installed_snapshot: &InstalledSnapshot,
+    options: &SyncOptions,
+    successfully_installed: &[PackageId],
+) -> Result<State> {
     let mut state = state.clone();
 
     // Update last_update timestamp if --update was used
@@ -23,26 +36,21 @@ pub fn update_state(
         state.meta.last_update = Some(Utc::now());
     }
 
-    // Collect all packages to upsert
-    let packages_to_upsert = transaction
-        .to_install
-        .iter()
-        .chain(transaction.to_adopt.iter())
-        .chain(transaction.to_update_project_metadata.iter());
+    // Create a set of successfully installed packages for fast lookup
+    let success_set: HashSet<&PackageId> = successfully_installed.iter().collect();
 
-    // Track failed installations (packages not found in snapshot)
-    let mut failed_packages = Vec::new();
+    // Track installation results
+    let mut added_count = 0;
+    let mut failed_count = 0;
 
-    // Upsert packages into state
-    for pkg in packages_to_upsert {
-        let meta = find_package_metadata(pkg, installed_snapshot);
-
-        // Only add to state if package is actually installed
-        if meta.is_none() {
-            failed_packages.push(pkg.clone());
+    // Process to_install - only add successful ones
+    for pkg in &transaction.to_install {
+        if !success_set.contains(pkg) {
+            failed_count += 1;
             continue;
         }
 
+        let meta = find_package_metadata(pkg, installed_snapshot);
         let version = meta.and_then(|m| m.version.clone());
         let key = resolver::make_state_key(pkg);
 
@@ -52,11 +60,32 @@ pub fn update_state(
                 backend: pkg.backend.clone(),
                 config_name: pkg.name.clone(),
                 provides_name: pkg.name.clone(),
-                actual_package_name: None, // Actual system package name, if different
+                actual_package_name: None,
                 installed_at: Utc::now(),
                 version,
             },
         );
+        added_count += 1;
+    }
+
+    // Process adoptions (these are already installed, so always add)
+    for pkg in &transaction.to_adopt {
+        let meta = find_package_metadata(pkg, installed_snapshot);
+        let version = meta.and_then(|m| m.version.clone());
+        let key = resolver::make_state_key(pkg);
+
+        state.packages.insert(
+            key,
+            PackageState {
+                backend: pkg.backend.clone(),
+                config_name: pkg.name.clone(),
+                provides_name: pkg.name.clone(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version,
+            },
+        );
+        added_count += 1;
     }
 
     // Remove pruned packages from state
@@ -65,15 +94,12 @@ pub fn update_state(
         state.packages.remove(&key);
     }
 
-    // Report failed installations
-    if !failed_packages.is_empty() {
-        ui::warning(&format!(
-            "{} package(s) failed to install and were not added to state",
-            failed_packages.len()
-        ));
-        for pkg in &failed_packages {
-            ui::warning(&format!("  - {} ({})", pkg.name, pkg.backend));
-        }
+    // Report results
+    if added_count > 0 {
+        ui::success(&format!("Added {} package(s) to state", added_count));
+    }
+    if failed_count > 0 {
+        ui::warning(&format!("{} package(s) failed and were not added to state", failed_count));
     }
 
     Ok(state)

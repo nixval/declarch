@@ -16,7 +16,7 @@ mod variants;
 // Re-export public API
 pub use planner::{create_transaction, check_variant_transitions, warn_partial_upgrade, display_transaction_plan};
 pub use executor::execute_transaction;
-pub use state_sync::update_state;
+pub use state_sync::{update_state, update_state_with_success};
 pub use hooks::execute_sync_hooks;
 pub use variants::{find_variant, resolve_installed_package_name};
 
@@ -117,10 +117,16 @@ pub fn run(options: SyncOptions) -> Result<()> {
             return Err(crate::error::DeclarchError::Interrupted);
         }
 
-        execute_transaction(&transaction, &managers, &config, &options)?;
+        let successfully_installed = execute_transaction(&transaction, &managers, &config, &options)?;
 
-        // 8. Update State
-        let new_state = update_state(&state, &transaction, &installed_snapshot, &options)?;
+        // 8. Update State with only successfully installed packages
+        let new_state = update_state_with_success(
+            &state,
+            &transaction,
+            &installed_snapshot,
+            &options,
+            &successfully_installed,
+        )?;
         state::io::save_state_locked(&new_state)?;
     } else {
         // Dry-run complete
