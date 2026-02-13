@@ -5,13 +5,56 @@
 use crate::config::loader;
 use crate::constants::CRITICAL_PACKAGES;
 use crate::core::{resolver, types::{Backend, PackageId}};
-use crate::error::Result;
+use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use super::{ManagerMap, SyncOptions, InstalledSnapshot};
 use super::variants::resolve_installed_package_name;
 use colored::Colorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::thread;
+use std::time::Duration;
+
+/// Maximum retry attempts for failed backend operations
+const MAX_RETRIES: u32 = 3;
+/// Delay between retries (in milliseconds)
+const RETRY_DELAY_MS: u64 = 1000;
+
+/// Execute a function with retry logic
+fn execute_with_retry<F>(
+    mut operation: F,
+    operation_name: &str,
+    max_retries: u32,
+    delay_ms: u64,
+) -> Result<()>
+where
+    F: FnMut() -> Result<()>,
+{
+    let mut last_error = None;
+    
+    for attempt in 1..=max_retries {
+        match operation() {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < max_retries {
+                    output::warning(&format!(
+                        "{} failed (attempt {}/{}), retrying in {}s...",
+                        operation_name,
+                        attempt,
+                        max_retries,
+                        delay_ms / 1000
+                    ));
+                    thread::sleep(Duration::from_millis(delay_ms));
+                }
+            }
+        }
+    }
+    
+    Err(last_error.unwrap_or_else(|| {
+        DeclarchError::Other(format!("{} failed after {} attempts", operation_name, max_retries))
+    }))
+}
 
 /// Execute transaction (install, adopt, prune)
 pub fn execute_transaction(
@@ -92,18 +135,49 @@ fn execute_installations(
 
     let mut successfully_installed = Vec::new();
 
-    // Install packages
+    // Install packages with retry logic
     for (backend, pkgs) in installs {
         if let Some(mgr) = managers.get(&backend) {
             output::info(&format!("Installing {} packages...", backend));
 
             // Track which packages exist before installation
-            let pre_install_snapshot: HashSet<_> = mgr.list_installed()?.keys().cloned().collect();
+            let pre_install_snapshot: HashSet<_> = match mgr.list_installed() {
+                Ok(pkgs) => pkgs.keys().cloned().collect(),
+                Err(e) => {
+                    output::error(&format!("Failed to list installed packages for {}: {}", backend, e));
+                    continue;
+                }
+            };
 
-            mgr.install(&pkgs)?;
+            // Try installation with retries
+            let install_result = execute_with_retry(
+                || mgr.install(&pkgs),
+                &format!("install packages for {}", backend),
+                MAX_RETRIES,
+                RETRY_DELAY_MS,
+            );
+
+            if let Err(e) = install_result {
+                output::error(&format!("Failed to install packages for {}: {}", backend, e));
+                output::info("Continuing with other backends...");
+                continue;
+            }
 
             // Check which packages exist after installation
-            let post_install_snapshot: HashSet<_> = mgr.list_installed()?.keys().cloned().collect();
+            let post_install_snapshot: HashSet<_> = match mgr.list_installed() {
+                Ok(pkgs) => pkgs.keys().cloned().collect(),
+                Err(e) => {
+                    output::warning(&format!("Failed to verify installation for {}: {}", backend, e));
+                    // Assume all packages were installed
+                    for pkg_name in &pkgs {
+                        successfully_installed.push(PackageId {
+                            name: pkg_name.clone(),
+                            backend: backend.clone(),
+                        });
+                    }
+                    continue;
+                }
+            };
 
             // Find newly installed packages
             for pkg_name in &pkgs {

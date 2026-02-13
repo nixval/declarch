@@ -4,8 +4,53 @@ use crate::config::kdl::{
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+/// Track import chain for circular import detection
+#[derive(Debug)]
+struct ImportContext {
+    /// Stack of files currently being loaded (for cycle detection)
+    stack: Vec<PathBuf>,
+    /// Set of all visited files
+    visited: HashSet<PathBuf>,
+}
+
+impl ImportContext {
+    fn new() -> Self {
+        Self {
+            stack: Vec::new(),
+            visited: HashSet::new(),
+        }
+    }
+    
+    fn push(&mut self, path: PathBuf) -> Result<()> {
+        // Check if this path is already in the stack (circular import)
+        if let Some(pos) = self.stack.iter().position(|p| p == &path) {
+            let cycle: Vec<String> = self.stack[pos..]
+                .iter()
+                .chain(std::iter::once(&path))
+                .map(|p| p.display().to_string())
+                .collect();
+            return Err(DeclarchError::ConfigError(format!(
+                "Circular import detected:\n  {}",
+                cycle.join("\n  -> ")
+            )));
+        }
+        
+        self.stack.push(path.clone());
+        self.visited.insert(path);
+        Ok(())
+    }
+    
+    fn pop(&mut self) {
+        self.stack.pop();
+    }
+    
+    fn contains(&self, path: &Path) -> bool {
+        self.visited.contains(path)
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct MergedConfig {
@@ -78,9 +123,9 @@ impl MergedConfig {
 
 pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
     let mut merged = MergedConfig::default();
-    let mut visited_paths = std::collections::HashSet::new();
+    let mut context = ImportContext::new();
 
-    recursive_load(path, &mut merged, &mut visited_paths)?;
+    recursive_load(path, &mut merged, &mut context)?;
 
     Ok(merged)
 }
@@ -101,7 +146,7 @@ impl crate::traits::ConfigLoader for FilesystemConfigLoader {
 fn recursive_load(
     path: &Path,
     merged: &mut MergedConfig,
-    visited: &mut std::collections::HashSet<PathBuf>,
+    context: &mut ImportContext,
 ) -> Result<()> {
     let abs_path = expand_home(path)
         .map_err(|e| DeclarchError::Other(format!("Path expansion error: {}", e)))?;
@@ -118,10 +163,14 @@ fn recursive_load(
         }
     })?;
 
-    if visited.contains(&canonical_path) {
+    // Check for circular imports using the context
+    if context.contains(&canonical_path) {
+        // Already processed in a different branch, skip
         return Ok(());
     }
-    visited.insert(canonical_path.clone());
+    
+    // Add to context for cycle detection
+    context.push(canonical_path.clone())?;
 
     let content = std::fs::read_to_string(&canonical_path)?;
     let file_path_str = canonical_path.display().to_string();
@@ -233,14 +282,20 @@ fn recursive_load(
             parent_dir.join(import_str)
         };
 
-        match recursive_load(&import_path, merged, visited) {
+        match recursive_load(&import_path, merged, context) {
             Ok(()) => {}
             Err(DeclarchError::ConfigNotFound { .. }) => {
                 // Silently skip missing imports
             }
-            Err(e) => return Err(e),
+            Err(e) => {
+                context.pop();
+                return Err(e);
+            }
         }
     }
 
+    // Remove from stack when done processing
+    context.pop();
+    
     Ok(())
 }

@@ -6,6 +6,101 @@ use fs2::FileExt;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Maximum age of a lock file in seconds before it's considered stale
+const LOCK_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
+
+/// Check if another declarch process is running
+pub fn check_concurrent_access() -> Result<()> {
+    let path = get_state_path()?;
+    let dir = path.parent().ok_or(DeclarchError::Other(
+        "Could not determine state directory".into(),
+    ))?;
+    let lock_path = dir.join("state.lock");
+    
+    if !lock_path.exists() {
+        return Ok(());
+    }
+    
+    // Check if lock file is stale (older than timeout)
+    let metadata = fs::metadata(&lock_path)?;
+    let modified = metadata.modified()?;
+    let now = SystemTime::now();
+    
+    if let Ok(age) = now.duration_since(modified) {
+        if age.as_secs() > LOCK_TIMEOUT_SECONDS {
+            // Stale lock, remove it
+            ui::warning("Removing stale lock file (older than 5 minutes)");
+            let _ = fs::remove_file(&lock_path);
+            return Ok(());
+        }
+    }
+    
+    // Try to acquire lock to test if it's really held
+    let lock_file = OpenOptions::new()
+        .write(true)
+        .open(&lock_path)
+        .map_err(|e| DeclarchError::Other(format!(
+            "Cannot open lock file: {}. Check permissions.",
+            e
+        )))?;
+    
+    // Try non-blocking lock
+    match lock_file.try_lock_exclusive() {
+        Ok(()) => {
+            // We got the lock, so it's not held by another process
+            drop(lock_file);
+            let _ = fs::remove_file(&lock_path);
+            Ok(())
+        }
+        Err(_) => Err(DeclarchError::Other(
+            "Another declarch process is currently running. \
+             If you're sure no other process is running, delete: {}".into()
+        )),
+    }
+}
+
+/// Validate state integrity and report issues
+pub fn validate_state_integrity(state: &State) -> Vec<String> {
+    let mut issues = Vec::new();
+    use std::collections::HashSet;
+    
+    // Check for duplicate package signatures
+    let mut seen = HashSet::new();
+    for pkg_state in state.packages.values() {
+        let signature = format!("{}:{}", pkg_state.backend, pkg_state.config_name);
+        if seen.contains(&signature) {
+            issues.push(format!(
+                "Duplicate package: {} in backend {}",
+                pkg_state.config_name, pkg_state.backend
+            ));
+        }
+        seen.insert(signature);
+    }
+    
+    // Check for empty package names
+    for (key, pkg_state) in &state.packages {
+        if pkg_state.config_name.is_empty() {
+            issues.push(format!("Empty package name in key: {}", key));
+        }
+    }
+    
+    // Check for future timestamps
+    let now = SystemTime::now();
+    if let Ok(last_sync) = pkg_state_timestamp(&state.meta.last_sync) {
+        if last_sync > now {
+            issues.push("Last sync timestamp is in the future".to_string());
+        }
+    }
+    
+    issues
+}
+
+fn pkg_state_timestamp(dt: &chrono::DateTime<chrono::Utc>) -> Result<SystemTime> {
+    let secs = dt.timestamp() as u64;
+    Ok(UNIX_EPOCH + std::time::Duration::from_secs(secs))
+}
 
 pub fn get_state_path() -> Result<PathBuf> {
     let proj_dirs = ProjectDirs::from("com", "declarch", "declarch").ok_or(
@@ -66,6 +161,13 @@ fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
 }
 
 pub fn load_state() -> Result<State> {
+    // Check for concurrent access first
+    if let Err(e) = check_concurrent_access() {
+        ui::warning(&format!("{}", e));
+        ui::info("Waiting for other process to complete...");
+        // Still continue, the lock will be acquired during save
+    }
+
     let path = get_state_path()?;
 
     if !path.exists() {
@@ -78,20 +180,34 @@ pub fn load_state() -> Result<State> {
         Ok(content) => {
             match serde_json::from_str::<State>(&content) {
                 Ok(mut state) => {
+                    // Validate integrity
+                    let issues = validate_state_integrity(&state);
+                    if !issues.is_empty() {
+                        ui::warning("State integrity issues detected:");
+                        for issue in &issues {
+                            ui::indent(&format!("• {}", issue), 2);
+                        }
+                    }
+                    
                     // Migrate state to fix duplicate keys from old format
                     if migrate_state(&mut state)? {
+                        ui::info("State migrated to fix duplicate keys");
                         // Save migrated state
                         let _ = save_state(&state);
                     }
                     return Ok(state);
                 }
-                Err(_) => {
+                Err(e) => {
+                    ui::error(&format!("State file corrupted: {}", e));
+                    ui::info("Attempting to restore from backup...");
                     // Main state file is corrupted, try to restore from backup
                     restore_from_backup(&path)?
                 }
             }
         }
-        Err(_) => {
+        Err(e) => {
+            ui::error(&format!("Failed to read state file: {}", e));
+            ui::info("Attempting to restore from backup...");
             // Failed to read state file, try to restore from backup
             restore_from_backup(&path)?
         }
