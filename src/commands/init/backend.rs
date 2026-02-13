@@ -7,9 +7,8 @@
 //! 4. Add import to `backends.kdl`
 
 use crate::error::{DeclarchError, Result};
-use crate::state;
 use crate::ui as output;
-use crate::utils::{self, paths, remote};
+use crate::utils::{paths, remote};
 use regex::Regex;
 use std::fs;
 use std::path::Path;
@@ -46,20 +45,9 @@ pub enum ImportResult {
 /// 9. If no → show "Backend 'name' fetched. please import it to use it"
 pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     let root_dir = paths::config_dir()?;
-    let config_file = paths::config_file()?;
 
-    // STEP 1: Auto-initialize root if not exists
-    if !config_file.exists() {
-        let hostname = hostname::get()
-            .map(|h| h.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| "unknown".to_string());
-
-        fs::create_dir_all(&root_dir)?;
-        let template = utils::templates::default_host(&hostname);
-        fs::write(&config_file, template)?;
-        output::success(&format!("Created config file: {}", config_file.display()));
-        let _state = state::io::init_state(hostname)?;
-    }
+    // STEP 1: Ensure declarch environment exists (auto-init if needed)
+    super::root::ensure_environment()?;
 
     // Sanitize backend name
     let sanitized_name: String = backend_name

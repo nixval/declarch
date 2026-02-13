@@ -67,3 +67,57 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
 
     Ok(())
 }
+
+/// Ensure declarch environment exists, create if not
+/// 
+/// This is the unified function called by all init paths (module, backend, root)
+/// to ensure the base environment is set up before proceeding.
+/// 
+/// Unlike `init_root`, this:
+/// - Only creates if doesn't exist (never force overwrite)
+/// - Shows minimal output (designed for behind-the-scenes use)
+/// - Returns whether it created new environment or not
+pub fn ensure_environment() -> Result<bool> {
+    let config_dir = paths::config_dir()?;
+    let config_file = paths::config_file()?;
+
+    // Already initialized, nothing to do
+    if config_file.exists() {
+        return Ok(false);
+    }
+
+    let hostname = hostname::get()
+        .map(|h| h.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Prepare content
+    let template = utils::templates::default_host(&hostname);
+    let base_template = utils::templates::get_template_by_name("base")
+        .unwrap_or_else(|| utils::templates::default_module("base"));
+    let backends_kdl = super::backend::default_backends_kdl();
+    
+    // Initialize state
+    let _state = state::io::init_state(hostname)?;
+
+    // Create directories
+    let backends_dir = config_dir.join("backends");
+    let modules_dir = config_dir.join("modules");
+    
+    fs::create_dir_all(&config_dir)?;
+    fs::create_dir_all(&backends_dir)?;
+    fs::create_dir_all(&modules_dir)?;
+
+    // Write files
+    let backends_kdl_path = config_dir.join("backends.kdl");
+    fs::write(&backends_kdl_path, backends_kdl)?;
+    fs::write(&config_file, template)?;
+    
+    let base_module_path = modules_dir.join(format!("base.{}", CONFIG_EXTENSION));
+    fs::write(&base_module_path, base_template)?;
+
+    // Show minimal output for behind-the-scenes operation
+    crate::ui::success(&format!("Created config file: {}", config_file.display()));
+    crate::ui::success(&format!("Created backends file: {}", backends_kdl_path.display()));
+
+    Ok(true)
+}

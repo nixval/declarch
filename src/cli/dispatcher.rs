@@ -22,6 +22,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             backend,
             list,
             local,
+            restore_backends,
+            restore_declarch,
         }) => {
             // Handle --list flag first
             if let Some(what) = list {
@@ -35,6 +37,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         what
                     )));
                 }
+            }
+
+            // Handle restore flags
+            if *restore_backends {
+                return commands::init::restore_backends();
+            }
+            if *restore_declarch {
+                return commands::init::restore_declarch(host.clone());
             }
             
             commands::init::run(commands::init::InitOptions {

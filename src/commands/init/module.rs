@@ -76,8 +76,8 @@ pub fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Re
     // STEP 5: Display meta before proceeding
     display_module_meta(&content);
 
-    // STEP 6: Ensure root config exists (or create it)
-    ensure_root_config()?;
+    // STEP 6: Ensure root environment exists (auto-init if needed)
+    super::root::ensure_environment()?;
 
     // STEP 7: Create directories and write file (KDL already validated or bypassed)
     if let Some(parent) = full_path.parent() {
@@ -153,38 +153,6 @@ Try one of these alternatives:
             target_path, e
         ))),
     }
-}
-
-/// Ensure root config exists, create if not
-fn ensure_root_config() -> Result<()> {
-    let root_dir = paths::config_dir()?;
-    
-    if root_dir.exists() {
-        return Ok(());
-    }
-
-    // Create fresh config
-    let hostname = hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| "unknown".to_string());
-
-    fs::create_dir_all(&root_dir)?;
-
-    let config_file = paths::config_file()?;
-    let template = utils::templates::default_host(&hostname);
-    fs::write(&config_file, template)?;
-    
-    crate::ui::success(&format!("Created config file: {}", config_file.display()));
-
-    // Also create default backends.kdl
-    let backends_file = paths::backend_config()?;
-    let backends_template = crate::commands::init::backend::default_backends_kdl();
-    fs::write(&backends_file, backends_template)?;
-    crate::ui::success(&format!("Created backends file: {}", backends_file.display()));
-
-    let _ = crate::state::io::init_state(hostname)?;
-
-    Ok(())
 }
 
 /// Extract and display meta information from KDL content
