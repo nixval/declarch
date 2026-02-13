@@ -16,6 +16,7 @@ pub struct EditOptions {
     pub create: bool,
     pub auto_format: bool,
     pub validate_only: bool,
+    pub backup: bool,
 }
 
 pub fn run(options: EditOptions) -> Result<()> {
@@ -99,6 +100,11 @@ pub fn run(options: EditOptions) -> Result<()> {
         ));
         output::info(&format!("With editor: {} (from {})", editor.green(), editor_source));
         return Ok(());
+    }
+
+    // Handle --backup: Create backup before editing
+    if options.backup && file_to_edit.exists() {
+        create_backup(&file_to_edit)?;
     }
 
     // Show info with editor source
@@ -357,6 +363,19 @@ fn validate_file_only(file_path: &Path) -> Result<()> {
             std::process::exit(1);
         }
     }
+}
+
+/// Create backup of file before editing
+fn create_backup(file_path: &Path) -> Result<()> {
+    use chrono::Local;
+    
+    let timestamp = Local::now().format("%Y%m%d_%H%M%S");
+    let backup_path = file_path.with_extension(format!("kdl.backup.{}", timestamp));
+    
+    std::fs::copy(file_path, &backup_path)?;
+    output::info(&format!("Backup created: {}", backup_path.display()));
+    
+    Ok(())
 }
 
 /// Auto-format KDL file

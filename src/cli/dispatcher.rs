@@ -281,7 +281,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             force: args.global.force,
         }),
 
-        Some(Command::Edit { target, preview, number, create, auto_format, validate_only }) => commands::edit::run(commands::edit::EditOptions {
+        Some(Command::Edit { target, preview, number, create, auto_format, validate_only, backup }) => commands::edit::run(commands::edit::EditOptions {
             target: target.clone(),
             dry_run: args.global.dry_run,
             preview: *preview,
@@ -289,6 +289,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             create: *create,
             auto_format: *auto_format,
             validate_only: *validate_only,
+            backup: *backup,
         }),
 
         Some(Command::Install {

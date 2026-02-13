@@ -215,6 +215,10 @@ pub enum Command {
         /// Only validate syntax, don't open editor (exit 0/1)
         #[arg(long)]
         validate_only: bool,
+
+        /// Create backup before editing (.backup suffix)
+        #[arg(long, short)]
+        backup: bool,
     },
 
     /// Install packages to configuration
