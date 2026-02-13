@@ -12,8 +12,6 @@ use std::time::{Duration, Instant};
 
 /// Default timeout for hook execution (30 seconds)
 const DEFAULT_HOOK_TIMEOUT: Duration = Duration::from_secs(30);
-/// Maximum allowed timeout (5 minutes)
-const MAX_HOOK_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Safe character regex for hook command validation
 /// Compiled once and reused for performance and safety
