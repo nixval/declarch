@@ -1,14 +1,20 @@
 //! Package search command
 //!
-//! Search for packages across configured backends
+//! Search for packages across configured backends with streaming results.
+//! Results from faster backends are displayed immediately without waiting for slower ones.
 
-use crate::core::types::{Backend, PackageId};
+use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
-use rayon::prelude::*;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
+
+/// Maximum time to wait for a backend to respond (seconds)
+const BACKEND_TIMEOUT_SECONDS: u64 = 30;
 
 pub struct SearchOptions {
     pub query: String,
@@ -37,6 +43,19 @@ fn parse_backend_query(query: &str) -> (Option<String>, String) {
         }
     }
     (None, query.to_string())
+}
+
+/// Result from a backend search
+enum BackendResult {
+    Success {
+        backend: Backend,
+        results: Vec<PackageSearchResult>,
+        total_found: usize,
+    },
+    Error {
+        backend: Backend,
+        error: String,
+    },
 }
 
 pub fn run(options: SearchOptions) -> Result<()> {
@@ -75,98 +94,239 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Default limit is 10 if not specified
     let effective_limit = updated_options.limit.or(Some(10));
 
-    // Search across backends in parallel for better performance
-    let search_results: Vec<(Backend, Vec<PackageSearchResult>, Option<String>)> = backends_to_search
-        .par_iter()
-        .map(|backend| {
-            match create_manager_for_backend(backend) {
-                Ok(manager) => {
-                    if options.local {
-                        // Local search mode
-                        if manager.supports_search_local() {
-                            match manager.search_local(&actual_query) {
-                                Ok(results) => (backend.clone(), results, None),
-                                Err(e) => (backend.clone(), Vec::new(), Some(format!("Local search failed: {}", e))),
-                            }
-                        } else {
-                            (backend.clone(), Vec::new(), Some("Does not support local search".to_string()))
-                        }
-                    } else {
-                        // Remote search mode
-                        if manager.supports_search() {
-                            match manager.search(&actual_query) {
-                                Ok(results) => (backend.clone(), results, None),
-                                Err(e) => (backend.clone(), Vec::new(), Some(format!("Search failed: {}", e))),
-                            }
-                        } else {
-                            (backend.clone(), Vec::new(), Some("Does not support search".to_string()))
-                        }
-                    }
+    // Create channel for streaming results
+    let (tx, rx) = mpsc::channel::<BackendResult>();
+
+    // Spawn a thread for each backend
+    let query_clone = actual_query.clone();
+    let local_mode = options.local;
+
+    for backend in backends_to_search {
+        let tx = tx.clone();
+        let query = query_clone.clone();
+
+        thread::spawn(move || {
+            let result = search_single_backend(&backend, &query, local_mode, effective_limit);
+            
+            // Send result (ignore errors if receiver dropped)
+            match result {
+                Ok((results, total)) => {
+                    let _ = tx.send(BackendResult::Success {
+                        backend,
+                        results,
+                        total_found: total,
+                    });
                 }
                 Err(e) => {
-                    (backend.clone(), Vec::new(), Some(format!("Initialization failed: {}", e)))
+                    let _ = tx.send(BackendResult::Error {
+                        backend,
+                        error: e,
+                    });
                 }
             }
-        })
-        .collect();
+        });
+    }
 
-    // Collect results and warnings (sequential for output consistency)
-    let mut all_results: Vec<PackageSearchResult> = Vec::new();
-    let mut total_count = 0;
+    // Drop original sender so channel closes when all threads done
+    drop(tx);
 
-    for (backend, mut results, error) in search_results {
-        if let Some(e) = error {
-            output::warning(&format!("{}: {}", backend, e));
-            continue;
-        }
+    // Collect and display results as they arrive
+    let mut displayed_backends: std::collections::HashSet<Backend> = std::collections::HashSet::new();
+    let mut total_found = 0;
+    let mut has_results = false;
 
-        total_count += results.len();
+    // Print initial message
+    println!();
+    output::info(&format!(
+        "Searching for '{}' (streaming results)...",
+        actual_query.cyan()
+    ));
+    println!();
 
-        // Apply result limiting per backend
-        if let Some(limit_value) = effective_limit
-            && results.len() > limit_value
-        {
-            results.truncate(limit_value);
-        }
+    // Receive results with timeout
+    let start_time = std::time::Instant::now();
+    let timeout = Duration::from_secs(BACKEND_TIMEOUT_SECONDS);
 
-        // Mark installed packages (skip for local search - already installed)
-        if !options.local {
-            for result in &mut results {
-                let pkg_id = PackageId {
-                    name: result.name.clone(),
-                    backend: result.backend.clone(),
-                };
-                let state_key = crate::core::resolver::make_state_key(&pkg_id);
-                let is_installed = state.packages.contains_key(&state_key);
-                if is_installed {
-                    result.name = format!("{} ✓", result.name);
+    while let Ok(result) = rx.recv_timeout(timeout) {
+        match result {
+            BackendResult::Success { backend, results, total_found: backend_total } => {
+                total_found += backend_total;
+
+                // Mark installed packages
+                let mut marked_results = mark_installed(results, &state, local_mode);
+
+                // Filter results
+                if options.installed_only {
+                    marked_results.retain(|r| r.name.contains('✓'));
+                }
+                if options.available_only {
+                    marked_results.retain(|r| !r.name.contains('✓'));
+                }
+
+                if !marked_results.is_empty() {
+                    has_results = true;
+                    
+                    // Display this backend's results immediately
+                    display_backend_results(&backend, &marked_results, backend_total, effective_limit);
+                    displayed_backends.insert(backend);
                 }
             }
-        } else {
-            // For local search, mark all results as installed
-            for result in &mut results {
-                if !result.name.contains('✓') {
-                    result.name = format!("{} ✓", result.name);
-                }
+            BackendResult::Error { backend, error } => {
+                output::warning(&format!("{}: {}", backend, error));
             }
         }
 
-        all_results.extend(results);
+        // Reset timeout for next receive
+        let elapsed = start_time.elapsed();
+        if elapsed > timeout {
+            break;
+        }
     }
 
-    // Filter results based on options
-    if options.installed_only {
-        all_results.retain(|r| r.name.contains('✓'));
+    // Summary
+    println!();
+    if has_results {
+        if let Some(limit) = effective_limit {
+            if total_found > limit {
+                output::info(&format!(
+                    "Showing limited results. Use --limit 0 for all {} matches.",
+                    total_found
+                ));
+            }
+        }
+    } else {
+        output::info(&format!("No packages found matching '{}'", actual_query.cyan()));
     }
-
-    if options.available_only {
-        all_results.retain(|r| !r.name.contains('✓'));
-    }
-
-    // Display results
-    display_results(&all_results, &actual_query, total_count, effective_limit);
 
     Ok(())
+}
+
+/// Search a single backend
+/// Returns a std::result::Result (not crate::error::Result) since this runs in a thread
+fn search_single_backend(
+    backend: &Backend,
+    query: &str,
+    local_mode: bool,
+    limit: Option<usize>,
+) -> std::result::Result<(Vec<PackageSearchResult>, usize), String> {
+    let manager = match create_manager_for_backend(backend) {
+        Ok(m) => m,
+        Err(e) => return Err(format!("Initialization failed: {}", e)),
+    };
+
+    if local_mode {
+        if !manager.supports_search_local() {
+            return Err("Does not support local search".to_string());
+        }
+
+        match manager.search_local(query) {
+            Ok(mut results) => {
+                let total = results.len();
+                // Apply limit
+                if let Some(limit_value) = limit {
+                    if results.len() > limit_value {
+                        results.truncate(limit_value);
+                    }
+                }
+                Ok((results, total))
+            }
+            Err(e) => Err(format!("Local search failed: {}", e)),
+        }
+    } else {
+        if !manager.supports_search() {
+            return Err("Does not support search".to_string());
+        }
+
+        match manager.search(query) {
+            Ok(mut results) => {
+                let total = results.len();
+                // Apply limit
+                if let Some(limit_value) = limit {
+                    if results.len() > limit_value {
+                        results.truncate(limit_value);
+                    }
+                }
+                Ok((results, total))
+            }
+            Err(e) => Err(format!("Search failed: {}", e)),
+        }
+    }
+}
+
+/// Mark installed packages with checkmark
+fn mark_installed(
+    mut results: Vec<PackageSearchResult>,
+    state: &state::types::State,
+    local_mode: bool,
+) -> Vec<PackageSearchResult> {
+    if local_mode {
+        // For local search, all results are installed
+        for result in &mut results {
+            if !result.name.contains('✓') {
+                result.name = format!("{} ✓", result.name);
+            }
+        }
+    } else {
+        // Check against state
+        for result in &mut results {
+            let pkg_id = crate::core::types::PackageId {
+                name: result.name.clone(),
+                backend: result.backend.clone(),
+            };
+            let state_key = crate::core::resolver::make_state_key(&pkg_id);
+            if state.packages.contains_key(&state_key) {
+                result.name = format!("{} ✓", result.name);
+            }
+        }
+    }
+    results
+}
+
+/// Display results for a single backend immediately
+fn display_backend_results(
+    backend: &Backend,
+    results: &[PackageSearchResult],
+    total_found: usize,
+    limit: Option<usize>,
+) {
+    // Print backend header
+    println!("{}", format!("{}:", backend).cyan().bold());
+
+    // Show limit note if applicable
+    if let Some(_limit_val) = limit {
+        if total_found > results.len() {
+            println!(
+                "  {} (showing {} of {})",
+                "Limited results".dimmed(),
+                results.len(),
+                total_found
+            );
+        }
+    }
+
+    // Print results
+    for result in results {
+        print_search_result(result);
+    }
+
+    println!(); // Empty line between backends
+}
+
+/// Print a single search result
+fn print_search_result(result: &PackageSearchResult) {
+    let name_colored = if result.name.contains('✓') {
+        result.name.green()
+    } else {
+        result.name.cyan()
+    };
+
+    if let Some(ref desc) = result.description {
+        // Multi-line format for results with description
+        println!("  {} - {}", name_colored, desc.as_str().dimmed());
+    } else {
+        // Single line format
+        println!("  {}", name_colored);
+    }
 }
 
 fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
@@ -176,12 +336,10 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
     }
 
     // No backends specified - try to use configured backends
-    // Load from backends.kdl and check which support search
     match crate::backends::load_all_backends() {
         Ok(backends) => {
             let mut result = Vec::new();
             for (name, config) in backends {
-                // Check if backend has search configured
                 if config.search_cmd.is_some() {
                     result.push(Backend::from(name));
                 }
@@ -212,80 +370,4 @@ fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManage
             backend, e
         ))
     })
-}
-
-fn display_results(
-    results: &[PackageSearchResult],
-    query: &str,
-    total_count: usize,
-    limit: Option<usize>,
-) {
-    if results.is_empty() {
-        output::info(&format!("No packages found matching '{}'", query.cyan()));
-        return;
-    }
-
-    // Group by backend
-    let mut by_backend: std::collections::HashMap<Backend, Vec<&PackageSearchResult>> =
-        std::collections::HashMap::new();
-
-    for result in results {
-        by_backend
-            .entry(result.backend.clone())
-            .or_default()
-            .push(result);
-    }
-
-    // Display count with limit note if applicable
-    if let Some(limit_val) = limit {
-        if total_count > results.len() {
-            output::success(&format!(
-                "Found {} packages matching '{}' --limit {} (showing {}):\n",
-                total_count,
-                query.cyan(),
-                limit_val,
-                results.len()
-            ));
-        } else {
-            output::success(&format!(
-                "Found {} package(s) matching '{}':\n",
-                results.len(),
-                query.cyan()
-            ));
-        }
-    } else {
-        output::success(&format!(
-            "Found {} package(s) matching '{}':\n",
-            results.len(),
-            query.cyan()
-        ));
-    }
-
-    // Sort backends alphabetically
-    let mut backends: Vec<_> = by_backend.keys().cloned().collect();
-    backends.sort_by(|a, b| a.name().cmp(b.name()));
-
-    // Display by backend
-    for backend in backends {
-        if let Some(packages) = by_backend.get(&backend) {
-            println!("{}", format!("{}:", backend).bold().cyan());
-
-            for pkg in packages.iter() {
-                let name = pkg.name.green();
-                let version = pkg
-                    .version
-                    .as_ref()
-                    .map(|v| v.dimmed().to_string())
-                    .unwrap_or_default();
-                let description = pkg
-                    .description
-                    .as_ref()
-                    .map(|d| format!(" - {}", d))
-                    .unwrap_or_default();
-
-                println!("  {} {}{}", name, version, description.dimmed());
-            }
-            println!();
-        }
-    }
 }
