@@ -318,6 +318,10 @@ pub enum SyncCommand {
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
+
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
@@ -368,6 +372,10 @@ pub enum SyncCommand {
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
+
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
@@ -392,6 +400,10 @@ pub enum SyncCommand {
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
+
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
 
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]

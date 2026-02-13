@@ -31,6 +31,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Update {
             gc,
             target: None,
+            diff: false,
             noconfirm: false,
             hooks: false,
             modules: vec![],
@@ -39,6 +40,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Prune {
             gc,
             target: None,
+            diff: false,
             noconfirm: false,
             hooks: false,
             modules: vec![],
@@ -47,6 +49,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Sync {
             gc,
             target: None,
+            diff: false,
             noconfirm: false,
             hooks: false,
             modules: vec![],
@@ -187,6 +190,7 @@ pub fn sync_command_to_options(
         SyncCommand::Sync {
             gc,
             target,
+            diff,
             noconfirm,
             hooks,
             modules,
@@ -201,6 +205,7 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: *diff,
         },
         SyncCommand::Preview {
             gc,
@@ -219,10 +224,12 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: false,
         },
         SyncCommand::Update {
             gc,
             target,
+            diff,
             noconfirm,
             hooks,
             modules,
@@ -237,10 +244,12 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: *diff,
         },
         SyncCommand::Prune {
             gc,
             target,
+            diff,
             noconfirm,
             hooks,
             modules,
@@ -255,6 +264,7 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: *diff,
         },
         // Cache and Upgrade are handled directly in dispatcher, not through sync options
         SyncCommand::Cache { .. } | SyncCommand::Upgrade { .. } => {

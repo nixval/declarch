@@ -52,6 +52,7 @@ pub struct SyncOptions {
     pub noconfirm: bool,
     pub hooks: bool,
     pub modules: Vec<String>,
+    pub diff: bool,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
@@ -103,6 +104,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
         display_transaction_plan(&transaction, options.prune);
     }
 
+    // Handle --diff flag: Show diff and exit (like git diff)
+    if options.diff {
+        show_sync_diff(&transaction, &installed_snapshot);
+        return Ok(());
+    }
+
     // 7. Execute
     if !options.dry_run {
         if !options.yes && !output::prompt_yes_no("Proceed with sync?") {
@@ -124,6 +131,51 @@ pub fn run(options: SyncOptions) -> Result<()> {
     execute_sync_hooks(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
     Ok(())
+}
+
+/// Show diff view of sync changes
+fn show_sync_diff(
+    transaction: &crate::core::resolver::Transaction,
+    installed_snapshot: &InstalledSnapshot,
+) {
+    use colored::Colorize;
+
+    output::header("Sync Diff");
+
+    // Show packages to install
+    if !transaction.to_install.is_empty() {
+        println!("\n{}:", "Packages to install".green().bold());
+        for pkg_id in &transaction.to_install {
+            println!("  {} {} {}", "+".green(), pkg_id.backend, pkg_id.name);
+        }
+    }
+
+    // Show packages to remove
+    if !transaction.to_prune.is_empty() {
+        println!("\n{}:", "Packages to remove".red().bold());
+        for pkg_id in &transaction.to_prune {
+            let version = installed_snapshot
+                .get(pkg_id)
+                .and_then(|m| m.version.as_ref())
+                .map(|v| format!(" ({})", v))
+                .unwrap_or_default();
+            println!("  {} {} {}{}", "-".red(), pkg_id.backend, pkg_id.name, version.dimmed());
+        }
+    }
+
+    // Show packages to adopt
+    if !transaction.to_adopt.is_empty() {
+        println!("\n{}:", "Packages to adopt".yellow().bold());
+        for pkg_id in &transaction.to_adopt {
+            println!("  {} {} {}", "~".yellow(), pkg_id.backend, pkg_id.name);
+        }
+    }
+
+    // Summary
+    println!();
+    let total_changes = transaction.to_install.len() + transaction.to_prune.len() + transaction.to_adopt.len();
+    output::info(&format!("Total changes: {}", total_changes));
+    output::info("Run 'declarch sync' to apply these changes");
 }
 
 fn resolve_target(target: &Option<String>) -> SyncTarget {

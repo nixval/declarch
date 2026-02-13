@@ -140,6 +140,7 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             noconfirm: false,
             hooks: false,
             modules: Vec::new(),
+            diff: false,
         })?;
         
         output::separator();

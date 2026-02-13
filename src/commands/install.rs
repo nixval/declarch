@@ -220,6 +220,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             noconfirm: false,
             hooks: true,
             modules: modified_modules.clone(),
+            diff: false,
         });
 
         match sync_result {
