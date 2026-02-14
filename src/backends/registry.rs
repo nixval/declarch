@@ -71,12 +71,9 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
         false
     };
 
-    if use_explicit_imports {
-        // New way: Backends are loaded via config loader from declarch.kdl imports
-        // This path should not be hit when called from commands that already loaded config
-        // But we keep it for backward compatibility with direct calls
-        output::info("Using explicit backend imports from declarch.kdl");
-    }
+    // Note: When using explicit imports, backends are loaded by config::loader
+    // and should be accessed via MergedConfig.backends
+    // This function primarily serves legacy auto-load mode now
 
     // LEGACY: Auto-load from backends.kdl (deprecated but supported for migration)
     let backends_path = paths::backend_config()?;
