@@ -401,15 +401,51 @@ fn apply_backend_option_overrides(
                         "Ignoring invalid disable sentinel for required option options:{} -> install_cmd=-",
                         backend_name
                     ));
+                } else if !normalized.contains("{packages}") {
+                    output::warning(&format!(
+                        "Ignoring invalid install_cmd override for options:{}: missing '{{packages}}' placeholder",
+                        backend_name
+                    ));
                 } else {
                     backend_config.install_cmd = value.clone();
                 }
             }
-            "remove_cmd" => backend_config.remove_cmd = if disable { None } else { Some(value.clone()) },
+            "remove_cmd" => {
+                if disable {
+                    backend_config.remove_cmd = None;
+                } else if !normalized.contains("{packages}") {
+                    output::warning(&format!(
+                        "Ignoring invalid remove_cmd override for options:{}: missing '{{packages}}' placeholder",
+                        backend_name
+                    ));
+                } else {
+                    backend_config.remove_cmd = Some(value.clone());
+                }
+            }
             "list_cmd" => backend_config.list_cmd = if disable { None } else { Some(value.clone()) },
-            "search_cmd" => backend_config.search_cmd = if disable { None } else { Some(value.clone()) },
+            "search_cmd" => {
+                if disable {
+                    backend_config.search_cmd = None;
+                } else if !normalized.contains("{query}") {
+                    output::warning(&format!(
+                        "Ignoring invalid search_cmd override for options:{}: missing '{{query}}' placeholder",
+                        backend_name
+                    ));
+                } else {
+                    backend_config.search_cmd = Some(value.clone());
+                }
+            }
             "search_local_cmd" => {
-                backend_config.search_local_cmd = if disable { None } else { Some(value.clone()) }
+                if disable {
+                    backend_config.search_local_cmd = None;
+                } else if !normalized.contains("{query}") {
+                    output::warning(&format!(
+                        "Ignoring invalid search_local_cmd override for options:{}: missing '{{query}}' placeholder",
+                        backend_name
+                    ));
+                } else {
+                    backend_config.search_local_cmd = Some(value.clone());
+                }
             }
             "update_cmd" => backend_config.update_cmd = if disable { None } else { Some(value.clone()) },
             "cache_clean_cmd" => {
@@ -754,5 +790,34 @@ mod tests {
         assert_eq!(backend.update_cmd.as_deref(), Some("pacman -Sy"));
         assert_eq!(backend.noconfirm_flag.as_deref(), Some("--noconfirm"));
         assert!(backend.needs_sudo);
+    }
+
+    #[test]
+    fn test_backend_option_overrides_reject_invalid_templates() {
+        let mut backend = BackendConfig {
+            name: "paru".to_string(),
+            install_cmd: "paru -S {packages}".to_string(),
+            remove_cmd: Some("paru -R {packages}".to_string()),
+            search_cmd: Some("paru -Ss {query}".to_string()),
+            search_local_cmd: Some("paru -Q {query}".to_string()),
+            ..Default::default()
+        };
+
+        let merged = merged_config_with_options(
+            "paru",
+            &[
+                ("install_cmd", "paru -S"),
+                ("remove_cmd", "paru -R"),
+                ("search_cmd", "paru -Ss"),
+                ("search_local_cmd", "paru -Q"),
+            ],
+        );
+
+        apply_backend_option_overrides(&mut backend, "paru", &merged);
+
+        assert_eq!(backend.install_cmd, "paru -S {packages}");
+        assert_eq!(backend.remove_cmd.as_deref(), Some("paru -R {packages}"));
+        assert_eq!(backend.search_cmd.as_deref(), Some("paru -Ss {query}"));
+        assert_eq!(backend.search_local_cmd.as_deref(), Some("paru -Q {query}"));
     }
 }
