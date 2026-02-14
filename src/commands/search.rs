@@ -429,12 +429,17 @@ fn select_backends_to_search(
             }
         }
     } else {
-        for (name, config) in all_backends {
+        let mut entries: Vec<_> = all_backends.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        for (name, config) in entries {
             if supports_mode(config) {
                 selected.push(Backend::from(name.as_str()));
             }
         }
     }
+
+    unknown.sort();
+    unsupported.sort();
 
     (selected, unknown, unsupported)
 }

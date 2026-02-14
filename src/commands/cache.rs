@@ -29,7 +29,7 @@ pub fn run(options: CacheOptions) -> Result<()> {
     }
 
     // Filter backends if specific ones requested
-    let backends_to_clean: Vec<_> = match &options.backends {
+    let mut backends_to_clean: Vec<_> = match &options.backends {
         Some(target_backends) => {
             let target_set: HashSet<_> = target_backends.iter().cloned().collect();
             let selected: Vec<_> = all_backends
@@ -39,10 +39,11 @@ pub fn run(options: CacheOptions) -> Result<()> {
 
             let selected_names: HashSet<_> =
                 selected.iter().map(|(name, _)| name.clone()).collect();
-            let unknown: Vec<_> = target_set
+            let mut unknown: Vec<_> = target_set
                 .into_iter()
                 .filter(|name| !selected_names.contains(name))
                 .collect();
+            unknown.sort();
             if !unknown.is_empty() {
                 output::warning(&format!("Unknown backend(s): {}", unknown.join(", ")));
             }
@@ -51,6 +52,7 @@ pub fn run(options: CacheOptions) -> Result<()> {
         }
         None => all_backends.into_iter().collect(),
     };
+    backends_to_clean.sort_by(|a, b| a.0.cmp(&b.0));
 
     if backends_to_clean.is_empty() {
         output::warning("No matching backends found");
