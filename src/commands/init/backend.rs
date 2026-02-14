@@ -289,7 +289,7 @@ pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> 
     }
     
     // Look for backends { ... } block
-    let backends_re = Regex::new(r#"(?m)^(	*backends)"#)
+    let backends_re = Regex::new(r#"(?m)^\s*backends\b"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
     
     if !backends_re.is_match(&content) {
@@ -299,8 +299,7 @@ pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> 
     
     // Find backends block and add import line
     // Pattern matches: backends { or backends "existing" {
-    let backends_block_re = Regex::new(r#"(?m)^(	*backends(?:	*"[^"]*")?	*
-?)"#)
+    let backends_block_re = Regex::new(r#"(?m)^(\s*backends(?:\s+"[^"]*")?\s*\{)"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
     
     let import_line = format!(r#"    "{}""#, import_path);
