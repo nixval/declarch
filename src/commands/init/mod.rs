@@ -44,17 +44,32 @@ pub struct InitOptions {
     pub local: bool,
 }
 
+fn normalize_backend_args(backends: &[String]) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for item in backends {
+        for part in item.split(',') {
+            let name = part.trim();
+            if !name.is_empty() {
+                normalized.push(name.to_string());
+            }
+        }
+    }
+    normalized
+}
+
 /// Main entry point for init command
 pub fn run(options: InitOptions) -> Result<()> {
+    let normalized_backends = normalize_backend_args(&options.backends);
+
     // CASE A: MODULE INITIALIZATION
     if let Some(target_path) = options.path {
         return module::init_module(&target_path, options.force, options.yes, options.local);
     }
 
     // CASE A2: BACKEND INITIALIZATION (supports multiple)
-    if !options.backends.is_empty() {
+    if !normalized_backends.is_empty() {
         let force = options.force || options.yes;
-        let total = options.backends.len();
+        let total = normalized_backends.len();
         
         // Ensure root config exists first
         let config_file = crate::utils::paths::config_file()?;
@@ -66,7 +81,7 @@ pub fn run(options: InitOptions) -> Result<()> {
             output::header(&format!("Initializing {} backends", total));
         }
         
-        for (i, backend_name) in options.backends.iter().enumerate() {
+        for (i, backend_name) in normalized_backends.iter().enumerate() {
             if total > 1 {
                 println!();
                 output::info(&format!("[{}/{}] Initializing '{}'", i + 1, total, backend_name));
@@ -154,3 +169,29 @@ pub fn restore_declarch(host: Option<String>) -> Result<()> {
 pub use list::is_module_available;
 pub use list::list_available_backends;
 pub use list::list_available_modules;
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_backend_args;
+
+    #[test]
+    fn normalize_backend_args_supports_comma_and_space_forms() {
+        let input = vec![
+            "pnpm,yarn".to_string(),
+            "bun".to_string(),
+            "  ".to_string(),
+            "paru, yay".to_string(),
+        ];
+        let normalized = normalize_backend_args(&input);
+        assert_eq!(
+            normalized,
+            vec![
+                "pnpm".to_string(),
+                "yarn".to_string(),
+                "bun".to_string(),
+                "paru".to_string(),
+                "yay".to_string()
+            ]
+        );
+    }
+}
