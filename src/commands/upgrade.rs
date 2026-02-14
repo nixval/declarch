@@ -10,6 +10,7 @@ use crate::error::Result;
 use crate::packages::create_manager;
 use crate::ui as output;
 use rayon::prelude::*;
+use std::collections::HashSet;
 
 pub struct UpgradeOptions {
     /// Target specific backends (None = all backends)
@@ -36,10 +37,25 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
 
     // Filter backends if specific ones requested
     let backends_to_upgrade: Vec<(String, _)> = match &options.backends {
-        Some(target_backends) => all_backends
-            .into_iter()
-            .filter(|(name, _)| target_backends.contains(name))
-            .collect(),
+        Some(target_backends) => {
+            let target_set: HashSet<_> = target_backends.iter().cloned().collect();
+            let selected: Vec<_> = all_backends
+                .into_iter()
+                .filter(|(name, _)| target_set.contains(name))
+                .collect();
+
+            let selected_names: HashSet<_> =
+                selected.iter().map(|(name, _)| name.clone()).collect();
+            let unknown: Vec<_> = target_set
+                .into_iter()
+                .filter(|name| !selected_names.contains(name))
+                .collect();
+            if !unknown.is_empty() {
+                output::warning(&format!("Unknown backend(s): {}", unknown.join(", ")));
+            }
+
+            selected
+        }
         None => all_backends.into_iter().collect(),
     };
 
