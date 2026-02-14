@@ -9,6 +9,7 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use colored::Colorize;
+use std::collections::HashMap;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -330,27 +331,76 @@ fn print_search_result(result: &PackageSearchResult) {
 }
 
 fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
-    // CLI flag overrides everything
-    if let Some(backend_list) = &options.backends {
-        return Ok(backend_list.iter().map(|b| Backend::from(b.as_str())).collect());
-    }
-
     // Load backends from unified source (explicit imports + legacy fallback)
     let backends_to_use = crate::backends::load_all_backends_unified()?;
-    
-    let mut result = Vec::new();
-    for (name, config) in backends_to_use {
-        if config.search_cmd.is_some() {
-            result.push(Backend::from(name));
-        }
+    let (result, unknown, unsupported) = select_backends_to_search(
+        &backends_to_use,
+        options.backends.as_ref(),
+        options.local,
+    );
+
+    if !unknown.is_empty() {
+        output::warning(&format!("Unknown backend(s): {}", unknown.join(", ")));
     }
-    
+    if !unsupported.is_empty() {
+        let capability = if options.local {
+            "local search support"
+        } else {
+            "search support"
+        };
+        output::warning(&format!(
+            "Skipped backend(s) without {}: {}",
+            capability,
+            unsupported.join(", ")
+        ));
+    }
+
     if result.is_empty() {
-        output::warning("No backends with search support configured");
+        if options.local {
+            output::warning("No backends with local search support configured");
+        } else {
+            output::warning("No backends with search support configured");
+        }
         output::info("Run 'declarch init --backend <name>' to add a backend");
     }
-    
+
     Ok(result)
+}
+
+fn select_backends_to_search(
+    all_backends: &HashMap<String, crate::backends::config::BackendConfig>,
+    requested_backends: Option<&Vec<String>>,
+    local_mode: bool,
+) -> (Vec<Backend>, Vec<String>, Vec<String>) {
+    let supports_mode = |config: &crate::backends::config::BackendConfig| {
+        if local_mode {
+            config.search_local_cmd.is_some()
+        } else {
+            config.search_cmd.is_some()
+        }
+    };
+
+    let mut selected = Vec::new();
+    let mut unknown = Vec::new();
+    let mut unsupported = Vec::new();
+
+    if let Some(requested) = requested_backends {
+        for name in requested {
+            match all_backends.get(name) {
+                Some(config) if supports_mode(config) => selected.push(Backend::from(name.as_str())),
+                Some(_) => unsupported.push(name.clone()),
+                None => unknown.push(name.clone()),
+            }
+        }
+    } else {
+        for (name, config) in all_backends {
+            if supports_mode(config) {
+                selected.push(Backend::from(name.as_str()));
+            }
+        }
+    }
+
+    (selected, unknown, unsupported)
 }
 
 fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManager>> {
@@ -388,4 +438,46 @@ fn create_manager_from_config(
         backend,
         false,
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backends::config::BackendConfig;
+
+    #[test]
+    fn select_backends_filters_unknown_and_unsupported() {
+        let mut all = HashMap::new();
+        all.insert(
+            "paru".to_string(),
+            BackendConfig {
+                name: "paru".to_string(),
+                search_cmd: Some("paru -Ss {query}".to_string()),
+                ..Default::default()
+            },
+        );
+        all.insert(
+            "pip".to_string(),
+            BackendConfig {
+                name: "pip".to_string(),
+                search_local_cmd: Some("pip list | grep {query}".to_string()),
+                ..Default::default()
+            },
+        );
+
+        let requested = vec!["paru".to_string(), "pip".to_string(), "missing".to_string()];
+        let (selected_remote, unknown_remote, unsupported_remote) =
+            select_backends_to_search(&all, Some(&requested), false);
+        let names_remote: Vec<_> = selected_remote.iter().map(|b| b.name().to_string()).collect();
+        assert_eq!(names_remote, vec!["paru".to_string()]);
+        assert_eq!(unknown_remote, vec!["missing".to_string()]);
+        assert_eq!(unsupported_remote, vec!["pip".to_string()]);
+
+        let (selected_local, unknown_local, unsupported_local) =
+            select_backends_to_search(&all, Some(&requested), true);
+        let names_local: Vec<_> = selected_local.iter().map(|b| b.name().to_string()).collect();
+        assert_eq!(names_local, vec!["pip".to_string()]);
+        assert_eq!(unknown_local, vec!["missing".to_string()]);
+        assert_eq!(unsupported_local, vec!["paru".to_string()]);
+    }
 }
