@@ -268,12 +268,13 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         "json" => OutputFormat::Json,
                         "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "npm_json" => OutputFormat::NpmJson,
+                        "json_object_keys" => OutputFormat::JsonObjectKeys,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, json_lines, npm_json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
@@ -595,12 +596,13 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         "json" => OutputFormat::Json,
                         "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "npm_json" => OutputFormat::NpmJson,
+                        "json_object_keys" => OutputFormat::JsonObjectKeys,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, json_lines, npm_json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
@@ -776,12 +778,13 @@ fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<
                         "json" => OutputFormat::Json,
                         "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "npm_json" => OutputFormat::NpmJson,
+                        "json_object_keys" => OutputFormat::JsonObjectKeys,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, json_lines, npm_json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
