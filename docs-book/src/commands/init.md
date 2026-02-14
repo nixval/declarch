@@ -1,6 +1,6 @@
 # init
 
-Create initial configuration.
+Create initial configuration, adopt backends, or fetch remote config.
 
 ## Usage
 
@@ -8,47 +8,45 @@ Create initial configuration.
 declarch init [OPTIONS] [SOURCE]
 ```
 
-## Examples
+## Common examples
 
-### Basic Init
+### Basic init
 
 ```bash
 declarch init
 ```
 
 Creates:
-```
+
+```text
 ~/.config/declarch/
 ├── declarch.kdl
 ├── backends.kdl
-├── modules/
-│   └── base.kdl
-└── state.json
+├── state.json
+├── backends/
+└── modules/
+    └── base.kdl
 ```
 
-### With Backend
+### Add backend(s)
 
 ```bash
-# Add npm backend
 declarch init --backend npm
-
-# Add multiple backends
-declarch init --backend npm,cargo
+declarch init --backend pnpm,yarn
+# also valid
+declarch init --backend pnpm yarn
 ```
 
-### List Available Backends
+### List available remote backends
 
 ```bash
 declarch init --list backends
 ```
 
-### From Remote Config
+### Initialize from remote source
 
 ```bash
-# From GitHub repo
 declarch init username/dotfiles
-
-# From specific variant
 declarch init username/dotfiles:minimal
 ```
 
@@ -56,25 +54,17 @@ declarch init username/dotfiles:minimal
 
 | Option | Description |
 |--------|-------------|
-| `--backend <NAMES>` | Add backend(s) |
-| `--list <what>` | List available backends/modules |
-| `--local` | Create local module (skip registry) |
-| `--host <NAME>` | Hostname specific config |
+| `--backend <NAME>...` | Add one or more backend definitions |
+| `--list <WHAT>` | List available `backends` or `modules` |
+| `--local` | Create module locally (skip registry lookup) |
+| `--host <NAME>` | Set hostname for root template |
+| `--restore-backends` | Restore `backends.kdl` from template |
+| `--restore-declarch` | Restore `declarch.kdl` from template |
 
-## Built-in Backends
+## Official defaults and custom backends
 
-These are included automatically:
+`declarch init` gives official defaults in `backends.kdl` (`aur`, `pacman`, `flatpak`, plus shipped defaults).
 
-- `aur` - AUR packages (uses paru/yay)
-- `pacman` - Official Arch repos
-- `flatpak` - Flatpak apps
+`declarch init --backend <name>` adopts backend definitions from remote registry into your local `backends/` folder.
 
-## Custom Backends
-
-Install additional backends:
-
-```bash
-declarch init --backend npm     # Node.js
-declarch init --backend cargo   # Rust
-declarch init --backend pip     # Python
-```
+If a backend already exists locally, use `--force` to overwrite.

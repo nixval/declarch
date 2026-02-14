@@ -362,7 +362,7 @@ Test your backend:
 declarch check
 
 # Test list command
-declarch list
+declarch info list
 
 # Test search (if configured)
 declarch search your-backend:query

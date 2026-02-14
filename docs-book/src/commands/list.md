@@ -1,45 +1,44 @@
-# list
+# info list
 
-List packages.
+List managed package views.
 
 ## Usage
 
 ```bash
-declarch list [COMMAND]
+declarch info list [COMMAND] [OPTIONS]
 ```
 
 ## Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `all` | All packages (default) |
-| `orphans` | Unmanaged packages |
-| `synced` | Successfully synced packages |
+| `all` | All managed packages (default) |
+| `orphans` | Installed but unmanaged packages |
+| `synced` | Packages both declared and installed |
 
 ## Examples
 
-### List All
-
 ```bash
-declarch list
+# Default list (all)
+declarch info list
+
+# Orphans
+declarch info list orphans
+
+# Synced only
+declarch info list synced
+
+# Filter by backend
+declarch info list orphans --backend aur
 ```
 
-### List Orphans
-
-```bash
-declarch list orphans
-```
-
-Shows packages installed on system but not in config.
-
-### Filter by Backend
-
-```bash
-declarch list --backend aur
-```
-
-## Options
+## Option
 
 | Option | Description |
 |--------|-------------|
 | `-b, --backend <NAME>` | Filter by backend |
+
+## Compatibility note
+
+Older docs/examples may show `declarch list ...`.
+Current command path is `declarch info list ...`.

@@ -2,18 +2,18 @@
 
 Backends are how declarch talks to package managers.
 
-Think of declarch as an **agnostic wrapper**:
-- you write one declarative config,
-- backends execute real package-manager commands.
+Think of declarch as an agnostic wrapper:
+- you declare packages once,
+- backend definitions run real package-manager commands.
 
-## Built-in feeling vs reality
+## Default + adopt model
 
-Declarch gives ready-to-use defaults, but backend files are still editable and can evolve.
-This is intentional, so backend behavior can adapt when package managers change.
+- `declarch init` creates default backend definitions.
+- `declarch init --backend <name>` adopts extra backend files from remote registry.
+- backend files stay editable locally so behavior can evolve with upstream tools.
 
 ## Common backend set
 
-You can use one or many:
 - System: `aur`, `pacman`, `flatpak`, `apt`, `nala`, `dnf`, `snap`, `nix`, `brew`
 - Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
 - Others: `soar`
@@ -22,17 +22,12 @@ You can use one or many:
 
 ```bash
 declarch init --backend npm
-```
-
-Multiple at once:
-
-```bash
 declarch init --backend pnpm,yarn
-# or
+# also valid
 declarch init --backend pnpm yarn
 ```
 
-## Example usage in config
+## Example package config
 
 ```kdl
 pkg {
@@ -43,18 +38,19 @@ pkg {
 }
 ```
 
-## Fallback idea (important)
+## Fallback idea
 
-Some backends can fallback to another backend when binary is missing.
+Backends can fallback when a binary is missing.
+
 Examples:
 - `nala -> apt`
 - `yarn -> npm`
 - `pnpm -> npm`
 - `bun -> npm`
-- `aur/yay/paru -> pacman` (depending on backend config)
+- `aur -> pacman`
 
 ## Practical advice
 
-- Start with minimal backends first.
-- Add more only when you really use them.
-- Keep backend files versioned so you can track behavior changes.
+- Start with minimal backends.
+- Add more only when needed.
+- Keep backend files in version control.

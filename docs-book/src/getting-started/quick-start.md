@@ -14,6 +14,8 @@ You will get:
 ~/.config/declarch/
 ├── declarch.kdl
 ├── backends.kdl
+├── state.json
+├── backends/
 └── modules/
     └── base.kdl
 ```
@@ -36,7 +38,7 @@ declarch install npm:typescript
 declarch sync
 ```
 
-That is the core loop:
+Core loop:
 - edit/add packages
 - sync
 
@@ -46,7 +48,7 @@ That is the core loop:
 declarch sync preview
 ```
 
-Useful when you are still learning or doing migration.
+Useful when learning or migrating.
 
 ## 5) Add more backends when needed
 
@@ -56,4 +58,4 @@ declarch init --backend npm
 declarch init --backend pnpm,yarn
 ```
 
-You can mix space and comma style safely.
+You can mix comma and space style safely.

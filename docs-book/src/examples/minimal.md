@@ -23,19 +23,22 @@ pkg {
 }
 ```
 
-## That's It
+## That's it
 
-3 packages, 2 files. Run `declarch sync` and you're done.
+Two files, a few packages:
 
-## Why This Works
+```bash
+declarch sync
+```
 
-- `backends.kdl` already has aur/pacman/flatpak built-in
-- No custom backends needed
-- Single module keeps it simple
+## Why this works
 
-## Next Steps
+- Root config and default backend definitions are created by `declarch init`.
+- You can add/adopt extra backends later with `declarch init --backend <name>`.
+- Keeping one small module is easiest for beginners.
 
-Add more packages:
+## Next step
+
 ```bash
 declarch install bat fzf ripgrep
 ```

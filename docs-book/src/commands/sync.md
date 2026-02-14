@@ -1,6 +1,6 @@
 # sync
 
-Synchronize system with configuration.
+Synchronize system state with configuration.
 
 ## Usage
 
@@ -12,75 +12,50 @@ declarch sync [COMMAND] [OPTIONS]
 
 | Command | Description |
 |---------|-------------|
-| `sync` | Full sync (default) |
-| `preview` | Preview changes without executing |
-| `update` | Sync + update system packages |
-| `prune` | Sync + remove unmanaged packages |
+| `sync` | Full sync (default behavior) |
+| `preview` | Show changes without execution |
+| `update` | Refresh indexes, then sync |
+| `prune` | Remove unmanaged packages while syncing |
+| `cache` | Clean backend cache(s) |
+| `upgrade` | Upgrade packages through configured backends |
 
 ## Examples
 
-### Basic Sync
-
 ```bash
+# Standard sync
 declarch sync
-```
 
-Shows:
-```
-Changes:
-  Adopt: (aur): neovim, bat, fzf
-  Install: (npm): typescript
-
-? Proceed with sync? [Y/n]
-```
-
-### Preview Changes
-
-```bash
+# Safe preview
 declarch sync preview
-```
 
-Shows what would happen without doing it.
-
-### Sync with System Update
-
-```bash
+# Update then sync
 declarch sync update
-```
 
-Updates system packages first, then syncs.
-
-### Remove Unmanaged Packages
-
-```bash
+# Sync and remove unmanaged packages
 declarch sync prune
+
+# Target only one package/backend
+declarch sync sync --target firefox
+
+# Enable hooks explicitly
+declarch sync sync --hooks
 ```
 
-Removes packages not in your config.
-
-## Options
+## Common options
 
 | Option | Description |
 |--------|-------------|
-| `--gc` | Garbage collect orphans after sync |
-| `--target <NAME>` | Sync only specific package/backend |
+| `--gc` | Garbage-collect orphans after sync |
+| `--target <NAME>` | Sync only one package/scope |
 | `--noconfirm` | Skip package manager prompts |
 | `--hooks` | Enable lifecycle hooks |
-
-## What "Adopt" Means
-
-When you see:
-```
-Adopt: (aur): neovim
-```
-
-It means neovim is already installed. Declarch will "adopt" it into management.
+| `--modules <NAME>...` | Temporarily include extra modules |
+| `--diff` | Show plan diff (`sync/update/prune`) |
 
 ## Safety
 
-Sync always asks before making changes (unless `-y` flag).
+Use preview first for large changes:
 
 ```bash
-# Auto-confirm
-declarch sync -y
+declarch sync preview
 ```

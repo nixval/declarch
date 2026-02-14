@@ -1,84 +1,65 @@
 # Declarch Configuration Examples
 
-This directory contains example configurations for Declarch v0.8+.
+This directory contains simple examples aligned with current `v0.8.x` docs.
 
-## File Structure
+## File structure
 
-```
+```text
 examples/
-├── declarch.kdl           # Main configuration example
-├── backends.kdl           # Backend definitions (apt, aur, flatpak, npm)
+├── declarch.kdl
+├── backends.kdl
 ├── modules/
-│   └── base.kdl          # Base system module example
-├── minimal.kdl           # Minimal single-file example
-├── modular.kdl           # Modular configuration example
-├── desktop.kdl           # Desktop environment example
-└── development.kdl       # Development tools example
+│   └── base.kdl
+├── minimal.kdl
+├── modular.kdl
+├── desktop.kdl
+└── development.kdl
 ```
 
-## Quick Start
+## Quick start
 
-1. Copy example files to your config directory:
-   ```bash
-   mkdir -p ~/.config/declarch/modules
-   cp examples/backends/backends.kdl ~/.config/declarch/
-   cp examples/declarch.kdl ~/.config/declarch/
-   cp examples/modules/base.kdl ~/.config/declarch/modules/
-   ```
+1. Copy files:
 
-2. Edit `~/.config/declarch/backends.kdl` to match your system (apt for Debian/Ubuntu, pacman for Arch, etc.)
+```bash
+mkdir -p ~/.config/declarch/modules
+cp examples/declarch.kdl ~/.config/declarch/
+cp examples/modules/base.kdl ~/.config/declarch/modules/
+cp examples/backends/backends.kdl ~/.config/declarch/
+```
 
-3. Run `declarch sync` to apply the configuration
+2. Adjust backend defs for your machine.
 
-## Configuration Syntax
+3. Apply:
 
-Declarch v0.6+ supports three package declaration syntaxes:
+```bash
+declarch sync preview
+declarch sync
+```
 
-### 1. Nested Blocks (Recommended)
+## Package syntax (recommended)
+
+Use nested `pkg` blocks as default style:
+
 ```kdl
 pkg {
     apt {
         vim
         git
     }
-    aur {
-        paru
+    flatpak {
+        org.mozilla.firefox
     }
 }
 ```
 
-### 2. Colon Syntax
-```kdl
-pkg:apt {
-    vim
-    git
-}
-```
+Legacy syntax may still parse for migration, but docs/examples prefer the nested style above.
 
-### 3. Inline Prefix
-```kdl
-pkg {
-    apt:vim
-    apt:git
-}
-```
+## Backend config examples
 
-All three syntaxes can be mixed in the same file!
+`examples/backends/backends.kdl` demonstrates:
 
-## Backend Configuration
+- distro/system backends (`apt`, `aur`, `pacman`, `flatpak`)
+- language backends (`npm`, `cargo`)
+- fallback patterns and parser formats
 
-See `backends/backends.kdl` for complete examples of:
-- APT (Debian/Ubuntu)
-- AUR Helper (paru/yay with pacman fallback)
-- Flatpak
-- NPM
-
-Each backend defines:
-- `binary`: Command to use
-- `list`: How to list installed packages
-- `install`/`remove`: Install/remove commands
-- `format`: Output format (json, whitespace, tsv, regex)
-
-## More Information
-
-See the main project documentation for detailed syntax reference.
+Use it as reference, then keep only what you need.

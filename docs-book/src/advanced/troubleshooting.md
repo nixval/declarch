@@ -1,84 +1,89 @@
 # Troubleshooting
 
-## Common Issues
+## Common issues
 
 ### "Backend 'xxx' not found"
 
-**Cause:** Backend not installed or not imported.
+Cause: backend definition is not available locally.
 
-**Fix:**
+Fix:
+
 ```bash
-# Install the backend
 declarch init --backend xxx
-
-# Or re-initialize
-declarch init
 ```
 
 ### "Failed to parse KDL document"
 
-**Cause:** Syntax error in your .kdl file.
+Cause: syntax error in config.
 
-**Fix:**
-Check the error message - it shows line and column:
-
-```
-error: No closing '}' for child block
-  --> ~/.config/declarch/base.kdl:8:5
-   |
- 8 │     meta {
-   │      ^
-```
+Fix: follow line/column from error output.
 
 Common fixes:
-- Add quotes: `format "whitespace"` not `format whitespace`
-- Close braces: Every `{` needs a `}`
-- Quote booleans: `needs_sudo "true"` not `needs_sudo true`
+- close every `{` with `}`
+- quote string fields when required
+- for booleans, use consistent style (`true`/`false` or quoted form)
 
-### Sync Shows No Changes
+### Search warnings for missing binary
 
-**Cause:** Packages already installed.
+Cause: backend config exists, but binary is not installed (example: `yarn not found`).
 
-**Fix:** This is normal. Use `declarch list orphans` to see unmanaged packages.
+Fix options:
+- install the binary, or
+- remove that backend from active use, or
+- set backend fallback (example `yarn -> npm`).
 
-### Permission Denied
+### Search hangs or timeout on slow backend
 
-**Cause:** Declarch needs write access to `~/.config/declarch/`.
+Cause: backend search command is slow or interactive.
 
-**Fix:**
+Fix:
+- limit target backend: `declarch search firefox -b flatpak`
+- reduce scope using `--limit`
+- verify backend search command in backend file.
+
+### "No changes" during sync
+
+Cause: desired state already matches system.
+
+This is normal. Check coverage with:
+
+```bash
+declarch info list orphans
+```
+
+### Permission denied
+
+Cause: no write access to `~/.config/declarch/`.
+
+Fix:
+
 ```bash
 mkdir -p ~/.config/declarch
 chmod 755 ~/.config/declarch
 ```
 
-## Debug Mode
-
-Get more output:
+## Debug mode
 
 ```bash
 declarch -v sync
-declarch -vv sync  # Even more verbose
+declarch -v check
 ```
 
-## Check Config
-
-Validate without syncing:
+## Validate config only
 
 ```bash
 declarch check validate
 ```
 
-## Reset State
-
-If state gets corrupted:
+## Reset state
 
 ```bash
 rm ~/.config/declarch/state.json
 declarch init
 ```
 
-## Still Stuck?
+## Still stuck
 
-1. Run `declarch check` for diagnostics
-2. Run with `-v` for verbose output
-3. Check [GitHub Issues](https://github.com/nixval/declarch/issues)
+1. Run `declarch check`.
+2. Run with `-v`.
+3. Open issue: https://github.com/nixval/declarch/issues

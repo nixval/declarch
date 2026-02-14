@@ -2,12 +2,12 @@
 
 Declarch is a declarative, agnostic wrapper over many package managers.
 
-You define desired packages once, then run `declarch sync`.
-Declarch coordinates the backend commands for you.
+You define packages in config, then run `declarch sync`.
+Declarch coordinates backend commands for you.
 
 ## WARNING: v0.8.0 has BREAKING CHANGES
 
-If you are upgrading from older versions, expect changes in syntax/behavior.
+If you are upgrading from older versions, expect syntax and workflow changes.
 
 Before upgrading:
 
@@ -16,11 +16,11 @@ cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
 Reality check:
-- declarch is evolving quickly,
-- backend and environment coverage is improving,
-- not every backend combo is tested equally yet.
+- declarch is still evolving,
+- backend/environment coverage is improving,
+- not every backend combination is tested equally yet.
 
-No overclaim: use `sync preview` first when unsure.
+Use `declarch sync preview` first when unsure.
 
 ## What declarch is
 
@@ -28,7 +28,7 @@ No overclaim: use `sync preview` first when unsure.
 - **Agnostic** architecture (not tied to one ecosystem).
 - **Flexible backend config** that can evolve with upstream tools.
 
-## Backends (search-friendly list)
+## Common backends
 
 `aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`.
 
@@ -93,7 +93,7 @@ declarch init --backend pnpm,yarn
 declarch init --backend pnpm yarn
 ```
 
-Use `--force` to overwrite existing backend file.
+Use `--force` to overwrite an existing backend file.
 
 ## Common commands
 
@@ -105,6 +105,7 @@ declarch sync prune
 declarch search firefox
 declarch check
 declarch info
+declarch info list
 ```
 
 ## Documentation
@@ -125,4 +126,4 @@ mdDocs source pages (`docs-book/src`):
 
 ## License
 
-MIT — see `LICENSE`.
+MIT - see `LICENSE`.

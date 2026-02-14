@@ -1,53 +1,27 @@
-# settings
+# settings (removed)
 
-Manage declarch settings.
+`declarch settings` is no longer an active top-level command in v0.8.0.
 
-## Usage
+## What to use instead
 
-```bash
-declarch settings <COMMAND>
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `set <key> <value>` | Set a value |
-| `get <key>` | Get a value |
-| `show` | Show all settings |
-| `reset <key>` | Reset to default |
-
-## Examples
-
-### Show All Settings
+- Use global flags directly:
 
 ```bash
-declarch settings show
+declarch --format json info
+declarch -y sync
 ```
 
-### Set Setting
+- Set preferred editor in config:
+
+```kdl
+editor "nvim"
+```
+
+- Use `declarch edit` for config changes:
 
 ```bash
-declarch settings set color never
-declarch settings set format json
+declarch edit
+declarch edit backends
 ```
 
-### Get Setting
-
-```bash
-declarch settings get color
-```
-
-### Reset Setting
-
-```bash
-declarch settings reset color
-```
-
-## Available Settings
-
-| Setting | Values | Description |
-|---------|--------|-------------|
-| `color` | `auto`, `always`, `never` | Terminal colors |
-| `format` | `table`, `json`, `yaml` | Output format |
-| `progress` | `auto`, `always`, `never` | Progress bars |
+If you still use old scripts with `declarch settings ...`, migrate them to flags/config.

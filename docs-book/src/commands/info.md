@@ -1,6 +1,6 @@
 # info
 
-Show system status.
+Show current state and diagnostics.
 
 ## Usage
 
@@ -12,36 +12,29 @@ declarch info [COMMAND]
 
 | Command | Description |
 |---------|-------------|
-| `status` | Show status (default) |
-| `doctor` | Diagnose issues |
+| `status` | State summary (default) |
+| `list` | List views (`all`, `orphans`, `synced`) |
+| `doctor` | Diagnose common issues |
 
 ## Examples
 
-### Show Status
-
 ```bash
+# Status summary
 declarch info
-```
 
-Shows:
-- Total managed packages
-- Packages per backend
-- Sync status
+# List managed packages
+declarch info list
 
-### Diagnose Issues
+# List orphan packages
+declarch info list orphans
 
-```bash
+# Diagnostics
 declarch info doctor
 ```
 
-Runs diagnostic checks:
-- Config validity
-- Backend availability
-- Missing dependencies
+## Common filters
 
-## Options
-
-| Option | Description |
-|--------|-------------|
-| `--backend <NAME>` | Filter by backend |
-| `--package <NAME>` | Filter by package |
+```bash
+declarch info status --backend aur
+declarch info doctor --package firefox
+```
