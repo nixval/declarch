@@ -58,8 +58,6 @@ pub struct MergedConfig {
     pub packages: HashMap<PackageId, Vec<PathBuf>>,
     /// Packages to exclude from sync
     pub excludes: Vec<String>,
-    /// Package mappings: config_name -> actual_package_name
-    pub package_mappings: HashMap<String, String>,
     /// Project metadata (merged from first config with meta)
     pub project_metadata: Option<ProjectMetadata>,
     /// Mutually exclusive packages (accumulated from all configs)
@@ -194,7 +192,6 @@ fn recursive_load(
 
     // Merge other configuration
     merged.excludes.extend(raw.excludes);
-    merged.package_mappings.extend(raw.package_mappings);
 
     // Meta: Only keep the first one
     if merged.project_metadata.is_none() {

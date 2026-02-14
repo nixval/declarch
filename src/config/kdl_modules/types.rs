@@ -28,9 +28,6 @@ pub struct RawConfig {
 
     /// Packages to exclude from sync
     pub excludes: Vec<String>,
-    
-    /// Package mappings: config_name -> actual_package_name
-    pub package_mappings: HashMap<String, String>,
 
     /// Project metadata
     pub project_metadata: ProjectMetadata,
