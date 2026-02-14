@@ -93,6 +93,10 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
             "exclude" | "excludes" => {
                 packages::extract_mixed_values(node, &mut config.excludes);
             }
+            "backends" => {
+                // Backend definition imports (paths to backend files)
+                packages::extract_strings(node, &mut config.backend_imports);
+            }
 
             "description" => {
                 if let Some(entry) = node.entries().first()
