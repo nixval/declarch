@@ -35,8 +35,20 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     // 1. Load current state
     let mut state = state::io::load_state()?;
 
-    // 2. Determine backend
-    let backend = determine_backend(&options.old_package, options.backend)?;
+    // 2. Determine backend from both packages (must be same)
+    let (old_backend, new_backend) = determine_backends(
+        &options.old_package,
+        &options.new_package,
+        options.backend.as_deref(),
+    )?;
+    
+    // Cross-backend switch not supported
+    if old_backend != new_backend {
+        return Err(DeclarchError::Other(
+            "Cross-backend switch is not supported. Both packages must use the same backend.".to_string()
+        ));
+    }
+    let backend = old_backend;
 
     // 3. Get package manager
     let global_config = GlobalConfig::default();
@@ -216,40 +228,71 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     }
 }
 
-fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<Backend> {
+/// Determine backend(s) for switch operation
+/// Returns (old_backend, new_backend) - may be same or different
+fn determine_backends(
+    old_package: &str,
+    new_package: &str,
+    backend_opt: Option<&str>,
+) -> Result<(Backend, Backend)> {
+    // Helper to extract backend from prefixed name
+    fn extract_backend(name: &str) -> Option<Backend> {
+        name.split_once(':').map(|(b, _)| Backend::from(b))
+    }
+    
+    // Helper to strip backend prefix
+    fn strip_prefix(name: &str) -> &str {
+        name.split_once(':').map(|(_, n)| n).unwrap_or(name)
+    }
+
     if let Some(backend_str) = backend_opt {
-        // Accept any backend name - validation happens when creating manager
-        Ok(Backend::from(backend_str))
+        // --backend flag specified: use same backend for both
+        let backend = Backend::from(backend_str);
+        Ok((backend.clone(), backend))
     } else {
-        // Auto-detect based on prefix
-        if let Some((backend, _)) = package_name.split_once(':') {
-            Ok(Backend::from(backend))
-        } else {
-            // No prefix and no explicit backend - show helpful error with available backends
-            let registry = crate::packages::get_registry();
-            let backends = registry.lock()
-                .map(|r| r.available_backends())
-                .unwrap_or_default();
-            
-            let backend_list = if backends.is_empty() {
-                "No backends configured. Run 'declarch init' first.".to_string()
-            } else {
-                format!("Available backends: {}", backends.join(", "))
-            };
-            
-            Err(DeclarchError::Other(format!(
-                "Cannot determine backend for '{}'.\n\n\
-                 Use explicit syntax:\n\
-                   declarch switch {}:{} {}:{}\n\n\
-                 Or specify backend:\n\
-                   declarch switch {} {} --backend <BACKEND>\n\n\
-                 {}",
-                package_name,
-                backends.first().unwrap_or(&"BACKEND".to_string()), package_name,
-                backends.first().unwrap_or(&"BACKEND".to_string()), package_name,
-                package_name, package_name,
-                backend_list
-            )))
+        // Auto-detect from prefixes
+        let old_backend = extract_backend(old_package);
+        let new_backend = extract_backend(new_package);
+        
+        match (old_backend, new_backend) {
+            (Some(old), Some(new)) => {
+                // Both have prefixes - valid
+                Ok((old, new))
+            }
+            (Some(old), None) => {
+                // Only old has prefix - assume same backend for new
+                Ok((old.clone(), old))
+            }
+            (None, Some(new)) => {
+                // Only new has prefix - assume same backend for old
+                Ok((new.clone(), new))
+            }
+            (None, None) => {
+                // Neither has prefix - show helpful error
+                let registry = crate::packages::get_registry();
+                let backends = registry.lock()
+                    .map(|r| r.available_backends())
+                    .unwrap_or_default();
+                
+                let backend_list = if backends.is_empty() {
+                    "No backends configured. Run 'declarch init' first.".to_string()
+                } else {
+                    format!("Available backends: {}", backends.join(", "))
+                };
+                
+                Err(DeclarchError::Other(format!(
+                    "Cannot determine backend.\n\n\
+                     Use explicit prefix syntax:\n\
+                       declarch switch {}:{} {}:{}\n\n\
+                     Or specify backend:\n\
+                       declarch switch {} {} --backend <BACKEND>\n\n\
+                     {}",
+                    backends.first().unwrap_or(&"BACKEND".to_string()), strip_prefix(old_package),
+                    backends.first().unwrap_or(&"BACKEND".to_string()), strip_prefix(new_package),
+                    strip_prefix(old_package), strip_prefix(new_package),
+                    backend_list
+                )))
+            }
         }
     }
 }
