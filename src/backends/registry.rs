@@ -34,33 +34,60 @@ struct BackendSource {
     source_file: String,
 }
 
-/// Load all backend configurations from backends.kdl
+/// Load all backend configurations
 ///
-/// This function loads backends ONLY from backends.kdl using explicit imports.
-/// There is NO auto-loading from backends/ directory - all files must be imported.
+/// This function supports two modes:
+/// 1. **New (Explicit Import)**: Backends are imported in declarch.kdl via `backends "backends.kdl"`
+/// 2. **Legacy (Auto-load)**: Backends auto-loaded from `~/.config/declarch/backends.kdl`
+///
+/// Priority: If declarch.kdl exists and has backend imports, use those (new way).
+/// Otherwise, fallback to auto-load from hardcoded path (legacy, deprecated).
 ///
 /// # Returns
 /// - `Ok(HashMap)` - Map of backend name to configuration
 /// - `Err` - If there's an error reading/parsing backend files
 ///
-/// # Architecture
-/// backends.kdl serves as the central aggregator with explicit imports:
+/// # Migration
+/// To migrate from legacy to explicit import, add to declarch.kdl:
 /// ```kdl
-/// import "backends/aur.kdl"
-/// import "backends/flatpak.kdl"
-/// // import "backends/npm.kdl"  // Comment out to disable
+/// backends "backends.kdl"
 /// ```
-///
-/// # Duplicate Detection
-/// If a backend is defined multiple times, a warning is shown and the last
-/// loaded definition wins.
 pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig>> {
     let mut backends: HashMap<String, BackendConfig> = HashMap::new();
     let mut backend_sources: Vec<BackendSource> = Vec::new();
 
-    // Load backends ONLY from backends.kdl (with explicit imports)
+    // NEW: Check if declarch.kdl has explicit backend imports
+    let config_path = paths::config_file()?;
+    let use_explicit_imports = if config_path.exists() {
+        match std::fs::read_to_string(&config_path) {
+            Ok(content) => {
+                // Quick check for 'backends "' or 'backends {' pattern
+                content.contains("backends") && 
+                    (content.contains("backends \"") || content.contains("backends {"))
+            }
+            Err(_) => false,
+        }
+    } else {
+        false
+    };
+
+    if use_explicit_imports {
+        // New way: Backends are loaded via config loader from declarch.kdl imports
+        // This path should not be hit when called from commands that already loaded config
+        // But we keep it for backward compatibility with direct calls
+        output::info("Using explicit backend imports from declarch.kdl");
+    }
+
+    // LEGACY: Auto-load from backends.kdl (deprecated but supported for migration)
     let backends_path = paths::backend_config()?;
     if backends_path.exists() {
+        // Check if this is legacy mode (no explicit imports in declarch.kdl)
+        if !use_explicit_imports && config_path.exists() {
+            output::warning("Auto-loading backends.kdl is deprecated.");
+            output::info("Add the following to declarch.kdl to silence this warning:");
+            output::info("  backends \"backends.kdl\"");
+        }
+        
         let user_backends = user_parser::load_user_backends(&backends_path)?;
         for config in user_backends {
             let source = BackendSource {
@@ -88,8 +115,8 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
         }
     }
 
-    // Note: NO auto-loading from backends/ directory
-    // All backends must be explicitly imported in backends.kdl
+    // Note: When using explicit imports, backends are loaded by config::loader
+    // and should be accessed via MergedConfig.backends
 
     Ok(backends)
 }
