@@ -8,7 +8,6 @@ use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
 use crate::ui as output;
-use rayon::prelude::*;
 use std::collections::HashSet;
 
 pub struct UpgradeOptions {
@@ -107,22 +106,20 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
         return Ok(());
     }
 
-    // Upgrade backends in parallel
+    // Upgrade backends sequentially to avoid interactive TTY conflicts.
     output::info("Upgrading packages...");
     output::separator();
 
-    let upgrade_results: Vec<(String, bool)> = upgradable_backends
-        .into_par_iter()
-        .map(|(name, manager)| {
-            match manager.upgrade() {
-                Ok(()) => (name, true),
-                Err(e) => {
-                    output::warning(&format!("Failed to upgrade '{}': {}", name, e));
-                    (name, false)
-                }
+    let mut upgrade_results = Vec::new();
+    for (name, manager) in upgradable_backends {
+        match manager.upgrade() {
+            Ok(()) => upgrade_results.push((name, true)),
+            Err(e) => {
+                output::warning(&format!("Failed to upgrade '{}': {}", name, e));
+                upgrade_results.push((name, false));
             }
-        })
-        .collect();
+        }
+    }
 
     // Count results
     let upgraded_count = upgrade_results.iter().filter(|(_, success)| *success).count();
