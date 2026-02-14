@@ -94,7 +94,13 @@ pub enum Command {
         ///   declarch init --backend cargo
         ///   declarch init --backend apt --backend cargo
         ///   declarch init --backend apt --backend cargo -y
-        #[arg(long, value_name = "NAME", group = "init_target", num_args = 1..)]
+        #[arg(
+            long,
+            value_name = "NAME",
+            group = "init_target",
+            num_args = 1..,
+            value_delimiter = ','
+        )]
         backend: Vec<String>,
 
         /// List available modules/backends from registry
@@ -625,5 +631,4 @@ pub enum CheckCommand {
         modules: Vec<String>,
     },
 }
-
 
