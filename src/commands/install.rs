@@ -218,7 +218,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             yes: options.yes,
             force: false,
             noconfirm: false,
-            hooks: true,
+            hooks: false,
             modules: modified_modules.clone(),
             diff: false,
         });

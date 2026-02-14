@@ -36,36 +36,42 @@ pub fn acquire_lock() -> Result<StateLock> {
     
     // Check if lock file exists
     if lock_path.exists() {
-        // Check if lock file is stale
         let metadata = fs::metadata(&lock_path)?;
-        
-        if let Ok(modified) = metadata.modified() {
-            let now = SystemTime::now();
-            if let Ok(age) = now.duration_since(modified) {
-                if age.as_secs() > LOCK_TIMEOUT_SECONDS {
-                    ui::warning("Removing stale lock file (older than 5 minutes)");
-                    let _ = fs::remove_file(&lock_path);
-                } else {
-                    // Lock is still valid - check if it's actually held
-                    let existing_file = OpenOptions::new()
-                        .write(true)
-                        .open(&lock_path)?;
-                    
-                    match existing_file.try_lock_exclusive() {
-                        Ok(()) => {
-                            // We got the lock, previous process died without cleaning up
-                            let _ = fs::remove_file(&lock_path);
-                        }
-                        Err(_) => {
-                            return Err(DeclarchError::Other(format!(
-                                "Another declarch process is currently running.\n\
-                                 Lock file: {}\n\
-                                 Wait for it to complete, or delete the lock file if you're sure no other process is running.",
-                                lock_path.display()
-                            )));
-                        }
-                    }
+        let age_secs = metadata
+            .modified()
+            .ok()
+            .and_then(|modified| SystemTime::now().duration_since(modified).ok())
+            .map_or(0, |age| age.as_secs());
+
+        // Verify whether lock is actually held by an active process.
+        // Never remove a lock solely based on file age.
+        let existing_file = OpenOptions::new()
+            .write(true)
+            .open(&lock_path)?;
+
+        match existing_file.try_lock_exclusive() {
+            Ok(()) => {
+                if age_secs > LOCK_TIMEOUT_SECONDS {
+                    ui::warning("Removing stale lock file (not actively locked)");
                 }
+                let _ = fs::remove_file(&lock_path);
+            }
+            Err(_) => {
+                let age_hint = if age_secs > LOCK_TIMEOUT_SECONDS {
+                    format!(
+                        "\nLock appears older than {} seconds but is still actively locked.",
+                        LOCK_TIMEOUT_SECONDS
+                    )
+                } else {
+                    String::new()
+                };
+                return Err(DeclarchError::Other(format!(
+                    "Another declarch process is currently running.\n\
+                     Lock file: {}{}\n\
+                     Wait for it to complete, or delete the lock file if you're sure no other process is running.",
+                    lock_path.display(),
+                    age_hint
+                )));
             }
         }
     }

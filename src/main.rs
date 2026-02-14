@@ -23,6 +23,7 @@ fn main() {
 
     // 2. Parse & Run
     let args = Cli::parse();
+    output::set_quiet(args.global.quiet);
 
     if let Err(e) = declarch::cli::dispatcher::dispatch(&args) {
         output::error(&format!("{}", e));

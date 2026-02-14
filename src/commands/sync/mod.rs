@@ -17,7 +17,7 @@ mod variants;
 pub use planner::{create_transaction, check_variant_transitions, warn_partial_upgrade, display_transaction_plan};
 pub use executor::execute_transaction;
 pub use state_sync::{update_state, update_state_with_success};
-pub use hooks::execute_sync_hooks;
+pub use hooks::{execute_on_failure, execute_on_success, execute_post_sync, execute_pre_sync};
 pub use variants::{find_variant, resolve_installed_package_name};
 
 use crate::config::loader;
@@ -78,10 +78,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
         })?)
     };
 
-    // 1. Target Resolution
-    let sync_target = resolve_target(&options.target);
-
-    // 2. Load Config
+    // 1. Load Config
     let config_path = paths::config_file()?;
     let mut config = if !options.modules.is_empty() {
         if options.modules.len() == 1 && options.target.is_none() {
@@ -93,8 +90,11 @@ pub fn run(options: SyncOptions) -> Result<()> {
         loader::load_root_config(&config_path)?
     };
 
+    // 2. Target Resolution
+    let sync_target = resolve_target(&options.target, &config);
+
     // Execute pre-sync hooks
-    execute_sync_hooks(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_pre_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
     // 3. Initialize Managers & Snapshot
     let (installed_snapshot, managers) =
@@ -111,11 +111,24 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 5. Create Transaction
     let transaction = create_transaction(&mut config, &state, &installed_snapshot, &managers, &sync_target)?;
 
+    // 5.5 Check for dangerous variant transitions and warn about stale updates
+    check_variant_transitions(
+        &config,
+        &installed_snapshot,
+        &state,
+        &transaction,
+        &sync_target,
+        &options,
+    )?;
+    warn_partial_upgrade(&state, &transaction, &options);
+
     // 6. Display Plan
     if transaction.to_install.is_empty() 
         && transaction.to_prune.is_empty() 
         && transaction.to_adopt.is_empty() {
         output::success("Everything is up to date!");
+        execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+        execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
         return Ok(());
     }
 
@@ -139,23 +152,37 @@ pub fn run(options: SyncOptions) -> Result<()> {
             return Err(crate::error::DeclarchError::Interrupted);
         }
 
-        let successfully_installed = execute_transaction(&transaction, &managers, &config, &options)?;
+        let successfully_installed = match execute_transaction(&transaction, &managers, &config, &options) {
+            Ok(installed) => installed,
+            Err(e) => {
+                let _ = execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                return Err(e);
+            }
+        };
 
-        // 8. Update State with only successfully installed packages
+        // 8. Refresh installed snapshot and update state with successful packages
+        let post_execution_snapshot = refresh_installed_snapshot(&managers);
+
         let new_state = update_state_with_success(
             &state,
             &transaction,
-            &installed_snapshot,
+            &post_execution_snapshot,
             &options,
             &successfully_installed,
         )?;
         
         // Save state with lock held (ensures no concurrent modifications)
         if let Some(ref lock) = lock {
-            state::io::save_state_locked(&new_state, lock)?;
+            if let Err(e) = state::io::save_state_locked(&new_state, lock) {
+                let _ = execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                return Err(e);
+            }
         } else {
             // This shouldn't happen for non-dry-run, but handle gracefully
-            state::io::save_state(&new_state)?;
+            if let Err(e) = state::io::save_state(&new_state) {
+                let _ = execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                return Err(e);
+            }
         }
     } else {
         // Dry-run complete
@@ -163,7 +190,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // Execute post-sync hooks
-    execute_sync_hooks(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
 
     Ok(())
 }
@@ -213,10 +241,23 @@ fn show_sync_diff(
     output::info("Run 'declarch sync' to apply these changes");
 }
 
-fn resolve_target(target: &Option<String>) -> SyncTarget {
+fn resolve_target(target: &Option<String>, config: &loader::MergedConfig) -> SyncTarget {
     if let Some(t) = target {
-        // Accept any backend name directly
-        SyncTarget::Backend(Backend::from(t.as_str()))
+        let normalized_backend = Backend::from(t.as_str());
+        let matches_backend_in_packages = config
+            .packages
+            .keys()
+            .any(|pkg_id| pkg_id.backend == normalized_backend);
+        let matches_backend_in_imports = config
+            .backends
+            .iter()
+            .any(|backend| backend.name.eq_ignore_ascii_case(t));
+
+        if matches_backend_in_packages || matches_backend_in_imports {
+            SyncTarget::Backend(normalized_backend)
+        } else {
+            SyncTarget::Named(t.clone())
+        }
     } else {
         SyncTarget::All
     }
@@ -283,6 +324,35 @@ fn initialize_managers_and_snapshot(
     }
 
     Ok((installed_snapshot, managers))
+}
+
+fn refresh_installed_snapshot(managers: &ManagerMap) -> InstalledSnapshot {
+    let mut snapshot = InstalledSnapshot::new();
+    for (backend, manager) in managers {
+        if !manager.is_available() {
+            continue;
+        }
+        match manager.list_installed() {
+            Ok(packages) => {
+                for (name, meta) in packages {
+                    snapshot.insert(
+                        PackageId {
+                            name,
+                            backend: backend.clone(),
+                        },
+                        meta,
+                    );
+                }
+            }
+            Err(e) => {
+                output::warning(&format!(
+                    "Failed to refresh package snapshot for {}: {}",
+                    backend, e
+                ));
+            }
+        }
+    }
+    snapshot
 }
 
 /// Execute update for all backends that support it

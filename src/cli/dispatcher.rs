@@ -98,13 +98,17 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             command,
             duplicates,
             conflicts,
-            only_duplicates: _,
-            only_conflicts: _,
+            only_duplicates,
+            only_conflicts,
             validate,
         }) => {
             // Handle deprecated flags
             let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_check_flags(*duplicates, *conflicts, *validate);
+                handle_deprecated_check_flags(
+                    *duplicates || *only_duplicates,
+                    *conflicts || *only_conflicts,
+                    *validate,
+                );
 
             // Use the command from subcommand if provided, otherwise use deprecated flags
             let check_cmd = command

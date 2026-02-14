@@ -175,7 +175,7 @@ pub fn show_deprecation_warning(new_command: &str) {
         "Deprecated flag usage. Please use: {}",
         new_command.cyan()
     ));
-    output::info("Old flags will be removed in v0.7.0");
+    output::info("Old flags will be removed in a future major/minor release");
 }
 
 /// Convert SyncCommand to sync::run options

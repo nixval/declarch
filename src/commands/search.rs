@@ -335,13 +335,13 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
         return Ok(backend_list.iter().map(|b| Backend::from(b.as_str())).collect());
     }
 
-    // Load backends from config (import-based or legacy fallback)
-    let backends_to_use = crate::backends::load_backends_from_config();
+    // Load backends from unified source (explicit imports + legacy fallback)
+    let backends_to_use = crate::backends::load_all_backends_unified()?;
     
     let mut result = Vec::new();
-    for config in backends_to_use {
+    for (name, config) in backends_to_use {
         if config.search_cmd.is_some() {
-            result.push(Backend::from(config.name));
+            result.push(Backend::from(name));
         }
     }
     
@@ -354,10 +354,11 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
 }
 
 fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManager>> {
-    // First try to load from config (import-based architecture)
-    let config_backends = crate::backends::load_backends_from_config();
-    
-    if let Some(backend_config) = config_backends.into_iter().find(|b| b.name == backend.name()) {
+    // First try unified backend config source
+    if let Some(backend_config) = crate::backends::load_all_backends_unified()?
+        .into_values()
+        .find(|b| b.name == backend.name())
+    {
         // Create manager directly from config
         return create_manager_from_config(&backend_config);
     }
