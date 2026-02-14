@@ -24,6 +24,10 @@ meta {{
 // To use env var instead: delete this line, then export EDITOR=nvim
 editor "nano"
 
+backends {{
+    "backends.kdl"
+}}
+
 imports {{
     "modules/base.kdl"
     // Add more modules here
