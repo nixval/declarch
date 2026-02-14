@@ -142,42 +142,59 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     // STEP 7: Write backend file (KDL already validated or bypassed)
     fs::write(&backend_file, &backend_content)?;
 
-    // STEP 8: Prompt for auto-import (skip if force)
-    let want_import = if force {
-        true
-    } else {
-        output::prompt_yes_no("Need to import this automatically to backends.kdl")
-    };
+    // STEP 8: Auto-import logic
+    // Check if backends.kdl exists
+    let backends_kdl_path = root_dir.join("backends.kdl");
+    let declarch_kdl_path = root_dir.join("declarch.kdl");
+    
+    if backends_kdl_path.exists() {
+        // Standard flow: import to backends.kdl
+        let want_import = if force {
+            true
+        } else {
+            output::prompt_yes_no("Import this backend to backends.kdl")
+        };
 
-    if want_import {
-        let backends_kdl_path = root_dir.join("backends.kdl");
-        let import_result = add_backend_import(&backends_kdl_path, &sanitized_name);
-        
-        match import_result {
-            Ok(ImportResult::Added) => {
-                println!("Backend '{}' adopted.", sanitized_name);
+        if want_import {
+            let import_result = add_backend_import(&backends_kdl_path, &sanitized_name);
+            
+            match import_result {
+                Ok(ImportResult::Added) |
+                Ok(ImportResult::AlreadyImported) |
+                Ok(ImportResult::AlreadyExistsInline) => {
+                    println!("Backend '{}' adopted.", sanitized_name);
+                }
+                Ok(ImportResult::FileNotFound) |
+                Ok(ImportResult::NoImportsBlock) => {
+                    output::warning("Could not auto-import. Please add to backends.kdl manually:");
+                    output::info(&format!(r#"    "backends/{}.kdl""#, sanitized_name));
+                }
+                Err(e) => {
+                    output::warning(&format!("Could not auto-import: {}", e));
+                }
             }
-            Ok(ImportResult::AlreadyImported) => {
-                // Import already exists
-                println!("Backend '{}' adopted.", sanitized_name);
-            }
-            Ok(ImportResult::AlreadyExistsInline) => {
-                // Backend defined inline (built-in)
-                println!("Backend '{}' adopted.", sanitized_name);
-            }
-            Ok(ImportResult::FileNotFound) => {
-                output::warning("not automatically imported, please import it manually");
-            }
-            Ok(ImportResult::NoImportsBlock) => {
-                output::warning("not automatically imported, please import it manually");
-            }
-            Err(e) => {
-                // Error during import
-                output::warning(&format!("not automatically imported: {}", e));
-            }
+        } else {
+            println!("Backend '{}' fetched. Add to backends.kdl to use:", sanitized_name);
+            output::info(&format!(r#"    "backends/{}.kdl""#, sanitized_name));
         }
     } else {
-        println!("Backend '{}' fetched. please import it to use it", sanitized_name);
+        // backends.kdl doesn't exist: import directly to declarch.kdl
+        let import_result = add_backend_to_declarch(&declarch_kdl_path, &sanitized_name);
+        
+        match import_result {
+            Ok(true) => {
+                println!("Backend '{}' adopted (added to declarch.kdl).", sanitized_name);
+            }
+            Ok(false) => {
+                // backends {} block not found, manual import needed
+                println!("Backend '{}' fetched. Add to declarch.kdl to use:", sanitized_name);
+                output::info(&format!("backends {{\"backends/{}.kdl\"}}", sanitized_name));
+            }
+            Err(e) => {
+                output::warning(&format!("Could not auto-import: {}", e));
+                output::info(&format!("Add manually to declarch.kdl: backends {{\"backends/{}.kdl\"}}", sanitized_name));
+            }
+        }
     }
 
     Ok(())
@@ -247,6 +264,53 @@ pub fn remove_backend_import(backends_kdl_path: &Path, backend_name: &str) -> Re
     let new_content = re.replace_all(&content, "").to_string();
     fs::write(backends_kdl_path, new_content)?;
     Ok(())
+}
+
+/// Add backend import directly to declarch.kdl (fallback when backends.kdl doesn't exist)
+/// 
+/// Returns:
+/// - Ok(true): Successfully added
+/// - Ok(false): backends {} block not found, manual import needed
+/// - Err: Error during file operation
+pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> Result<bool> {
+    if !declarch_kdl_path.exists() {
+        return Err(DeclarchError::Other(
+            format!("declarch.kdl not found at {}", declarch_kdl_path.display())
+        ));
+    }
+    
+    let content = fs::read_to_string(declarch_kdl_path)?;
+    let import_path = format!("backends/{}.kdl", backend_name);
+    
+    // Check if already imported
+    let existing_pattern = format!(r#""{}""#, regex::escape(&import_path));
+    if Regex::new(&existing_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+        return Ok(true); // Already exists
+    }
+    
+    // Look for backends { ... } block
+    let backends_re = Regex::new(r#"(?m)^(	*backends)"#)
+        .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
+    
+    if !backends_re.is_match(&content) {
+        // No backends block found - user needs to add manually
+        return Ok(false);
+    }
+    
+    // Find backends block and add import line
+    // Pattern matches: backends { or backends "existing" {
+    let backends_block_re = Regex::new(r#"(?m)^(	*backends(?:	*"[^"]*")?	*
+?)"#)
+        .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
+    
+    let import_line = format!(r#"    "{}""#, import_path);
+    
+    let new_content = backends_block_re.replace(&content, |caps: &regex::Captures| {
+        format!("{}\n{}", &caps[0], import_line)
+    }).to_string();
+    
+    fs::write(declarch_kdl_path, new_content)?;
+    Ok(true)
 }
 
 /// Backend meta information extracted from KDL
