@@ -94,6 +94,14 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 2. Target Resolution
     let sync_target = resolve_target(&options.target, &config);
+    if let SyncTarget::Named(query) = &sync_target
+        && !named_target_exists(&config, query)
+    {
+        return Err(crate::error::DeclarchError::Other(format!(
+            "No package or module matched target '{}'",
+            query
+        )));
+    }
 
     // Execute pre-sync hooks
     execute_pre_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
@@ -264,6 +272,26 @@ fn resolve_target(target: &Option<String>, config: &loader::MergedConfig) -> Syn
     } else {
         SyncTarget::All
     }
+}
+
+fn named_target_exists(config: &loader::MergedConfig, query: &str) -> bool {
+    let query_lower = query.to_lowercase();
+
+    for (pkg_id, sources) in &config.packages {
+        if pkg_id.name == query {
+            return true;
+        }
+
+        for source in sources {
+            if let Some(stem) = source.file_stem()
+                && stem.to_string_lossy().to_lowercase() == query_lower
+            {
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 fn initialize_managers_and_snapshot(
