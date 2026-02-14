@@ -4,10 +4,12 @@
 //! Results from faster backends are displayed immediately without waiting for slower ones.
 
 use crate::core::types::Backend;
+use crate::config::loader;
 use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
+use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -83,8 +85,17 @@ pub fn run(options: SearchOptions) -> Result<()> {
         local: options.local,
     };
 
+    let runtime_config = load_runtime_config_for_overrides();
+
+    let mut backend_configs = crate::backends::load_all_backends_unified()?;
+    for (name, cfg) in &mut backend_configs {
+        crate::commands::sync::apply_backend_option_overrides(cfg, name, &runtime_config);
+        crate::commands::sync::apply_backend_env_overrides(cfg, name, &runtime_config);
+        crate::commands::sync::apply_backend_package_sources(cfg, name, &runtime_config);
+    }
+
     // Get backends to search
-    let backends_to_search = get_backends_to_search(&updated_options)?;
+    let backends_to_search = get_backends_to_search(&updated_options, &backend_configs)?;
 
     if backends_to_search.is_empty() {
         output::warning("No backends available for search");
@@ -101,8 +112,6 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Spawn a thread for each backend
     let query_clone = actual_query.clone();
     let local_mode = options.local;
-    let backend_configs = crate::backends::load_all_backends_unified()?;
-
     for backend in backends_to_search {
         let Some(backend_config) = backend_configs.get(backend.name()).cloned() else {
             output::warning(&format!(
@@ -340,11 +349,12 @@ fn print_search_result(result: &PackageSearchResult) {
     }
 }
 
-fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
-    // Load backends from unified source (explicit imports + legacy fallback)
-    let backends_to_use = crate::backends::load_all_backends_unified()?;
+fn get_backends_to_search(
+    options: &SearchOptions,
+    backend_configs: &HashMap<String, crate::backends::config::BackendConfig>,
+) -> Result<Vec<Backend>> {
     let (result, unknown, unsupported) = select_backends_to_search(
-        &backends_to_use,
+        backend_configs,
         options.backends.as_ref(),
         options.local,
     );
@@ -375,6 +385,22 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
     }
 
     Ok(result)
+}
+
+fn load_runtime_config_for_overrides() -> loader::MergedConfig {
+    match paths::config_file() {
+        Ok(path) if path.exists() => match loader::load_root_config(&path) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                output::warning(&format!(
+                    "Failed to load config overrides for search command: {}",
+                    e
+                ));
+                loader::MergedConfig::default()
+            }
+        },
+        _ => loader::MergedConfig::default(),
+    }
 }
 
 fn select_backends_to_search(
