@@ -225,10 +225,31 @@ fn determine_backend(package_name: &str, backend_opt: Option<String>) -> Result<
         if let Some((backend, _)) = package_name.split_once(':') {
             Ok(Backend::from(backend))
         } else {
-            // No prefix and no explicit backend - error
-            Err(DeclarchError::Other(
-                "Cannot determine backend. Use 'backend:package' syntax or --backend flag".to_string()
-            ))
+            // No prefix and no explicit backend - show helpful error with available backends
+            let registry = crate::packages::get_registry();
+            let backends = registry.lock()
+                .map(|r| r.available_backends())
+                .unwrap_or_default();
+            
+            let backend_list = if backends.is_empty() {
+                "No backends configured. Run 'declarch init' first.".to_string()
+            } else {
+                format!("Available backends: {}", backends.join(", "))
+            };
+            
+            Err(DeclarchError::Other(format!(
+                "Cannot determine backend for '{}'.\n\n\
+                 Use explicit syntax:\n\
+                   declarch switch {}:{} {}:{}\n\n\
+                 Or specify backend:\n\
+                   declarch switch {} {} --backend <BACKEND>\n\n\
+                 {}",
+                package_name,
+                backends.first().unwrap_or(&"BACKEND".to_string()), package_name,
+                backends.first().unwrap_or(&"BACKEND".to_string()), package_name,
+                package_name, package_name,
+                backend_list
+            )))
         }
     }
 }
