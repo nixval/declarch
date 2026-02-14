@@ -74,6 +74,8 @@ pub struct MergedConfig {
     pub lifecycle_actions: Option<LifecycleConfig>,
     /// Preferred editor from KDL config
     pub editor: Option<String>,
+    /// Backend definitions loaded from imports
+    pub backends: Vec<crate::backends::config::BackendConfig>,
 }
 
 impl MergedConfig {

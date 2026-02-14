@@ -49,6 +49,10 @@ pub struct RawConfig {
 
     /// Pre/post sync lifecycle actions
     pub lifecycle_actions: LifecycleConfig,
+    
+    /// Backend definition imports (paths to backend files)
+    /// These define which backends are available for package operations
+    pub backend_imports: Vec<String>,
 }
 
 /// Package entry (minimal - just name for now)
