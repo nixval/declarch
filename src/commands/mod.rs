@@ -10,4 +10,5 @@ pub mod list;
 pub mod search;
 pub mod switch;
 pub mod sync;
+pub mod runtime_overrides;
 pub mod upgrade;

@@ -4,12 +4,13 @@
 //! Results from faster backends are displayed immediately without waiting for slower ones.
 
 use crate::core::types::Backend;
-use crate::config::loader;
+use crate::commands::runtime_overrides::{
+    apply_runtime_backend_overrides, load_runtime_config_for_command,
+};
 use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
-use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -85,13 +86,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
         local: options.local,
     };
 
-    let runtime_config = load_runtime_config_for_overrides();
+    let runtime_config = load_runtime_config_for_command("search command");
 
     let mut backend_configs = crate::backends::load_all_backends_unified()?;
     for (name, cfg) in &mut backend_configs {
-        crate::commands::sync::apply_backend_option_overrides(cfg, name, &runtime_config);
-        crate::commands::sync::apply_backend_env_overrides(cfg, name, &runtime_config);
-        crate::commands::sync::apply_backend_package_sources(cfg, name, &runtime_config);
+        apply_runtime_backend_overrides(cfg, name, &runtime_config);
     }
 
     // Get backends to search
@@ -385,22 +384,6 @@ fn get_backends_to_search(
     }
 
     Ok(result)
-}
-
-fn load_runtime_config_for_overrides() -> loader::MergedConfig {
-    match paths::config_file() {
-        Ok(path) if path.exists() => match loader::load_root_config(&path) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                output::warning(&format!(
-                    "Failed to load config overrides for search command: {}",
-                    e
-                ));
-                loader::MergedConfig::default()
-            }
-        },
-        _ => loader::MergedConfig::default(),
-    }
 }
 
 fn select_backends_to_search(

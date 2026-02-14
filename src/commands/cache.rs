@@ -3,11 +3,12 @@
 //! Cleans package manager caches for configured backends.
 
 use crate::backends::load_all_backends_unified;
-use crate::config::loader;
 use crate::packages::traits::PackageManager;
 use crate::error::Result;
+use crate::commands::runtime_overrides::{
+    apply_runtime_backend_overrides, load_runtime_config_for_command,
+};
 use crate::ui as output;
-use crate::utils::paths;
 use std::collections::HashSet;
 
 pub struct CacheOptions {
@@ -59,19 +60,7 @@ pub fn run(options: CacheOptions) -> Result<()> {
         return Ok(());
     }
 
-    let runtime_config = match paths::config_file() {
-        Ok(path) if path.exists() => match loader::load_root_config(&path) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                output::warning(&format!(
-                    "Failed to load config overrides for cache command: {}",
-                    e
-                ));
-                loader::MergedConfig::default()
-            }
-        },
-        _ => loader::MergedConfig::default(),
-    };
+    let runtime_config = load_runtime_config_for_command("cache command");
 
     // First pass: check which backends can clean cache
     let mut cleanable_backends = Vec::new();
@@ -79,9 +68,7 @@ pub fn run(options: CacheOptions) -> Result<()> {
     let mut skipped_not_available = Vec::new();
 
     for (name, mut config) in backends_to_clean {
-        crate::commands::sync::apply_backend_option_overrides(&mut config, &name, &runtime_config);
-        crate::commands::sync::apply_backend_env_overrides(&mut config, &name, &runtime_config);
-        crate::commands::sync::apply_backend_package_sources(&mut config, &name, &runtime_config);
+        apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
 
         if config.cache_clean_cmd.is_none() {
             skipped_no_cmd.push(name);

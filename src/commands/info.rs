@@ -1,4 +1,7 @@
 use crate::config::loader;
+use crate::commands::runtime_overrides::{
+    apply_runtime_backend_overrides, load_runtime_config_for_command,
+};
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
 use crate::state;
@@ -289,39 +292,13 @@ fn run_doctor() -> Result<()> {
 /// Check backends dynamically from config
 fn check_backends_dynamically() -> Result<Vec<String>> {
     let mut available = Vec::new();
-    let runtime_config = match paths::config_file() {
-        Ok(path) if path.exists() => match loader::load_root_config(&path) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                output::warning(&format!(
-                    "Failed to load config overrides for doctor backend checks: {}",
-                    e
-                ));
-                loader::MergedConfig::default()
-            }
-        },
-        _ => loader::MergedConfig::default(),
-    };
+    let runtime_config = load_runtime_config_for_command("doctor backend checks");
     
     // Load backend configs (import-based or legacy)
     match crate::backends::load_all_backends_unified() {
         Ok(backends) => {
             for (name, mut config) in backends {
-                crate::commands::sync::apply_backend_option_overrides(
-                    &mut config,
-                    &name,
-                    &runtime_config,
-                );
-                crate::commands::sync::apply_backend_env_overrides(
-                    &mut config,
-                    &name,
-                    &runtime_config,
-                );
-                crate::commands::sync::apply_backend_package_sources(
-                    &mut config,
-                    &name,
-                    &runtime_config,
-                );
+                apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
 
                 let manager = crate::backends::GenericManager::from_config(
                     config,
