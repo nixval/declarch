@@ -156,16 +156,36 @@ impl crate::traits::BackendRegistry for FilesystemBackendRegistry {
 /// - Config file doesn't exist
 /// - No backends are defined in the config
 pub fn load_backends_from_config() -> crate::error::Result<Vec<BackendConfig>> {
+    let (backends, _) = load_backends_from_config_with_sources()?;
+    Ok(backends)
+}
+
+/// Load backends and source paths from declarch.kdl config (import-based architecture).
+pub fn load_backends_from_config_with_sources(
+) -> crate::error::Result<(Vec<BackendConfig>, HashMap<String, Vec<String>>)> {
     use crate::utils::paths;
     
     let config_path = paths::config_file()?;
     
     if !config_path.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), HashMap::new()));
     }
     
     let config = crate::config::loader::load_root_config(&config_path)?;
-    Ok(config.backends)
+    let backend_sources = config
+        .backend_sources
+        .into_iter()
+        .map(|(name, paths)| {
+            (
+                name,
+                paths
+                    .into_iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    Ok((config.backends, backend_sources))
 }
 
 /// Load all backends using the best available method
@@ -180,7 +200,7 @@ pub fn load_all_backends_unified() -> crate::error::Result<HashMap<String, Backe
 
     if config_uses_explicit_backends(&config_path)? {
         // Explicit import mode is authoritative: do not silently fall back.
-        let config_backends = load_backends_from_config()?;
+        let (config_backends, source_map) = load_backends_from_config_with_sources()?;
         let mut map = HashMap::new();
         let mut duplicate_names = Vec::new();
         for backend in config_backends {
@@ -193,16 +213,36 @@ pub fn load_all_backends_unified() -> crate::error::Result<HashMap<String, Backe
         if !duplicate_names.is_empty() {
             duplicate_names.sort();
             duplicate_names.dedup();
-            let names = duplicate_names.join(", ");
+            let detail_lines = duplicate_names
+                .iter()
+                .map(|name| {
+                    let sources = source_map.get(name).cloned().unwrap_or_default();
+                    let winner = sources
+                        .last()
+                        .cloned()
+                        .unwrap_or_else(|| "unknown source".to_string());
+                    if sources.is_empty() {
+                        format!("  - {}: winner={}", name, winner)
+                    } else {
+                        format!(
+                            "  - {}: sources=[{}], winner={}",
+                            name,
+                            sources.join(", "),
+                            winner
+                        )
+                    }
+                })
+                .collect::<Vec<_>>();
+            let details = detail_lines.join("\n");
             if strict_backend_mode_enabled() {
                 return Err(DeclarchError::ConfigError(format!(
-                    "Duplicate backend definitions found in explicit imports: {}",
-                    names
+                    "Duplicate backend definitions found in explicit imports:\n{}",
+                    details
                 )));
             }
             output::warning(&format!(
-                "Duplicate backend definitions found: {}. Using the last imported definition.",
-                names
+                "Duplicate backend definitions found; using the last imported definition:\n{}",
+                details
             ));
         }
         return Ok(map);

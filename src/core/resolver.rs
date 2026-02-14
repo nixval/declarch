@@ -152,6 +152,7 @@ mod tests {
             lifecycle_actions: None,
             editor: None,
             backends: vec![],
+            backend_sources: std::collections::HashMap::new(),
         }
     }
 

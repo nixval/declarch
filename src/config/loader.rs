@@ -76,6 +76,8 @@ pub struct MergedConfig {
     pub editor: Option<String>,
     /// Backend definitions loaded from imports
     pub backends: Vec<crate::backends::config::BackendConfig>,
+    /// Source files for each backend definition in load order
+    pub backend_sources: HashMap<String, Vec<PathBuf>>,
 }
 
 impl MergedConfig {
@@ -280,6 +282,11 @@ fn recursive_load(
                                 backend_path.display()
                             );
                         }
+                        merged
+                            .backend_sources
+                            .entry(backend.name.clone())
+                            .or_default()
+                            .push(backend_path.clone());
                         merged.backends.push(backend);
                     }
                 }
