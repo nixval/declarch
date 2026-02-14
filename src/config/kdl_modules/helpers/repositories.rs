@@ -34,7 +34,16 @@ pub fn parse_repositories(node: &KdlNode, repos: &mut HashMap<String, Vec<String
     }
 
     if !repo_urls.is_empty() {
-        repos.insert(backend_name, repo_urls);
+        let entry = repos.entry(backend_name).or_default();
+        for url in repo_urls {
+            let trimmed = url.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if !entry.iter().any(|existing| existing == trimmed) {
+                entry.push(trimmed.to_string());
+            }
+        }
     }
 
     Ok(())
