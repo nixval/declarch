@@ -151,6 +151,7 @@ mod tests {
             policy: None,
             lifecycle_actions: None,
             editor: None,
+            backends: vec![],
         }
     }
 
