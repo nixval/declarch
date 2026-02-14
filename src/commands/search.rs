@@ -101,13 +101,30 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Spawn a thread for each backend
     let query_clone = actual_query.clone();
     let local_mode = options.local;
+    let backend_configs = crate::backends::load_all_backends_unified()?;
 
     for backend in backends_to_search {
+        let Some(backend_config) = backend_configs.get(backend.name()).cloned() else {
+            output::warning(&format!(
+                "Skipping '{}': backend configuration not found",
+                backend
+            ));
+            continue;
+        };
+
+        let manager = match create_manager_from_config(&backend_config) {
+            Ok(m) => m,
+            Err(e) => {
+                output::warning(&format!("Skipping '{}': {}", backend, e));
+                continue;
+            }
+        };
+
         let tx = tx.clone();
         let query = query_clone.clone();
 
         thread::spawn(move || {
-            let result = search_single_backend(&backend, &query, local_mode, effective_limit);
+            let result = search_single_backend(manager, &query, local_mode, effective_limit);
             
             // Send result (ignore errors if receiver dropped)
             match result {
@@ -205,16 +222,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
 /// Search a single backend
 /// Returns a std::result::Result (not crate::error::Result) since this runs in a thread
 fn search_single_backend(
-    backend: &Backend,
+    manager: Box<dyn PackageManager>,
     query: &str,
     local_mode: bool,
     limit: Option<usize>,
 ) -> std::result::Result<(Vec<PackageSearchResult>, usize), String> {
-    let manager = match create_manager_for_backend(backend) {
-        Ok(m) => m,
-        Err(e) => return Err(format!("Initialization failed: {}", e)),
-    };
-
     if local_mode {
         if !manager.supports_search_local() {
             return Err("Does not support local search".to_string());
@@ -401,28 +413,6 @@ fn select_backends_to_search(
     }
 
     (selected, unknown, unsupported)
-}
-
-fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManager>> {
-    // First try unified backend config source
-    if let Some(backend_config) = crate::backends::load_all_backends_unified()?
-        .into_values()
-        .find(|b| b.name == backend.name())
-    {
-        // Create manager directly from config
-        return create_manager_from_config(&backend_config);
-    }
-    
-    // Fallback to registry (legacy architecture)
-    use crate::packages::create_manager;
-    let global_config = crate::config::types::GlobalConfig::default();
-
-    create_manager(backend, &global_config, false).map_err(|e| {
-        crate::error::DeclarchError::Other(format!(
-            "Failed to create manager for {}: {}",
-            backend, e
-        ))
-    })
 }
 
 /// Create manager from backend config directly (for import-based architecture)
