@@ -506,12 +506,23 @@ fn apply_backend_package_sources(
     backend_name: &str,
     config: &loader::MergedConfig,
 ) {
-    let mut sources = backend_config.package_sources.clone().unwrap_or_default();
+    let mut sources = backend_config
+        .package_sources
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
 
     if let Some(repo_sources) = config.package_sources.get(backend_name) {
         for src in repo_sources {
-            if !sources.contains(src) {
-                sources.push(src.clone());
+            let trimmed = src.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if !sources.iter().any(|s| s == trimmed) {
+                sources.push(trimmed.to_string());
             }
         }
     }
@@ -852,5 +863,35 @@ mod tests {
         assert!(named_target_exists(&merged, "bat"));
         assert!(named_target_exists(&merged, "devtools"));
         assert!(!named_target_exists(&merged, "unknown"));
+    }
+
+    #[test]
+    fn test_apply_backend_package_sources_normalizes_and_dedupes() {
+        let mut backend = BackendConfig {
+            name: "paru".to_string(),
+            package_sources: Some(vec!["core".to_string(), " extra ".to_string()]),
+            ..Default::default()
+        };
+        let mut merged = loader::MergedConfig::default();
+        merged.package_sources.insert(
+            "paru".to_string(),
+            vec![
+                "extra".to_string(),
+                "multilib".to_string(),
+                "   ".to_string(),
+                "core".to_string(),
+            ],
+        );
+
+        apply_backend_package_sources(&mut backend, "paru", &merged);
+
+        assert_eq!(
+            backend.package_sources,
+            Some(vec![
+                "core".to_string(),
+                "extra".to_string(),
+                "multilib".to_string()
+            ])
+        );
     }
 }
