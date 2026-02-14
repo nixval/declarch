@@ -250,14 +250,57 @@ fn recursive_load(
         merged_hooks.actions.extend(raw.lifecycle_actions.actions);
     }
 
-    // Process imports
+    // Process backend imports (NEW: explicit backend loading)
     let parent_dir = canonical_path.parent().ok_or_else(|| {
         DeclarchError::Other(format!(
             "Cannot determine parent directory for config file: {}",
             canonical_path.display()
         ))
     })?;
+    
+    for backend_import in raw.backend_imports {
+        let backend_path = if backend_import.starts_with("~/") {
+            expand_home(PathBuf::from(backend_import.clone()).as_path())?
+        } else if backend_import.starts_with('/') {
+            PathBuf::from(backend_import.clone())
+        } else {
+            // Relative to parent directory
+            parent_dir.join(backend_import.clone())
+        };
+        
+        if backend_path.exists() {
+            match crate::backends::user_parser::load_user_backends(&backend_path) {
+                Ok(backends) => {
+                    for backend in backends {
+                        // Check for duplicate backend names
+                        if merged.backends.iter().any(|b| b.name == backend.name) {
+                            eprintln!(
+                                "Warning: Duplicate backend '{}' from '{}'",
+                                backend.name,
+                                backend_path.display()
+                            );
+                        }
+                        merged.backends.push(backend);
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to load backends from '{}': {}",
+                        backend_path.display(),
+                        e
+                    );
+                }
+            }
+        } else {
+            return Err(DeclarchError::ConfigError(format!(
+                "Backend import not found: '{}' (resolved to: {})",
+                backend_import,
+                backend_path.display()
+            )));
+        }
+    }
 
+    // Process regular imports (modules)
     for import_str in raw.imports {
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
             PathBuf::from(import_str)
