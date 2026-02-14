@@ -20,5 +20,5 @@ pub use crate::config::kdl_modules::parser::{parse_kdl_content, parse_kdl_conten
 
 // Re-export helper functions for backward compatibility
 pub use crate::config::kdl_modules::helpers::{
-    conflicts, env, hooks, meta, package_mappings, packages, policy, repositories,
+    conflicts, env, hooks, meta, packages, policy, repositories,
 };
