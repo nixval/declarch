@@ -4,10 +4,9 @@
 //! then automatically syncs to adopt the changes into state.
 
 use crate::backends::load_all_backends_unified;
-use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::error::Result;
-use crate::packages::create_manager;
+use crate::packages::traits::PackageManager;
 use crate::ui as output;
 use rayon::prelude::*;
 use std::collections::HashSet;
@@ -64,8 +63,6 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
         return Ok(());
     }
 
-    let global_config = GlobalConfig::default();
-
     // First pass: check which backends can be upgraded
     let mut upgradable_backends = Vec::new();
     let mut skipped_no_cmd = Vec::new();
@@ -77,17 +74,17 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             continue;
         }
         
-        match create_manager(&Backend::from(name.as_str()), &global_config, false) {
-            Ok(manager) => {
-                if manager.is_available() && manager.supports_upgrade() {
-                    upgradable_backends.push((name, manager));
-                } else if !manager.is_available() {
-                    skipped_not_available.push(name);
-                }
-            }
-            Err(_) => {
-                skipped_not_available.push(name);
-            }
+        let manager: Box<dyn PackageManager> = Box::new(crate::backends::GenericManager::from_config(
+            config,
+            Backend::from(name.as_str()),
+            false,
+        ));
+        if manager.is_available() && manager.supports_upgrade() {
+            upgradable_backends.push((name, manager));
+        } else if !manager.is_available() {
+            skipped_not_available.push(name);
+        } else if options.verbose {
+            output::warning(&format!("Skipped '{}': upgrade not supported", name));
         }
     }
 
