@@ -50,8 +50,11 @@ pub fn update_state_with_success(
             continue;
         }
 
-        let meta = find_package_metadata(pkg, installed_snapshot);
-        let version = meta.and_then(|m| m.version.clone());
+        let (version, actual_name) = if let Some((meta, name)) = find_package_info(pkg, installed_snapshot) {
+            (meta.version.clone(), name)
+        } else {
+            (None, None)
+        };
         let key = resolver::make_state_key(pkg);
 
         state.packages.insert(
@@ -60,7 +63,7 @@ pub fn update_state_with_success(
                 backend: pkg.backend.clone(),
                 config_name: pkg.name.clone(),
                 provides_name: pkg.name.clone(),
-                actual_package_name: None,
+                actual_package_name: actual_name,
                 installed_at: Utc::now(),
                 version,
             },
@@ -70,8 +73,11 @@ pub fn update_state_with_success(
 
     // Process adoptions (these are already installed, so always add)
     for pkg in &transaction.to_adopt {
-        let meta = find_package_metadata(pkg, installed_snapshot);
-        let version = meta.and_then(|m| m.version.clone());
+        let (version, actual_name) = if let Some((meta, name)) = find_package_info(pkg, installed_snapshot) {
+            (meta.version.clone(), name)
+        } else {
+            (None, None)
+        };
         let key = resolver::make_state_key(pkg);
 
         state.packages.insert(
@@ -80,7 +86,7 @@ pub fn update_state_with_success(
                 backend: pkg.backend.clone(),
                 config_name: pkg.name.clone(),
                 provides_name: pkg.name.clone(),
-                actual_package_name: None,
+                actual_package_name: actual_name,
                 installed_at: Utc::now(),
                 version,
             },
@@ -105,18 +111,23 @@ pub fn update_state_with_success(
     Ok(state)
 }
 
-/// Find metadata for a package using smart matching
-fn find_package_metadata<'a>(
+/// Find package info using smart matching
+/// Returns (metadata, actual_package_name) where actual_package_name is the
+/// real name from system (may differ from config name for variants)
+fn find_package_info<'a>(
     pkg: &PackageId,
     installed_snapshot: &'a InstalledSnapshot,
-) -> Option<&'a PackageMetadata> {
+) -> Option<(&'a PackageMetadata, Option<String>)> {
     // Try exact match first
     if let Some(meta) = installed_snapshot.get(pkg) {
-        return Some(meta);
+        return Some((meta, None)); // No variant, actual == config
     }
 
-    // Use PackageMatcher for smart matching
+    // Use PackageMatcher for smart matching (variant detection)
     let matcher = crate::core::matcher::PackageMatcher::new();
     let matched_id = matcher.find_package(pkg, installed_snapshot)?;
-    installed_snapshot.get(&matched_id)
+    let meta = installed_snapshot.get(&matched_id)?;
+    
+    // Return metadata + actual package name (variant)
+    Some((meta, Some(matched_id.name.clone())))
 }
