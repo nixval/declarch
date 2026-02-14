@@ -387,17 +387,35 @@ fn apply_backend_option_overrides(
     };
 
     for (key, value) in options {
+        let normalized = value.trim();
+        let disable = normalized == "-";
+
         match key.as_str() {
-            "noconfirm_flag" => backend_config.noconfirm_flag = Some(value.clone()),
-            "fallback" => backend_config.fallback = Some(value.clone()),
-            "install_cmd" => backend_config.install_cmd = value.clone(),
-            "remove_cmd" => backend_config.remove_cmd = Some(value.clone()),
-            "list_cmd" => backend_config.list_cmd = Some(value.clone()),
-            "search_cmd" => backend_config.search_cmd = Some(value.clone()),
-            "search_local_cmd" => backend_config.search_local_cmd = Some(value.clone()),
-            "update_cmd" => backend_config.update_cmd = Some(value.clone()),
-            "cache_clean_cmd" => backend_config.cache_clean_cmd = Some(value.clone()),
-            "upgrade_cmd" => backend_config.upgrade_cmd = Some(value.clone()),
+            "noconfirm_flag" => {
+                backend_config.noconfirm_flag = if disable { None } else { Some(value.clone()) }
+            }
+            "fallback" => backend_config.fallback = if disable { None } else { Some(value.clone()) },
+            "install_cmd" => {
+                if disable {
+                    output::warning(&format!(
+                        "Ignoring invalid disable sentinel for required option options:{} -> install_cmd=-",
+                        backend_name
+                    ));
+                } else {
+                    backend_config.install_cmd = value.clone();
+                }
+            }
+            "remove_cmd" => backend_config.remove_cmd = if disable { None } else { Some(value.clone()) },
+            "list_cmd" => backend_config.list_cmd = if disable { None } else { Some(value.clone()) },
+            "search_cmd" => backend_config.search_cmd = if disable { None } else { Some(value.clone()) },
+            "search_local_cmd" => {
+                backend_config.search_local_cmd = if disable { None } else { Some(value.clone()) }
+            }
+            "update_cmd" => backend_config.update_cmd = if disable { None } else { Some(value.clone()) },
+            "cache_clean_cmd" => {
+                backend_config.cache_clean_cmd = if disable { None } else { Some(value.clone()) }
+            }
+            "upgrade_cmd" => backend_config.upgrade_cmd = if disable { None } else { Some(value.clone()) },
             "needs_sudo" | "sudo" => {
                 if let Some(parsed) = parse_bool_option(value) {
                     backend_config.needs_sudo = parsed;
