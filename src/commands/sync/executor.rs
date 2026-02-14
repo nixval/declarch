@@ -7,6 +7,9 @@ use crate::constants::CRITICAL_PACKAGES;
 use crate::core::{resolver, types::{Backend, PackageId}};
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
+use crate::commands::sync::hooks::{
+    execute_post_install, execute_post_remove, execute_pre_install, execute_pre_remove,
+};
 use super::{ManagerMap, SyncOptions, InstalledSnapshot};
 use super::variants::resolve_installed_package_name;
 use colored::Colorize;
@@ -102,6 +105,8 @@ pub fn execute_transaction(
     let successfully_installed = execute_installations(
         transaction,
         managers,
+        config,
+        options,
         &mut installed_snapshot,
     )?;
 
@@ -111,6 +116,7 @@ pub fn execute_transaction(
             config,
             transaction,
             managers,
+            options,
             &installed_snapshot,
         )?;
     }
@@ -122,6 +128,8 @@ pub fn execute_transaction(
 fn execute_installations(
     tx: &resolver::Transaction,
     managers: &ManagerMap,
+    config: &loader::MergedConfig,
+    options: &SyncOptions,
     installed_snapshot: &mut InstalledSnapshot,
 ) -> Result<Vec<PackageId>> {
     // Group packages by backend
@@ -139,6 +147,15 @@ fn execute_installations(
     for (backend, pkgs) in installs {
         if let Some(mgr) = managers.get(&backend) {
             output::info(&format!("Installing {} packages...", backend));
+
+            for pkg_name in &pkgs {
+                execute_pre_install(
+                    &config.lifecycle_actions,
+                    pkg_name,
+                    options.hooks,
+                    options.dry_run,
+                )?;
+            }
 
             // Track which packages exist before installation
             let pre_install_snapshot: HashSet<_> = match mgr.list_installed() {
@@ -170,6 +187,12 @@ fn execute_installations(
                     output::warning(&format!("Failed to verify installation for {}: {}", backend, e));
                     // Assume all packages were installed
                     for pkg_name in &pkgs {
+                        execute_post_install(
+                            &config.lifecycle_actions,
+                            pkg_name,
+                            options.hooks,
+                            options.dry_run,
+                        )?;
                         successfully_installed.push(PackageId {
                             name: pkg_name.clone(),
                             backend: backend.clone(),
@@ -184,6 +207,12 @@ fn execute_installations(
                 if !pre_install_snapshot.contains(pkg_name)
                     && post_install_snapshot.contains(pkg_name)
                 {
+                    execute_post_install(
+                        &config.lifecycle_actions,
+                        pkg_name,
+                        options.hooks,
+                        options.dry_run,
+                    )?;
                     successfully_installed.push(PackageId {
                         name: pkg_name.clone(),
                         backend: backend.clone(),
@@ -224,8 +253,28 @@ fn execute_pruning(
     config: &loader::MergedConfig,
     tx: &resolver::Transaction,
     managers: &ManagerMap,
+    options: &SyncOptions,
     installed_snapshot: &InstalledSnapshot,
 ) -> Result<()> {
+    let orphan_strategy = config
+        .policy
+        .as_ref()
+        .and_then(|p| p.orphans.clone())
+        .unwrap_or_else(|| "remove".to_string())
+        .to_lowercase();
+
+    if orphan_strategy == "keep" {
+        output::info("Skipping orphan removal (policy.orphans = \"keep\")");
+        return Ok(());
+    }
+
+    if orphan_strategy == "ask" && !options.yes {
+        if !output::prompt_yes_no("Policy requests confirmation for orphan removal. Continue?") {
+            output::info("Skipping orphan removal");
+            return Ok(());
+        }
+    }
+
     // Build protected list - collect all actual installed package names from config
     let mut protected_physical_names: Vec<String> = Vec::new();
 
@@ -241,12 +290,25 @@ fn execute_pruning(
 
     // Build removal list
     let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
+    let mut remove_hooks: HashMap<Backend, Vec<(String, String)>> = HashMap::new();
+    let policy_protected: HashSet<String> = config
+        .policy
+        .as_ref()
+        .map(|p| p.protected.iter().cloned().collect())
+        .unwrap_or_default();
 
     for pkg in tx.to_prune.iter() {
         // 1. GHOST MODE (Static Check) - Skip critical packages
-        if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) {
+        if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) || policy_protected.contains(&pkg.name) {
             continue;
         }
+
+        execute_pre_remove(
+            &config.lifecycle_actions,
+            &pkg.name,
+            options.hooks,
+            options.dry_run,
+        )?;
 
         // 2. REAL ID RESOLUTION (using helper function)
         let real_name = resolve_installed_package_name(pkg, installed_snapshot);
@@ -263,7 +325,11 @@ fn execute_pruning(
         removes
             .entry(pkg.backend.clone())
             .or_default()
-            .push(real_name);
+            .push(real_name.clone());
+        remove_hooks
+            .entry(pkg.backend.clone())
+            .or_default()
+            .push((real_name, pkg.name.clone()));
     }
 
     // Execute removals
@@ -273,7 +339,27 @@ fn execute_pruning(
         {
             output::info(&format!("Removing {} packages...", backend));
             match mgr.remove(&pkgs) {
-                Ok(()) => (),
+                Ok(()) => {
+                    if let Some(hook_entries) = remove_hooks.get(&backend) {
+                        for (_, config_name) in hook_entries {
+                            execute_post_remove(
+                                &config.lifecycle_actions,
+                                config_name,
+                                options.hooks,
+                                options.dry_run,
+                            )?;
+                        }
+                    } else {
+                        for pkg_name in &pkgs {
+                            execute_post_remove(
+                                &config.lifecycle_actions,
+                                pkg_name,
+                                options.hooks,
+                                options.dry_run,
+                            )?;
+                        }
+                    }
+                }
                 Err(e) => {
                     // Check if this is a "not supported" error
                     let error_msg = format!("{}", e);

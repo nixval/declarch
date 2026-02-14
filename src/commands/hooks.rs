@@ -309,10 +309,19 @@ pub fn execute_on_failure(
     execute_hooks_by_phase(hooks, LifecyclePhase::OnFailure, hooks_enabled, dry_run)
 }
 
-/// Helper to execute post-install hooks for a specific package
-pub fn execute_post_install(
+/// Helper to execute on-update hooks
+pub fn execute_on_update(
+    hooks: &Option<LifecycleConfig>,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_hooks_by_phase(hooks, LifecyclePhase::OnUpdate, hooks_enabled, dry_run)
+}
+
+fn execute_package_phase(
     hooks: &Option<LifecycleConfig>,
     package_name: &str,
+    phase: LifecyclePhase,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
@@ -325,8 +334,8 @@ pub fn execute_post_install(
     let package_hooks: Vec<_> = hooks
         .actions
         .iter()
-        .filter(|h| h.phase == LifecyclePhase::PostInstall)
-        .filter(|h| h.package.as_deref() == Some(package_name))
+        .filter(|h| h.phase == phase)
+        .filter(|h| h.package.as_deref().is_none() || h.package.as_deref() == Some(package_name))
         .collect();
 
     if package_hooks.is_empty() {
@@ -335,7 +344,71 @@ pub fn execute_post_install(
 
     execute_hooks(
         &package_hooks,
-        &format!("Post-install ({})", package_name),
+        &format!("{:?} ({})", phase, package_name),
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute pre-install hooks for a specific package
+pub fn execute_pre_install(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PreInstall,
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute post-install hooks for a specific package
+pub fn execute_post_install(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PostInstall,
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute pre-remove hooks for a specific package
+pub fn execute_pre_remove(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PreRemove,
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute post-remove hooks for a specific package
+pub fn execute_post_remove(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PostRemove,
         hooks_enabled,
         dry_run,
     )

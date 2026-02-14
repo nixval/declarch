@@ -41,6 +41,55 @@ pub fn execute_on_failure(
     crate::commands::hooks::execute_on_failure(lifecycle_actions, enabled, dry_run)
 }
 
+/// Execute on-update hooks
+pub fn execute_on_update(
+    lifecycle_actions: &Option<LifecycleConfig>,
+    enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    crate::commands::hooks::execute_on_update(lifecycle_actions, enabled, dry_run)
+}
+
+/// Execute pre-install hooks for a package
+pub fn execute_pre_install(
+    lifecycle_actions: &Option<LifecycleConfig>,
+    package_name: &str,
+    enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    crate::commands::hooks::execute_pre_install(lifecycle_actions, package_name, enabled, dry_run)
+}
+
+/// Execute post-install hooks for a package
+pub fn execute_post_install(
+    lifecycle_actions: &Option<LifecycleConfig>,
+    package_name: &str,
+    enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    crate::commands::hooks::execute_post_install(lifecycle_actions, package_name, enabled, dry_run)
+}
+
+/// Execute pre-remove hooks for a package
+pub fn execute_pre_remove(
+    lifecycle_actions: &Option<LifecycleConfig>,
+    package_name: &str,
+    enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    crate::commands::hooks::execute_pre_remove(lifecycle_actions, package_name, enabled, dry_run)
+}
+
+/// Execute post-remove hooks for a package
+pub fn execute_post_remove(
+    lifecycle_actions: &Option<LifecycleConfig>,
+    package_name: &str,
+    enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    crate::commands::hooks::execute_post_remove(lifecycle_actions, package_name, enabled, dry_run)
+}
+
 /// Execute sync hooks (legacy wrapper)
 #[deprecated(
     since = "0.8.0",

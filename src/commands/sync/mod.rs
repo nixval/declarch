@@ -17,7 +17,9 @@ mod variants;
 pub use planner::{create_transaction, check_variant_transitions, warn_partial_upgrade, display_transaction_plan};
 pub use executor::execute_transaction;
 pub use state_sync::{update_state, update_state_with_success};
-pub use hooks::{execute_on_failure, execute_on_success, execute_post_sync, execute_pre_sync};
+pub use hooks::{
+    execute_on_failure, execute_on_success, execute_on_update, execute_post_sync, execute_pre_sync,
+};
 pub use variants::{find_variant, resolve_installed_package_name};
 
 use crate::config::loader;
@@ -103,6 +105,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 3.5. Run backend updates if --update flag is set
     if options.update && !options.dry_run {
         execute_backend_updates(&managers)?;
+        execute_on_update(&config.lifecycle_actions, options.hooks, options.dry_run)?;
     }
 
     // 4. Load State & Resolve
