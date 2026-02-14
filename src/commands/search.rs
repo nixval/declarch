@@ -149,7 +149,6 @@ pub fn run(options: SearchOptions) -> Result<()> {
     drop(tx);
 
     // Collect and display results as they arrive
-    let mut displayed_backends: std::collections::HashSet<Backend> = std::collections::HashSet::new();
     let mut total_found = 0;
     let mut has_results = false;
 
@@ -186,7 +185,6 @@ pub fn run(options: SearchOptions) -> Result<()> {
                     
                     // Display this backend's results immediately
                     display_backend_results(&backend, &marked_results, backend_total, effective_limit);
-                    displayed_backends.insert(backend);
                 }
             }
             BackendResult::Error { backend, error } => {
