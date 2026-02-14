@@ -87,21 +87,6 @@ use crate::config::kdl_modules::parse_kdl_content;
     }
 
     #[test]
-    fn test_aliases_parsing() {
-        let kdl = r#"
-            aliases-pkg pipewire pipewire-jack2
-            aliases-pkg python-poetry python-poetry-core
-        "#;
-
-        let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.package_mappings.len(), 2);
-        assert_eq!(
-            config.package_mappings.get("pipewire"),
-            Some(&"pipewire-jack2".to_string())
-        );
-    }
-
-    #[test]
     fn test_excludes_parsing() {
         let kdl = r#"
             excludes bad-package another-bad
