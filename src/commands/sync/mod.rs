@@ -642,3 +642,117 @@ fn load_config_with_modules(
 
     Ok(merged)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backends::config::BackendConfig;
+    use std::collections::HashMap;
+
+    fn merged_config_with_options(
+        backend_name: &str,
+        options: &[(&str, &str)],
+    ) -> loader::MergedConfig {
+        let mut merged = loader::MergedConfig::default();
+        let mut backend_opts = HashMap::new();
+        for (k, v) in options {
+            backend_opts.insert((*k).to_string(), (*v).to_string());
+        }
+        merged
+            .backend_options
+            .insert(backend_name.to_string(), backend_opts);
+        merged
+    }
+
+    #[test]
+    fn test_parse_bool_option_variants() {
+        assert_eq!(parse_bool_option("true"), Some(true));
+        assert_eq!(parse_bool_option("yes"), Some(true));
+        assert_eq!(parse_bool_option("on"), Some(true));
+        assert_eq!(parse_bool_option("1"), Some(true));
+        assert_eq!(parse_bool_option("false"), Some(false));
+        assert_eq!(parse_bool_option("no"), Some(false));
+        assert_eq!(parse_bool_option("off"), Some(false));
+        assert_eq!(parse_bool_option("0"), Some(false));
+        assert_eq!(parse_bool_option("maybe"), None);
+    }
+
+    #[test]
+    fn test_backend_option_overrides_disable_sentinel() {
+        let mut backend = BackendConfig {
+            name: "paru".to_string(),
+            install_cmd: "paru -S {packages}".to_string(),
+            remove_cmd: Some("paru -R {packages}".to_string()),
+            list_cmd: Some("paru -Q".to_string()),
+            search_cmd: Some("paru -Ss {query}".to_string()),
+            search_local_cmd: Some("paru -Q {query}".to_string()),
+            update_cmd: Some("paru -Sy".to_string()),
+            cache_clean_cmd: Some("paru -Sc".to_string()),
+            upgrade_cmd: Some("paru -Syu".to_string()),
+            fallback: Some("pacman".to_string()),
+            noconfirm_flag: Some("--noconfirm".to_string()),
+            needs_sudo: true,
+            ..Default::default()
+        };
+
+        let merged = merged_config_with_options(
+            "paru",
+            &[
+                ("install_cmd", "-"),
+                ("remove_cmd", "-"),
+                ("list_cmd", "-"),
+                ("search_cmd", "-"),
+                ("search_local_cmd", "-"),
+                ("update_cmd", "-"),
+                ("cache_clean_cmd", "-"),
+                ("upgrade_cmd", "-"),
+                ("fallback", "-"),
+                ("noconfirm_flag", "-"),
+                ("needs_sudo", "invalid"),
+                ("unknown_key", "value"),
+            ],
+        );
+
+        apply_backend_option_overrides(&mut backend, "paru", &merged);
+
+        assert_eq!(backend.install_cmd, "paru -S {packages}");
+        assert!(backend.remove_cmd.is_none());
+        assert!(backend.list_cmd.is_none());
+        assert!(backend.search_cmd.is_none());
+        assert!(backend.search_local_cmd.is_none());
+        assert!(backend.update_cmd.is_none());
+        assert!(backend.cache_clean_cmd.is_none());
+        assert!(backend.upgrade_cmd.is_none());
+        assert!(backend.fallback.is_none());
+        assert!(backend.noconfirm_flag.is_none());
+        assert!(backend.needs_sudo);
+    }
+
+    #[test]
+    fn test_backend_option_overrides_apply_valid_values() {
+        let mut backend = BackendConfig {
+            name: "pacman".to_string(),
+            install_cmd: "pacman -S {packages}".to_string(),
+            remove_cmd: Some("pacman -R {packages}".to_string()),
+            needs_sudo: false,
+            ..Default::default()
+        };
+
+        let merged = merged_config_with_options(
+            "pacman",
+            &[
+                ("remove_cmd", "pacman -Rns {packages}"),
+                ("update_cmd", "pacman -Sy"),
+                ("needs_sudo", "on"),
+                ("noconfirm_flag", "--noconfirm"),
+            ],
+        );
+
+        apply_backend_option_overrides(&mut backend, "pacman", &merged);
+
+        assert_eq!(backend.remove_cmd.as_deref(), Some("pacman -Rns {packages}"));
+        assert_eq!(backend.update_cmd.as_deref(), Some("pacman -Sy"));
+        assert_eq!(backend.noconfirm_flag.as_deref(), Some("--noconfirm"));
+        assert!(backend.needs_sudo);
+    }
+}
