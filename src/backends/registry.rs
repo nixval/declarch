@@ -23,6 +23,7 @@ use crate::backends::user_parser;
 use crate::ui as output;
 use crate::utils::paths;
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Backend configuration type re-export
 pub use crate::backends::config::BackendConfig;
@@ -32,6 +33,20 @@ pub use crate::backends::config::BackendConfig;
 struct BackendSource {
     name: String,
     source_file: String,
+}
+
+fn has_explicit_backend_declaration(content: &str) -> bool {
+    content.contains("backends")
+        && (content.contains("backends \"") || content.contains("backends {"))
+}
+
+fn config_uses_explicit_backends(config_path: &Path) -> crate::error::Result<bool> {
+    if !config_path.exists() {
+        return Ok(false);
+    }
+
+    let content = std::fs::read_to_string(config_path)?;
+    Ok(has_explicit_backend_declaration(&content))
 }
 
 /// Load all backend configurations
@@ -58,18 +73,7 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
 
     // NEW: Check if declarch.kdl has explicit backend imports
     let config_path = paths::config_file()?;
-    let use_explicit_imports = if config_path.exists() {
-        match std::fs::read_to_string(&config_path) {
-            Ok(content) => {
-                // Quick check for 'backends "' or 'backends {' pattern
-                content.contains("backends") && 
-                    (content.contains("backends \"") || content.contains("backends {"))
-            }
-            Err(_) => false,
-        }
-    } else {
-        false
-    };
+    let use_explicit_imports = config_uses_explicit_backends(&config_path).unwrap_or(false);
 
     // Note: When using explicit imports, backends are loaded by config::loader
     // and should be accessed via MergedConfig.backends
@@ -143,24 +147,18 @@ impl crate::traits::BackendRegistry for FilesystemBackendRegistry {
 ///
 /// Returns empty vector if:
 /// - Config file doesn't exist
-/// - Config file can't be parsed
 /// - No backends are defined in the config
-pub fn load_backends_from_config() -> Vec<BackendConfig> {
+pub fn load_backends_from_config() -> crate::error::Result<Vec<BackendConfig>> {
     use crate::utils::paths;
     
-    let config_path = match paths::config_file() {
-        Ok(p) => p,
-        Err(_) => return Vec::new(),
-    };
+    let config_path = paths::config_file()?;
     
     if !config_path.exists() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
     
-    match crate::config::loader::load_root_config(&config_path) {
-        Ok(config) => config.backends,
-        Err(_) => Vec::new(),
-    }
+    let config = crate::config::loader::load_root_config(&config_path)?;
+    Ok(config.backends)
 }
 
 /// Load all backends using the best available method
@@ -171,24 +169,38 @@ pub fn load_backends_from_config() -> Vec<BackendConfig> {
 ///
 /// This provides seamless migration from legacy auto-load to import-based architecture.
 pub fn load_all_backends_unified() -> crate::error::Result<HashMap<String, BackendConfig>> {
-    let config_backends = load_backends_from_config();
-    
-    if !config_backends.is_empty() {
-        // New import-based method
+    let config_path = paths::config_file()?;
+
+    if config_uses_explicit_backends(&config_path)? {
+        // Explicit import mode is authoritative: do not silently fall back.
+        let config_backends = load_backends_from_config()?;
         let mut map = HashMap::new();
         for backend in config_backends {
             map.insert(backend.name.clone(), backend);
         }
-        Ok(map)
-    } else {
-        // Legacy method
-        load_all_backends()
+        return Ok(map);
     }
+
+    // Legacy method
+    load_all_backends()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_has_explicit_backend_declaration() {
+        assert!(has_explicit_backend_declaration(r#"backends "backends.kdl""#));
+        assert!(has_explicit_backend_declaration(
+            r#"
+            backends {
+                "backends/aur.kdl"
+            }
+            "#
+        ));
+        assert!(!has_explicit_backend_declaration("pkg { paru { bat } }"));
+    }
 
     #[test]
     fn test_load_all_backends_empty() {
