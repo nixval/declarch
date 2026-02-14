@@ -499,4 +499,31 @@ mod tests {
         assert_eq!(unknown_local, vec!["missing".to_string()]);
         assert_eq!(unsupported_local, vec!["paru".to_string()]);
     }
+
+    #[test]
+    fn select_backends_auto_mode_is_sorted() {
+        let mut all = HashMap::new();
+        all.insert(
+            "zypper".to_string(),
+            BackendConfig {
+                name: "zypper".to_string(),
+                search_cmd: Some("zypper se {query}".to_string()),
+                ..Default::default()
+            },
+        );
+        all.insert(
+            "apt".to_string(),
+            BackendConfig {
+                name: "apt".to_string(),
+                search_cmd: Some("apt search {query}".to_string()),
+                ..Default::default()
+            },
+        );
+
+        let (selected, unknown, unsupported) = select_backends_to_search(&all, None, false);
+        let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
+        assert_eq!(names, vec!["apt".to_string(), "zypper".to_string()]);
+        assert!(unknown.is_empty());
+        assert!(unsupported.is_empty());
+    }
 }
