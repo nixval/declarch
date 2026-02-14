@@ -198,15 +198,24 @@ impl GenericManager {
         // Replace common placeholders
         let cmd_str = self.replace_common_placeholders(cmd_str, &binary);
 
-        if self.config.needs_sudo {
+        let mut cmd = if self.config.needs_sudo {
             let mut cmd = Command::new("sudo");
             cmd.arg("sh").arg("-c").arg(cmd_str);
-            Ok(cmd)
+            cmd
         } else {
             let mut cmd = Command::new("sh");
             cmd.arg("-c").arg(cmd_str);
-            Ok(cmd)
+            cmd
+        };
+
+        // Apply configured environment variables to all backend commands.
+        if let Some(env_vars) = &self.config.preinstall_env {
+            for (key, value) in env_vars {
+                cmd.env(key, value);
+            }
         }
+
+        Ok(cmd)
     }
 
     /// Format package list for command
@@ -260,12 +269,8 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Get the binary (respecting fallback if needed)
-        let binary = self.get_binary()?;
-        let cmd_str = self.replace_common_placeholders(list_cmd, &binary);
-        
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&cmd_str);
+        let cmd_str = list_cmd.clone();
+        let mut cmd = self.build_command(&cmd_str)?;
         
         let output = run_command_with_timeout(&mut cmd, DEFAULT_COMMAND_TIMEOUT)
             .map_err(|e| DeclarchError::SystemCommandFailed {
@@ -305,13 +310,6 @@ impl PackageManager for GenericManager {
         }
 
         let mut cmd = self.build_command(&cmd_str)?;
-
-        // Set environment variables if configured
-        if let Some(env_vars) = &self.config.preinstall_env {
-            for (key, value) in env_vars {
-                cmd.env(key, value);
-            }
-        }
 
         // Use interactive timeout function (5 minute timeout for install)
         let timeout = Duration::from_secs(300);
@@ -414,17 +412,9 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Get the binary (respecting fallback if needed)
-        let binary = self.get_binary()?;
-        
-        // Replace {binary} and {query} placeholders with escaped values
-        let cmd_str = search_cmd
-            .replace("{binary}", &binary)
-            .replace("{repos}", &self.format_sources())
-            .replace("{query}", &sanitize::shell_escape(query));
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&cmd_str);
+        // Replace query placeholder; common placeholders are handled by build_command
+        let cmd_str = search_cmd.replace("{query}", &sanitize::shell_escape(query));
+        let mut cmd = self.build_command(&cmd_str)?;
         
         // Use shorter timeout for search (30 seconds)
         let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
@@ -453,14 +443,8 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Get the binary (respecting fallback if needed)
-        let binary = self.get_binary()?;
-        
-        // Replace {binary} placeholder
-        let cmd_str = self.replace_common_placeholders(update_cmd, &binary);
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&cmd_str);
+        let cmd_str = update_cmd.clone();
+        let mut cmd = self.build_command(&cmd_str)?;
         
         ui::info(&format!("Updating {} package index...", self.config.name));
         
@@ -494,14 +478,8 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Get the binary (respecting fallback if needed)
-        let binary = self.get_binary()?;
-        
-        // Replace {binary} placeholder
-        let cmd_str = self.replace_common_placeholders(cache_clean_cmd, &binary);
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&cmd_str);
+        let cmd_str = cache_clean_cmd.clone();
+        let mut cmd = self.build_command(&cmd_str)?;
         
         ui::info(&format!("Cleaning {} cache...", self.config.name));
         
@@ -536,14 +514,8 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Get the binary (respecting fallback if needed)
-        let binary = self.get_binary()?;
-        
-        // Replace {binary} placeholder
-        let cmd_str = self.replace_common_placeholders(upgrade_cmd, &binary);
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&cmd_str);
+        let cmd_str = upgrade_cmd.clone();
+        let mut cmd = self.build_command(&cmd_str)?;
         
         ui::info(&format!("Upgrading {} packages...", self.config.name));
         
@@ -580,17 +552,9 @@ impl PackageManager for GenericManager {
             ))
         })?;
 
-        // Get the binary (respecting fallback if needed)
-        let binary = self.get_binary()?;
-        
-        // Replace {binary} and {query} placeholders with escaped values
-        let cmd_str = search_local_cmd
-            .replace("{binary}", &binary)
-            .replace("{repos}", &self.format_sources())
-            .replace("{query}", &sanitize::shell_escape(query));
-
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c").arg(&cmd_str);
+        // Replace query placeholder; common placeholders are handled by build_command
+        let cmd_str = search_local_cmd.replace("{query}", &sanitize::shell_escape(query));
+        let mut cmd = self.build_command(&cmd_str)?;
         
         // Use shorter timeout for search (30 seconds)
         let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
