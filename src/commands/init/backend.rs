@@ -13,9 +13,6 @@ use regex::Regex;
 use std::fs;
 use std::path::Path;
 
-/// Official backends that are embedded in the default backends.kdl
-pub const OFFICIAL_BACKENDS: &[&str] = &["aur", "pacman", "flatpak"];
-
 /// Result of attempting to add backend import
 #[derive(Debug, PartialEq)]
 pub enum ImportResult {
@@ -62,20 +59,13 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         ));
     }
 
-    // STEP 2: Check if official backend
-    if OFFICIAL_BACKENDS.contains(&sanitized_name.as_str()) {
-        // Official backends are already embedded in backends.kdl - nothing to do
-        output::info(&format!("Backend '{}' is already built-in.", sanitized_name));
-        return Ok(());
-    }
-
-    // STEP 3: Create backends directory
+    // STEP 2: Create backends directory
     let backends_dir = root_dir.join("backends");
     if !backends_dir.exists() {
         fs::create_dir_all(&backends_dir)?;
     }
 
-    // STEP 4: Show fetching message and fetch backend content
+    // STEP 3: Show fetching message and fetch backend content
     println!("fetching '{}' from nixval/declarch-packages", sanitized_name);
     
     let backend_content = match remote::fetch_backend_content(&sanitized_name) {
@@ -87,7 +77,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         }
     };
 
-    // STEP 4b: Validate KDL (warning only, can bypass with --force)
+    // STEP 3b: Validate KDL (warning only, can bypass with --force)
     if let Err(e) = super::validate_kdl(&backend_content, &format!("backend '{}'", sanitized_name)) {
         if !force {
             output::warning(&format!("{}", e));
@@ -101,7 +91,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         }
     }
 
-    // STEP 4c: Parse and display meta information
+    // STEP 3c: Parse and display meta information
     if let Ok(meta) = extract_backend_meta(&backend_content) {
         println!();
         if !meta.title.is_empty() && meta.title != "-" {
@@ -125,7 +115,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         println!();
     }
 
-    // STEP 5: Check if file already exists
+    // STEP 4: Check if file already exists
     let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
     if backend_file.exists() && !force {
         output::warning(&format!("Backend file already exists: {}", backend_file.display()));
@@ -133,16 +123,16 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         return Ok(());
     }
 
-    // STEP 6: Prompt for adoption confirmation (skip if force)
+    // STEP 5: Prompt for adoption confirmation (skip if force)
     if !force && !output::prompt_yes_no(&format!("Are you sure you want this '{}' being adopted", sanitized_name)) {
         output::info("Cancelled.");
         return Ok(());
     }
 
-    // STEP 7: Write backend file (KDL already validated or bypassed)
+    // STEP 6: Write backend file (KDL already validated or bypassed)
     fs::write(&backend_file, &backend_content)?;
 
-    // STEP 8: Auto-import logic
+    // STEP 7: Auto-import logic
     // Check if backends.kdl exists
     let backends_kdl_path = root_dir.join("backends.kdl");
     let declarch_kdl_path = root_dir.join("declarch.kdl");
