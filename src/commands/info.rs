@@ -1,5 +1,6 @@
 use crate::config::loader;
 use crate::error::Result;
+use crate::packages::traits::PackageManager;
 use crate::state;
 use crate::ui as output;
 use crate::utils::paths;
@@ -293,21 +294,17 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
     match crate::backends::load_all_backends_unified() {
         Ok(backends) => {
             for (name, config) in backends {
-                // Check if binary is available
-                let binary_available = match &config.binary {
-                    crate::backends::config::BinarySpecifier::Single(bin) => {
-                        is_command_available(bin)
-                    }
-                    crate::backends::config::BinarySpecifier::Multiple(bins) => {
-                        bins.iter().any(|b| is_command_available(b))
-                    }
-                };
-                
-                if binary_available {
+                let manager = crate::backends::GenericManager::from_config(
+                    config,
+                    crate::core::types::Backend::from(name.as_str()),
+                    false,
+                );
+
+                if manager.is_available() {
                     output::success(&format!("{}: Available", name));
                     available.push(name);
                 } else {
-                    output::warning(&format!("{}: Binary not found", name));
+                    output::warning(&format!("{}: Backend binary not found", name));
                 }
             }
         }
@@ -322,10 +319,6 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
     }
     
     Ok(available)
-}
-
-fn is_command_available(cmd: &str) -> bool {
-    which::which(cmd).is_ok()
 }
 
 /// Print packages grouped by backend with horizontal display per group
