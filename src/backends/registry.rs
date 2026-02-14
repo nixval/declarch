@@ -20,6 +20,7 @@
 //! - Comment out imports to temporarily disable backends
 
 use crate::backends::user_parser;
+use crate::error::DeclarchError;
 use crate::ui as output;
 use crate::utils::paths;
 use std::collections::HashMap;
@@ -47,6 +48,12 @@ fn config_uses_explicit_backends(config_path: &Path) -> crate::error::Result<boo
 
     let content = std::fs::read_to_string(config_path)?;
     Ok(has_explicit_backend_declaration(&content))
+}
+
+fn strict_backend_mode_enabled() -> bool {
+    std::env::var("DECLARCH_STRICT_BACKENDS")
+        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
 }
 
 /// Load all backend configurations
@@ -175,8 +182,28 @@ pub fn load_all_backends_unified() -> crate::error::Result<HashMap<String, Backe
         // Explicit import mode is authoritative: do not silently fall back.
         let config_backends = load_backends_from_config()?;
         let mut map = HashMap::new();
+        let mut duplicate_names = Vec::new();
         for backend in config_backends {
-            map.insert(backend.name.clone(), backend);
+            let name = backend.name.clone();
+            if map.insert(name.clone(), backend).is_some() {
+                duplicate_names.push(name);
+            }
+        }
+
+        if !duplicate_names.is_empty() {
+            duplicate_names.sort();
+            duplicate_names.dedup();
+            let names = duplicate_names.join(", ");
+            if strict_backend_mode_enabled() {
+                return Err(DeclarchError::ConfigError(format!(
+                    "Duplicate backend definitions found in explicit imports: {}",
+                    names
+                )));
+            }
+            output::warning(&format!(
+                "Duplicate backend definitions found: {}. Using the last imported definition.",
+                names
+            ));
         }
         return Ok(map);
     }
