@@ -682,8 +682,10 @@ fn load_config_with_modules(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::types::PackageId;
     use crate::backends::config::BackendConfig;
     use std::collections::HashMap;
+    use std::path::PathBuf;
 
     fn merged_config_with_options(
         backend_name: &str,
@@ -819,5 +821,36 @@ mod tests {
         assert_eq!(backend.remove_cmd.as_deref(), Some("paru -R {packages}"));
         assert_eq!(backend.search_cmd.as_deref(), Some("paru -Ss {query}"));
         assert_eq!(backend.search_local_cmd.as_deref(), Some("paru -Q {query}"));
+    }
+
+    #[test]
+    fn test_resolve_target_detects_backend_from_imports() {
+        let mut merged = loader::MergedConfig::default();
+        merged.backends.push(BackendConfig {
+            name: "paru".to_string(),
+            ..Default::default()
+        });
+
+        let target = resolve_target(&Some("paru".to_string()), &merged);
+        match target {
+            SyncTarget::Backend(b) => assert_eq!(b.name(), "paru"),
+            _ => panic!("expected backend target"),
+        }
+    }
+
+    #[test]
+    fn test_named_target_exists_by_package_or_module_stem() {
+        let mut merged = loader::MergedConfig::default();
+        let pkg = PackageId {
+            name: "bat".to_string(),
+            backend: Backend::from("paru"),
+        };
+        merged
+            .packages
+            .insert(pkg, vec![PathBuf::from("/tmp/devtools.kdl")]);
+
+        assert!(named_target_exists(&merged, "bat"));
+        assert!(named_target_exists(&merged, "devtools"));
+        assert!(!named_target_exists(&merged, "unknown"));
     }
 }
