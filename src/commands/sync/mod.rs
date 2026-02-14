@@ -30,7 +30,7 @@ use crate::utils::paths;
 use std::path::Path;
 
 use crate::core::types::{PackageId, PackageMetadata};
-use crate::packages::{PackageManager, create_manager};
+use crate::packages::PackageManager;
 use crate::state::types::Backend;
 use crate::state;
 use std::collections::HashMap;
@@ -274,7 +274,10 @@ fn initialize_managers_and_snapshot(
     let mut installed_snapshot: InstalledSnapshot = HashMap::new();
     let mut managers: ManagerMap = HashMap::new();
 
-    let global_config = crate::config::types::GlobalConfig::default();
+    let mut known_backends = crate::backends::load_all_backends_unified()?;
+    for backend in &config.backends {
+        known_backends.insert(backend.name.clone(), backend.clone());
+    }
 
     // Get backends from config (unique set)
     let configured_backends: std::collections::HashSet<Backend> = config
@@ -285,48 +288,134 @@ fn initialize_managers_and_snapshot(
 
     // Initialize managers for configured backends
     for backend in configured_backends {
-        match create_manager(&backend, &global_config, options.noconfirm) {
-            Ok(manager) => {
-                let available = manager.is_available();
+        let backend_name = backend.name().to_string();
+        let Some(mut backend_config) = known_backends.get(&backend_name).cloned() else {
+            output::warning(&format!(
+                "Backend '{}' is referenced by packages but has no config. Run 'declarch init --backend {}'",
+                backend_name, backend_name
+            ));
+            continue;
+        };
 
-                if !available && matches!(sync_target, SyncTarget::Backend(b) if b == &backend) {
+        apply_backend_option_overrides(&mut backend_config, &backend_name, config);
+        apply_backend_env_overrides(&mut backend_config, &backend_name, config);
+
+        let manager: Box<dyn PackageManager> = Box::new(crate::backends::GenericManager::from_config(
+            backend_config,
+            backend.clone(),
+            options.noconfirm,
+        ));
+
+        let available = manager.is_available();
+
+        if !available && matches!(sync_target, SyncTarget::Backend(b) if b == &backend) {
+            output::warning(&format!(
+                "Backend '{}' is not available on this system.",
+                backend
+            ));
+        }
+
+        if available {
+            match manager.list_installed() {
+                Ok(packages) => {
+                    for (name, meta) in packages {
+                        let pkg_id = PackageId {
+                            name: name.clone(),
+                            backend: backend.clone(),
+                        };
+                        installed_snapshot.insert(pkg_id, meta);
+                    }
+                }
+                Err(e) => {
                     output::warning(&format!(
-                        "Backend '{}' is not available on this system.",
-                        backend
+                        "Failed to list packages for {}: {}",
+                        backend, e
                     ));
                 }
-
-                if available {
-                    match manager.list_installed() {
-                        Ok(packages) => {
-                            for (name, meta) in packages {
-                                let pkg_id = PackageId {
-                                    name: name.clone(),
-                                    backend: backend.clone(),
-                                };
-                                installed_snapshot.insert(pkg_id, meta);
-                            }
-                        }
-                        Err(e) => {
-                            output::warning(&format!(
-                                "Failed to list packages for {}: {}",
-                                backend, e
-                            ));
-                        }
-                    }
-                    managers.insert(backend.clone(), manager);
-                }
             }
-            Err(e) => {
-                output::warning(&format!(
-                    "Failed to create manager for {}: {}",
-                    backend, e
-                ));
-            }
+            managers.insert(backend.clone(), manager);
         }
     }
 
     Ok((installed_snapshot, managers))
+}
+
+fn parse_bool_option(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Some(true),
+        "0" | "false" | "no" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+fn apply_backend_option_overrides(
+    backend_config: &mut crate::backends::config::BackendConfig,
+    backend_name: &str,
+    config: &loader::MergedConfig,
+) {
+    let Some(options) = config.backend_options.get(backend_name) else {
+        return;
+    };
+
+    for (key, value) in options {
+        match key.as_str() {
+            "noconfirm_flag" => backend_config.noconfirm_flag = Some(value.clone()),
+            "fallback" => backend_config.fallback = Some(value.clone()),
+            "install_cmd" => backend_config.install_cmd = value.clone(),
+            "remove_cmd" => backend_config.remove_cmd = Some(value.clone()),
+            "list_cmd" => backend_config.list_cmd = Some(value.clone()),
+            "search_cmd" => backend_config.search_cmd = Some(value.clone()),
+            "search_local_cmd" => backend_config.search_local_cmd = Some(value.clone()),
+            "update_cmd" => backend_config.update_cmd = Some(value.clone()),
+            "cache_clean_cmd" => backend_config.cache_clean_cmd = Some(value.clone()),
+            "upgrade_cmd" => backend_config.upgrade_cmd = Some(value.clone()),
+            "needs_sudo" | "sudo" => {
+                if let Some(parsed) = parse_bool_option(value) {
+                    backend_config.needs_sudo = parsed;
+                } else {
+                    output::warning(&format!(
+                        "Invalid boolean for options:{} -> {}={}",
+                        backend_name, key, value
+                    ));
+                }
+            }
+            _ => {
+                output::warning(&format!(
+                    "Unknown backend option ignored: options:{} -> {}",
+                    backend_name, key
+                ));
+            }
+        }
+    }
+}
+
+fn apply_backend_env_overrides(
+    backend_config: &mut crate::backends::config::BackendConfig,
+    backend_name: &str,
+    config: &loader::MergedConfig,
+) {
+    let mut merged_env: HashMap<String, String> = backend_config.preinstall_env.clone().unwrap_or_default();
+
+    for scope in ["global", backend_name] {
+        if let Some(vars) = config.env.get(scope) {
+            for var in vars {
+                if let Some((k, v)) = var.split_once('=') {
+                    merged_env.insert(k.trim().to_string(), v.trim().to_string());
+                } else {
+                    output::warning(&format!(
+                        "Ignoring invalid env entry in env:{} -> {}",
+                        scope, var
+                    ));
+                }
+            }
+        }
+    }
+
+    if merged_env.is_empty() {
+        backend_config.preinstall_env = None;
+    } else {
+        backend_config.preinstall_env = Some(merged_env);
+    }
 }
 
 fn refresh_installed_snapshot(managers: &ManagerMap) -> InstalledSnapshot {
