@@ -2,7 +2,7 @@
 //!
 //! Cleans package manager caches for configured backends.
 
-use crate::backends::load_all_backends;
+use crate::backends::load_all_backends_unified;
 use crate::config::types::GlobalConfig;
 use crate::error::Result;
 use crate::packages::create_manager;
@@ -17,8 +17,8 @@ pub struct CacheOptions {
 
 /// Run cache clean for configured backends
 pub fn run(options: CacheOptions) -> Result<()> {
-    // Load all configured backends
-    let all_backends = load_all_backends()?;
+    // Load all configured backends (import-based or legacy)
+    let all_backends = load_all_backends_unified()?;
 
     if all_backends.is_empty() {
         output::warning("No backends configured");

@@ -285,12 +285,12 @@ fn run_doctor() -> Result<()> {
     Ok(())
 }
 
-/// Check backends dynamically from backends.kdl
+/// Check backends dynamically from config
 fn check_backends_dynamically() -> Result<Vec<String>> {
     let mut available = Vec::new();
     
-    // Load backend configs
-    match crate::backends::load_all_backends() {
+    // Load backend configs (import-based or legacy)
+    match crate::backends::load_all_backends_unified() {
         Ok(backends) => {
             for (name, config) in backends {
                 // Check if binary is available

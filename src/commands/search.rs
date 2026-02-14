@@ -335,18 +335,8 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
         return Ok(backend_list.iter().map(|b| Backend::from(b.as_str())).collect());
     }
 
-    // Try to load backends from config first (new import-based architecture)
-    let config_backends = load_backends_from_config();
-    
-    let backends_to_use = if !config_backends.is_empty() {
-        config_backends
-    } else {
-        // Fallback to legacy load_all_backends()
-        match crate::backends::load_all_backends() {
-            Ok(backends) => backends.into_values().collect(),
-            Err(_) => Vec::new(),
-        }
-    };
+    // Load backends from config (import-based or legacy fallback)
+    let backends_to_use = crate::backends::load_backends_from_config();
     
     let mut result = Vec::new();
     for config in backends_to_use {
@@ -363,28 +353,9 @@ fn get_backends_to_search(options: &SearchOptions) -> Result<Vec<Backend>> {
     Ok(result)
 }
 
-/// Load backends from declarch.kdl config (import-based architecture)
-fn load_backends_from_config() -> Vec<crate::backends::config::BackendConfig> {
-    use crate::utils::paths;
-    
-    let config_path = match paths::config_file() {
-        Ok(p) => p,
-        Err(_) => return Vec::new(),
-    };
-    
-    if !config_path.exists() {
-        return Vec::new();
-    }
-    
-    match crate::config::loader::load_root_config(&config_path) {
-        Ok(config) => config.backends,
-        Err(_) => Vec::new(),
-    }
-}
-
 fn create_manager_for_backend(backend: &Backend) -> Result<Box<dyn PackageManager>> {
     // First try to load from config (import-based architecture)
-    let config_backends = load_backends_from_config();
+    let config_backends = crate::backends::load_backends_from_config();
     
     if let Some(backend_config) = config_backends.into_iter().find(|b| b.name == backend.name()) {
         // Create manager directly from config

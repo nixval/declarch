@@ -136,6 +136,56 @@ impl crate::traits::BackendRegistry for FilesystemBackendRegistry {
     }
 }
 
+/// Load backends from declarch.kdl config (import-based architecture)
+/// 
+/// This is the new way to load backends when using explicit imports in declarch.kdl.
+/// It loads the config file and returns the backends defined in the 'backends {}' block.
+///
+/// Returns empty vector if:
+/// - Config file doesn't exist
+/// - Config file can't be parsed
+/// - No backends are defined in the config
+pub fn load_backends_from_config() -> Vec<BackendConfig> {
+    use crate::utils::paths;
+    
+    let config_path = match paths::config_file() {
+        Ok(p) => p,
+        Err(_) => return Vec::new(),
+    };
+    
+    if !config_path.exists() {
+        return Vec::new();
+    }
+    
+    match crate::config::loader::load_root_config(&config_path) {
+        Ok(config) => config.backends,
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Load all backends using the best available method
+///
+/// Priority:
+/// 1. If declarch.kdl has explicit backend imports (backends {} block), use those
+/// 2. Otherwise, fall back to legacy load_all_backends() from backends.kdl
+///
+/// This provides seamless migration from legacy auto-load to import-based architecture.
+pub fn load_all_backends_unified() -> crate::error::Result<HashMap<String, BackendConfig>> {
+    let config_backends = load_backends_from_config();
+    
+    if !config_backends.is_empty() {
+        // New import-based method
+        let mut map = HashMap::new();
+        for backend in config_backends {
+            map.insert(backend.name.clone(), backend);
+        }
+        Ok(map)
+    } else {
+        // Legacy method
+        load_all_backends()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

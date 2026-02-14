@@ -3,7 +3,7 @@
 //! Upgrades packages to latest versions across all configured backends,
 //! then automatically syncs to adopt the changes into state.
 
-use crate::backends::load_all_backends;
+use crate::backends::load_all_backends_unified;
 use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::error::Result;
@@ -25,8 +25,8 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
     output::separator();
     output::info("Loading backend configurations...");
 
-    // Load all configured backends
-    let all_backends = load_all_backends()?;
+    // Load all configured backends (import-based or legacy)
+    let all_backends = load_all_backends_unified()?;
 
     if all_backends.is_empty() {
         output::warning("No backends configured");
