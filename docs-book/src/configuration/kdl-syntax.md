@@ -1,127 +1,50 @@
-# KDL Syntax
+# KDL Basics
 
-Declarch uses KDL ("Kay-dee-el") - a simple config format.
+Declarch config uses KDL.
+This page covers only beginner-level syntax.
 
-## Basic Structure
-
-```kdl
-// This is a comment
-
-pkg {
-    aur {
-        neovim
-        bat
-    }
-}
-```
-
-## Key Rules
-
-### 1. Everything Quoted
-
-All string values must be in quotes:
-
-```kdl
-// ✓ Correct
-format "whitespace"
-needs_sudo "true"
-
-// ✗ Wrong
-format whitespace
-needs_sudo true
-```
-
-### 2. Blocks Use Braces
+## Minimal example
 
 ```kdl
 pkg {
-    aur {
-        neovim
+    pacman {
+        firefox
+        git
     }
 }
 ```
 
-### 3. Comments Use `//`
+## Rules you should remember
 
-```kdl
-// This is a comment
-aur {
-    neovim  // This is an inline comment
-}
-```
+1. Use blocks with `{}`.
+2. Package names are plain entries inside backend blocks.
+3. Use quotes for string values in settings fields.
 
-## Common Patterns
-
-### Package Blocks
-
-```kdl
-pkg {
-    aur {
-        neovim
-        bat
-        fzf
-    }
-    
-    flatpak {
-        com.spotify.Client
-    }
-}
-```
-
-### Metadata
+Example with quoted values:
 
 ```kdl
 meta {
     title "My Setup"
-    description "Development workstation"
+    description "My daily packages"
 }
 ```
 
-### Imports
+## Common pattern
 
 ```kdl
-imports {
-    "modules/base.kdl"
-    "modules/dev.kdl"
-}
-```
-
-## Complete Example
-
-```kdl
-// declarch.kdl
-meta {
-    title "Workstation"
-    author "you"
-}
-
 imports {
     "modules/base.kdl"
     "modules/dev.kdl"
 }
 
 pkg {
-    aur {
-        neovim
-    }
+    pacman { firefox }
+    flatpak { org.mozilla.firefox }
+    npm { typescript }
 }
 ```
 
-## Error Messages
+## Need full syntax details?
 
-Declarch shows helpful errors:
-
-```
-error: No closing '}' for child block
-  --> ~/.config/declarch/base.kdl:8:5
-   |
- 6 │     aur {
- 7 │         neovim
- 8 │     meta {
-   │      ^
-   │
-```
-
-## Learn More
-
-- [KDL Official Spec](https://kdl.dev/)
+Use advanced reference:
+- [Syntax Reference (Advanced)](./syntax.md)

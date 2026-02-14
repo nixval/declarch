@@ -1,39 +1,36 @@
 # declarch
 
-Declarative package management, without trying to be magical.
+Declarch is a declarative, agnostic wrapper over many package managers.
 
-You describe packages in config files, then run `sync` to make your system follow that config.
+You define desired packages once, then run `declarch sync`.
+Declarch coordinates the backend commands for you.
 
 ## WARNING: v0.8.0 has BREAKING CHANGES
 
-If you are upgrading from older versions, expect config and workflow changes.
+If you are upgrading from older versions, expect changes in syntax/behavior.
 
-What changed in plain words:
-- Backend architecture changed.
-- Some CLI flows changed.
-- KDL syntax expectations are stricter in multiple places.
-
-Please back up your current config before migrating:
+Before upgrading:
 
 ```bash
 cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
-Important note:
-- declarch is actively evolving.
-- Not every backend/environment combination has been fully tested yet.
-- If something feels off, check docs/troubleshooting first and then open an issue.
+Reality check:
+- declarch is evolving quickly,
+- backend and environment coverage is improving,
+- not every backend combo is tested equally yet.
 
-## What declarch is (and is not)
+No overclaim: use `sync preview` first when unsure.
 
-declarch is:
-- A declarative layer on top of multiple package backends.
-- Useful if you want reproducible package setup across machines.
-- Modular: split config by host/use-case.
+## What declarch is
 
-declarch is not:
-- A guaranteed universal abstraction for every backend edge case.
-- A promise that all backend commands behave identically everywhere.
+- **Wrapper** for existing package managers.
+- **Agnostic** architecture (not tied to one ecosystem).
+- **Flexible backend config** that can evolve with upstream tools.
+
+## Backends (search-friendly list)
+
+`aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`.
 
 ## Installation
 
@@ -51,129 +48,80 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 
 ## First-time setup
 
-### 1. Initialize config
+### 1. Initialize
 
 ```bash
 declarch init
-```
-
-This creates:
-
-```text
-~/.config/declarch/
-├── declarch.kdl
-├── backends.kdl
-└── modules/
-    └── base.kdl
 ```
 
 ### 2. Add packages
 
 ```bash
 declarch install bat fzf ripgrep
-```
-
-With explicit backend:
-
-```bash
 declarch install npm:typescript
 ```
 
-### 3. Apply changes
+### 3. Apply
 
 ```bash
 declarch sync
 ```
 
-## Basic configuration example
+Use preview when needed:
 
-Edit `~/.config/declarch/modules/base.kdl`:
+```bash
+declarch sync preview
+```
+
+## Basic config example
 
 ```kdl
 pkg {
-    pacman {
-        firefox
-        tmux
-    }
-
-    flatpak {
-        org.mozilla.firefox
-    }
-
-    npm {
-        typescript
-        pnpm
-    }
+    pacman { firefox git }
+    flatpak { org.mozilla.firefox }
+    npm { typescript pnpm }
+    nix { nil }
 }
-```
-
-Then:
-
-```bash
-declarch sync
-```
-
-## Common commands
-
-```bash
-# Preview changes
-declarch sync preview
-
-# Sync + backend updates
-declarch sync update
-
-# Remove unmanaged packages
-declarch sync prune
-
-# Search
-declarch search firefox
-
-# Validate config
-declarch check
-
-# System/state info
-declarch info
 ```
 
 ## Backend setup
 
-To adopt extra backends from registry:
-
 ```bash
 declarch init --backend npm
-```
-
-Multiple backends (space-separated):
-
-```bash
+declarch init --backend pnpm,yarn
+# also valid:
 declarch init --backend pnpm yarn
 ```
 
-Multiple backends (comma-separated):
+Use `--force` to overwrite existing backend file.
+
+## Common commands
 
 ```bash
-declarch init --backend pnpm,yarn
+declarch sync
+declarch sync preview
+declarch sync update
+declarch sync prune
+declarch search firefox
+declarch check
+declarch info
 ```
-
-Use `--force` to overwrite existing backend file.
 
 ## Documentation
 
 Hosted docs:
 - https://nixval.github.io/declarch/
 
-mdDocs source pages in this repo (`docs-book/src`):
-- [Getting Started](docs-book/src/getting-started/quick-start.md)
+mdDocs source pages (`docs-book/src`):
+- [Introduction](docs-book/src/intro.md)
 - [Installation](docs-book/src/getting-started/installation.md)
-- [Commands Overview](docs-book/src/commands/index.md)
-- [init command](docs-book/src/commands/init.md)
-- [sync command](docs-book/src/commands/sync.md)
-- [Backends config](docs-book/src/configuration/backends.md)
-- [KDL syntax](docs-book/src/configuration/kdl-syntax.md)
+- [Quick Start](docs-book/src/getting-started/quick-start.md)
+- [Command Overview](docs-book/src/commands/index.md)
+- [Backends](docs-book/src/configuration/backends.md)
+- [KDL Basics](docs-book/src/configuration/kdl-syntax.md)
+- [Syntax Reference (Advanced)](docs-book/src/configuration/syntax.md)
 - [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
-
-Full docs structure:
-- [SUMMARY](docs-book/src/SUMMARY.md)
+- [Full sidebar](docs-book/src/SUMMARY.md)
 
 ## License
 

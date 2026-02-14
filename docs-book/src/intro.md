@@ -1,89 +1,49 @@
 # Introduction
 
-**Declarch** is a declarative package manager for Linux.
+Declarch is a declarative wrapper for multiple package managers.
 
-Instead of running `pacman -S`, `npm install`, and `flatpak install` commands every time, you declare all your packages in one config file and run a single command to sync.
+In short:
+- you write what packages you want,
+- declarch picks the right backend,
+- then `declarch sync` applies it.
 
-## What Does That Mean?
+## What makes it different
 
-**Traditional way:**
-```bash
-# You install things one by one
-paru -S neovim bat fzf
-npm install -g typescript prettier
-flatpak install com.spotify.Client
+Declarch is:
+- **Agnostic**: it does not lock you into one package manager.
+- **Wrapper-style**: it orchestrates existing tools (`pacman`, `aur`, `flatpak`, `npm`, `nix`, etc).
+- **Flexible**: backend configs can evolve as upstream package managers evolve.
 
-# Months later, you forget what you installed and why
-```
+Declarch is **not**:
+- a replacement for every backend CLI feature,
+- a promise that every backend/environment combo is perfectly tested yet.
 
-**Declarch way:**
-```kdl
-// ~/.config/declarch/modules/base.kdl
-pkg {
-    aur {
-        neovim
-        bat
-        fzf
-    }
-    
-    npm {
-        typescript
-        prettier
-    }
-    
-    flatpak {
-        com.spotify.Client
-    }
-}
-```
+## Backends you can use
 
-Then run:
-```bash
-declarch sync
-```
+Common backends include:
+- `aur`, `pacman`, `flatpak`
+- `npm`, `pnpm`, `yarn`, `bun`
+- `cargo`, `pip`, `gem`, `go`
+- `apt`, `nala`, `dnf`, `snap`, `brew`, `nix`, `soar`
 
-Your system now matches your config. Add this file to Git and use it on all your machines.
-
-## 30-Second Demo
+## 60-second flow
 
 ```bash
-# 1. Install
-curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
-
-# 2. Initialize
+# 1) initialize
 declarch init
 
-# 3. Add some packages
-declarch install bat fzf ripgrep
+# 2) add packages
+declarch install bat ripgrep
 
-# 4. Sync
+# 3) apply
 declarch sync
 ```
 
-Done! Your packages are now managed declaratively.
+## Important note for v0.8.0+
 
-## Key Features
+v0.8.0 introduced breaking changes in architecture and syntax.
+If you are upgrading from older versions, back up config first and follow docs step-by-step.
 
-| Feature | What It Means |
-|---------|---------------|
-| **Declarative** | Define what you want, not how to get it |
-| **Multi-Backend** | One config for AUR, Flatpak, npm, cargo, etc. |
-| **Modular** | Split into multiple files (base, gaming, work) |
-| **Git-Friendly** | Track your setup in version control |
-
-## Who Is This For?
-
-- **Arch Linux users** who want reproducible setups
-- **Developers** using multiple package managers
-- **Multi-machine users** who want consistent environments
-- **Anyone** tired of forgetting what they installed
-
-## Requirements
-
-- Linux (Arch-based distros work best)
-- One of: `paru`, `yay`, or `pacman` installed
-
-## Next Steps
-
-→ [Installation](./getting-started/installation.md)  
-→ [Quick Start Guide](./getting-started/quick-start.md)
+Next:
+- [Installation](./getting-started/installation.md)
+- [Quick Start](./getting-started/quick-start.md)

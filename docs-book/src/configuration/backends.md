@@ -1,138 +1,60 @@
 # Backends
 
-Backends connect declarch to package managers. They define how to list, install, remove, and search packages for each package manager.
+Backends are how declarch talks to package managers.
 
-## Built-in Backends
+Think of declarch as an **agnostic wrapper**:
+- you write one declarative config,
+- backends execute real package-manager commands.
 
-These work immediately after `declarch init`:
+## Built-in feeling vs reality
 
-| Backend | Package Manager | Description |
-|---------|-----------------|-------------|
-| `aur` | paru/yay | AUR packages (falls back to pacman) |
-| `pacman` | pacman | Official Arch repositories |
-| `flatpak` | flatpak | Universal Linux apps |
+Declarch gives ready-to-use defaults, but backend files are still editable and can evolve.
+This is intentional, so backend behavior can adapt when package managers change.
 
-## Using Backends
+## Common backend set
 
-In your config (`declarch.kdl`):
+You can use one or many:
+- System: `aur`, `pacman`, `flatpak`, `apt`, `nala`, `dnf`, `snap`, `nix`, `brew`
+- Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
+- Others: `soar`
 
-```kdl
-pkg {
-    aur {
-        neovim
-        brave-bin
-    }
-    
-    pacman {
-        firefox
-        thunderbird
-    }
-    
-    flatpak {
-        com.spotify.Client
-        com.discordapp.Discord
-    }
-}
-```
-
-## Installing Custom Backends
-
-Need npm, cargo, or others?
+## Add backend definitions
 
 ```bash
 declarch init --backend npm
 ```
 
-This will:
-1. Fetch the backend definition from the registry
-2. Show meta information (title, description, platforms, etc.)
-3. Prompt for confirmation
-4. Import the backend automatically
+Multiple at once:
 
-Then use it:
+```bash
+declarch init --backend pnpm,yarn
+# or
+declarch init --backend pnpm yarn
+```
+
+## Example usage in config
+
 ```kdl
 pkg {
-    npm {
-        typescript
-        prettier
-    }
+    pacman { firefox }
+    flatpak { org.mozilla.firefox }
+    npm { typescript prettier }
+    nix { nil }
 }
 ```
 
-## Available Backends
+## Fallback idea (important)
 
-Install these with `declarch init --backend <name>`:
+Some backends can fallback to another backend when binary is missing.
+Examples:
+- `nala -> apt`
+- `yarn -> npm`
+- `pnpm -> npm`
+- `bun -> npm`
+- `aur/yay/paru -> pacman` (depending on backend config)
 
-| Backend | For | Platforms |
-|---------|-----|-----------|
-| `npm` | Node.js packages | Linux, macOS, Windows |
-| `pnpm` | Fast Node.js package manager | Linux, macOS, Windows |
-| `bun` | Fast JavaScript runtime | Linux, macOS |
-| `yarn` | Alternative Node.js package manager | Linux, macOS, Windows |
-| `cargo` | Rust crates | Linux, macOS, Windows |
-| `pip` | Python packages | Linux, macOS, Windows |
-| `gem` | Ruby gems | Linux, macOS, Windows |
-| `soar` | Static binaries | Linux |
-| `nix` | Nix packages | Linux, macOS |
-| `brew` | Homebrew packages | macOS, Linux |
-| `apt` | Debian/Ubuntu packages | Linux |
-| `dnf` | Fedora/RHEL packages | Linux |
-| `snap` | Universal Linux packages | Linux |
-| `paru` | AUR helper (alternative) | Linux |
-| `yay` | AUR helper (alternative) | Linux |
-| `go` | Go binaries | Linux, macOS, Windows |
+## Practical advice
 
-## Backend Storage
-
-```
-~/.config/declarch/
-├── backends.kdl          # Built-in backends + imports
-└── backends/
-    └── npm.kdl           # Custom backend definitions
-```
-
-## Backend Meta Information
-
-When initializing a backend, declarch displays meta information:
-
-```
-fetching 'npm' from nixval/declarch-packages
-
-  Title:       NPM
-  Description: Node Package Manager
-  Maintained:  nixval
-  Homepage:    https://www.npmjs.com
-  Platforms:   linux, macos, windows
-  Requires:    nodejs
-
-? Are you sure you want this 'npm' being adopted [Y/n]
-```
-
-Fields with value "-" are hidden automatically.
-
-## Troubleshooting
-
-**"Backend 'xxx' not found"**
-
-```bash
-# Install the backend
-declarch init --backend xxx
-```
-
-**"No backend configured"**
-
-```bash
-# Re-initialize
-declarch init
-```
-
-**"Backend file already exists"**
-
-```bash
-# Force overwrite
-declarch init --backend xxx --force
-```
-
-## Advanced
-
-- [Create Custom Backends](../advanced/custom-backends.md)
+- Start with minimal backends first.
+- Add more only when you really use them.
+- Keep backend files versioned so you can track behavior changes.
