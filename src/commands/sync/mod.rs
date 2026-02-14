@@ -377,7 +377,7 @@ fn parse_bool_option(value: &str) -> Option<bool> {
     }
 }
 
-fn apply_backend_option_overrides(
+pub(crate) fn apply_backend_option_overrides(
     backend_config: &mut crate::backends::config::BackendConfig,
     backend_name: &str,
     config: &loader::MergedConfig,
@@ -472,7 +472,7 @@ fn apply_backend_option_overrides(
     }
 }
 
-fn apply_backend_env_overrides(
+pub(crate) fn apply_backend_env_overrides(
     backend_config: &mut crate::backends::config::BackendConfig,
     backend_name: &str,
     config: &loader::MergedConfig,
@@ -501,7 +501,7 @@ fn apply_backend_env_overrides(
     }
 }
 
-fn apply_backend_package_sources(
+pub(crate) fn apply_backend_package_sources(
     backend_config: &mut crate::backends::config::BackendConfig,
     backend_name: &str,
     config: &loader::MergedConfig,

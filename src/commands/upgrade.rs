@@ -4,10 +4,12 @@
 //! then automatically syncs to adopt the changes into state.
 
 use crate::backends::load_all_backends_unified;
+use crate::config::loader;
 use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
 use crate::ui as output;
+use crate::utils::paths;
 use std::collections::HashSet;
 
 pub struct UpgradeOptions {
@@ -62,12 +64,30 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
         return Ok(());
     }
 
+    let runtime_config = match paths::config_file() {
+        Ok(path) if path.exists() => match loader::load_root_config(&path) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                output::warning(&format!(
+                    "Failed to load config overrides for upgrade command: {}",
+                    e
+                ));
+                loader::MergedConfig::default()
+            }
+        },
+        _ => loader::MergedConfig::default(),
+    };
+
     // First pass: check which backends can be upgraded
     let mut upgradable_backends = Vec::new();
     let mut skipped_no_cmd = Vec::new();
     let mut skipped_not_available = Vec::new();
 
-    for (name, config) in backends_to_upgrade {
+    for (name, mut config) in backends_to_upgrade {
+        crate::commands::sync::apply_backend_option_overrides(&mut config, &name, &runtime_config);
+        crate::commands::sync::apply_backend_env_overrides(&mut config, &name, &runtime_config);
+        crate::commands::sync::apply_backend_package_sources(&mut config, &name, &runtime_config);
+
         if config.upgrade_cmd.is_none() {
             skipped_no_cmd.push(name);
             continue;
