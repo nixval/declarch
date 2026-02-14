@@ -138,6 +138,12 @@ pub struct GenericManager {
     backend_type: CoreBackend,
 }
 
+#[derive(Clone, Copy)]
+enum CommandMode {
+    ReadOnly,
+    Mutating,
+}
+
 impl GenericManager {
     /// Create a new generic manager from configuration
     pub fn from_config(
@@ -192,13 +198,14 @@ impl GenericManager {
 
     /// Build command with optional sudo
     /// Uses the resolved binary (respecting fallback if needed)
-    fn build_command(&self, cmd_str: &str) -> Result<Command> {
+    fn build_command(&self, cmd_str: &str, mode: CommandMode) -> Result<Command> {
         let binary = self.get_binary()?;
 
         // Replace common placeholders
         let cmd_str = self.replace_common_placeholders(cmd_str, &binary);
 
-        let mut cmd = if self.config.needs_sudo {
+        let use_sudo = self.config.needs_sudo && matches!(mode, CommandMode::Mutating);
+        let mut cmd = if use_sudo {
             let mut cmd = Command::new("sudo");
             cmd.arg("sh").arg("-c").arg(cmd_str);
             cmd
@@ -270,7 +277,7 @@ impl PackageManager for GenericManager {
         })?;
 
         let cmd_str = list_cmd.clone();
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
         
         let output = run_command_with_timeout(&mut cmd, DEFAULT_COMMAND_TIMEOUT)
             .map_err(|e| DeclarchError::SystemCommandFailed {
@@ -309,7 +316,7 @@ impl PackageManager for GenericManager {
             cmd_str.push_str(flag);
         }
 
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
 
         // Use interactive timeout function (5 minute timeout for install)
         let timeout = Duration::from_secs(300);
@@ -355,7 +362,7 @@ impl PackageManager for GenericManager {
             cmd_str.push_str(flag);
         }
 
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
 
         // Use interactive timeout function (5 minute timeout for remove)
         let timeout = Duration::from_secs(300);
@@ -414,7 +421,7 @@ impl PackageManager for GenericManager {
 
         // Replace query placeholder; common placeholders are handled by build_command
         let cmd_str = search_cmd.replace("{query}", &sanitize::shell_escape(query));
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
         
         // Use shorter timeout for search (30 seconds)
         let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
@@ -444,7 +451,7 @@ impl PackageManager for GenericManager {
         })?;
 
         let cmd_str = update_cmd.clone();
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
         
         ui::info(&format!("Updating {} package index...", self.config.name));
         
@@ -479,7 +486,7 @@ impl PackageManager for GenericManager {
         })?;
 
         let cmd_str = cache_clean_cmd.clone();
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
         
         ui::info(&format!("Cleaning {} cache...", self.config.name));
         
@@ -515,7 +522,7 @@ impl PackageManager for GenericManager {
         })?;
 
         let cmd_str = upgrade_cmd.clone();
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
         
         ui::info(&format!("Upgrading {} packages...", self.config.name));
         
@@ -554,7 +561,7 @@ impl PackageManager for GenericManager {
 
         // Replace query placeholder; common placeholders are handled by build_command
         let cmd_str = search_local_cmd.replace("{query}", &sanitize::shell_escape(query));
-        let mut cmd = self.build_command(&cmd_str)?;
+        let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
         
         // Use shorter timeout for search (30 seconds)
         let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
@@ -1139,5 +1146,36 @@ mod tests {
     fn test_binary_specifier_primary() {
         let bin = BinarySpecifier::Multiple(vec!["paru".to_string(), "yay".to_string()]);
         assert_eq!(bin.primary(), "paru");
+    }
+
+    #[test]
+    fn test_sudo_applies_only_to_mutating_operations() {
+        let config = BackendConfig {
+            name: "test".to_string(),
+            binary: BinarySpecifier::Single("sh".to_string()),
+            needs_sudo: true,
+            ..Default::default()
+        };
+        let manager = GenericManager::from_config(config, Backend::from("aur"), false);
+
+        let read_cmd = manager
+            .build_command("{binary} -c 'echo read'", CommandMode::ReadOnly)
+            .expect("read command should build");
+        let read_debug = format!("{:?}", read_cmd);
+        assert!(
+            !read_debug.contains("\"sudo\""),
+            "read-only commands must not use sudo: {}",
+            read_debug
+        );
+
+        let write_cmd = manager
+            .build_command("{binary} -c 'echo write'", CommandMode::Mutating)
+            .expect("write command should build");
+        let write_debug = format!("{:?}", write_cmd);
+        assert!(
+            write_debug.contains("\"sudo\""),
+            "mutating commands should use sudo when needs_sudo=true: {}",
+            write_debug
+        );
     }
 }
