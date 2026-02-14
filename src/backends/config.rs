@@ -64,6 +64,10 @@ pub struct BackendConfig {
     /// Environment variables to set before running commands
     pub preinstall_env: Option<HashMap<String, String>>,
 
+    /// Optional package sources/repositories injected into command templates
+    /// Use {repos} placeholder in command templates
+    pub package_sources: Option<Vec<String>>,
+
     /// Whether to use the Rust implementation instead of generic
     pub use_rust_fallback: bool,
 
@@ -245,6 +249,7 @@ impl Default for BackendConfig {
             noconfirm_flag: None,
             needs_sudo: false,
             preinstall_env: None,
+            package_sources: None,
             use_rust_fallback: false,
             // Search support - all optional
             search_cmd: None,

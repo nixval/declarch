@@ -299,6 +299,7 @@ fn initialize_managers_and_snapshot(
 
         apply_backend_option_overrides(&mut backend_config, &backend_name, config);
         apply_backend_env_overrides(&mut backend_config, &backend_name, config);
+        apply_backend_package_sources(&mut backend_config, &backend_name, config);
 
         let manager: Box<dyn PackageManager> = Box::new(crate::backends::GenericManager::from_config(
             backend_config,
@@ -415,6 +416,28 @@ fn apply_backend_env_overrides(
         backend_config.preinstall_env = None;
     } else {
         backend_config.preinstall_env = Some(merged_env);
+    }
+}
+
+fn apply_backend_package_sources(
+    backend_config: &mut crate::backends::config::BackendConfig,
+    backend_name: &str,
+    config: &loader::MergedConfig,
+) {
+    let mut sources = backend_config.package_sources.clone().unwrap_or_default();
+
+    if let Some(repo_sources) = config.package_sources.get(backend_name) {
+        for src in repo_sources {
+            if !sources.contains(src) {
+                sources.push(src.clone());
+            }
+        }
+    }
+
+    if sources.is_empty() {
+        backend_config.package_sources = None;
+    } else {
+        backend_config.package_sources = Some(sources);
     }
 }
 

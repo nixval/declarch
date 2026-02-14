@@ -195,8 +195,8 @@ impl GenericManager {
     fn build_command(&self, cmd_str: &str) -> Result<Command> {
         let binary = self.get_binary()?;
 
-        // Replace {binary} and {packages} placeholders
-        let cmd_str = cmd_str.replace("{binary}", &binary);
+        // Replace common placeholders
+        let cmd_str = self.replace_common_placeholders(cmd_str, &binary);
 
         if self.config.needs_sudo {
             let mut cmd = Command::new("sudo");
@@ -221,6 +221,29 @@ impl GenericManager {
             .collect::<Vec<_>>()
             .join(" ")
     }
+
+    /// Format repository/source list for command template usage.
+    /// Each source is shell-escaped to prevent injection.
+    fn format_sources(&self) -> String {
+        self.config
+            .package_sources
+            .as_ref()
+            .map(|sources| {
+                sources
+                    .iter()
+                    .map(|s| sanitize::shell_escape(s))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .unwrap_or_default()
+    }
+
+    /// Replace placeholders that are common across all command templates.
+    fn replace_common_placeholders(&self, template: &str, binary: &str) -> String {
+        template
+            .replace("{binary}", binary)
+            .replace("{repos}", &self.format_sources())
+    }
 }
 
 impl PackageManager for GenericManager {
@@ -239,7 +262,7 @@ impl PackageManager for GenericManager {
 
         // Get the binary (respecting fallback if needed)
         let binary = self.get_binary()?;
-        let cmd_str = list_cmd.replace("{binary}", &binary);
+        let cmd_str = self.replace_common_placeholders(list_cmd, &binary);
         
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(&cmd_str);
@@ -397,6 +420,7 @@ impl PackageManager for GenericManager {
         // Replace {binary} and {query} placeholders with escaped values
         let cmd_str = search_cmd
             .replace("{binary}", &binary)
+            .replace("{repos}", &self.format_sources())
             .replace("{query}", &sanitize::shell_escape(query));
 
         let mut cmd = Command::new("sh");
@@ -433,7 +457,7 @@ impl PackageManager for GenericManager {
         let binary = self.get_binary()?;
         
         // Replace {binary} placeholder
-        let cmd_str = update_cmd.replace("{binary}", &binary);
+        let cmd_str = self.replace_common_placeholders(update_cmd, &binary);
 
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(&cmd_str);
@@ -474,7 +498,7 @@ impl PackageManager for GenericManager {
         let binary = self.get_binary()?;
         
         // Replace {binary} placeholder
-        let cmd_str = cache_clean_cmd.replace("{binary}", &binary);
+        let cmd_str = self.replace_common_placeholders(cache_clean_cmd, &binary);
 
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(&cmd_str);
@@ -516,7 +540,7 @@ impl PackageManager for GenericManager {
         let binary = self.get_binary()?;
         
         // Replace {binary} placeholder
-        let cmd_str = upgrade_cmd.replace("{binary}", &binary);
+        let cmd_str = self.replace_common_placeholders(upgrade_cmd, &binary);
 
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(&cmd_str);
@@ -562,6 +586,7 @@ impl PackageManager for GenericManager {
         // Replace {binary} and {query} placeholders with escaped values
         let cmd_str = search_local_cmd
             .replace("{binary}", &binary)
+            .replace("{repos}", &self.format_sources())
             .replace("{query}", &sanitize::shell_escape(query));
 
         let mut cmd = Command::new("sh");

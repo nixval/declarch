@@ -87,6 +87,7 @@
 //!     noconfirm_flag: Some("--yes".to_string()),
 //!     needs_sudo: false,
 //!     preinstall_env: None,
+//!     package_sources: None,
 //!     use_rust_fallback: false,
 //!     fallback: None,
 //!     search_cmd: None,
