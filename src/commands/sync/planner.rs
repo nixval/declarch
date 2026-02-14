@@ -91,7 +91,8 @@ pub fn check_variant_transitions(
     use std::collections::HashSet;
 
     let matcher = PackageMatcher::new();
-    let mut variant_mismatches: Vec<(String, String)> = Vec::new();
+    // Store (config_name, installed_name, backend) for each mismatch
+    let mut variant_mismatches: Vec<(String, String, Backend)> = Vec::new();
 
     // Only check for variant transitions in full sync or when targeting specific backends
     if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
@@ -126,7 +127,11 @@ pub fn check_variant_transitions(
                             .map(|n| n != &matched_id.name)
                             .unwrap_or(false)
                     {
-                        variant_mismatches.push((pkg_id.name.clone(), matched_id.name));
+                        variant_mismatches.push((
+                            pkg_id.name.clone(),
+                            matched_id.name,
+                            pkg_id.backend.clone(),
+                        ));
                     }
                 }
             }
@@ -139,9 +144,10 @@ pub fn check_variant_transitions(
         output::error("Variant transition detected!");
         println!("\nThe following packages have different variants installed:\n");
 
-        for (config_name, installed_name) in &variant_mismatches {
+        for (config_name, installed_name, backend) in &variant_mismatches {
             println!(
-                "  {}  →  {}",
+                "  [{}] {}  →  {}",
+                backend.to_string().dimmed(),
                 config_name.cyan().bold(),
                 installed_name.yellow().bold()
             );
@@ -153,18 +159,29 @@ pub fn check_variant_transitions(
         );
         println!("\n{}", "To resolve this:".bold());
         println!("  1. For each package, run:");
-        for (config_name, installed_name) in &variant_mismatches {
+        for (config_name, installed_name, backend) in &variant_mismatches {
+            let backend_prefix = format!("{}:", backend);
             println!(
                 "     {}",
                 format!(
-                    "declarch switch {} {}",
+                    "declarch switch {}{} {}{}",
+                    backend_prefix.yellow(),
                     installed_name.yellow(),
+                    backend_prefix.cyan(),
                     config_name.cyan()
                 )
                 .bold()
             );
         }
-        println!("\n  2. Or, update your config to match the installed variant");
+        println!("\n  2. Or, update your config to match the installed variant:");
+        for (config_name, installed_name, backend) in &variant_mismatches {
+            println!(
+                "       pkg {{ {} {{ {} }} }}  (was: {})",
+                backend.to_string().cyan(),
+                installed_name.yellow(),
+                config_name.dimmed()
+            );
+        }
         println!(
             "\n  3. Use {} to bypass this check (not recommended)",
             "--force".yellow().bold()
