@@ -55,6 +55,8 @@ pub struct SyncOptions {
     pub target: Option<String>,
     pub noconfirm: bool,
     pub hooks: bool,
+    pub profile: Option<String>,
+    pub host: Option<String>,
     pub modules: Vec<String>,
     pub diff: bool,
 }
@@ -86,14 +88,19 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 1. Load Config
     let config_path = paths::config_file()?;
+    let selectors = loader::LoadSelectors {
+        profile: options.profile.clone(),
+        host: options.host.clone(),
+    };
+
     let mut config = if !options.modules.is_empty() {
         if options.modules.len() == 1 && options.target.is_none() {
-            load_single_module(&config_path, &options.modules[0])?
+            load_single_module(&config_path, &options.modules[0], &selectors)?
         } else {
-            load_config_with_modules(&config_path, &options.modules)?
+            load_config_with_modules(&config_path, &options.modules, &selectors)?
         }
     } else {
-        loader::load_root_config(&config_path)?
+        loader::load_root_config_with_selectors(&config_path, &selectors)?
     };
     let hooks_enabled = resolve_hooks_enabled(&config, &options);
 
@@ -651,7 +658,11 @@ fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
     Ok(())
 }
 
-fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::MergedConfig> {
+fn load_single_module(
+    _config_path: &Path,
+    module_name: &str,
+    selectors: &loader::LoadSelectors,
+) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
     let module_path = paths::module_file(module_name);
@@ -682,17 +693,18 @@ fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::
         }
     };
 
-    let module_config = loader::load_root_config(&final_path)?;
+    let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
     Ok(module_config)
 }
 
 fn load_config_with_modules(
     config_path: &Path,
     extra_modules: &[String],
+    selectors: &loader::LoadSelectors,
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
-    let mut merged = loader::load_root_config(config_path)?;
+    let mut merged = loader::load_root_config_with_selectors(config_path, selectors)?;
 
     for module_name in extra_modules {
         let module_path = paths::module_file(module_name);
@@ -724,7 +736,7 @@ fn load_config_with_modules(
         };
 
         output::info(&format!("  Loading module: {}", final_path.display()));
-        let module_config = loader::load_root_config(&final_path)?;
+        let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
         merged.packages.extend(module_config.packages);
         merged.excludes.extend(module_config.excludes);
     }
