@@ -119,6 +119,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
             ));
             continue;
         };
+        let mut backend_config = backend_config;
+        // Search is read-only; never require sudo here.
+        // This avoids password prompts/timeouts in non-interactive flows.
+        backend_config.needs_sudo = false;
 
         let manager = match create_manager_from_config(&backend_config) {
             Ok(m) => m,
