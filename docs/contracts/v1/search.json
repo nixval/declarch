@@ -1,0 +1,20 @@
+{
+  "version": "v1",
+  "command": "search",
+  "ok": true,
+  "data": {
+    "query": "firefox",
+    "results": [
+      {
+        "backend": "aur",
+        "name": "firefox",
+        "description": "Fast, Private & Safe Web Browser"
+      }
+    ]
+  },
+  "warnings": [],
+  "errors": [],
+  "meta": {
+    "generated_at": "2026-02-15T00:00:00Z"
+  }
+}

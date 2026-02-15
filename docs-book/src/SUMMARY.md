@@ -39,6 +39,7 @@
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
 - [Version Pinning (Placeholder)](./advanced/version-pinning-placeholder.md)
+- [Integration Roadmap RFC](./advanced/rfc-integration-roadmap.md)
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
 
