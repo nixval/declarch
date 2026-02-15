@@ -13,7 +13,7 @@ declarch info [COMMAND]
 | Command | Description |
 |---------|-------------|
 | `status` | State summary (default) |
-| `list` | List views (`all`, `orphans`, `synced`) |
+| `list` | Package list views |
 | `doctor` | Diagnose common issues |
 
 ## Examples
@@ -30,6 +30,20 @@ declarch info list orphans
 
 # Diagnostics
 declarch info doctor
+```
+
+## `info list` views
+
+```bash
+declarch info list all
+declarch info list orphans
+declarch info list synced
+```
+
+Optional backend filter:
+
+```bash
+declarch info list orphans --backend aur
 ```
 
 ## Common filters

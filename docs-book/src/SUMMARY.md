@@ -16,7 +16,6 @@
 - [sync](./commands/sync.md)
 - [search](./commands/search.md)
 - [info](./commands/info.md)
-- [info list](./commands/list.md)
 
 ## Configuration (Beginner)
 
@@ -40,6 +39,5 @@
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
 - [check](./commands/check.md)
-- [settings (removed)](./commands/settings.md)
 
 [Cross-Distro Support](./cross-distro-support.md)
