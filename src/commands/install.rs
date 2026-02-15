@@ -2,7 +2,7 @@
 //!
 //! Adds packages to KDL configuration files and auto-syncs the system.
 
-use crate::config::editor::{self, ConfigEditor, restore_from_backup};
+use crate::config::editor::{self, ConfigEditor, ModuleEdit, restore_from_backup};
 use crate::config::loader;
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
@@ -84,6 +84,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
     // Step 2: Initialize config editor
     let editor = ConfigEditor::new();
     let mut all_edits = Vec::new();
+    let mut root_backup: Option<std::path::PathBuf> = None;
     let mut skipped_count = 0;
 
     // Step 3: Add each package to config
@@ -216,6 +217,12 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 .file_path
                 .strip_prefix(&paths::config_dir()?)
                 .unwrap_or(&edit.file_path);
+            if root_backup.is_none() {
+                let config_path = paths::config_file()?;
+                if config_path.exists() {
+                    root_backup = Some(editor::backup_kdl_file(&config_path)?);
+                }
+            }
             inject_import_to_root(module_path)?;
         } else {
             files_updated.push(edit.file_path.display().to_string());
@@ -251,44 +258,55 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
         match sync_result {
             Ok(()) => {
-                // Clean up backups on successful install
-                for edit in &all_edits {
-                    let Some(ref backup) = edit.backup_path else {
-                        continue;
-                    };
-                    let _ = std::fs::remove_file(backup);
+                // Keep install transactional even if interruption happens late.
+                if output::is_interrupted() {
+                    rollback_install_edits(&all_edits, root_backup.as_ref());
+                    output::info("Changes rolled back");
+                    return Ok(());
                 }
             }
             Err(crate::error::DeclarchError::Interrupted) => {
                 // User cancelled - rollback and show friendly message
-                for edit in &all_edits {
-                    if let Some(ref backup) = edit.backup_path {
-                        let _ = restore_from_backup(backup);
-                    } else if edit.created_new_file {
-                        let _ = std::fs::remove_file(&edit.file_path);
-                    }
-                }
+                rollback_install_edits(&all_edits, root_backup.as_ref());
                 output::info("Changes rolled back");
                 return Ok(());
             }
             Err(e) => {
                 // Rollback all edits silently
-                for edit in &all_edits {
-                    if let Some(ref backup) = edit.backup_path {
-                        // File existed before: restore from backup
-                        let _ = restore_from_backup(backup);
-                    } else if edit.created_new_file {
-                        // New file: delete it
-                        let _ = std::fs::remove_file(&edit.file_path);
-                    }
-                }
-
+                rollback_install_edits(&all_edits, root_backup.as_ref());
                 return Err(e);
             }
         }
     }
 
+    cleanup_install_backups(&all_edits, root_backup.as_ref());
     Ok(())
+}
+
+fn rollback_install_edits(all_edits: &[ModuleEdit], root_backup: Option<&std::path::PathBuf>) {
+    for edit in all_edits {
+        if let Some(ref backup) = edit.backup_path {
+            let _ = restore_from_backup(backup);
+        } else if edit.created_new_file {
+            let _ = std::fs::remove_file(&edit.file_path);
+        }
+    }
+
+    if let Some(backup) = root_backup {
+        let _ = restore_from_backup(backup);
+    }
+}
+
+fn cleanup_install_backups(all_edits: &[ModuleEdit], root_backup: Option<&std::path::PathBuf>) {
+    for edit in all_edits {
+        if let Some(ref backup) = edit.backup_path {
+            let _ = std::fs::remove_file(backup);
+        }
+    }
+
+    if let Some(backup) = root_backup {
+        let _ = std::fs::remove_file(backup);
+    }
 }
 
 /// Helper to inject the import statement into main config file
@@ -344,7 +362,10 @@ fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::plan_installs;
+    use super::{cleanup_install_backups, plan_installs, rollback_install_edits};
+    use crate::config::editor::{ModuleEdit, backup_kdl_file};
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn plan_installs_accepts_backend_prefix_per_package() {
@@ -373,5 +394,44 @@ mod tests {
         let raw = vec!["bat".to_string()];
         let err = plan_installs(&raw, None).expect_err("planning should fail without backend");
         assert!(err.to_string().contains("has no backend"));
+    }
+
+    #[test]
+    fn rollback_restores_file_content_from_backup() {
+        let dir = tempdir().expect("tempdir");
+        let original = dir.path().join("others.kdl");
+
+        fs::write(&original, "pkg {\n  aur { bat }\n}\n").expect("write original");
+        let backup = backup_kdl_file(&original).expect("backup");
+        fs::write(&original, "pkg {\n  aur { bat ripgrep }\n}\n").expect("mutate");
+
+        let edit = ModuleEdit {
+            file_path: original.clone(),
+            packages_added: vec!["ripgrep".to_string()],
+            created_new_file: false,
+            backup_path: Some(backup),
+        };
+
+        rollback_install_edits(&[edit], None);
+        let restored = fs::read_to_string(&original).expect("read restored");
+        assert!(!restored.contains("ripgrep"));
+    }
+
+    #[test]
+    fn cleanup_removes_backup_file() {
+        let dir = tempdir().expect("tempdir");
+        let original = dir.path().join("others.kdl");
+        fs::write(&original, "pkg { aur { bat } }").expect("write");
+        let backup = backup_kdl_file(&original).expect("backup");
+
+        let edit = ModuleEdit {
+            file_path: original,
+            packages_added: vec![],
+            created_new_file: false,
+            backup_path: Some(backup.clone()),
+        };
+
+        cleanup_install_backups(&[edit], None);
+        assert!(!backup.exists());
     }
 }
