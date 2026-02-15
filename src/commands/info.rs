@@ -177,6 +177,11 @@ fn run_doctor() -> Result<()> {
         &format!("• State file: {}", state::io::get_state_path()?.display()),
         2,
     );
+    if os == "macos" || os == "windows" {
+        output::warning(
+            "This OS path is experimental (alpha). Core workflow should work, but expect rough edges.",
+        );
+    }
     output::separator();
 
     // Check 1: Config file
