@@ -48,7 +48,7 @@ jobs:
       - name: Prepare archive
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../declarch-${{ matrix.target }}.tar.gz declarch
+          tar czf ../../declarch-${{ matrix.target }}.tar.gz declarch decl
           cd ../..
 
       - name: Upload artifact
