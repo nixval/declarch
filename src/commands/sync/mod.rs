@@ -177,30 +177,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     if machine_preview_mode {
-        let report = SyncPreviewReport {
-            dry_run: true,
-            prune: options.prune,
-            update: options.update,
-            target: sync_target_to_string(&sync_target),
-            install_count: transaction.to_install.len(),
-            remove_count: transaction.to_prune.len(),
-            adopt_count: transaction.to_adopt.len(),
-            to_install: transaction
-                .to_install
-                .iter()
-                .map(package_id_to_string)
-                .collect(),
-            to_remove: transaction
-                .to_prune
-                .iter()
-                .map(package_id_to_string)
-                .collect(),
-            to_adopt: transaction
-                .to_adopt
-                .iter()
-                .map(package_id_to_string)
-                .collect(),
-        };
+        let report = build_sync_preview_report(&options, &sync_target, &transaction);
 
         machine_output::emit_v1(
             "sync preview",
@@ -292,6 +269,37 @@ pub fn run(options: SyncOptions) -> Result<()> {
     execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     Ok(())
+}
+
+fn build_sync_preview_report(
+    options: &SyncOptions,
+    sync_target: &SyncTarget,
+    transaction: &crate::core::resolver::Transaction,
+) -> SyncPreviewReport {
+    SyncPreviewReport {
+        dry_run: true,
+        prune: options.prune,
+        update: options.update,
+        target: sync_target_to_string(sync_target),
+        install_count: transaction.to_install.len(),
+        remove_count: transaction.to_prune.len(),
+        adopt_count: transaction.to_adopt.len(),
+        to_install: transaction
+            .to_install
+            .iter()
+            .map(package_id_to_string)
+            .collect(),
+        to_remove: transaction
+            .to_prune
+            .iter()
+            .map(package_id_to_string)
+            .collect(),
+        to_adopt: transaction
+            .to_adopt
+            .iter()
+            .map(package_id_to_string)
+            .collect(),
+    }
 }
 
 fn package_id_to_string(pkg: &PackageId) -> String {
