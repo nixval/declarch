@@ -82,8 +82,11 @@ pub fn run(options: LintOptions) -> Result<()> {
     output::keyval("Total issues", &issues.len().to_string());
 
     let (warn_count, err_count) = display_issues(&issues);
+    output::keyval("Warnings", &warn_count.to_string());
+    output::keyval("Errors", &err_count.to_string());
 
     if err_count > 0 {
+        output::info("Tip: run `declarch lint --fix` for safe autofixes first.");
         return Err(DeclarchError::ConfigError(format!(
             "Lint failed with {} error(s)",
             err_count
@@ -91,6 +94,7 @@ pub fn run(options: LintOptions) -> Result<()> {
     }
 
     if options.strict && warn_count > 0 {
+        output::info("Strict mode treats warnings as blocking.");
         return Err(DeclarchError::ConfigError(format!(
             "Lint strict mode failed with {} warning(s)",
             warn_count
@@ -100,6 +104,7 @@ pub fn run(options: LintOptions) -> Result<()> {
     if issues.is_empty() {
         output::success("No lint issues found");
     } else {
+        output::info("Use `declarch lint --fix` to apply safe fixes where available.");
         output::success("Lint completed");
     }
 
@@ -232,6 +237,32 @@ fn collect_file_issues(path: &Path, issues: &mut Vec<LintIssue>) -> Result<()> {
         }
     }
 
+    for import in raw.backend_imports {
+        if import
+            .replace('\\', "/")
+            .split('/')
+            .any(|part| part == "..")
+        {
+            issues.push(LintIssue::warning(
+                Some(path.to_path_buf()),
+                format!("Backend import contains path traversal '..': {}", import),
+            ));
+            continue;
+        }
+
+        let resolved = resolve_import_path(path, &import)?;
+        if !resolved.exists() {
+            issues.push(LintIssue::warning(
+                Some(path.to_path_buf()),
+                format!(
+                    "Unresolved backend import: '{}' (resolved: {})",
+                    import,
+                    resolved.display()
+                ),
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -286,13 +317,68 @@ fn display_issues(issues: &[LintIssue]) -> (usize, usize) {
 
 fn collect_lint_files(config_path: &Path, modules: &[String]) -> Result<Vec<PathBuf>> {
     let mut files: BTreeSet<PathBuf> = BTreeSet::new();
-    files.insert(config_path.to_path_buf());
+    discover_lint_files_recursive(config_path, &mut files)?;
 
     for module in modules {
-        files.insert(resolve_module_path(module)?);
+        let module_path = resolve_module_path(module)?;
+        discover_lint_files_recursive(&module_path, &mut files)?;
     }
 
     Ok(files.into_iter().collect())
+}
+
+fn discover_lint_files_recursive(path: &Path, files: &mut BTreeSet<PathBuf>) -> Result<()> {
+    let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    if !files.insert(canonical.clone()) {
+        return Ok(());
+    }
+
+    if !canonical.exists() {
+        return Ok(());
+    }
+
+    let content = match fs::read_to_string(&canonical) {
+        Ok(content) => content,
+        Err(_) => return Ok(()),
+    };
+
+    let file_str = canonical.display().to_string();
+    let raw = match parse_kdl_content_with_path(&content, Some(&file_str)) {
+        Ok(raw) => raw,
+        Err(_) => return Ok(()),
+    };
+
+    for import in raw.imports {
+        if import
+            .replace('\\', "/")
+            .split('/')
+            .any(|part| part == "..")
+        {
+            continue;
+        }
+
+        let resolved = resolve_import_path(&canonical, &import)?;
+        if resolved.exists() {
+            discover_lint_files_recursive(&resolved, files)?;
+        }
+    }
+
+    for import in raw.backend_imports {
+        if import
+            .replace('\\', "/")
+            .split('/')
+            .any(|part| part == "..")
+        {
+            continue;
+        }
+
+        let resolved = resolve_import_path(&canonical, &import)?;
+        if resolved.exists() {
+            discover_lint_files_recursive(&resolved, files)?;
+        }
+    }
+
+    Ok(())
 }
 
 fn load_config_with_modules(
@@ -392,7 +478,10 @@ fn sort_import_lines(content: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::sort_import_lines;
+    use super::{discover_lint_files_recursive, sort_import_lines};
+    use std::collections::BTreeSet;
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn sort_import_lines_reorders_and_dedupes() {
@@ -408,5 +497,45 @@ imports {
         assert!(output.contains("\"a.kdl\""));
         assert!(output.contains("\"b.kdl\""));
         assert_eq!(output.matches("\"a.kdl\"").count(), 1);
+    }
+
+    #[test]
+    fn discover_lint_files_traverses_nested_imports() {
+        let dir = tempdir().expect("tempdir");
+        let root = dir.path().join("declarch.kdl");
+        let modules_dir = dir.path().join("modules");
+        fs::create_dir_all(&modules_dir).expect("mkdir");
+        let base = modules_dir.join("base.kdl");
+        let nested = modules_dir.join("nested.kdl");
+
+        fs::write(
+            &root,
+            r#"
+imports {
+  "modules/base.kdl"
+}
+"#,
+        )
+        .expect("write root");
+        fs::write(
+            &base,
+            r#"
+imports {
+  "nested.kdl"
+}
+pkg { aur { bat } }
+"#,
+        )
+        .expect("write base");
+        fs::write(&nested, "pkg { aur { ripgrep } }\n").expect("write nested");
+
+        let mut files = BTreeSet::new();
+        discover_lint_files_recursive(&root, &mut files).expect("discover");
+
+        let as_strings: Vec<String> = files.iter().map(|p| p.display().to_string()).collect();
+        assert_eq!(as_strings.len(), 3);
+        assert!(as_strings.iter().any(|p| p.ends_with("declarch.kdl")));
+        assert!(as_strings.iter().any(|p| p.ends_with("base.kdl")));
+        assert!(as_strings.iter().any(|p| p.ends_with("nested.kdl")));
     }
 }
