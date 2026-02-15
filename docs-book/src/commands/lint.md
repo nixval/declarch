@@ -40,14 +40,14 @@ declarch lint --repair-state
 - `--repair-state`: sanitize broken state entries (no manual JSON edits)
 - `--profile`, `--host`, `--modules`: include optional overlays/modules
 
-## Machine output (v1 placeholder)
+## Machine output (v1)
 
 ```bash
 declarch lint --format json --output-version v1
 declarch lint --format yaml --output-version v1
 ```
 
-When this mode is used, lint prints machine envelope output for integrations.
+When this mode is used, lint prints structured envelope output for automation/integrations.
 
 ## Recommended flow
 

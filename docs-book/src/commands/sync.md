@@ -50,7 +50,7 @@ declarch sync --host vps-1
 | `--modules <NAME>...` | temporary extra modules |
 | `--diff` | show plan diff |
 
-## Machine output (v1 placeholder)
+## Machine output (v1)
 
 ```bash
 declarch sync preview --format json --output-version v1

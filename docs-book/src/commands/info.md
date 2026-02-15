@@ -41,7 +41,7 @@ declarch info --plan
 - `--package <name>`: filter status output by package name
 - `--profile`, `--host`, `--modules`: apply optional context for reasoning mode
 
-## Machine output (v1 placeholder)
+## Machine output (v1)
 
 For integrations/scripts, you can request contract envelope output:
 
@@ -50,7 +50,7 @@ declarch info --format json --output-version v1
 declarch info --list --format yaml --output-version v1
 ```
 
-Current rollout is partial (info/list first), then other commands in next phases.
+Use this for scripts, CI, and integrations that need stable structured output.
 
 ## Notes
 

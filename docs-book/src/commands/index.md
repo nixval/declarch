@@ -33,7 +33,7 @@ declarch sync
 - `-v, --verbose`
 - `-q, --quiet`
 - `--dry-run`
-- `--output-version v1` (machine output placeholder, with `--format json|yaml`)
+- `--output-version v1` (machine-readable envelope, with `--format json|yaml`)
 
 ## Beginner advice
 
