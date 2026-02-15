@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod completions;
 pub mod edit;
+pub mod ext;
 pub mod hooks;
 pub mod info;
 pub mod info_reason;

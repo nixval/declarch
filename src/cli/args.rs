@@ -51,6 +51,10 @@ pub struct GlobalFlags {
     /// Output format (table, json, yaml)
     #[arg(long, value_name = "FORMAT", global = true)]
     pub format: Option<String>,
+
+    /// Machine output contract version (placeholder, e.g. v1)
+    #[arg(long, value_name = "VERSION", global = true)]
+    pub output_version: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -366,6 +370,10 @@ pub enum Command {
         #[arg(value_enum)]
         shell: Shell,
     },
+
+    /// Extension protocol placeholder (hidden)
+    #[command(hide = true)]
+    Ext,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

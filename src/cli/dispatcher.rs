@@ -14,6 +14,8 @@ use super::deprecated::{
 
 /// Dispatch the parsed CLI command to the appropriate handler
 pub fn dispatch(args: &Cli) -> Result<()> {
+    validate_machine_output_contract(args)?;
+
     match &args.command {
         Some(Command::Init {
             host,
@@ -287,10 +289,39 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         }),
 
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
+        Some(Command::Ext) => commands::ext::run(),
 
         None => {
             output::info("No command provided. Use --help.");
             Ok(())
         }
     }
+}
+
+fn validate_machine_output_contract(args: &Cli) -> Result<()> {
+    if let Some(version) = args.global.output_version.as_deref() {
+        if version != "v1" {
+            return Err(DeclarchError::Other(format!(
+                "Unsupported output contract version '{}'. Supported: v1",
+                version
+            )));
+        }
+
+        match args.global.format.as_deref() {
+            Some("json") | Some("yaml") => {}
+            Some(other) => {
+                return Err(DeclarchError::Other(format!(
+                    "--output-version v1 requires --format json|yaml (got '{}')",
+                    other
+                )));
+            }
+            None => {
+                output::warning(
+                    "--output-version v1 is set without --format; output remains human-oriented.",
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
