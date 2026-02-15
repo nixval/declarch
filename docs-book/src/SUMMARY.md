@@ -41,6 +41,7 @@
 - [Version Pinning (Placeholder)](./advanced/version-pinning-placeholder.md)
 - [Integration Roadmap RFC](./advanced/rfc-integration-roadmap.md)
 - [Integration Examples](./advanced/integration-examples.md)
+- [MCP Setup (Technical)](./advanced/mcp-setup.md)
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
 
