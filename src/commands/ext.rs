@@ -70,3 +70,27 @@ fn normalize_ext_name(name: &str) -> String {
     }
     name.to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_ext_name;
+
+    #[test]
+    fn normalize_keeps_unix_name() {
+        assert_eq!(normalize_ext_name("declarch-ext-security"), "declarch-ext-security");
+    }
+
+    #[test]
+    fn normalize_windows_suffixes() {
+        if cfg!(windows) {
+            assert_eq!(
+                normalize_ext_name("declarch-ext-security.exe"),
+                "declarch-ext-security"
+            );
+            assert_eq!(
+                normalize_ext_name("declarch-ext-security.cmd"),
+                "declarch-ext-security"
+            );
+        }
+    }
+}
