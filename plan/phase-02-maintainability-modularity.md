@@ -7,13 +7,20 @@ Menurunkan kompleksitas file inti dan meningkatkan keterbacaan perubahan.
 - [ ] Pecah file hotspot menjadi submodule:
   - [ ] `backends/user_parser.rs`
   - [ ] `backends/generic.rs`
-  - [ ] `commands/sync/mod.rs`
-- [ ] Rapikan dispatcher:
-  - [ ] ekstrak handler per command group
-  - [ ] kurangi nested branching
-- [ ] Kurangi type complexity via type alias/struct result objects.
+  - [~] `commands/sync/mod.rs` (in progress: preview-report extraction done)
+- [x] Rapikan dispatcher:
+  - [x] ekstrak handler per command group
+  - [x] kurangi nested branching
+- [x] Kurangi type complexity via type alias/struct result objects.
 - [ ] Merge logic yang redundant dan hapus dead code terverifikasi.
 - [ ] Enforce style consistency agar clippy/fmt stabil.
+
+## Progress Log
+
+- 2026-02-15
+  - extracted `cli::dispatcher` command-group handlers (`init/sync/info/search/lint`) to reduce monolithic branching.
+  - introduced backend registry type aliases (`BackendSourceMap`, `BackendsWithSources`) to reduce signature complexity.
+  - extracted sync preview report construction into helper for clearer `sync::run` flow.
 
 ## Exit Criteria
 - File hotspot utama turun kompleksitasnya.
