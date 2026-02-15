@@ -12,6 +12,37 @@ use crate::utils::paths;
 use regex::Regex;
 use std::fs;
 
+#[derive(Debug, Clone)]
+struct PlannedInstall {
+    package: String,
+    backend: String,
+}
+
+fn plan_installs(
+    raw_packages: &[String],
+    backend_flag: Option<&String>,
+) -> Result<Vec<PlannedInstall>> {
+    let mut planned = Vec::with_capacity(raw_packages.len());
+
+    for raw in raw_packages {
+        let (backend_override, pkg_name) = editor::parse_package_string(raw)?;
+        let backend = backend_override
+            .or_else(|| backend_flag.cloned())
+            .ok_or_else(|| {
+                DeclarchError::Other(format!(
+                    "Package '{}' has no backend. Use '<backend>:{}' or '--backend <name>'.",
+                    pkg_name, pkg_name
+                ))
+            })?;
+
+        planned.push(PlannedInstall {
+            package: pkg_name,
+            backend,
+        });
+    }
+
+    Ok(planned)
+}
 
 /// Options for the install command
 #[derive(Debug)]
@@ -29,8 +60,6 @@ pub struct InstallOptions {
     /// Preview changes without executing
     pub dry_run: bool,
 }
-
-
 
 /// Run the install command
 pub fn run(options: InstallOptions) -> Result<()> {
@@ -50,6 +79,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
     } else {
         None
     };
+    let planned_installs = plan_installs(&options.packages, options.backend.as_ref())?;
 
     // Step 2: Initialize config editor
     let editor = ConfigEditor::new();
@@ -59,38 +89,26 @@ pub fn run(options: InstallOptions) -> Result<()> {
     // Step 3: Add each package to config
     let mut modified_modules: Vec<String> = Vec::new();
 
-    for package in &options.packages {
-        // Parse package string (e.g., "soar:bat" → (Some("soar"), "bat"))
-        let (backend_override, pkg_name) = editor::parse_package_string(package)?;
-
-        // Determine backend: use override from package string, or --backend flag
-        let backend_str = backend_override
-            .as_ref()
-            .or(options.backend.as_ref())
-            .map(|s| s.as_str());
+    for planned in &planned_installs {
+        let pkg_name = &planned.package;
+        let backend_str = planned.backend.as_str();
 
         // Step 3a: Check for exact match (same backend + name)
-        let exact_match = if let Some(backend) = backend_str {
-            if let Some(ref packages) = existing_packages {
-                let pkg_id = PackageId {
-                    backend: Backend::from(backend),
-                    name: pkg_name.clone(),
-                };
-                packages.contains_key(&pkg_id)
-            } else {
-                false
-            }
+        let exact_match = if let Some(ref packages) = existing_packages {
+            let pkg_id = PackageId {
+                backend: Backend::from(backend_str),
+                name: pkg_name.clone(),
+            };
+            packages.contains_key(&pkg_id)
         } else {
             false
         };
 
         if exact_match {
             // Same package, same backend - skip immediately
-            let target_backend = backend_str.unwrap_or("default");
-
             output::warning(&format!(
                 "Package '{}' (backend: {}) already exists in config, skipping",
-                pkg_name, target_backend
+                pkg_name, backend_str
             ));
             skipped_count += 1;
             continue;
@@ -100,7 +118,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         let cross_backend_matches: Vec<_> = if let Some(ref packages) = existing_packages {
             packages
                 .keys()
-                .filter(|pkg_id| pkg_id.name == pkg_name)
+                .filter(|pkg_id| pkg_id.name == *pkg_name)
                 .collect()
         } else {
             Vec::new()
@@ -113,19 +131,17 @@ pub fn run(options: InstallOptions) -> Result<()> {
                 .map(|pkg_id| pkg_id.backend.to_string())
                 .collect();
 
-            let target_backend = backend_str.unwrap_or("default");
-
             output::warning(&format!(
                 "Package '{}' already exists from: {}. Install from '{}' anyway?",
                 pkg_name,
                 existing_backends.join(", "),
-                target_backend
+                backend_str
             ));
 
             // Prompt user
-            let should_continue = prompt_yes_no(
-                &format!("Install {} from {}?", pkg_name, target_backend),
-                false, // Default: no
+            let should_continue = output::prompt_yes_no_default(
+                &format!("Install {} from {}?", pkg_name, backend_str),
+                false,
             );
 
             if !should_continue {
@@ -139,25 +155,23 @@ pub fn run(options: InstallOptions) -> Result<()> {
         }
 
         // Validate backend exists before adding to config
-        if let Some(backend) = backend_str {
-            let registry = get_registry();
-            let registry_guard = registry.lock().map_err(|e| {
-                DeclarchError::LockError(format!("Backend registry: {}", e))
-            })?;
-            
-            // Check if backend config exists
-            if !registry_guard.has_backend(backend) {
-                output::warning(&format!(
-                    "Backend '{}' not found. Run 'declarch init --backend {}'",
-                    backend, backend
-                ));
-                skipped_count += 1;
-                continue;
-            }
+        let registry = get_registry();
+        let registry_guard = registry
+            .lock()
+            .map_err(|e| DeclarchError::LockError(format!("Backend registry: {}", e)))?;
+
+        // Check if backend config exists
+        if !registry_guard.has_backend(backend_str) {
+            output::warning(&format!(
+                "Backend '{}' not found. Run 'declarch init --backend {}'",
+                backend_str, backend_str
+            ));
+            skipped_count += 1;
+            continue;
         }
 
         // Add package to config
-        let edit = editor.add_package(&pkg_name, backend_str, options.module.as_deref())?;
+        let edit = editor.add_package(pkg_name, Some(backend_str), options.module.as_deref())?;
 
         all_edits.push(edit);
     }
@@ -201,10 +215,8 @@ pub fn run(options: InstallOptions) -> Result<()> {
     // Step 4: Auto-sync (unless --no-sync)
     if !options.no_sync {
         // Show sync message with package details
-        let _packages_with_backend: Vec<String> = all_packages
-            .iter()
-            .map(|p| format!("{} ({})", p, options.backend.as_deref().unwrap_or("default")))
-            .collect();
+        let _packages_with_backend: Vec<String> =
+            all_packages.iter().map(|p| p.to_string()).collect();
 
         // Import sync command at top to avoid circular dependency
         use crate::commands::sync::{self, SyncOptions};
@@ -265,36 +277,6 @@ pub fn run(options: InstallOptions) -> Result<()> {
     Ok(())
 }
 
-/// Prompt user for yes/no confirmation
-fn prompt_yes_no(question: &str, default: bool) -> bool {
-    use std::io::{self, Write};
-
-    let prompt = if default {
-        format!("{} [Y/n] ", question)
-    } else {
-        format!("{} [y/N] ", question)
-    };
-
-    print!("{}", prompt);
-    if io::stdout().flush().is_err() {
-        return default;
-    }
-
-    let mut input = String::new();
-    if io::stdin().read_line(&mut input).is_err() {
-        return default;
-    }
-
-    let input = input.trim().to_lowercase();
-
-    match input.as_str() {
-        "" => default,
-        "y" | "yes" => true,
-        "n" | "no" => false,
-        _ => default,
-    }
-}
-
 /// Helper to inject the import statement into main config file
 /// Auto-imports newly created modules so they're picked up by sync
 fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
@@ -344,4 +326,38 @@ fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
     fs::write(&config_path, new_content)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plan_installs;
+
+    #[test]
+    fn plan_installs_accepts_backend_prefix_per_package() {
+        let raw = vec![
+            "aur:bat".to_string(),
+            "flatpak:org.mozilla.firefox".to_string(),
+        ];
+        let planned = plan_installs(&raw, None).expect("planning should succeed");
+        assert_eq!(planned.len(), 2);
+        assert_eq!(planned[0].backend, "aur");
+        assert_eq!(planned[0].package, "bat");
+        assert_eq!(planned[1].backend, "flatpak");
+    }
+
+    #[test]
+    fn plan_installs_accepts_global_backend_flag() {
+        let raw = vec!["bat".to_string(), "ripgrep".to_string()];
+        let backend = Some("aur".to_string());
+        let planned = plan_installs(&raw, backend.as_ref()).expect("planning should succeed");
+        assert_eq!(planned.len(), 2);
+        assert!(planned.iter().all(|p| p.backend == "aur"));
+    }
+
+    #[test]
+    fn plan_installs_requires_explicit_backend() {
+        let raw = vec!["bat".to_string()];
+        let err = plan_installs(&raw, None).expect_err("planning should fail without backend");
+        assert!(err.to_string().contains("has no backend"));
+    }
 }

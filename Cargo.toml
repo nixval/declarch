@@ -55,7 +55,7 @@ path = "src/main.rs"
 
 [[bin]]
 name = "decl"
-path = "src/main.rs"
+path = "src/bin/decl.rs"
 
 [profile.release]
 lto = "thin"        # Link-time optimization: "thin" balances speed and compile time
