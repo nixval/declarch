@@ -1,6 +1,6 @@
 use crate::constants::{
     BACKENDS_FILE_NAME, CONFIG_EXTENSION, CONFIG_FILE_NAME, DECLARCH_DIR_NAME, MODULES_DIR_NAME,
-    PROJECT_ORG, PROJECT_QUALIFIER,
+    PROJECT_ORG, PROJECT_QUALIFIER, STATE_FILE_NAME,
 };
 use crate::error::{DeclarchError, Result};
 use directories::{ProjectDirs, UserDirs};
@@ -31,11 +31,20 @@ pub fn expand_home(path: &Path) -> Result<PathBuf> {
 }
 
 pub fn config_dir() -> Result<PathBuf> {
-    let proj =
-        ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME).ok_or_else(|| {
-            DeclarchError::PathError("Could not determine config directory".to_string())
-        })?;
+    let proj = project_dirs()?;
     Ok(proj.config_dir().to_path_buf())
+}
+
+pub fn state_dir() -> Result<PathBuf> {
+    let proj = project_dirs()?;
+    let state_dir = proj.state_dir().ok_or_else(|| {
+        DeclarchError::PathError("System does not support state directory".to_string())
+    })?;
+    Ok(state_dir.to_path_buf())
+}
+
+pub fn state_file() -> Result<PathBuf> {
+    Ok(state_dir()?.join(STATE_FILE_NAME))
 }
 
 pub fn config_file() -> Result<PathBuf> {
@@ -60,4 +69,10 @@ pub fn module_file(name: &str) -> Result<PathBuf> {
 
 pub fn backend_config() -> Result<PathBuf> {
     Ok(config_dir()?.join(BACKENDS_FILE_NAME))
+}
+
+fn project_dirs() -> Result<ProjectDirs> {
+    ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME).ok_or_else(|| {
+        DeclarchError::PathError("Could not determine project directories".to_string())
+    })
 }

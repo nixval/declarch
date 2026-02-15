@@ -1,7 +1,7 @@
 use crate::error::{DeclarchError, Result};
 use crate::state::types::State;
 use crate::ui;
-use directories::ProjectDirs;
+use crate::utils::paths;
 use fs2::FileExt;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -226,13 +226,10 @@ fn pkg_state_timestamp(dt: &chrono::DateTime<chrono::Utc>) -> Result<SystemTime>
 }
 
 pub fn get_state_path() -> Result<PathBuf> {
-    let proj_dirs = ProjectDirs::from("com", "declarch", "declarch").ok_or(
-        DeclarchError::PathError("Could not determine home directory".into()),
-    )?;
-
-    let state_dir = proj_dirs.state_dir().ok_or(DeclarchError::PathError(
-        "System does not support state directory".into(),
-    ))?;
+    let state_file = paths::state_file()?;
+    let state_dir = state_file
+        .parent()
+        .ok_or_else(|| DeclarchError::PathError("Could not determine state directory".into()))?;
 
     if !state_dir.exists() {
         fs::create_dir_all(state_dir).map_err(|e| DeclarchError::IoError {
@@ -241,7 +238,7 @@ pub fn get_state_path() -> Result<PathBuf> {
         })?;
     }
 
-    Ok(state_dir.join("state.json"))
+    Ok(state_file)
 }
 
 /// Migrate state to fix duplicate keys and format issues

@@ -160,6 +160,24 @@ fn count_backends_filtered(
 fn run_doctor() -> Result<()> {
     output::header("System Diagnosis");
     let mut all_ok = true;
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    output::info("Runtime paths");
+    output::indent(&format!("• OS/Arch: {}/{}", os, arch), 2);
+    output::indent(
+        &format!("• Config dir: {}", paths::config_dir()?.display()),
+        2,
+    );
+    output::indent(
+        &format!("• Config file: {}", paths::config_file()?.display()),
+        2,
+    );
+    output::indent(
+        &format!("• State file: {}", state::io::get_state_path()?.display()),
+        2,
+    );
+    output::separator();
 
     // Check 1: Config file
     output::info("Checking configuration file...");
