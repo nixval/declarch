@@ -190,11 +190,7 @@ fn test_experimental_block_flag_parsing() {
         "#;
 
     let config = parse_kdl_content(kdl).unwrap();
-    assert!(
-        config
-            .experimental
-            .contains(&"enable-hooks".to_string())
-    );
+    assert!(config.experimental.contains(&"enable-hooks".to_string()));
 }
 
 #[test]

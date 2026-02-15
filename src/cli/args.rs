@@ -305,6 +305,54 @@ pub enum Command {
         local: bool,
     },
 
+    /// Explain why a package/target is in your current plan
+    ///
+    /// Shows source modules, backend selection, and installed-state hints.
+    Explain {
+        /// Package query (name or backend:name)
+        #[arg(value_name = "QUERY")]
+        query: Option<String>,
+
+        /// Explain a higher-level target (currently supports: sync-plan)
+        #[arg(long, value_name = "TARGET")]
+        target: Option<String>,
+
+        /// Activate optional profile block (profile \"NAME\" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block (host \"NAME\" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+    },
+
+    /// Lint configuration quality with beginner-friendly checks
+    Lint {
+        /// Treat warnings as errors (exit non-zero)
+        #[arg(long)]
+        strict: bool,
+
+        /// Apply safe automatic fixes (currently import sorting/format cleanup)
+        #[arg(long)]
+        fix: bool,
+
+        /// Activate optional profile block (profile \"NAME\" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block (host \"NAME\" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+    },
+
     /// Generate shell completions (hidden from main help)
     #[command(hide = true)]
     Completions {

@@ -16,6 +16,8 @@
 - [sync](./commands/sync.md)
 - [search](./commands/search.md)
 - [info](./commands/info.md)
+- [explain](./commands/explain.md)
+- [lint](./commands/lint.md)
 
 ## Configuration (Beginner)
 

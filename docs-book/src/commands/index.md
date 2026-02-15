@@ -16,6 +16,8 @@ declarch sync
 - `declarch search <query>` - find package candidates.
 - `declarch info` - status summary.
 - `declarch info list` - list all/orphans/synced views.
+- `declarch explain <query>` - explain why a package appears in config/plan.
+- `declarch lint` - quality checks for config files.
 
 ## Helpful sync variants
 

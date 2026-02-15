@@ -369,6 +369,32 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 local: *local,
             })
         }
+        Some(Command::Explain {
+            query,
+            target,
+            profile,
+            host,
+            modules,
+        }) => commands::explain::run(commands::explain::ExplainOptions {
+            query: query.clone(),
+            target: target.clone(),
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.clone(),
+        }),
+        Some(Command::Lint {
+            strict,
+            fix,
+            profile,
+            host,
+            modules,
+        }) => commands::lint::run(commands::lint::LintOptions {
+            strict: *strict,
+            fix: *fix,
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.clone(),
+        }),
 
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
 
