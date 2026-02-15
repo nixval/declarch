@@ -164,6 +164,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     profile: profile.clone(),
                     host: host.clone(),
                     modules: modules.clone(),
+                    verbose: args.global.verbose,
                 });
             }
 
@@ -277,6 +278,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             backend: backend.clone(),
             diff: *diff,
             benchmark: *benchmark,
+            verbose: args.global.verbose,
             profile: profile.clone(),
             host: host.clone(),
             modules: modules.clone(),

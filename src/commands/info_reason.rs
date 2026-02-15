@@ -14,6 +14,7 @@ pub struct InfoReasonOptions {
     pub profile: Option<String>,
     pub host: Option<String>,
     pub modules: Vec<String>,
+    pub verbose: bool,
 }
 
 pub fn run(options: InfoReasonOptions) -> Result<()> {
@@ -40,6 +41,10 @@ pub fn run(options: InfoReasonOptions) -> Result<()> {
     };
 
     show_active_context(&options, &config);
+
+    if options.verbose {
+        output::info("Verbose mode enabled");
+    }
 
     if let Some(target) = options.target {
         return explain_target(&target, &config);

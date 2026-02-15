@@ -15,6 +15,7 @@ pub struct LintOptions {
     pub backend: Option<String>,
     pub diff: bool,
     pub benchmark: bool,
+    pub verbose: bool,
     pub profile: Option<String>,
     pub host: Option<String>,
     pub modules: Vec<String>,
@@ -118,6 +119,13 @@ pub fn run(options: LintOptions) -> Result<()> {
     let (warn_count, err_count) = display_issues(&issues);
     output::keyval("Warnings", &warn_count.to_string());
     output::keyval("Errors", &err_count.to_string());
+    if options.verbose {
+        output::keyval("Mode", &format!("{:?}", options.mode));
+        output::keyval(
+            "Backend filter",
+            options.backend.as_deref().unwrap_or("(none)"),
+        );
+    }
 
     if err_count > 0 {
         output::info("Tip: run `declarch lint --fix` for safe autofixes first.");
