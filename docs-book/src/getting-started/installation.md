@@ -16,6 +16,20 @@ yay -S declarch
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
+## macOS (install script)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
+```
+
+The installer will pick the correct macOS target (`x86_64` or `aarch64`).
+
+## Windows (PowerShell, experimental)
+
+```powershell
+irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
+```
+
 ## Manual binary install
 
 ```bash

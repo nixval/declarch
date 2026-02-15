@@ -29,9 +29,10 @@ fi
 echo "📝 Updating Cargo.toml..."
 sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
 
-# Update install.sh
-echo "📝 Updating install.sh..."
+# Update installer scripts
+echo "📝 Updating installers..."
 sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" install.sh
+sed -i "s/\\[string\\]\\$Version = \".*\"/[string]\$Version = \"$VERSION\"/" install.ps1
 
 # Run checks
 echo "🔍 Running tests..."
@@ -45,7 +46,7 @@ cargo fmt -- --check
 
 # Commit changes
 echo "💾 Committing changes..."
-git add Cargo.toml install.sh
+git add Cargo.toml install.sh install.ps1
 git commit -m "chore: prepare release $VERSION"
 
 echo "📊 Summary of changes:"
@@ -68,7 +69,8 @@ echo "Next steps:"
 echo "  1. Check CI: https://github.com/nixval/declarch/actions"
 echo "  2. Wait for build to complete (~5 minutes)"
 echo "  3. Verify release: https://github.com/nixval/declarch/releases/tag/v$VERSION"
-echo "  4. Test install: curl -fsSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh"
+echo "  4. Test install (Linux/macOS): curl -fsSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh"
+echo "  5. Test install (Windows): irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex"
 echo ""
 echo "To verify the binary after release:"
 echo "  wget https://github.com/nixval/declarch/releases/download/v$VERSION/declarch-x86_64-unknown-linux-gnu.tar.gz"

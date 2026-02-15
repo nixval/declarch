@@ -89,6 +89,12 @@ paru -S declarch
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
+### Windows (PowerShell, experimental)
+
+```powershell
+irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
+```
+
 ## First-time setup
 
 ### 1. Initialize

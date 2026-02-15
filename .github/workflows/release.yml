@@ -3,14 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build Release
+  build-linux:
+    name: Build Linux (${{ matrix.target }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,8 +21,7 @@ jobs:
             arch: aarch64
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -38,12 +37,10 @@ jobs:
 
       - name: Build binary
         env:
-          # Use correct linker for aarch64 cross-compilation
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -C link-arg=-lgcc
-        run: |
-          cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Prepare archive
         run: |
@@ -59,14 +56,80 @@ jobs:
           name: declarch-${{ matrix.target }}
           path: target/declarch-${{ matrix.target }}.tar.gz
 
+  build-macos:
+    name: Build macOS (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-13
+          - target: aarch64-apple-darwin
+            runner: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare archive
+        run: |
+          cd target/${{ matrix.target }}/release
+          cp ../../../README.md .
+          cp ../../../LICENSE .
+          tar czf ../../declarch-${{ matrix.target }}.tar.gz declarch decl README.md LICENSE
+          cd ../..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: declarch-${{ matrix.target }}
+          path: target/declarch-${{ matrix.target }}.tar.gz
+
+  build-windows:
+    name: Build Windows (x86_64-pc-windows-msvc)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Build binary
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Prepare archive
+        shell: pwsh
+        run: |
+          $target = "x86_64-pc-windows-msvc"
+          $releaseDir = "target/$target/release"
+          Copy-Item README.md "$releaseDir/README.md"
+          Copy-Item LICENSE "$releaseDir/LICENSE"
+          Compress-Archive -Path "$releaseDir/declarch.exe","$releaseDir/decl.exe","$releaseDir/README.md","$releaseDir/LICENSE" -DestinationPath "target/declarch-$target.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: declarch-x86_64-pc-windows-msvc
+          path: target/declarch-x86_64-pc-windows-msvc.zip
+
   release:
     name: Create Release
-    needs: build
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -80,19 +143,15 @@ jobs:
           TAG=${{ github.ref_name }}
           VERSION=${TAG#v}
 
-          # Check if release already exists
           if gh release view "${TAG}" &>/dev/null; then
             echo "Release ${TAG} already exists, uploading artifacts..."
-            # Upload artifacts to existing release
-            gh release upload "${TAG}" artifacts/*/declarch-*.tar.gz --clobber
+            gh release upload "${TAG}" artifacts/*/declarch-* --clobber
           else
             echo "Creating new release ${TAG}..."
-            # Create new release with artifacts
             gh release create "${TAG}" \
               --title "Declarch ${VERSION}" \
               --notes-file CHANGELOG.md
-            # Upload artifacts
-            gh release upload "${TAG}" artifacts/*/declarch-*.tar.gz
+            gh release upload "${TAG}" artifacts/*/declarch-*
           fi
 
       - name: Publish info
