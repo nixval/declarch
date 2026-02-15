@@ -176,4 +176,15 @@ mod tests {
     fn test_shell_escape_single_quote() {
         assert_eq!(shell_escape("hello'world"), "'hello'\"'\"'world'");
     }
+
+    #[test]
+    fn test_shell_escape_whitespace_and_symbols() {
+        assert_eq!(shell_escape("hello world"), "'hello world'");
+        assert_eq!(shell_escape("pkg;rm"), "'pkg;rm'");
+    }
+
+    #[test]
+    fn test_shell_escape_safe_passthrough() {
+        assert_eq!(shell_escape("aur:bat@1.0+git"), "aur:bat@1.0+git");
+    }
 }
