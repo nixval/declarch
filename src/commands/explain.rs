@@ -5,7 +5,7 @@ use crate::error::{DeclarchError, Result};
 use crate::state;
 use crate::ui as output;
 use crate::utils::paths;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct ExplainOptions {
@@ -130,8 +130,24 @@ fn explain_sync_plan(config: &MergedConfig) -> Result<()> {
 
 fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
     let (backend_filter, needle) = parse_query(query);
+    let known_backends = load_known_backends(config);
 
     output::header(&format!("Explain: {}", query));
+
+    // Module intent: explain module content/source when query looks like module/path.
+    if looks_like_module_query(&needle)
+        && let Ok(module_path) = resolve_module_path(&needle)
+    {
+        return explain_module(&needle, &module_path, config);
+    }
+
+    // Backend intent: "backend:name" syntax, or plain backend name.
+    if backend_filter
+        .as_ref()
+        .is_some_and(|b| b.name() == "backend")
+    {
+        return explain_backend(&needle, config, &known_backends);
+    }
 
     let mut exact_matches = find_matches(config, backend_filter.as_ref(), &needle, true);
     if exact_matches.is_empty() {
@@ -139,6 +155,17 @@ fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
     }
 
     if exact_matches.is_empty() {
+        if known_backends.contains_key(&needle.to_lowercase()) {
+            return explain_backend(&needle, config, &known_backends);
+        }
+
+        output::warning(&format!("Nothing matched '{}'.", query));
+        output::info("Try one of these:");
+        output::indent("• declarch explain <package-name>", 1);
+        output::indent("• declarch explain <backend>:<package>", 1);
+        output::indent("• declarch explain backend:<backend-name>", 1);
+        output::indent("• declarch explain <module-name>", 1);
+        output::indent("• declarch explain --target sync-plan", 1);
         return Err(DeclarchError::TargetNotFound(query.to_string()));
     }
 
@@ -190,6 +217,91 @@ fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
     Ok(())
 }
 
+fn explain_module(query: &str, module_path: &Path, root_config: &MergedConfig) -> Result<()> {
+    output::separator();
+    output::keyval("Kind", "module");
+    output::keyval("Module query", query);
+    output::keyval("Resolved path", &module_path.display().to_string());
+
+    let module_config = loader::load_root_config(module_path)?;
+    output::keyval(
+        "Declared packages",
+        &module_config.packages.len().to_string(),
+    );
+
+    if module_config.packages.is_empty() {
+        output::info("This module currently has no package entries.");
+        return Ok(());
+    }
+
+    let mut grouped: HashMap<String, Vec<String>> = HashMap::new();
+    for pkg in module_config.packages.keys() {
+        grouped
+            .entry(pkg.backend.to_string())
+            .or_default()
+            .push(pkg.name.clone());
+    }
+
+    let mut backends: Vec<_> = grouped.keys().cloned().collect();
+    backends.sort();
+
+    output::info("Packages by backend:");
+    for backend in backends {
+        let mut pkgs = grouped.remove(&backend).unwrap_or_default();
+        pkgs.sort();
+        println!("  {}: {}", backend, pkgs.join(", "));
+    }
+
+    let root_sources = root_config
+        .packages
+        .values()
+        .flatten()
+        .filter(|p| p == &module_path)
+        .count();
+    output::keyval("Referenced in merged config", &root_sources.to_string());
+
+    Ok(())
+}
+
+fn explain_backend(
+    backend_name: &str,
+    config: &MergedConfig,
+    known_backends: &HashMap<String, crate::backends::config::BackendConfig>,
+) -> Result<()> {
+    let key = backend_name.to_lowercase();
+    let Some(backend) = known_backends.get(&key) else {
+        return Err(DeclarchError::TargetNotFound(format!(
+            "backend:{}",
+            backend_name
+        )));
+    };
+
+    output::separator();
+    output::keyval("Kind", "backend");
+    output::keyval("Backend", &backend.name);
+    output::keyval("Binary", &backend.binary.primary());
+    output::keyval(
+        "Supported OS",
+        &crate::utils::platform::supported_os_summary(backend),
+    );
+    output::keyval("Current OS", crate::utils::platform::current_os_tag());
+
+    if crate::utils::platform::backend_supports_current_os(backend) {
+        output::success("Backend is compatible on this device");
+    } else {
+        output::warning("Backend is not for this OS, so related actions will be skipped");
+    }
+
+    let referenced_count = config
+        .packages
+        .keys()
+        .filter(|pkg| pkg.backend.name() == backend.name.to_lowercase())
+        .count();
+    output::keyval("Packages using backend", &referenced_count.to_string());
+
+    Ok(())
+}
+
 fn find_matches(
     config: &MergedConfig,
     backend_filter: Option<&Backend>,
@@ -226,6 +338,20 @@ fn parse_query(query: &str) -> (Option<Backend>, String) {
     }
 
     (None, query.trim().to_string())
+}
+
+fn load_known_backends(
+    config: &MergedConfig,
+) -> HashMap<String, crate::backends::config::BackendConfig> {
+    let mut backends = crate::backends::load_all_backends_unified().unwrap_or_default();
+    for backend in &config.backends {
+        backends.insert(backend.name.to_lowercase(), backend.clone());
+    }
+    backends
+}
+
+fn looks_like_module_query(query: &str) -> bool {
+    query.contains('/') || query.ends_with(".kdl")
 }
 
 fn show_active_context(options: &ExplainOptions, config: &MergedConfig) {
@@ -290,7 +416,7 @@ fn resolve_module_path(module_name: &str) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_query;
+    use super::{looks_like_module_query, parse_query};
 
     #[test]
     fn parse_query_backend_prefix() {
@@ -304,5 +430,19 @@ mod tests {
         let (backend, name) = parse_query("firefox");
         assert!(backend.is_none());
         assert_eq!(name, "firefox");
+    }
+
+    #[test]
+    fn parse_query_backend_keyword() {
+        let (backend, name) = parse_query("backend:pnpm");
+        assert_eq!(backend.expect("backend").to_string(), "backend");
+        assert_eq!(name, "pnpm");
+    }
+
+    #[test]
+    fn detect_module_query_shape() {
+        assert!(looks_like_module_query("system/base"));
+        assert!(looks_like_module_query("modules/dev.kdl"));
+        assert!(!looks_like_module_query("firefox"));
     }
 }
