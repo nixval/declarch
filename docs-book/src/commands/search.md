@@ -35,3 +35,12 @@ declarch search firefox --limit all
 
 - Results stream backend by backend.
 - Missing backend binaries are skipped with warning.
+
+## Machine output (v1 placeholder)
+
+```bash
+declarch search firefox --format json --output-version v1
+declarch search firefox --format yaml --output-version v1
+```
+
+In this mode, results are emitted as one machine envelope instead of streaming display.

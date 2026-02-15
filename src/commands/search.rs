@@ -11,7 +11,9 @@ use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
+use crate::utils::machine_output;
 use colored::Colorize;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::thread;
@@ -27,6 +29,27 @@ pub struct SearchOptions {
     pub installed_only: bool,
     pub available_only: bool,
     pub local: bool,
+    pub format: Option<String>,
+    pub output_version: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchResultOut {
+    backend: String,
+    name: String,
+    version: Option<String>,
+    description: Option<String>,
+    installed: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchReportOut {
+    query: String,
+    local: bool,
+    requested_backends: Option<Vec<String>>,
+    total_matches: usize,
+    shown_results: usize,
+    results: Vec<SearchResultOut>,
 }
 
 /// Parse query for optional "backend:query" syntax
@@ -84,7 +107,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
         installed_only: options.installed_only,
         available_only: options.available_only,
         local: options.local,
+        format: options.format.clone(),
+        output_version: options.output_version.clone(),
     };
+    let machine_mode = matches!(options.output_version.as_deref(), Some("v1"))
+        && matches!(options.format.as_deref(), Some("json" | "yaml"));
 
     let runtime_config = load_runtime_config_for_command("search command");
 
@@ -94,11 +121,30 @@ pub fn run(options: SearchOptions) -> Result<()> {
     }
 
     // Get backends to search
-    let backends_to_search = get_backends_to_search(&updated_options, &backend_configs)?;
+    let (backends_to_search, selection_warnings) =
+        get_backends_to_search(&updated_options, &backend_configs, machine_mode)?;
 
     if backends_to_search.is_empty() {
-        output::warning("No backends available for search");
-        output::info("Run 'declarch init --backend <name>' to add a backend");
+        if machine_mode {
+            let report = SearchReportOut {
+                query: actual_query.clone(),
+                local: options.local,
+                requested_backends: updated_options.backends.clone(),
+                total_matches: 0,
+                shown_results: 0,
+                results: Vec::new(),
+            };
+            machine_output::emit_v1(
+                "search",
+                report,
+                selection_warnings,
+                Vec::new(),
+                options.format.as_deref().unwrap_or("json"),
+            )?;
+        } else {
+            output::warning("No backends available for search");
+            output::info("Run 'declarch init --backend <name>' to add a backend");
+        }
         return Ok(());
     }
 
@@ -160,14 +206,18 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Collect and display results as they arrive
     let mut total_found = 0;
     let mut has_results = false;
+    let mut machine_results: Vec<SearchResultOut> = Vec::new();
+    let mut machine_warnings = selection_warnings;
 
     // Print initial message
-    println!();
-    output::info(&format!(
-        "Searching for '{}' (streaming results)...",
-        actual_query.cyan()
-    ));
-    println!();
+    if !machine_mode {
+        println!();
+        output::info(&format!(
+            "Searching for '{}' (streaming results)...",
+            actual_query.cyan()
+        ));
+        println!();
+    }
 
     // Receive results with timeout
     let start_time = std::time::Instant::now();
@@ -181,32 +231,59 @@ pub fn run(options: SearchOptions) -> Result<()> {
                 total_found: backend_total,
             } => {
                 total_found += backend_total;
+                if machine_mode {
+                    let mut shown_for_backend = 0usize;
+                    for result in results {
+                        let installed = is_installed_result(&result, &state, local_mode);
+                        if options.installed_only && !installed {
+                            continue;
+                        }
+                        if options.available_only && installed {
+                            continue;
+                        }
+                        shown_for_backend += 1;
+                        machine_results.push(SearchResultOut {
+                            backend: backend.to_string(),
+                            name: result.name,
+                            version: result.version,
+                            description: result.description,
+                            installed,
+                        });
+                    }
+                    if shown_for_backend > 0 {
+                        has_results = true;
+                    }
+                } else {
+                    // Mark installed packages
+                    let mut marked_results = mark_installed(results, &state, local_mode);
 
-                // Mark installed packages
-                let mut marked_results = mark_installed(results, &state, local_mode);
+                    // Filter results
+                    if options.installed_only {
+                        marked_results.retain(|r| r.name.contains('✓'));
+                    }
+                    if options.available_only {
+                        marked_results.retain(|r| !r.name.contains('✓'));
+                    }
 
-                // Filter results
-                if options.installed_only {
-                    marked_results.retain(|r| r.name.contains('✓'));
-                }
-                if options.available_only {
-                    marked_results.retain(|r| !r.name.contains('✓'));
-                }
+                    if !marked_results.is_empty() {
+                        has_results = true;
 
-                if !marked_results.is_empty() {
-                    has_results = true;
-
-                    // Display this backend's results immediately
-                    display_backend_results(
-                        &backend,
-                        &marked_results,
-                        backend_total,
-                        effective_limit,
-                    );
+                        // Display this backend's results immediately
+                        display_backend_results(
+                            &backend,
+                            &marked_results,
+                            backend_total,
+                            effective_limit,
+                        );
+                    }
                 }
             }
             BackendResult::Error { backend, error } => {
-                output::warning(&format!("{}: {}", backend, error));
+                if machine_mode {
+                    machine_warnings.push(format!("{}: {}", backend, error));
+                } else {
+                    output::warning(&format!("{}: {}", backend, error));
+                }
             }
         }
 
@@ -217,22 +294,40 @@ pub fn run(options: SearchOptions) -> Result<()> {
         }
     }
 
-    // Summary
-    println!();
-    if has_results {
-        if let Some(limit) = effective_limit {
-            if total_found > limit {
-                output::info(&format!(
-                    "Showing limited results. Use --limit 0 for all {} matches.",
-                    total_found
-                ));
-            }
-        }
+    if machine_mode {
+        let report = SearchReportOut {
+            query: actual_query.clone(),
+            local: options.local,
+            requested_backends: updated_options.backends.clone(),
+            total_matches: total_found,
+            shown_results: machine_results.len(),
+            results: machine_results,
+        };
+        machine_output::emit_v1(
+            "search",
+            report,
+            machine_warnings,
+            Vec::new(),
+            options.format.as_deref().unwrap_or("json"),
+        )?;
     } else {
-        output::info(&format!(
-            "No packages found matching '{}'",
-            actual_query.cyan()
-        ));
+        // Summary
+        println!();
+        if has_results {
+            if let Some(limit) = effective_limit {
+                if total_found > limit {
+                    output::info(&format!(
+                        "Showing limited results. Use --limit 0 for all {} matches.",
+                        total_found
+                    ));
+                }
+            }
+        } else {
+            output::info(&format!(
+                "No packages found matching '{}'",
+                actual_query.cyan()
+            ));
+        }
     }
 
     Ok(())
@@ -314,6 +409,22 @@ fn mark_installed(
     results
 }
 
+fn is_installed_result(
+    result: &PackageSearchResult,
+    state: &state::types::State,
+    local_mode: bool,
+) -> bool {
+    if local_mode {
+        return true;
+    }
+    let pkg_id = crate::core::types::PackageId {
+        name: result.name.clone(),
+        backend: result.backend.clone(),
+    };
+    let state_key = crate::core::resolver::make_state_key(&pkg_id);
+    state.packages.contains_key(&state_key)
+}
+
 /// Display results for a single backend immediately
 fn display_backend_results(
     backend: &Backend,
@@ -364,12 +475,19 @@ fn print_search_result(result: &PackageSearchResult) {
 fn get_backends_to_search(
     options: &SearchOptions,
     backend_configs: &HashMap<String, crate::backends::config::BackendConfig>,
-) -> Result<Vec<Backend>> {
+    machine_mode: bool,
+) -> Result<(Vec<Backend>, Vec<String>)> {
     let (result, unknown, unsupported, os_mismatch) =
         select_backends_to_search(backend_configs, options.backends.as_ref(), options.local);
+    let mut warnings = Vec::new();
 
     if !unknown.is_empty() {
-        output::warning(&format!("Unknown backend(s): {}", unknown.join(", ")));
+        let msg = format!("Unknown backend(s): {}", unknown.join(", "));
+        if machine_mode {
+            warnings.push(msg);
+        } else {
+            output::warning(&msg);
+        }
     }
     if !unsupported.is_empty() {
         let capability = if options.local {
@@ -377,30 +495,60 @@ fn get_backends_to_search(
         } else {
             "search support"
         };
-        output::warning(&format!(
+        let msg = format!(
             "Skipped backend(s) without {}: {}",
             capability,
             unsupported.join(", ")
-        ));
+        );
+        if machine_mode {
+            warnings.push(msg);
+        } else {
+            output::warning(&msg);
+        }
     }
     if !os_mismatch.is_empty() {
-        output::warning(&format!(
+        let msg = format!(
             "Skipped backend(s) that are not for this OS: {}",
             os_mismatch.join(", ")
-        ));
-        output::info("This is normal when one config is shared across different machines.");
+        );
+        if machine_mode {
+            warnings.push(msg);
+            warnings.push(
+                "This is normal when one config is shared across different machines.".to_string(),
+            );
+        } else {
+            output::warning(&msg);
+            output::info("This is normal when one config is shared across different machines.");
+        }
     }
 
     if result.is_empty() {
-        if options.local {
-            output::warning("No backends with local search support configured");
+        let msg = if options.local {
+            "No backends with local search support configured".to_string()
         } else {
-            output::warning("No backends with search support configured");
+            "No backends with search support configured".to_string()
+        };
+        if options.local {
+            if machine_mode {
+                warnings.push(msg);
+            } else {
+                output::warning("No backends with local search support configured");
+            }
+        } else {
+            if machine_mode {
+                warnings.push(msg);
+            } else {
+                output::warning("No backends with search support configured");
+            }
         }
-        output::info("Run 'declarch init --backend <name>' to add a backend");
+        if machine_mode {
+            warnings.push("Run 'declarch init --backend <name>' to add a backend".to_string());
+        } else {
+            output::info("Run 'declarch init --backend <name>' to add a backend");
+        }
     }
 
-    Ok(result)
+    Ok((result, warnings))
 }
 
 fn select_backends_to_search(

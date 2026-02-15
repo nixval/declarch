@@ -259,6 +259,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 installed_only: *installed_only,
                 available_only: *available_only,
                 local: *local,
+                format: args.global.format.clone(),
+                output_version: args.global.output_version.clone(),
             })
         }
         Some(Command::Lint {
@@ -340,6 +342,7 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
 fn supports_v1_contract(args: &Cli) -> bool {
     match &args.command {
         Some(Command::Lint { .. }) => true,
+        Some(Command::Search { .. }) => true,
         Some(Command::Info {
             doctor,
             plan,

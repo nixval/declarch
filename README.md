@@ -175,6 +175,8 @@ Machine-readable placeholder contract (v1, staged rollout):
 ```bash
 declarch info --format json --output-version v1
 declarch info --list --format yaml --output-version v1
+declarch lint --format json --output-version v1
+declarch search firefox --format json --output-version v1
 ```
 
 ## Documentation
