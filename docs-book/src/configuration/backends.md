@@ -44,10 +44,9 @@ pkg {
 A backend can fallback when binary is missing.
 Examples:
 - `nala -> apt`
-- `pnpm -> npm`
-- `yarn -> npm`
-- `bun -> npm`
-- `aur -> pacman`
+- `aur -> pacman` (when no AUR helper is available)
+- `paru -> pacman`
+- `yay -> pacman`
 
 ## Beginner tips
 

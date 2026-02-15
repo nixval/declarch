@@ -45,7 +45,7 @@ Actions:
 
 1. install the binary, or
 2. stop using that backend for now, or
-3. set a fallback backend (example: `yarn -> npm`).
+3. set a compatible fallback backend (example: `nala -> apt`).
 
 Verify with:
 
