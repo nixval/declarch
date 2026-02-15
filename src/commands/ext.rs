@@ -77,7 +77,10 @@ mod tests {
 
     #[test]
     fn normalize_keeps_unix_name() {
-        assert_eq!(normalize_ext_name("declarch-ext-security"), "declarch-ext-security");
+        assert_eq!(
+            normalize_ext_name("declarch-ext-security"),
+            "declarch-ext-security"
+        );
     }
 
     #[test]
