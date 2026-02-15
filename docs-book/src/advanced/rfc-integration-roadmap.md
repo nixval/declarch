@@ -13,13 +13,13 @@ Goal: keep `declarch` simple, while making integrations possible without rewriti
 
 ## Phase plan
 
-## Phase 1: Contracts first (done)
+### Phase 1: Contracts first (done)
 
 - Define stable machine-output envelope (`v1`).
 - Add examples for `info`, `lint`, `search`, and `sync preview`.
 - Add CLI contract flag: `--output-version v1`.
 
-## Phase 2: Extension protocol foundation
+### Phase 2: Extension protocol foundation
 
 - Reserve extension model with executable discovery:
   - `declarch-ext-*`
@@ -27,7 +27,7 @@ Goal: keep `declarch` simple, while making integrations possible without rewriti
   - `declarch ext`
 - Keep this safe and incremental.
 
-## Phase 3: MCP adapter (external)
+### Phase 3: MCP adapter (external)
 
 - Build sidecar that calls `declarch` read-only commands.
 - Initial tools:
@@ -36,7 +36,7 @@ Goal: keep `declarch` simple, while making integrations possible without rewriti
   - `search`
   - `sync preview`
 
-## Phase 4: API mode (optional)
+### Phase 4: API mode (optional)
 
 - Consider local API daemon only if real demand appears.
 - API should reuse the same `v1` envelope contract.

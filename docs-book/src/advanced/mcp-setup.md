@@ -62,13 +62,13 @@ Important:
 
 ## Recommended standard environment
 
-Use your real declarch paths (normal user setup):
+Start from normal declarch setup:
 
 ```bash
 declarch init
 ```
 
-Linux defaults are typically:
+Linux defaults are usually:
 - config: `~/.config/declarch`
 - state: `~/.local/state/declarch`
 
@@ -96,9 +96,9 @@ Your MCP client must be able to run `declarch-mcp`.
 - `declarch_sync_preview`
 - `declarch_sync_apply` (guarded)
 
-## Quick copy: generic MCP stdio config
+## Quick copy: generic local MCP config
 
-Use this as conceptual template (adapt keys to your client schema):
+Use this template and adapt keys to your client schema:
 
 ```json
 {
@@ -124,7 +124,7 @@ args = []
 
 ```
 
-Optional if you want to force a specific declarch binary:
+Optional only if you want to force a specific declarch binary:
 
 ```toml
 [mcp_servers.declarch.env]

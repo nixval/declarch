@@ -1,6 +1,6 @@
 # Remote Init (Advanced)
 
-This page documents source resolution behavior for `declarch init [SOURCE]`.
+Use this page when you want to initialize config from a remote source.
 
 ## Supported source forms
 
@@ -57,6 +57,15 @@ declarch init https://example.com/config.kdl
 declarch init hyprland/niri-nico
 ```
 
+## Typical safe flow
+
+```bash
+declarch init username/dotfiles --dry-run
+declarch init username/dotfiles
+declarch lint --mode validate
+declarch sync preview
+```
+
 ## Operational flow
 
 1. Resolve source candidates.
@@ -68,13 +77,13 @@ declarch init hyprland/niri-nico
 ## Safety recommendations
 
 ```bash
-# inspect before applying changes
+# inspect before writing local config
 declarch init username/repo --dry-run
 ```
 
 - treat remote config as untrusted input,
 - review hooks and backend commands before full sync,
-- prefer pinning branch/tag for reproducibility.
+- prefer branch/tag pinning for reproducibility.
 
 ## Failure modes
 
@@ -82,7 +91,7 @@ declarch init username/repo --dry-run
 - `parse error`: remote file is not valid KDL.
 - `network error`: transport or host availability issue.
 
-## Debug workflow
+## Troubleshooting flow
 
 ```bash
 declarch -v init username/repo
