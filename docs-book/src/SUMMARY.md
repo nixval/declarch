@@ -40,6 +40,7 @@
 - [Troubleshooting](./advanced/troubleshooting.md)
 - [Version Pinning (Placeholder)](./advanced/version-pinning-placeholder.md)
 - [Integration Roadmap RFC](./advanced/rfc-integration-roadmap.md)
+- [Integration Examples](./advanced/integration-examples.md)
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
 

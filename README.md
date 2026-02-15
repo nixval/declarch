@@ -192,6 +192,7 @@ mdDocs source pages (`docs-book/src`):
 - [KDL Basics](docs-book/src/configuration/kdl-syntax.md)
 - [Syntax Reference (Advanced)](docs-book/src/configuration/syntax.md)
 - [Integration Roadmap RFC](docs-book/src/advanced/rfc-integration-roadmap.md)
+- [Integration Examples](docs-book/src/advanced/integration-examples.md)
 - [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
 - [Full sidebar](docs-book/src/SUMMARY.md)
 
