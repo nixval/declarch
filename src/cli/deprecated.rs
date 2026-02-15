@@ -117,6 +117,8 @@ pub fn sync_command_to_options(
             host: host.clone(),
             modules: modules.clone(),
             diff: *diff,
+            format: None,
+            output_version: None,
         },
         SyncCommand::Preview {
             gc,
@@ -140,6 +142,8 @@ pub fn sync_command_to_options(
             host: host.clone(),
             modules: modules.clone(),
             diff: false,
+            format: None,
+            output_version: None,
         },
         SyncCommand::Update {
             gc,
@@ -164,6 +168,8 @@ pub fn sync_command_to_options(
             host: host.clone(),
             modules: modules.clone(),
             diff: *diff,
+            format: None,
+            output_version: None,
         },
         SyncCommand::Prune {
             gc,
@@ -188,6 +194,8 @@ pub fn sync_command_to_options(
             host: host.clone(),
             modules: modules.clone(),
             diff: *diff,
+            format: None,
+            output_version: None,
         },
         // Cache and Upgrade are handled directly in dispatcher, not through sync options
         SyncCommand::Cache { .. } | SyncCommand::Upgrade { .. } => {

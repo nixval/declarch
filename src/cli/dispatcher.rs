@@ -97,8 +97,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     }
 
                     // Convert and execute
-                    let options =
+                    let mut options =
                         sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
+                    options.format = args.global.format.clone();
+                    options.output_version = args.global.output_version.clone();
                     commands::sync::run(options)
                 }
             }

@@ -57,6 +57,9 @@ See:
 
 - Added global placeholder flag: `--output-version v1`
 - Added hidden placeholder command: `declarch ext`
+- `declarch ext` now discovers `declarch-ext-*` binaries from `PATH`
 - `v1` envelope implemented for:
   - `info` JSON/YAML
   - `info --list` JSON/YAML
+  - `lint` JSON/YAML
+  - `search` JSON/YAML

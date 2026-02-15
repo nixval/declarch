@@ -59,6 +59,8 @@ pub struct SyncOptions {
     pub host: Option<String>,
     pub modules: Vec<String>,
     pub diff: bool,
+    pub format: Option<String>,
+    pub output_version: Option<String>,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {

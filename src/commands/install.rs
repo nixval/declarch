@@ -254,6 +254,8 @@ pub fn run(options: InstallOptions) -> Result<()> {
             host: None,
             modules: modified_modules.clone(),
             diff: false,
+            format: None,
+            output_version: None,
         });
 
         match sync_result {

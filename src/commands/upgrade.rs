@@ -174,6 +174,8 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             host: None,
             modules: Vec::new(),
             diff: false,
+            format: None,
+            output_version: None,
         })?;
 
         output::separator();
