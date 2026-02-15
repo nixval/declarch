@@ -8,7 +8,7 @@ use crate::utils::paths;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-pub struct ExplainOptions {
+pub struct InfoReasonOptions {
     pub query: Option<String>,
     pub target: Option<String>,
     pub profile: Option<String>,
@@ -16,10 +16,10 @@ pub struct ExplainOptions {
     pub modules: Vec<String>,
 }
 
-pub fn run(options: ExplainOptions) -> Result<()> {
+pub fn run(options: InfoReasonOptions) -> Result<()> {
     if options.query.is_none() && options.target.is_none() {
         return Err(DeclarchError::Other(
-            "Nothing to explain. Provide a QUERY or --target sync-plan".to_string(),
+            "Nothing to inspect. Provide a QUERY or use --plan.".to_string(),
         ));
     }
 
@@ -54,16 +54,16 @@ fn explain_target(target: &str, config: &MergedConfig) -> Result<()> {
 
     match target {
         "help" | "targets" => {
-            output::header("Explain Targets");
+            output::header("Info Targets");
             output::info("Use one of these target forms:");
             output::indent("• --target sync-plan", 1);
             output::indent("• --target backend:<name>", 1);
             output::indent("• --target module:<path>", 1);
             output::separator();
             output::info("Examples:");
-            output::indent("• declarch explain --target sync-plan", 1);
-            output::indent("• declarch explain --target backend:pnpm", 1);
-            output::indent("• declarch explain --target module:system/base", 1);
+            output::indent("• declarch info --plan", 1);
+            output::indent("• declarch info backend:pnpm", 1);
+            output::indent("• declarch info system/base", 1);
             Ok(())
         }
         "sync-plan" => explain_sync_plan(config),
@@ -87,14 +87,14 @@ fn explain_target(target: &str, config: &MergedConfig) -> Result<()> {
             explain_module(module_name, &module_path, config)
         }
         other => Err(DeclarchError::Other(format!(
-            "Unsupported explain target '{}'. Supported: sync-plan, backend:<name>, module:<name>. Tip: use --target help",
+            "Unsupported info target '{}'. Supported: sync-plan, backend:<name>, module:<name>.",
             other
         ))),
     }
 }
 
 fn explain_sync_plan(config: &MergedConfig) -> Result<()> {
-    output::header("Explain: sync-plan");
+    output::header("Info: plan");
 
     let state = state::io::load_state()?;
 
@@ -166,7 +166,7 @@ fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
     let (backend_filter, needle) = parse_query(query);
     let known_backends = load_known_backends(config);
 
-    output::header(&format!("Explain: {}", query));
+    output::header(&format!("Info: {}", query));
 
     // Module intent: explain module content/source when query looks like module/path.
     if looks_like_module_query(&needle)
@@ -195,11 +195,11 @@ fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
 
         output::warning(&format!("Nothing matched '{}'.", query));
         output::info("Try one of these:");
-        output::indent("• declarch explain <package-name>", 1);
-        output::indent("• declarch explain <backend>:<package>", 1);
-        output::indent("• declarch explain backend:<backend-name>", 1);
-        output::indent("• declarch explain <module-name>", 1);
-        output::indent("• declarch explain --target sync-plan", 1);
+        output::indent("• declarch info <package-name>", 1);
+        output::indent("• declarch info <backend>:<package>", 1);
+        output::indent("• declarch info backend:<backend-name>", 1);
+        output::indent("• declarch info <module-name>", 1);
+        output::indent("• declarch info --plan", 1);
         return Err(DeclarchError::TargetNotFound(query.to_string()));
     }
 
@@ -388,7 +388,7 @@ fn looks_like_module_query(query: &str) -> bool {
     query.contains('/') || query.ends_with(".kdl")
 }
 
-fn show_active_context(options: &ExplainOptions, config: &MergedConfig) {
+fn show_active_context(options: &InfoReasonOptions, config: &MergedConfig) {
     output::header("Active Context");
 
     output::keyval(

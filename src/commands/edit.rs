@@ -155,7 +155,7 @@ pub fn run(options: EditOptions) -> Result<()> {
     if let Err(e) = content.parse::<KdlDocument>() {
         output::warning("KDL syntax error detected!");
         output::warning(&format!("  {}", e));
-        output::info("Run 'declarch check' for more details");
+        output::info("Run 'declarch lint --mode validate' for more details");
     } else {
         output::success("Configuration syntax is valid!");
     }

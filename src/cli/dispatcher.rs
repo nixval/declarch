@@ -154,7 +154,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             }
 
             if *plan || query.is_some() {
-                return commands::explain::run(commands::explain::ExplainOptions {
+                return commands::info_reason::run(commands::info_reason::InfoReasonOptions {
                     query: if *plan { None } else { query.clone() },
                     target: if *plan {
                         Some("sync-plan".to_string())
