@@ -101,6 +101,18 @@ policy {
 }
 ```
 
+### MCP policy (optional)
+
+Default behavior is read-only for MCP actions.
+Enable write tools only when you explicitly trust your MCP client flow.
+
+```kdl
+mcp {
+    mode "write-enabled"
+    allow_tools "declarch_sync_apply"
+}
+```
+
 ### Profile and host blocks
 
 These are optional overlays and are inactive by default.

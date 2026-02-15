@@ -7,7 +7,7 @@ This page shows how to connect `declarch` with MCP clients while keeping core be
 - MCP adapter is external (`declarch-mcp`), not in-process plugin code.
 - Core `declarch` logic is unchanged.
 - Read-only tools are available by default.
-- Write/apply action is guarded.
+- Write/apply action is blocked by default and requires explicit opt-in.
 - `declarch-mcp` is a local stdio adapter.
 - declarch does not ship a built-in public HTTP MCP server in this guide.
 
@@ -48,6 +48,21 @@ Add other fields only when needed:
 Important:
 - If you only use local stdio, `command` (and optional `args`/`env`) is enough.
 - `url`/`headers` are only for clients that connect to remote HTTP MCP servers.
+
+## Safety model (default read-only)
+
+By default, MCP write actions are disabled.
+
+To allow a write tool, enable it explicitly in `declarch.kdl`:
+
+```kdl
+mcp {
+    mode "write-enabled"
+    allow_tools "declarch_sync_apply"
+}
+```
+
+Without this block, write calls are rejected even if client sends them.
 
 ## Common fields across clients (quick map)
 
@@ -94,7 +109,7 @@ Your MCP client must be able to run `declarch-mcp`.
 - `declarch_lint`
 - `declarch_search`
 - `declarch_sync_preview`
-- `declarch_sync_apply` (guarded)
+- `declarch_sync_apply` (only listed when config allows it)
 
 ## Quick copy: generic local MCP config
 
@@ -221,6 +236,15 @@ If you explicitly want AI to run `declarch sync` apply:
 }
 ```
 
+Also add config consent in `declarch.kdl`:
+
+```kdl
+mcp {
+    mode "write-enabled"
+    allow_tools "declarch_sync_apply"
+}
+```
+
 And MCP call must include:
 
 ```json
@@ -232,7 +256,7 @@ And MCP call must include:
 }
 ```
 
-Without both guards, apply is rejected.
+Without config consent + env guard + confirm token, apply is rejected.
 
 ## Client notes
 
