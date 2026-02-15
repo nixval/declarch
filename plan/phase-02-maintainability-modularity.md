@@ -7,7 +7,7 @@ Menurunkan kompleksitas file inti dan meningkatkan keterbacaan perubahan.
 - [ ] Pecah file hotspot menjadi submodule:
   - [ ] `backends/user_parser.rs`
   - [ ] `backends/generic.rs`
-  - [~] `commands/sync/mod.rs` (in progress: preview-report extraction done)
+  - [x] `commands/sync/mod.rs`
 - [x] Rapikan dispatcher:
   - [x] ekstrak handler per command group
   - [x] kurangi nested branching
@@ -21,6 +21,7 @@ Menurunkan kompleksitas file inti dan meningkatkan keterbacaan perubahan.
   - extracted `cli::dispatcher` command-group handlers (`init/sync/info/search/lint`) to reduce monolithic branching.
   - introduced backend registry type aliases (`BackendSourceMap`, `BackendsWithSources`) to reduce signature complexity.
   - extracted sync preview report construction into helper for clearer `sync::run` flow.
+  - moved sync policy/hook-gating logic into `sync/policy.rs` to reduce orchestration file density.
 
 ## Exit Criteria
 - File hotspot utama turun kompleksitasnya.
