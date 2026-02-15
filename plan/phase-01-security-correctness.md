@@ -24,6 +24,7 @@ Menutup potensi bug/security yang paling berisiko tanpa mengubah UX besar.
   - added edge-case tests for shell escaping (whitespace, symbol, passthrough safe chars).
   - changed search `--limit` parsing to fail-fast on invalid values.
   - fixed private `172.16.0.0/12` host range check (`16..=31`) + regression assert.
+  - tightened remote URL validation with explicit malformed-host error path.
 
 ## Exit Criteria
 - Temuan security/correctness prioritas ditutup.
