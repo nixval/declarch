@@ -10,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Maximum age of a lock file in seconds before it's considered stale
 const LOCK_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
+const CURRENT_STATE_SCHEMA_VERSION: u8 = 3;
 
 #[derive(Debug, Clone, Default)]
 pub struct StateRepairReport {
@@ -275,11 +276,36 @@ fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
         new_packages.insert(canonical_key, pkg_state.clone());
     }
 
+    if migrate_state_schema(state) {
+        migrated = true;
+    }
+
     if migrated {
         state.packages = new_packages;
     }
 
     Ok(migrated)
+}
+
+fn migrate_state_schema(state: &mut crate::state::types::State) -> bool {
+    let mut changed = false;
+
+    if state.meta.schema_version < CURRENT_STATE_SCHEMA_VERSION {
+        state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
+        changed = true;
+    }
+
+    if state.meta.state_revision.is_none() {
+        state.meta.state_revision = Some(1);
+        changed = true;
+    }
+
+    if state.meta.generator.is_none() {
+        state.meta.generator = Some("declarch".to_string());
+        changed = true;
+    }
+
+    changed
 }
 
 pub fn load_state() -> Result<State> {
@@ -426,6 +452,13 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
 }
 
 pub fn save_state(state: &State) -> Result<()> {
+    let mut state = state.clone();
+    state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
+    state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
+    if state.meta.generator.is_none() {
+        state.meta.generator = Some("declarch".to_string());
+    }
+
     let path = get_state_path()?;
 
     // Get parent directory - state paths should always have a parent
@@ -440,7 +473,7 @@ pub fn save_state(state: &State) -> Result<()> {
     rotate_backups(dir, &path)?;
 
     // 1. Serialize to string first
-    let content = serde_json::to_string_pretty(state)
+    let content = serde_json::to_string_pretty(&state)
         .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
     // 2. Validate JSON is well-formed by parsing it back
@@ -471,6 +504,13 @@ pub fn save_state(state: &State) -> Result<()> {
 /// IMPORTANT: The lock is acquired at the START of the sync operation (not just during save)
 /// to prevent concurrent modifications. Use `acquire_lock()` at the beginning of sync.
 pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
+    let mut state = state.clone();
+    state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
+    state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
+    if state.meta.generator.is_none() {
+        state.meta.generator = Some("declarch".to_string());
+    }
+
     let path = get_state_path()?;
     let dir = path.parent().ok_or(DeclarchError::Other(
         "Could not determine state directory".into(),
@@ -480,7 +520,7 @@ pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
     rotate_backups(dir, &path)?;
 
     // Serialize to string
-    let content = serde_json::to_string_pretty(state)
+    let content = serde_json::to_string_pretty(&state)
         .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
     // Validate JSON
@@ -562,6 +602,10 @@ mod tests {
                 actual_package_name: None,
                 installed_at: Utc::now(),
                 version: Some("1.0".to_string()),
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
             },
         );
         state.packages.insert(
@@ -573,6 +617,10 @@ mod tests {
                 actual_package_name: None,
                 installed_at: Utc::now(),
                 version: None,
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
             },
         );
 
@@ -595,6 +643,10 @@ mod tests {
                 actual_package_name: None,
                 installed_at: Utc::now(),
                 version: None,
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
             },
         );
         let issues = validate_state_integrity(&state);

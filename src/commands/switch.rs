@@ -172,6 +172,10 @@ pub fn run(options: SwitchOptions) -> Result<()> {
                     .and_then(|pkgs| pkgs.get(&new_package))
                     .or_else(|| installed.get(&new_package))
                     .and_then(|m| m.version.clone()),
+                install_reason: Some("manual-sync".to_string()),
+                source_module: None,
+                last_seen_at: Some(Utc::now()),
+                backend_meta: None,
             };
 
             state.packages.insert(new_state_key, new_pkg_state);

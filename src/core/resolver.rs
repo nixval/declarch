@@ -177,6 +177,10 @@ mod tests {
                     actual_package_name: None,
                     installed_at: Utc::now(),
                     version: Some(version.to_string()),
+                    install_reason: None,
+                    source_module: None,
+                    last_seen_at: None,
+                    backend_meta: None,
                 },
             );
         }
