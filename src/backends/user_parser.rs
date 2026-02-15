@@ -191,6 +191,7 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "needs_sudo" | "sudo" => config.needs_sudo = parse_bool(child)?,
                 "env" => parse_env(child, &mut config)?,
                 "fallback" => parse_fallback(child, &mut config)?,
+                "platforms" | "supported_os" | "os" => parse_supported_os(child, &mut config),
                 _ => {
                     // Ignore unknown fields for forward compatibility
                 }
@@ -228,6 +229,40 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     };
 
     Ok(())
+}
+
+fn parse_supported_os(node: &KdlNode, config: &mut BackendConfig) {
+    let mut values: Vec<String> = Vec::new();
+
+    // Inline entries: platforms "linux" "macos"
+    for entry in node.entries() {
+        if entry.name().is_none()
+            && let Some(val) = entry.value().as_string()
+        {
+            values.push(val.to_lowercase());
+        }
+    }
+
+    // Child nodes: platforms { linux macos } or platforms { "linux" "macos" }
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+            if !child_name.is_empty() {
+                values.push(child_name.to_lowercase());
+            }
+            for entry in child.entries() {
+                if let Some(val) = entry.value().as_string() {
+                    values.push(val.to_lowercase());
+                }
+            }
+        }
+    }
+
+    values.sort();
+    values.dedup();
+    if !values.is_empty() {
+        config.supported_os = Some(values);
+    }
 }
 
 /// Get string value from KDL entry, handling both quoted strings and bare words
@@ -1226,6 +1261,32 @@ mod tests {
         config.needs_sudo = true;
 
         assert!(config.needs_sudo);
+    }
+
+    #[test]
+    fn test_parse_supported_os() {
+        let kdl = r#"
+            backend "cross" {
+                binary "brew"
+                list "brew list --versions" {
+                    format "whitespace"
+                    name_col 0
+                    version_col 1
+                }
+                install "brew install {packages}"
+                remove "brew uninstall {packages}"
+                platforms "linux" "macos"
+            }
+        "#;
+
+        let doc = KdlDocument::parse(kdl).unwrap();
+        let node = doc.nodes().first().unwrap();
+        let config = parse_backend_node(node).unwrap();
+
+        assert_eq!(
+            config.supported_os,
+            Some(vec!["linux".to_string(), "macos".to_string()])
+        );
     }
 
     #[test]

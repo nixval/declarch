@@ -112,6 +112,11 @@ pub struct BackendConfig {
     /// Example: paru → pacman, yarn → npm
     pub fallback: Option<String>,
 
+    /// Optional list of supported operating systems for this backend.
+    /// If omitted, backend is treated as cross-platform.
+    /// Examples: ["linux"], ["linux", "macos"], ["windows"]
+    pub supported_os: Option<Vec<String>>,
+
     /// ===== UPDATE SUPPORT =====
     /// Optional: Command to update package list/index
     /// Example: "apt update", "pacman -Sy", "npm update"
@@ -264,6 +269,7 @@ impl Default for BackendConfig {
             search_regex_name_group: None,
             search_regex_desc_group: None,
             fallback: None,
+            supported_os: None,
             update_cmd: None,
             cache_clean_cmd: None,
             upgrade_cmd: None,

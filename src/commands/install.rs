@@ -170,6 +170,18 @@ pub fn run(options: InstallOptions) -> Result<()> {
             continue;
         }
 
+        if let Some(backend_cfg) = registry_guard.get_backend_config(backend_str)
+            && !crate::utils::platform::backend_supports_current_os(backend_cfg)
+        {
+            output::warning(&format!(
+                "Skipping '{}:{}' because backend '{}' is not for this OS.",
+                backend_str, pkg_name, backend_str
+            ));
+            output::info("Tip: keep it in config for your other machines.");
+            skipped_count += 1;
+            continue;
+        }
+
         // Add package to config
         let edit = editor.add_package(pkg_name, Some(backend_str), options.module.as_deref())?;
 

@@ -433,6 +433,17 @@ fn initialize_managers_and_snapshot(
         apply_backend_env_overrides(&mut backend_config, &backend_name, config);
         apply_backend_package_sources(&mut backend_config, &backend_name, config);
 
+        if !crate::utils::platform::backend_supports_current_os(&backend_config) {
+            let current_os = crate::utils::platform::current_os_tag();
+            let supported = crate::utils::platform::supported_os_summary(&backend_config);
+            output::warning(&format!(
+                "Skipping backend '{}' on this device (current OS: {}, supported: {}).",
+                backend_name, current_os, supported
+            ));
+            output::info("This is okay. Keep it in your config for other machines.");
+            continue;
+        }
+
         let manager: Box<dyn PackageManager> =
             Box::new(crate::backends::GenericManager::from_config(
                 backend_config,

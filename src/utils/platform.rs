@@ -96,6 +96,41 @@ pub fn build_program_command(program: &str, args: &[String], elevated: bool) -> 
     }
 }
 
+/// Return normalized current OS tag used in backend compatibility checks.
+pub fn current_os_tag() -> &'static str {
+    if cfg!(target_os = "linux") {
+        "linux"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "freebsd") {
+        "freebsd"
+    } else {
+        "unknown"
+    }
+}
+
+/// Check whether a backend is compatible with the current operating system.
+/// If supported_os is not set, backend is treated as cross-platform.
+pub fn backend_supports_current_os(backend: &crate::backends::config::BackendConfig) -> bool {
+    let Some(supported) = backend.supported_os.as_ref() else {
+        return true;
+    };
+
+    let current = current_os_tag();
+    supported.iter().any(|os| os.eq_ignore_ascii_case(current))
+}
+
+/// Human-friendly supported OS summary for warnings.
+pub fn supported_os_summary(backend: &crate::backends::config::BackendConfig) -> String {
+    backend
+        .supported_os
+        .as_ref()
+        .map(|list| list.join(", "))
+        .unwrap_or_else(|| "all".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +148,10 @@ mod tests {
         let debug = format!("{:?}", cmd);
         #[cfg(unix)]
         assert!(debug.contains("\"sh\""));
+    }
+
+    #[test]
+    fn current_os_tag_is_not_empty() {
+        assert!(!current_os_tag().is_empty());
     }
 }

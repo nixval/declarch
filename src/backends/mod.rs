@@ -90,6 +90,7 @@
 //!     package_sources: None,
 //!     use_rust_fallback: false,
 //!     fallback: None,
+//!     supported_os: None,
 //!     search_cmd: None,
 //!     search_format: None,
 //!     search_json_path: None,
