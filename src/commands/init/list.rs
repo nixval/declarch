@@ -107,7 +107,17 @@ pub fn list_available_backends() -> Result<()> {
 
     println!();
     const SYSTEM_PMS: &[&str] = &[
-        "apt", "aur", "dnf", "pacman", "paru", "yay", "flatpak", "snap", "nix", "soar", "brew",
+        "apt",
+        "aur",
+        "dnf",
+        "pacman",
+        "paru",
+        "yay",
+        "flatpak",
+        "snap",
+        "nix",
+        "soar",
+        "brew",
     ];
     const LANG_PMS: &[&str] = &["npm", "yarn", "pnpm", "bun", "pip", "cargo", "gem", "go"];
 

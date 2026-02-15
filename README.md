@@ -49,6 +49,8 @@ declarch init --backend <backend-name>
 Examples:
 `aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`, and more.
 
+Planned Windows backend set (experimental roadmap): `winget`, `choco`, `scoop`.
+
 Declarch started with strong Arch focus, but the same declarative pattern works for many backends.
 So you do not need to remember dozens of rarely-used commands.
 
