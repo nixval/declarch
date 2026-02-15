@@ -19,6 +19,54 @@ So:
 - exact file path and key names depend on each client.
 - your client config may look different and still be valid.
 
+## Why some examples are only `command`
+
+For local stdio MCP, many clients can start a server process with just:
+
+- `command`: executable name/path
+
+So this is valid when `declarch-mcp` is already in PATH:
+
+```json
+{
+  "mcpServers": {
+    "declarch": {
+      "command": "declarch-mcp"
+    }
+  }
+}
+```
+
+Add other fields only when needed:
+
+- `args`: if your server needs startup arguments
+- `env`: if you need custom environment variables
+- `type`, `url`, `headers`: for remote HTTP/SSE servers
+
+## Common fields across clients (quick map)
+
+- Local stdio (process on your machine):
+  - usually `command`
+  - optional `args`, `env`
+  - some clients also accept/require `type: "stdio"` or `type: "local"`
+- Remote MCP over network:
+  - usually `url` (or `httpUrl` / `serverUrl` depending client)
+  - optional/required `type` (`http`, `streamableHttp`, `sse`)
+  - optional `headers` for auth
+
+`npx` is also normal, not special:
+
+```json
+{
+  "mcpServers": {
+    "example": {
+      "command": "npx",
+      "args": ["-y", "some-mcp-server@latest"]
+    }
+  }
+}
+```
+
 ## Build binaries
 
 From repo root:
@@ -31,6 +79,29 @@ Expected binaries:
 
 - `target/release/declarch`
 - `target/release/declarch-mcp`
+
+## What does `/absolute/path/to/...` mean?
+
+That text is only a placeholder.
+Replace it with your real file path.
+
+Example from this repo:
+
+- `/home/nixval/github/repo/nixval/tools/declarch/target/release/declarch-mcp`
+
+How to get the real path quickly:
+
+```bash
+realpath target/release/declarch-mcp
+realpath target/release/declarch
+```
+
+If you installed declarch system-wide, you can usually use command names directly:
+
+```bash
+which declarch
+which declarch-mcp
+```
 
 ## Recommended standard environment
 
@@ -66,15 +137,18 @@ List tools:
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-| DECLARCH_BIN="$PWD/target/release/declarch" ./target/release/declarch-mcp
+| ./target/release/declarch-mcp
 ```
 
 Preview sync:
 
 ```bash
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"declarch_sync_preview","arguments":{}}}' \
-| DECLARCH_BIN="$PWD/target/release/declarch" ./target/release/declarch-mcp
+| ./target/release/declarch-mcp
 ```
+
+`DECLARCH_BIN` is optional.
+Use it only when you want MCP adapter to call a specific declarch binary path.
 
 ## Tools exposed
 
@@ -93,7 +167,7 @@ Use this as conceptual template (adapt keys to your client schema):
 {
   "mcpServers": {
     "declarch": {
-      "command": "/absolute/path/to/target/release/declarch-mcp"
+      "command": "declarch-mcp"
     }
   }
 }
@@ -102,15 +176,22 @@ Use this as conceptual template (adapt keys to your client schema):
 That is enough for standard usage.
 `declarch` will use normal OS default paths automatically.
 
+If `declarch-mcp` is not in PATH yet, use real absolute path from `realpath`.
+
 ## Quick copy: Codex (`~/.codex/config.toml`)
 
 ```toml
 [mcp_servers.declarch]
-command = "/absolute/path/to/target/release/declarch-mcp"
+command = "declarch-mcp"
 args = []
 
+```
+
+Optional if you want to force a specific declarch binary:
+
+```toml
 [mcp_servers.declarch.env]
-DECLARCH_BIN = "/absolute/path/to/target/release/declarch"
+DECLARCH_BIN = "/absolute/path/to/declarch"
 ```
 
 Optional guarded apply:
@@ -126,10 +207,22 @@ DECLARCH_MCP_ALLOW_APPLY = "1"
 {
   "mcpServers": {
     "declarch": {
-      "command": "/absolute/path/to/target/release/declarch-mcp",
-      "args": [],
+      "command": "declarch-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+Optional:
+
+```json
+{
+  "mcpServers": {
+    "declarch": {
+      "command": "declarch-mcp",
       "env": {
-        "DECLARCH_BIN": "/absolute/path/to/target/release/declarch"
+        "DECLARCH_BIN": "/absolute/path/to/declarch"
       }
     }
   }
@@ -148,7 +241,7 @@ If env fields are not supported by your current version, minimal wrapper:
       "command": "bash",
       "args": [
         "-lc",
-        "DECLARCH_BIN=/absolute/path/to/target/release/declarch /absolute/path/to/target/release/declarch-mcp"
+        "declarch-mcp"
       ]
     }
   }
@@ -170,7 +263,7 @@ Your current `~/.claude/settings.json` is focused on env + permissions and does 
 
 Use your Claude MCP server config location/schema, then map it to the same payload:
 - command: `.../declarch-mcp`
-- env: `DECLARCH_BIN`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+- optional env: `DECLARCH_BIN` (only when needed)
 - optional env: `DECLARCH_MCP_ALLOW_APPLY=1` (only when you want write/apply)
 
 ## Quick copy: enable guarded apply
@@ -181,9 +274,8 @@ If you explicitly want AI to run `declarch sync` apply:
 {
   "mcpServers": {
     "declarch": {
-      "command": "/absolute/path/to/target/release/declarch-mcp",
+      "command": "declarch-mcp",
       "env": {
-        "DECLARCH_BIN": "/absolute/path/to/target/release/declarch",
         "DECLARCH_MCP_ALLOW_APPLY": "1"
       }
     }
