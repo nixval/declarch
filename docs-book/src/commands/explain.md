@@ -9,6 +9,7 @@ declarch explain <query>
 declarch explain --target sync-plan
 declarch explain --target backend:pnpm
 declarch explain --target module:system/base
+declarch explain --target help
 ```
 
 ## Examples
@@ -27,6 +28,9 @@ declarch explain system/base
 
 # plan
 declarch explain --target sync-plan
+
+# target helper
+declarch explain --target help
 
 # with overlays
 declarch explain bat --profile desktop --host vps-1

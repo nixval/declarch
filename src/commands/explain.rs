@@ -53,6 +53,19 @@ fn explain_target(target: &str, config: &MergedConfig) -> Result<()> {
     let known_backends = load_known_backends(config);
 
     match target {
+        "help" | "targets" => {
+            output::header("Explain Targets");
+            output::info("Use one of these target forms:");
+            output::indent("• --target sync-plan", 1);
+            output::indent("• --target backend:<name>", 1);
+            output::indent("• --target module:<path>", 1);
+            output::separator();
+            output::info("Examples:");
+            output::indent("• declarch explain --target sync-plan", 1);
+            output::indent("• declarch explain --target backend:pnpm", 1);
+            output::indent("• declarch explain --target module:system/base", 1);
+            Ok(())
+        }
         "sync-plan" => explain_sync_plan(config),
         t if t.starts_with("backend:") => {
             let backend_name = t.trim_start_matches("backend:").trim();
@@ -74,7 +87,7 @@ fn explain_target(target: &str, config: &MergedConfig) -> Result<()> {
             explain_module(module_name, &module_path, config)
         }
         other => Err(DeclarchError::Other(format!(
-            "Unsupported explain target '{}'. Supported: sync-plan, backend:<name>, module:<name>",
+            "Unsupported explain target '{}'. Supported: sync-plan, backend:<name>, module:<name>. Tip: use --target help",
             other
         ))),
     }

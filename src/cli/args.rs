@@ -313,7 +313,7 @@ pub enum Command {
         #[arg(value_name = "QUERY")]
         query: Option<String>,
 
-        /// Explain a higher-level target (sync-plan, backend:<name>, module:<name>)
+        /// Explain a higher-level target (sync-plan, backend:<name>, module:<name>, help)
         #[arg(long, value_name = "TARGET")]
         target: Option<String>,
 
