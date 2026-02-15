@@ -1,10 +1,6 @@
 # Summary
 
----
-
 [Introduction](./intro.md)
-
----
 
 ## Getting Started
 
@@ -12,32 +8,20 @@
 - [Quick Start](./getting-started/quick-start.md)
 - [Basic Concepts](./getting-started/basic-concepts.md)
 
----
+## Daily Commands
 
-## Commands
-
-- [Overview](./commands/index.md)
+- [Command Overview](./commands/index.md)
 - [init](./commands/init.md)
 - [install](./commands/install.md)
 - [sync](./commands/sync.md)
-- [check](./commands/check.md)
-- [info](./commands/info.md)
-- [list](./commands/list.md)
 - [search](./commands/search.md)
-- [edit](./commands/edit.md)
-- [switch](./commands/switch.md)
-- [settings](./commands/settings.md)
+- [info](./commands/info.md)
 
----
+## Configuration (Beginner)
 
-## Configuration
-
-- [KDL Syntax](./configuration/kdl-syntax.md)
-- [Syntax Reference](./configuration/syntax.md)
+- [KDL Basics](./configuration/kdl-syntax.md)
 - [Backends](./configuration/backends.md)
 - [Modules](./configuration/modules.md)
-
----
 
 ## Examples
 
@@ -46,14 +30,14 @@
 - [Development Setup](./examples/development.md)
 - [Modular Setup](./examples/modular.md)
 
----
+## Advanced
 
-## Advanced Topics
-
+- [Syntax Reference (Advanced)](./configuration/syntax.md)
 - [Custom Backends](./advanced/custom-backends.md)
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
-
----
+- [edit](./commands/edit.md)
+- [switch](./commands/switch.md)
+- [check](./commands/check.md)
 
 [Cross-Distro Support](./cross-distro-support.md)

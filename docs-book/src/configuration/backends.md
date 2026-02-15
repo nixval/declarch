@@ -1,138 +1,54 @@
 # Backends
 
-Backends connect declarch to package managers. They define how to list, install, remove, and search packages for each package manager.
+Backends are how declarch talks to package managers.
 
-## Built-in Backends
+Think of it like this:
+- declarch is the coordinator,
+- backends do the real package operations.
 
-These work immediately after `declarch init`:
+## Default + adopt model
 
-| Backend | Package Manager | Description |
-|---------|-----------------|-------------|
-| `aur` | paru/yay | AUR packages (falls back to pacman) |
-| `pacman` | pacman | Official Arch repositories |
-| `flatpak` | flatpak | Universal Linux apps |
+- `declarch init` creates default backend definitions.
+- `declarch init --backend <name>` adopts extra backends from registry.
+- Local backend files are editable.
 
-## Using Backends
+## Common backend groups
 
-In your config (`declarch.kdl`):
+- System: `aur`, `pacman`, `flatpak`, `apt`, `nala`, `dnf`, `snap`, `nix`, `brew`
+- Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
+- Other: `soar`
 
-```kdl
-pkg {
-    aur {
-        neovim
-        brave-bin
-    }
-    
-    pacman {
-        firefox
-        thunderbird
-    }
-    
-    flatpak {
-        com.spotify.Client
-        com.discordapp.Discord
-    }
-}
-```
-
-## Installing Custom Backends
-
-Need npm, cargo, or others?
+## Add backend definitions
 
 ```bash
 declarch init --backend npm
+declarch init --backend pnpm,yarn
+declarch init --backend pnpm yarn
 ```
 
-This will:
-1. Fetch the backend definition from the registry
-2. Show meta information (title, description, platforms, etc.)
-3. Prompt for confirmation
-4. Import the backend automatically
+## Use backends in package config
 
-Then use it:
 ```kdl
 pkg {
-    npm {
-        typescript
-        prettier
-    }
+    pacman { firefox }
+    flatpak { org.mozilla.firefox }
+    npm { typescript }
+    nix { nil }
 }
 ```
 
-## Available Backends
+## Fallback concept
 
-Install these with `declarch init --backend <name>`:
+A backend can fallback when binary is missing.
+Examples:
+- `nala -> apt`
+- `pnpm -> npm`
+- `yarn -> npm`
+- `bun -> npm`
+- `aur -> pacman`
 
-| Backend | For | Platforms |
-|---------|-----|-----------|
-| `npm` | Node.js packages | Linux, macOS, Windows |
-| `pnpm` | Fast Node.js package manager | Linux, macOS, Windows |
-| `bun` | Fast JavaScript runtime | Linux, macOS |
-| `yarn` | Alternative Node.js package manager | Linux, macOS, Windows |
-| `cargo` | Rust crates | Linux, macOS, Windows |
-| `pip` | Python packages | Linux, macOS, Windows |
-| `gem` | Ruby gems | Linux, macOS, Windows |
-| `soar` | Static binaries | Linux |
-| `nix` | Nix packages | Linux, macOS |
-| `brew` | Homebrew packages | macOS, Linux |
-| `apt` | Debian/Ubuntu packages | Linux |
-| `dnf` | Fedora/RHEL packages | Linux |
-| `snap` | Universal Linux packages | Linux |
-| `paru` | AUR helper (alternative) | Linux |
-| `yay` | AUR helper (alternative) | Linux |
-| `go` | Go binaries | Linux, macOS, Windows |
+## Beginner tips
 
-## Backend Storage
-
-```
-~/.config/declarch/
-├── backends.kdl          # Built-in backends + imports
-└── backends/
-    └── npm.kdl           # Custom backend definitions
-```
-
-## Backend Meta Information
-
-When initializing a backend, declarch displays meta information:
-
-```
-fetching 'npm' from nixval/declarch-packages
-
-  Title:       NPM
-  Description: Node Package Manager
-  Maintained:  nixval
-  Homepage:    https://www.npmjs.com
-  Platforms:   linux, macos, windows
-  Requires:    nodejs
-
-? Are you sure you want this 'npm' being adopted [Y/n]
-```
-
-Fields with value "-" are hidden automatically.
-
-## Troubleshooting
-
-**"Backend 'xxx' not found"**
-
-```bash
-# Install the backend
-declarch init --backend xxx
-```
-
-**"No backend configured"**
-
-```bash
-# Re-initialize
-declarch init
-```
-
-**"Backend file already exists"**
-
-```bash
-# Force overwrite
-declarch init --backend xxx --force
-```
-
-## Advanced
-
-- [Create Custom Backends](../advanced/custom-backends.md)
+- Start small.
+- Add one backend at a time.
+- Keep backend files versioned in git.

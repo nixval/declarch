@@ -3,8 +3,9 @@
 //! Handles the `declarch init <path>` command flow:
 //! 1. Resolve module path
 //! 2. Fetch from remote or use local template
-//! 3. Write module file to `modules/<path>.kdl`
-//! 4. Auto-inject import into root config
+//! 3. Validate KDL (warning, bypassable with --force)
+//! 4. Write module file to `modules/<path>.kdl`
+//! 5. Auto-inject import into root config
 
 use crate::config::kdl::parse_kdl_content;
 use crate::constants::CONFIG_EXTENSION;
@@ -31,8 +32,12 @@ pub fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Re
         path_buf.set_extension(CONFIG_EXTENSION);
     }
 
-    // Always prepend "modules/" to keep structure
-    let modules_path = std::path::PathBuf::from("modules").join(&path_buf);
+    // Prepend "modules/" only if not already present (avoid "modules/modules/")
+    let modules_path = if path_buf.starts_with("modules") {
+        path_buf.clone()
+    } else {
+        std::path::PathBuf::from("modules").join(&path_buf)
+    };
     let root_dir = paths::config_dir()?;
     let full_path = root_dir.join(&modules_path);
 
@@ -54,20 +59,34 @@ pub fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Re
 
     let content = resolve_module_content(target_path, &slug, is_registry_path, local)?;
 
-    // STEP 4: Display meta before proceeding
+    // STEP 4: Validate KDL (warning only, can bypass with --force)
+    if let Err(e) = super::validate_kdl(&content, &format!("module '{}'", target_path)) {
+        if !force {
+            crate::ui::warning(&format!("{}", e));
+            crate::ui::info("The module may be malformed or incompatible with your declarch version.");
+            crate::ui::info("You can still import it with --force, then edit the file manually.");
+            
+            if !crate::ui::prompt_yes_no("Continue with potentially invalid module") {
+                crate::ui::info("Cancelled. You can try a different module or use --force to override.");
+                return Ok(());
+            }
+        }
+    }
+
+    // STEP 5: Display meta before proceeding
     display_module_meta(&content);
 
-    // STEP 5: Ensure root config exists (or create it)
-    ensure_root_config()?;
+    // STEP 6: Ensure root environment exists (auto-init if needed)
+    super::root::ensure_environment()?;
 
-    // STEP 6: Create directories and write file
+    // STEP 7: Create directories and write file (KDL already validated or bypassed)
     if let Some(parent) = full_path.parent() {
         fs::create_dir_all(parent)?;
     }
 
     fs::write(&full_path, &content)?;
 
-    // STEP 7: Inject import
+    // STEP 8: Inject import
     let root_config_path = paths::config_file()?;
     let import_path = modules_path.to_string_lossy().replace("\\", "/");
     inject_import_to_root(&root_config_path, &import_path, force, yes)?;
@@ -136,32 +155,6 @@ Try one of these alternatives:
     }
 }
 
-/// Ensure root config exists, create if not
-fn ensure_root_config() -> Result<()> {
-    let root_dir = paths::config_dir()?;
-    
-    if root_dir.exists() {
-        return Ok(());
-    }
-
-    // Create fresh config
-    let hostname = hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| "unknown".to_string());
-
-    fs::create_dir_all(&root_dir)?;
-
-    let config_file = paths::config_file()?;
-    let template = utils::templates::default_host(&hostname);
-    fs::write(&config_file, template)?;
-    
-    crate::ui::success(&format!("Created config file: {}", config_file.display()));
-
-    let _ = crate::state::io::init_state(hostname)?;
-
-    Ok(())
-}
-
 /// Extract and display meta information from KDL content
 fn display_module_meta(content: &str) {
     if let Ok(raw_config) = parse_kdl_content(content) {
@@ -226,10 +219,14 @@ fn inject_import_to_root(
 
     let import_line = format!("    {:?}", import_path);
 
-    // Check if already exists
-    if content.contains(import_path) {
+    // Check if already exists (only active imports, not commented)
+    let active_import_pattern = format!(r#"(?m)^\s+"{}"\s*$"#, regex::escape(import_path));
+    if Regex::new(&active_import_pattern)
+        .map(|re| re.is_match(&content))
+        .unwrap_or(false)
+    {
         crate::ui::info(&format!(
-            "Module '{}' is already referenced in config.",
+            "Module '{}' is already imported in config.",
             import_path
         ));
         return Ok(());
@@ -247,8 +244,8 @@ fn inject_import_to_root(
         return Ok(());
     }
 
-    // Inject import
-    let re = Regex::new(r#"(?m)^(.*imports\s*\{)"#)
+    // Inject import (non-greedy match for imports block)
+    let re = Regex::new(r#"(?m)^(\s*imports\s*\{)"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
 
     let new_content = if re.is_match(&content) {

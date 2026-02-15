@@ -1,6 +1,6 @@
 # switch
 
-Switch package variant.
+Replace one package entry with another.
 
 ## Usage
 
@@ -10,39 +10,23 @@ declarch switch [OPTIONS] <OLD_PACKAGE> <NEW_PACKAGE>
 
 ## Examples
 
-### Switch Package
-
 ```bash
 declarch switch neovim neovim-git
-```
-
-Replaces `neovim` with `neovim-git` in your config.
-
-### Switch with Backend
-
-```bash
 declarch switch firefox aur:firefox-nightly
+
+# preview
+declarch switch firefox firefox-nightly --dry-run
 ```
 
-## How It Works
+## What it does
 
-1. Removes old package from config
-2. Adds new package to config
-3. Syncs the changes
+1. removes old package from config
+2. adds new package to config
+3. syncs the change
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `-b, --backend <NAME>` | Specify backend |
-| `--dry-run` | Preview only |
-
-## Example
-
-```bash
-# Preview first
-declarch switch firefox firefox-nightly --dry-run
-
-# Then execute
-declarch switch firefox firefox-nightly
-```
+| `-b, --backend <NAME>` | backend scope |
+| `--dry-run` | preview only |

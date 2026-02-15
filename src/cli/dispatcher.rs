@@ -3,7 +3,7 @@
 //! Routes CLI commands to their appropriate handlers and manages
 //! deprecated flag handling.
 
-use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListCommand, SettingsCommand};
+use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListSubcommand, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
@@ -22,6 +22,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             backend,
             list,
             local,
+            restore_backends,
+            restore_declarch,
         }) => {
             // Handle --list flag first
             if let Some(what) = list {
@@ -36,6 +38,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     )));
                 }
             }
+
+            // Handle restore flags
+            if *restore_backends {
+                return commands::init::restore_backends();
+            }
+            if *restore_declarch {
+                return commands::init::restore_declarch(host.clone());
+            }
             
             commands::init::run(commands::init::InitOptions {
                 host: host.clone(),
@@ -47,43 +57,58 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             })
         }
 
-        Some(Command::Sync {
-            command,
-            dry_run,
-            prune,
-            gc,
-            update,
-        }) => {
-            // Handle deprecated flags
-            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_sync_flags(*dry_run, *update, *prune, *gc);
+        Some(Command::Sync { command, gc }) => {
+            match command {
+                Some(SyncCommand::Cache { backend }) => {
+                    commands::cache::run(commands::cache::CacheOptions {
+                        backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+                        verbose: args.global.verbose,
+                    })
+                }
+                Some(SyncCommand::Upgrade { backend, no_sync }) => {
+                    commands::upgrade::run(commands::upgrade::UpgradeOptions {
+                        backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+                        no_sync: *no_sync,
+                        verbose: args.global.verbose,
+                    })
+                }
+                _ => {
+                    // Handle other sync subcommands (Sync, Preview, Update, Prune)
+                    let (has_deprecated_flags, deprecated_command, new_cmd_str) =
+                        handle_deprecated_sync_flags(false, false, false, *gc);
 
-            // Use the command from subcommand if provided, otherwise use deprecated flags
-            let sync_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
+                    // Use the command from subcommand if provided, otherwise use deprecated flags
+                    let sync_cmd = command
+                        .clone()
+                        .unwrap_or_else(|| deprecated_command.clone());
 
-            // Show deprecation warning if old flags were used
-            if has_deprecated_flags {
-                show_deprecation_warning(new_cmd_str);
+                    // Show deprecation warning if old flags were used
+                    if has_deprecated_flags {
+                        show_deprecation_warning(new_cmd_str);
+                    }
+
+                    // Convert and execute
+                    let options = sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
+                    commands::sync::run(options)
+                }
             }
-
-            // Convert and execute
-            let options = sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
-            commands::sync::run(options)
         }
 
         Some(Command::Check {
             command,
             duplicates,
             conflicts,
-            only_duplicates: _,
-            only_conflicts: _,
+            only_duplicates,
+            only_conflicts,
             validate,
         }) => {
             // Handle deprecated flags
             let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_check_flags(*duplicates, *conflicts, *validate);
+                handle_deprecated_check_flags(
+                    *duplicates || *only_duplicates,
+                    *conflicts || *only_conflicts,
+                    *validate,
+                );
 
             // Use the command from subcommand if provided, otherwise use deprecated flags
             let check_cmd = command
@@ -100,6 +125,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 CheckCommand::All {
                     backend,
                     diff,
+                    fix,
                     benchmark,
                     modules,
                 } => commands::check::run(
@@ -113,8 +139,9 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     false, // validate_only
                     benchmark,
                     modules,
+                    fix,
                 ),
-                CheckCommand::Duplicates { backend, diff } => {
+                CheckCommand::Duplicates { backend, diff, fix } => {
                     commands::check::run(
                         args.global.verbose,
                         true,  // check_duplicates
@@ -126,9 +153,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         false, // validate_only
                         false, // benchmark
                         vec![],
+                        fix,
                     )
                 }
-                CheckCommand::Conflicts { backend, diff } => {
+                CheckCommand::Conflicts { backend, diff, fix } => {
                     commands::check::run(
                         args.global.verbose,
                         false, // check_duplicates
@@ -140,9 +168,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         false, // validate_only
                         false, // benchmark
                         vec![],
+                        fix,
                     )
                 }
-                CheckCommand::Validate { benchmark, modules } => {
+                CheckCommand::Validate { benchmark, fix, modules } => {
                     commands::check::run(
                         args.global.verbose,
                         false, // check_duplicates
@@ -154,13 +183,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         true,  // validate_only
                         benchmark,
                         modules,
+                        fix,
                     )
                 }
             }
         }
 
         Some(Command::Info { command, doctor }) => {
-            // Handle deprecated flag
+            // Handle deprecated --doctor flag
             let (has_deprecated_flag, deprecated_command) = handle_deprecated_info_flags(*doctor);
 
             // Use the command from subcommand if provided, otherwise use deprecated flag
@@ -173,7 +203,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 show_deprecation_warning("declarch info doctor");
             }
 
-            // Map InfoCommand to info::run parameters
+            // Map InfoCommand to appropriate handler
             match info_cmd {
                 InfoCommand::Status {
                     debug,
@@ -186,6 +216,47 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     backend,
                     package,
                 }),
+                InfoCommand::List { command, orphans, synced } => {
+                    // Handle deprecated --orphans and --synced flags
+                    let (has_deprecated_flags, deprecated_command, new_cmd_str) =
+                        handle_deprecated_list_flags(orphans, synced);
+
+                    // Use the command from subcommand if provided, otherwise use deprecated flags
+                    let list_cmd = command
+                        .clone()
+                        .unwrap_or_else(|| deprecated_command.clone());
+
+                    // Show deprecation warning if old flags were used
+                    if has_deprecated_flags {
+                        show_deprecation_warning(&new_cmd_str);
+                    }
+
+                    // Map ListSubcommand to list::run parameters
+                    match list_cmd {
+                        ListSubcommand::All { backend } => commands::list::run(commands::list::ListOptions {
+                            backend,
+                            orphans: false,
+                            synced: false,
+                            format: args.global.format.clone(),
+                        }),
+                        ListSubcommand::Orphans { backend } => {
+                            commands::list::run(commands::list::ListOptions {
+                                backend,
+                                orphans: true,
+                                synced: false,
+                                format: args.global.format.clone(),
+                            })
+                        }
+                        ListSubcommand::Synced { backend } => {
+                            commands::list::run(commands::list::ListOptions {
+                                backend,
+                                orphans: false,
+                                synced: true,
+                                format: args.global.format.clone(),
+                            })
+                        }
+                    }
+                }
                 InfoCommand::Doctor {
                     debug,
                     backend,
@@ -197,52 +268,6 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     backend,
                     package,
                 }),
-            }
-        }
-
-        Some(Command::List {
-            command,
-            orphans,
-            synced,
-        }) => {
-            // Handle deprecated flags
-            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_list_flags(*orphans, *synced);
-
-            // Use the command from subcommand if provided, otherwise use deprecated flags
-            let list_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
-
-            // Show deprecation warning if old flags were used
-            if has_deprecated_flags {
-                show_deprecation_warning(new_cmd_str);
-            }
-
-            // Map ListCommand to list::run parameters
-            match list_cmd {
-                ListCommand::All { backend } => commands::list::run(commands::list::ListOptions {
-                    backend,
-                    orphans: false,
-                    synced: false,
-                    format: args.global.format.clone(),
-                }),
-                ListCommand::Orphans { backend } => {
-                    commands::list::run(commands::list::ListOptions {
-                        backend,
-                        orphans: true,
-                        synced: false,
-                        format: args.global.format.clone(),
-                    })
-                }
-                ListCommand::Synced { backend } => {
-                    commands::list::run(commands::list::ListOptions {
-                        backend,
-                        orphans: false,
-                        synced: true,
-                        format: args.global.format.clone(),
-                    })
-                }
             }
         }
 
@@ -260,9 +285,15 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             force: args.global.force,
         }),
 
-        Some(Command::Edit { target }) => commands::edit::run(commands::edit::EditOptions {
+        Some(Command::Edit { target, preview, number, create, auto_format, validate_only, backup }) => commands::edit::run(commands::edit::EditOptions {
             target: target.clone(),
             dry_run: args.global.dry_run,
+            preview: *preview,
+            number: *number,
+            create: *create,
+            auto_format: *auto_format,
+            validate_only: *validate_only,
+            backup: *backup,
         }),
 
         Some(Command::Install {
@@ -279,31 +310,13 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             dry_run: args.global.dry_run,
         }),
 
-        Some(Command::Settings { command }) => {
-            // Convert CLI SettingsCommand to command SettingsCommand
-            let cmd = match command {
-                SettingsCommand::Set { key, value } => commands::settings::SettingsCommand::Set {
-                    key: key.clone(),
-                    value: value.clone(),
-                },
-                SettingsCommand::Get { key } => {
-                    commands::settings::SettingsCommand::Get { key: key.clone() }
-                }
-                SettingsCommand::Show => commands::settings::SettingsCommand::Show,
-                SettingsCommand::Reset { key } => {
-                    commands::settings::SettingsCommand::Reset { key: key.clone() }
-                }
-            };
-
-            commands::settings::run(cmd)
-        }
-
         Some(Command::Search {
             query,
             backends,
             limit,
             installed_only,
             available_only,
+            local,
         }) => {
             // Parse limit option: "all" or "0" means unlimited, otherwise parse as number
             let parsed_limit = if let Some(limit_str) = limit {
@@ -322,6 +335,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 limit: parsed_limit,
                 installed_only: *installed_only,
                 available_only: *available_only,
+                local: *local,
             })
         }
 

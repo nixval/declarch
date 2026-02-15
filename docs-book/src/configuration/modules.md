@@ -1,46 +1,37 @@
 # Modules
 
-Modules let you split your config into multiple files.
+Modules help keep config readable.
 
-## Why Use Modules?
+## Why modules?
 
-Instead of one giant file:
+Instead of one huge file, split by purpose:
 
-```
-base.kdl      # 200 lines
-```
-
-Organize logically:
-
-```
-base.kdl      # Essentials (20 lines)
-dev.kdl       # Development (30 lines)
-gaming.kdl    # Games (15 lines)
-work.kdl      # Work stuff (25 lines)
+```text
+base.kdl
+dev.kdl
+work.kdl
+gaming.kdl
 ```
 
-## Creating a Module
+## Create one
 
 ```bash
-# Create the file
 mkdir -p ~/.config/declarch/modules
-cat > ~/.config/declarch/modules/dev.kdl << 'EOF'
+cat > ~/.config/declarch/modules/dev.kdl << 'EOKDL'
 pkg {
     aur {
         neovim
         tmux
     }
-    
+
     npm {
         typescript
     }
 }
-EOF
+EOKDL
 ```
 
-## Importing Modules
-
-Add to `~/.config/declarch/declarch.kdl`:
+## Import it
 
 ```kdl
 imports {
@@ -49,45 +40,23 @@ imports {
 }
 ```
 
-## Module Template
+## Template
 
 ```kdl
-// modules/example.kdl
 meta {
-    title "Example Module"
-    description "What this module contains"
+    title "Dev"
+    description "Development tools"
 }
 
 pkg {
     aur {
-        # packages here
+        // packages here
     }
 }
 ```
 
-## Best Practices
+## Practical tips
 
-1. **Keep it focused** - One module = one purpose
-2. **Use descriptive names** - `gaming.kdl` not `stuff.kdl`
-3. **Add metadata** - Helps you remember what's in it
-
-## Example Structure
-
-```
-modules/
-├── base.kdl        # Essentials: bat, fzf, git
-├── dev.kdl         # Dev tools: neovim, docker
-├── desktop.kdl     # GUI apps: firefox, slack
-└── gaming.kdl      # Steam, Lutris, etc.
-```
-
-## Disabling Modules
-
-Comment out the import:
-
-```kdl
-imports {
-    "modules/base.kdl"
-    // "modules/gaming.kdl"  # Disabled
-}
-```
+1. One module = one context.
+2. Use obvious names.
+3. Keep each module short.

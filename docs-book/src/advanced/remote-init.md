@@ -1,89 +1,90 @@
-# Remote Init
+# Remote Init (Advanced)
 
-Fetch configs from remote repositories.
+This page documents source resolution behavior for `declarch init [SOURCE]`.
 
-## GitHub Repos
+## Supported source forms
 
-### Basic
+```text
+user/repo
+user/repo:variant
+user/repo/branch
+gitlab.com/user/repo
+https://example.com/path/declarch.kdl
+registry/module
+```
+
+## Resolution behavior
+
+### GitHub shorthand
 
 ```bash
 declarch init username/dotfiles
 ```
 
-Fetches: `https://github.com/username/dotfiles/blob/main/declarch.kdl`
+Resolves to repository default branch and fetches `declarch.kdl`.
 
-### With Variant
+### Variant
 
 ```bash
 declarch init username/dotfiles:minimal
 ```
 
-Fetches: `declarch-minimal.kdl`
+Targets variant config (e.g. `declarch-minimal.kdl`).
 
-### With Branch
+### Branch
 
 ```bash
 declarch init username/dotfiles/develop
 ```
 
-Fetches from `develop` branch.
+Fetches from explicit branch path.
 
-## GitLab
+### GitLab
 
 ```bash
 declarch init gitlab.com/username/dotfiles
 ```
 
-## Direct URL
+### Direct URL
 
 ```bash
 declarch init https://example.com/config.kdl
 ```
 
-## Registry
-
-Official configs from the declarch registry:
+### Registry module
 
 ```bash
 declarch init hyprland/niri-nico
 ```
 
-## How It Works
+## Operational flow
 
-1. Downloads the config file
-2. Saves to `~/.config/declarch/declarch.kdl`
-3. Creates local modules directory
-4. Runs `declarch sync`
+1. Resolve source candidates.
+2. Download candidate content.
+3. Validate KDL parseability.
+4. Write to local config path.
+5. Initialize missing local structure if needed.
 
-## Security
-
-Remote configs are downloaded to a temp location first. Review before applying:
+## Safety recommendations
 
 ```bash
-# Preview only
+# inspect before applying changes
 declarch init username/repo --dry-run
 ```
 
-## Private Repos
+- treat remote config as untrusted input,
+- review hooks and backend commands before full sync,
+- prefer pinning branch/tag for reproducibility.
 
-For private repos, set up SSH keys first:
+## Failure modes
+
+- `not found`: wrong source path/variant/branch.
+- `parse error`: remote file is not valid KDL.
+- `network error`: transport or host availability issue.
+
+## Debug workflow
 
 ```bash
-# Test access
-git ls-remote git@github.com:username/private-repo.git
-
-# Then init
-declarch init username/private-repo
+declarch -v init username/repo
+declarch check validate
 ```
-
-## Troubleshooting
-
-**"Config not found"**
-
-- Check the repo has `declarch.kdl` in the root
-- For variants, check `declarch-<variant>.kdl` exists
-
-**"Network error"**
-
-- Check internet connection
-- Check GitHub/GitLab status

@@ -1,10 +1,12 @@
 use colored::Colorize;
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
 pub mod progress;
 
 static COLOR_MODE: OnceLock<ColorMode> = OnceLock::new();
+static QUIET_MODE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq)]
 enum ColorMode {
@@ -26,6 +28,15 @@ pub fn init_colors() {
     } else {
         COLOR_MODE.get_or_init(|| ColorMode::Auto);
     }
+}
+
+/// Enable or disable quiet mode globally.
+pub fn set_quiet(enabled: bool) {
+    QUIET_MODE.store(enabled, Ordering::Relaxed);
+}
+
+fn is_quiet() -> bool {
+    QUIET_MODE.load(Ordering::Relaxed)
 }
 
 /// Check if colors should be applied based on current mode
@@ -52,14 +63,23 @@ fn color_str(s: &str, colorizer: impl Fn(&str) -> colored::ColoredString) -> Str
 }
 
 pub fn header(title: &str) {
+    if is_quiet() {
+        return;
+    }
     println!("\n{}", color_str(title, |s| s.bold().underline()));
 }
 
 pub fn success(msg: &str) {
+    if is_quiet() {
+        return;
+    }
     println!("{}", color_str(msg, |s| s.green()));
 }
 
 pub fn info(msg: &str) {
+    if is_quiet() {
+        return;
+    }
     println!("{}", color_str(msg, |s| s.blue()));
 }
 
@@ -74,19 +94,31 @@ pub fn error(msg: &str) {
 }
 
 pub fn separator() {
+    if is_quiet() {
+        return;
+    }
     println!("{}", color_str(&"─".repeat(60), |s| s.bright_black()));
 }
 
 pub fn keyval(key: &str, val: &str) {
+    if is_quiet() {
+        return;
+    }
     println!("{}: {}", color_str(key, |s| s.bold()), val);
 }
 
 pub fn tag(label: &str, val: &str) {
+    if is_quiet() {
+        return;
+    }
     let tag = color_str(label, |s| s.bold().white().on_blue());
     println!("{} {}", tag, val);
 }
 
 pub fn indent(msg: &str, level: usize) {
+    if is_quiet() {
+        return;
+    }
     let spaces = " ".repeat(level * 2);
     println!("{}{}", spaces, msg);
 }

@@ -4,11 +4,18 @@ use clap_complete::Shell;
 #[derive(Parser, Debug)]
 #[command(
     name = "declarch",
-    about = "Universal declarative package manager for Linux",
-    long_about = "Universal declarative package manager - unify packages from any source (system package managers, language-specific tools, containers, custom backends) under one declarative config.",
+    about = "Universal declarative package manager - unify aur, flatpak, npm, nix, cargo, pip, and custom backends under one declarative config(s).",
     version,
-    next_line_help = false,
-    term_width = 120,
+    help_template = "{about-with-newline}
+{usage-heading} {usage}
+
+Commands:
+{subcommands}
+
+Options:
+{options}
+",
+    term_width = 100,
     max_term_width = 120
 )]
 pub struct Cli {
@@ -87,7 +94,13 @@ pub enum Command {
         ///   declarch init --backend cargo
         ///   declarch init --backend apt --backend cargo
         ///   declarch init --backend apt --backend cargo -y
-        #[arg(long, value_name = "NAME", group = "init_target", num_args = 1..)]
+        #[arg(
+            long,
+            value_name = "NAME",
+            group = "init_target",
+            num_args = 1..,
+            value_delimiter = ','
+        )]
         backend: Vec<String>,
 
         /// List available modules/backends from registry
@@ -102,24 +115,24 @@ pub enum Command {
         #[arg(long, group = "init_target")]
         local: bool,
 
+        /// Restore backends.kdl from template (overwrite existing)
+        #[arg(long, group = "restore")]
+        restore_backends: bool,
+
+        /// Restore declarch.kdl from template (overwrite existing)  
+        #[arg(long, group = "restore")]
+        restore_declarch: bool,
+
     },
 
     /// Synchronize system state with configuration
+    ///
+    /// Main command for managing packages. Subcommands provide additional
+    /// functionality like previewing changes, updating package indices,
+    /// upgrading packages, and cleaning caches.
     Sync {
         #[command(subcommand)]
         command: Option<SyncCommand>,
-
-        /// [DEPRECATED] Use `declarch sync preview` instead
-        #[arg(long, hide = true)]
-        dry_run: bool,
-
-        /// [DEPRECATED] Use `declarch sync prune` instead
-        #[arg(long, hide = true)]
-        prune: bool,
-
-        /// [DEPRECATED] Use `declarch sync update` instead
-        #[arg(short = 'u', long, hide = true)]
-        update: bool,
 
         /// Garbage collect system orphans after sync
         #[arg(long, help_heading = "Advanced")]
@@ -162,20 +175,6 @@ pub enum Command {
         doctor: bool,
     },
 
-    /// List installed packages
-    List {
-        #[command(subcommand)]
-        command: Option<ListCommand>,
-
-        /// [DEPRECATED] Use `declarch list orphans` instead
-        #[arg(long, hide = true)]
-        orphans: bool,
-
-        /// [DEPRECATED] Use `declarch list synced` instead
-        #[arg(long, hide = true)]
-        synced: bool,
-    },
-
     /// Switch package variant (e.g., hyprland -> hyprland-git)
     Switch {
         /// Old package name to remove
@@ -202,6 +201,30 @@ pub enum Command {
         /// If provided, edits specific module (e.g., "hyprland/niri-nico")
         #[arg(value_name = "TARGET")]
         target: Option<String>,
+
+        /// Preview content without opening editor (like cat)
+        #[arg(long, short)]
+        preview: bool,
+
+        /// Show line numbers in preview
+        #[arg(long, requires = "preview")]
+        number: bool,
+
+        /// Create new module from template if it doesn't exist
+        #[arg(long, short)]
+        create: bool,
+
+        /// Auto-format KDL before opening
+        #[arg(long)]
+        auto_format: bool,
+
+        /// Only validate syntax, don't open editor (exit 0/1)
+        #[arg(long)]
+        validate_only: bool,
+
+        /// Create backup before editing (.backup suffix)
+        #[arg(long, short)]
+        backup: bool,
     },
 
     /// Install packages to configuration
@@ -241,19 +264,6 @@ pub enum Command {
         no_sync: bool,
     },
 
-    /// Manage declarch settings
-    ///
-    /// Configure output format, colors, and other preferences.
-    ///
-    /// Examples:
-    ///   declarch settings set color never     Disable colors
-    ///   declarch settings set format json     Set output format to JSON
-    ///   declarch settings show                Show all settings
-    Settings {
-        #[command(subcommand)]
-        command: SettingsCommand,
-    },
-
     /// Search for packages across backends
     ///
     /// Search for packages across all configured backends.
@@ -263,6 +273,7 @@ pub enum Command {
     ///   declarch search firefox --backends aur   Search in specific backend only
     ///   declarch search bat --installed-only   Show only installed matches
     ///   declarch search backend:package        Search in specific backend (alternative syntax)
+    ///   declarch search firefox --local        Search only in installed packages
     Search {
         /// Search query (can use "backend:query" syntax for specific backend)
         #[arg(value_name = "QUERY")]
@@ -283,9 +294,14 @@ pub enum Command {
         /// Show only available packages (not installed)
         #[arg(long, help_heading = "Filtering")]
         available_only: bool,
+
+        /// Search only in locally installed packages (uses search_local_cmd)
+        #[arg(long, help_heading = "Filtering")]
+        local: bool,
     },
 
-    /// Generate shell completions
+    /// Generate shell completions (hidden from main help)
+    #[command(hide = true)]
     Completions {
         /// The shell to generate completions for
         #[arg(value_enum)]
@@ -307,6 +323,10 @@ pub enum SyncCommand {
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
+
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
 
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
@@ -358,6 +378,10 @@ pub enum SyncCommand {
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
+
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
@@ -383,6 +407,10 @@ pub enum SyncCommand {
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
 
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
+
         /// Skip package manager confirmation prompts (CI/CD)
         #[arg(long, help_heading = "Advanced")]
         noconfirm: bool,
@@ -394,6 +422,40 @@ pub enum SyncCommand {
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
+    },
+
+    /// Clean package manager caches
+    ///
+    /// Removes cached package files for configured backends.
+    /// Useful for freeing disk space or resolving cache corruption issues.
+    ///
+    /// Examples:
+    ///   declarch sync cache              Clean all backend caches
+    ///   declarch sync cache --backend npm  Clean only npm cache
+    Cache {
+        /// Target specific backend(s)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Vec<String>,
+    },
+
+    /// Upgrade packages to latest versions
+    ///
+    /// Upgrades all packages managed by declarch to their latest versions
+    /// across all configured backends. After upgrading, automatically runs
+    /// sync to adopt the new versions into state.
+    ///
+    /// Examples:
+    ///   declarch sync upgrade              Upgrade all packages
+    ///   declarch sync upgrade --backend npm  Upgrade only npm packages
+    ///   declarch sync upgrade --no-sync    Upgrade without auto-sync
+    Upgrade {
+        /// Target specific backend(s)
+        #[arg(short, long, value_name = "BACKEND")]
+        backend: Vec<String>,
+
+        /// Skip automatic sync after upgrade
+        #[arg(long)]
+        no_sync: bool,
     },
 }
 
@@ -417,6 +479,22 @@ pub enum InfoCommand {
         package: Option<String>,
     },
 
+    /// List installed packages
+    ///
+    /// Lists packages managed by declarch with filtering options.
+    List {
+        #[command(subcommand)]
+        command: Option<ListSubcommand>,
+
+        /// [DEPRECATED] Use `declarch info list orphans` instead
+        #[arg(long, hide = true)]
+        orphans: bool,
+
+        /// [DEPRECATED] Use `declarch info list synced` instead
+        #[arg(long, hide = true)]
+        synced: bool,
+    },
+
     /// Diagnose system issues
     ///
     /// Runs diagnostic checks to identify configuration issues,
@@ -436,8 +514,9 @@ pub enum InfoCommand {
     },
 }
 
+/// Subcommands for list (now under info)
 #[derive(Subcommand, Debug, Clone)]
-pub enum ListCommand {
+pub enum ListSubcommand {
     /// List all packages (default)
     ///
     /// Lists all installed packages managed by declarch.
@@ -469,6 +548,8 @@ pub enum ListCommand {
     },
 }
 
+
+
 #[derive(Subcommand, Debug, Clone)]
 pub enum CheckCommand {
     /// Run all checks (default)
@@ -483,6 +564,10 @@ pub enum CheckCommand {
         /// Show planned changes without executing
         #[arg(long)]
         diff: bool,
+
+        /// Auto-fix issues where possible
+        #[arg(long)]
+        fix: bool,
 
         /// Show performance metrics
         #[arg(long)]
@@ -505,6 +590,10 @@ pub enum CheckCommand {
         /// Show planned changes without executing
         #[arg(long)]
         diff: bool,
+
+        /// Auto-fix issues where possible
+        #[arg(long)]
+        fix: bool,
     },
 
     /// Check for cross-backend package name conflicts
@@ -519,6 +608,10 @@ pub enum CheckCommand {
         /// Show planned changes without executing
         #[arg(long)]
         diff: bool,
+
+        /// Auto-fix issues where possible
+        #[arg(long)]
+        fix: bool,
     },
 
     /// Validate syntax only
@@ -529,52 +622,13 @@ pub enum CheckCommand {
         #[arg(long)]
         benchmark: bool,
 
+        /// Auto-fix issues where possible (formats and sorts)
+        #[arg(long)]
+        fix: bool,
+
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES")]
         modules: Vec<String>,
     },
 }
 
-#[derive(Subcommand, Debug, Clone)]
-pub enum SettingsCommand {
-    /// Set a setting value
-    ///
-    /// Examples:
-    ///   declarch settings set color never
-    ///   declarch settings set format json
-    Set {
-        /// Setting name (color, progress, format, verbose)
-        #[arg(value_name = "KEY")]
-        key: String,
-
-        /// Setting value
-        #[arg(value_name = "VALUE")]
-        value: String,
-    },
-
-    /// Get a setting value
-    ///
-    /// Example:
-    ///   declarch settings get color
-    Get {
-        /// Setting name
-        #[arg(value_name = "KEY")]
-        key: String,
-    },
-
-    /// Show all settings
-    ///
-    /// Example:
-    ///   declarch settings show
-    Show,
-
-    /// Reset setting to default
-    ///
-    /// Example:
-    ///   declarch settings reset color
-    Reset {
-        /// Setting name
-        #[arg(value_name = "KEY")]
-        key: String,
-    },
-}

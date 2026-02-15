@@ -1,17 +1,17 @@
-# Desktop Environment
+# Desktop Example
 
-A complete desktop setup with GUI apps.
+Simple desktop-oriented module layout.
 
-## Structure
+## Suggested structure
 
-```
+```text
 modules/
-├── base.kdl       # CLI tools
-├── desktop.kdl    # Window manager
-└── apps.kdl       # GUI applications
+├── base.kdl
+├── desktop.kdl
+└── apps.kdl
 ```
 
-## modules/base.kdl
+## `modules/base.kdl`
 
 ```kdl
 pkg {
@@ -20,10 +20,8 @@ pkg {
         bat
         fzf
         ripgrep
-        fd
-        zoxide
     }
-    
+
     pacman {
         git
         curl
@@ -32,7 +30,7 @@ pkg {
 }
 ```
 
-## modules/desktop.kdl
+## `modules/desktop.kdl`
 
 ```kdl
 pkg {
@@ -40,20 +38,18 @@ pkg {
         hyprland
         waybar
         rofi-wayland
-        swww
     }
-    
+
     pacman {
         foot
         mako
         grim
         slurp
-        wl-clipboard
     }
 }
 ```
 
-## modules/apps.kdl
+## `modules/apps.kdl`
 
 ```kdl
 pkg {
@@ -61,16 +57,15 @@ pkg {
         firefox
         thunderbird
     }
-    
+
     flatpak {
         com.spotify.Client
-        com.discordapp.Discord
         org.telegram.desktop
     }
 }
 ```
 
-## declarch.kdl
+## `declarch.kdl`
 
 ```kdl
 imports {
@@ -80,10 +75,9 @@ imports {
 }
 ```
 
-## Usage
+## Apply safely
 
 ```bash
+declarch sync preview
 declarch sync
 ```
-
-Installs everything: CLI tools, Hyprland desktop, and GUI apps.

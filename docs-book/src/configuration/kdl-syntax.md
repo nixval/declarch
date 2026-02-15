@@ -1,127 +1,45 @@
-# KDL Syntax
+# KDL Basics
 
-Declarch uses KDL ("Kay-dee-el") - a simple config format.
+Declarch config is written in KDL.
+This page only covers beginner syntax.
 
-## Basic Structure
-
-```kdl
-// This is a comment
-
-pkg {
-    aur {
-        neovim
-        bat
-    }
-}
-```
-
-## Key Rules
-
-### 1. Everything Quoted
-
-All string values must be in quotes:
-
-```kdl
-// ✓ Correct
-format "whitespace"
-needs_sudo "true"
-
-// ✗ Wrong
-format whitespace
-needs_sudo true
-```
-
-### 2. Blocks Use Braces
+## Minimal example
 
 ```kdl
 pkg {
-    aur {
-        neovim
+    pacman {
+        firefox
+        git
     }
 }
 ```
 
-### 3. Comments Use `//`
+## Rules to remember
 
-```kdl
-// This is a comment
-aur {
-    neovim  // This is an inline comment
-}
-```
-
-## Common Patterns
-
-### Package Blocks
-
-```kdl
-pkg {
-    aur {
-        neovim
-        bat
-        fzf
-    }
-    
-    flatpak {
-        com.spotify.Client
-    }
-}
-```
-
-### Metadata
+1. Blocks use `{}`.
+2. Package names are plain entries inside backend blocks.
+3. Quote string values in metadata/settings fields.
 
 ```kdl
 meta {
     title "My Setup"
-    description "Development workstation"
+    description "My daily packages"
 }
 ```
 
-### Imports
+## Typical layout
 
 ```kdl
-imports {
-    "modules/base.kdl"
-    "modules/dev.kdl"
-}
-```
-
-## Complete Example
-
-```kdl
-// declarch.kdl
-meta {
-    title "Workstation"
-    author "you"
-}
-
 imports {
     "modules/base.kdl"
     "modules/dev.kdl"
 }
 
 pkg {
-    aur {
-        neovim
-    }
+    pacman { firefox }
+    flatpak { org.mozilla.firefox }
+    npm { typescript }
 }
 ```
 
-## Error Messages
-
-Declarch shows helpful errors:
-
-```
-error: No closing '}' for child block
-  --> ~/.config/declarch/base.kdl:8:5
-   |
- 6 │     aur {
- 7 │         neovim
- 8 │     meta {
-   │      ^
-   │
-```
-
-## Learn More
-
-- [KDL Official Spec](https://kdl.dev/)
+Need full syntax details? Use [Syntax Reference (Advanced)](./syntax.md).

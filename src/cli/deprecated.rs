@@ -3,7 +3,7 @@
 //! Handles conversion from deprecated CLI flags to new command structure
 //! and shows appropriate warnings to users.
 
-use crate::cli::args::{CheckCommand, InfoCommand, ListCommand, SyncCommand};
+use crate::cli::args::{CheckCommand, InfoCommand, ListSubcommand, SyncCommand};
 use crate::ui as output;
 use colored::Colorize;
 
@@ -31,6 +31,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Update {
             gc,
             target: None,
+            diff: false,
             noconfirm: false,
             hooks: false,
             modules: vec![],
@@ -39,6 +40,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Prune {
             gc,
             target: None,
+            diff: false,
             noconfirm: false,
             hooks: false,
             modules: vec![],
@@ -47,6 +49,7 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Sync {
             gc,
             target: None,
+            diff: false,
             noconfirm: false,
             hooks: false,
             modules: vec![],
@@ -58,6 +61,8 @@ pub fn handle_deprecated_sync_flags(
         SyncCommand::Update { .. } => "declarch sync update",
         SyncCommand::Prune { .. } => "declarch sync prune",
         SyncCommand::Sync { .. } => "declarch sync",
+        SyncCommand::Cache { .. } => "declarch sync cache",
+        SyncCommand::Upgrade { .. } => "declarch sync upgrade",
     };
 
     (has_deprecated_flags, deprecated_command, new_cmd)
@@ -75,6 +80,7 @@ pub fn handle_deprecated_check_flags(
             CheckCommand::Duplicates {
                 backend: None,
                 diff: false,
+                fix: false,
             },
         )
     } else if conflicts {
@@ -83,6 +89,7 @@ pub fn handle_deprecated_check_flags(
             CheckCommand::Conflicts {
                 backend: None,
                 diff: false,
+                fix: false,
             },
         )
     } else if validate {
@@ -90,6 +97,7 @@ pub fn handle_deprecated_check_flags(
             true,
             CheckCommand::Validate {
                 benchmark: false,
+                fix: false,
                 modules: vec![],
             },
         )
@@ -99,6 +107,7 @@ pub fn handle_deprecated_check_flags(
             CheckCommand::All {
                 backend: None,
                 diff: false,
+                fix: false,
                 benchmark: false,
                 modules: vec![],
             },
@@ -138,23 +147,23 @@ pub fn handle_deprecated_info_flags(doctor: bool) -> (bool, InfoCommand) {
     }
 }
 
-/// Convert deprecated list flags to ListCommand
+/// Convert deprecated list flags to ListSubcommand
 pub fn handle_deprecated_list_flags(
     orphans: bool,
     synced: bool,
-) -> (bool, ListCommand, &'static str) {
+) -> (bool, ListSubcommand, String) {
     let (has_deprecated, deprecated_command) = if orphans {
-        (true, ListCommand::Orphans { backend: None })
+        (true, ListSubcommand::Orphans { backend: None })
     } else if synced {
-        (true, ListCommand::Synced { backend: None })
+        (true, ListSubcommand::Synced { backend: None })
     } else {
-        (false, ListCommand::All { backend: None })
+        (false, ListSubcommand::All { backend: None })
     };
 
     let new_cmd = match deprecated_command {
-        ListCommand::Orphans { .. } => "declarch list orphans",
-        ListCommand::Synced { .. } => "declarch list synced",
-        ListCommand::All { .. } => "declarch list",
+        ListSubcommand::Orphans { .. } => "declarch info list orphans".to_string(),
+        ListSubcommand::Synced { .. } => "declarch info list synced".to_string(),
+        ListSubcommand::All { .. } => "declarch info list".to_string(),
     };
 
     (has_deprecated, deprecated_command, new_cmd)
@@ -166,7 +175,7 @@ pub fn show_deprecation_warning(new_command: &str) {
         "Deprecated flag usage. Please use: {}",
         new_command.cyan()
     ));
-    output::info("Old flags will be removed in v0.7.0");
+    output::info("Old flags will be removed in a future major/minor release");
 }
 
 /// Convert SyncCommand to sync::run options
@@ -181,6 +190,7 @@ pub fn sync_command_to_options(
         SyncCommand::Sync {
             gc,
             target,
+            diff,
             noconfirm,
             hooks,
             modules,
@@ -195,6 +205,7 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: *diff,
         },
         SyncCommand::Preview {
             gc,
@@ -213,10 +224,12 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: false,
         },
         SyncCommand::Update {
             gc,
             target,
+            diff,
             noconfirm,
             hooks,
             modules,
@@ -231,10 +244,12 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: *diff,
         },
         SyncCommand::Prune {
             gc,
             target,
+            diff,
             noconfirm,
             hooks,
             modules,
@@ -249,6 +264,11 @@ pub fn sync_command_to_options(
             noconfirm: *noconfirm,
             hooks: *hooks,
             modules: modules.clone(),
+            diff: *diff,
         },
+        // Cache and Upgrade are handled directly in dispatcher, not through sync options
+        SyncCommand::Cache { .. } | SyncCommand::Upgrade { .. } => {
+            unreachable!("Cache and Upgrade should be handled directly in dispatcher")
+        }
     }
 }

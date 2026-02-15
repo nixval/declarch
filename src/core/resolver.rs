@@ -143,7 +143,6 @@ mod tests {
         MergedConfig {
             packages: map,
             excludes: vec![],
-            package_mappings: std::collections::HashMap::new(),
             project_metadata: None,
             conflicts: vec![],
             backend_options: std::collections::HashMap::new(),
@@ -151,6 +150,9 @@ mod tests {
             package_sources: std::collections::HashMap::new(),
             policy: None,
             lifecycle_actions: None,
+            editor: None,
+            backends: vec![],
+            backend_sources: std::collections::HashMap::new(),
         }
     }
 

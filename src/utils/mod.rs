@@ -1,5 +1,6 @@
 pub mod install;
 pub mod paths;
+pub mod regex_cache;
 pub mod remote;
 pub mod sanitize;
 pub mod templates;

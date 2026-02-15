@@ -1,77 +1,56 @@
 # Cross-Distro Support
 
-Declarch works on any Linux distribution with the right backends.
+Declarch is distro-agnostic.
+Real behavior depends on which backend binaries and backend configs are available.
 
-## Built-in Backends
+## How to think about it
 
-| Distro | aur | pacman | flatpak |
-|--------|-----|--------|---------|
-| Arch | ✓ | ✓ | ✓ |
-| EndeavourOS | ✓ | ✓ | ✓ |
-| Manjaro | ✓ | ✓ | ✓ |
-| Debian/Ubuntu | ✗ | ✗ | ✓ |
-| Fedora | ✗ | ✗ | ✓ |
+- Declarch = coordinator.
+- Backends = actual package-manager commands.
+- You can mix distro/system + language backends in one file.
 
-## Universal Backends
+## Common backend groups
 
-These work on all distros:
+- Arch-oriented: `aur`, `pacman`
+- Debian/Ubuntu: `apt`, `nala`
+- Fedora/RHEL: `dnf`
+- Universal: `flatpak`, `snap`, `nix`, `soar`
+- Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
 
-- `flatpak` - Universal apps
-- `npm` - Node.js packages
-- `cargo` - Rust crates
-- `pip` - Python packages
-- `soar` - Static binaries
-
-## Adding Distro Support
-
-Need apt, dnf, or zypper? Create a custom backend:
-
-```kdl
-// backends/apt.kdl
-backend "apt" {
-    binary "apt"
-    
-    list "apt list --installed" {
-        format "regex"
-        regex {
-            pattern "^([^/]+)"
-            name_group 1
-        }
-    }
-    
-    install "apt install -y {packages}"
-    remove "apt remove -y {packages}"
-    needs_sudo "true"
-}
-```
-
-See [Custom Backends](advanced/custom-backends.md) for details.
-
-## Recommended Setup by Distro
+## Starter commands
 
 ### Arch-based
 
 ```bash
 declarch init
-# Use aur, pacman, flatpak
+declarch init --backend paru,yay
 ```
 
 ### Debian/Ubuntu
 
 ```bash
-declarch init --backend npm
-declarch init --backend cargo
-# Use flatpak, npm, cargo, custom apt backend
+declarch init
+declarch init --backend apt,nala,npm,cargo
 ```
 
 ### Fedora
 
 ```bash
-declarch init --backend npm
-declarch init --backend cargo
-# Use flatpak, npm, cargo, custom dnf backend
+declarch init
+declarch init --backend dnf,flatpak,npm,cargo
 ```
 
-## Contributing Backends
+## Fallback examples
 
-Submit backends for your distro to the [declarch-packages](https://github.com/nixval/declarch-packages) repository.
+- `nala -> apt`
+- `pnpm -> npm`
+- `yarn -> npm`
+- `bun -> npm`
+- `aur -> pacman`
+
+Fallback keeps workflows usable when preferred binary is missing.
+
+## Improve support
+
+Contribute backend definitions and fixes:
+- https://github.com/nixval/declarch-packages

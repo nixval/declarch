@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod check;
 pub mod completions;
 pub mod edit;
@@ -7,6 +8,7 @@ pub mod init;
 pub mod install;
 pub mod list;
 pub mod search;
-pub mod settings;
 pub mod switch;
 pub mod sync;
+pub mod runtime_overrides;
+pub mod upgrade;

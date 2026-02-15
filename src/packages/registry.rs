@@ -13,10 +13,11 @@
 //! 2. Create `GenericManager` instance for requested backend
 //! 3. GenericManager handles fallback logic based on config
 
-use crate::backends::{GenericManager, load_all_backends};
+use crate::backends::{GenericManager, load_all_backends_unified};
 use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::packages::PackageManager;
+use crate::ui;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -32,7 +33,7 @@ pub struct BackendRegistry {
 impl BackendRegistry {
     /// Create a new registry and load all backend configs
     pub fn new() -> crate::error::Result<Self> {
-        let configs = load_all_backends()?;
+        let configs = load_all_backends_unified()?;
         Ok(Self { configs })
     }
 
@@ -73,7 +74,7 @@ impl BackendRegistry {
 impl Default for BackendRegistry {
     fn default() -> Self {
         Self::new().unwrap_or_else(|e| {
-            eprintln!("Warning: Failed to load backend configs: {}", e);
+            ui::warning(&format!("Failed to load backend configs: {}", e));
             Self {
                 configs: HashMap::new(),
             }

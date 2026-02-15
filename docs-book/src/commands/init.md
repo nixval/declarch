@@ -1,6 +1,6 @@
 # init
 
-Create initial configuration.
+Use this command to bootstrap config, add backends, or fetch remote config.
 
 ## Usage
 
@@ -8,73 +8,50 @@ Create initial configuration.
 declarch init [OPTIONS] [SOURCE]
 ```
 
-## Examples
-
-### Basic Init
+## Most common usage
 
 ```bash
+# first setup
 declarch init
-```
 
-Creates:
-```
-~/.config/declarch/
-├── declarch.kdl
-├── backends.kdl
-├── modules/
-│   └── base.kdl
-└── state.json
-```
-
-### With Backend
-
-```bash
-# Add npm backend
+# add one backend
 declarch init --backend npm
 
-# Add multiple backends
-declarch init --backend npm,cargo
-```
+# add multiple
+declarch init --backend pnpm,yarn
+# or
+declarch init --backend pnpm yarn
 
-### List Available Backends
-
-```bash
+# discover remote backends
 declarch init --list backends
 ```
 
-### From Remote Config
+## Files created by first init
 
-```bash
-# From GitHub repo
-declarch init username/dotfiles
-
-# From specific variant
-declarch init username/dotfiles:minimal
+```text
+~/.config/declarch/
+├── declarch.kdl
+├── backends.kdl
+├── state.json
+├── backends/
+└── modules/
+    └── base.kdl
 ```
 
-## Options
+## Useful options
 
 | Option | Description |
 |--------|-------------|
-| `--backend <NAMES>` | Add backend(s) |
-| `--list <what>` | List available backends/modules |
-| `--local` | Create local module (skip registry) |
-| `--host <NAME>` | Hostname specific config |
+| `--backend <NAME>...` | adopt backend definition(s) |
+| `--list <WHAT>` | list `backends` or `modules` |
+| `--host <NAME>` | set hostname template |
+| `--restore-backends` | recreate `backends.kdl` |
+| `--restore-declarch` | recreate `declarch.kdl` |
+| `--force` | overwrite existing files where supported |
 
-## Built-in Backends
-
-These are included automatically:
-
-- `aur` - AUR packages (uses paru/yay)
-- `pacman` - Official Arch repos
-- `flatpak` - Flatpak apps
-
-## Custom Backends
-
-Install additional backends:
+## Remote source example
 
 ```bash
-declarch init --backend npm     # Node.js
-declarch init --backend cargo   # Rust
-declarch init --backend pip     # Python
+declarch init username/dotfiles
+declarch init username/dotfiles:minimal
 ```

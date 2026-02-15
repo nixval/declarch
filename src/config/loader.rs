@@ -4,8 +4,53 @@ use crate::config::kdl::{
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+/// Track import chain for circular import detection
+#[derive(Debug)]
+struct ImportContext {
+    /// Stack of files currently being loaded (for cycle detection)
+    stack: Vec<PathBuf>,
+    /// Set of all visited files
+    visited: HashSet<PathBuf>,
+}
+
+impl ImportContext {
+    fn new() -> Self {
+        Self {
+            stack: Vec::new(),
+            visited: HashSet::new(),
+        }
+    }
+    
+    fn push(&mut self, path: PathBuf) -> Result<()> {
+        // Check if this path is already in the stack (circular import)
+        if let Some(pos) = self.stack.iter().position(|p| p == &path) {
+            let cycle: Vec<String> = self.stack[pos..]
+                .iter()
+                .chain(std::iter::once(&path))
+                .map(|p| p.display().to_string())
+                .collect();
+            return Err(DeclarchError::ConfigError(format!(
+                "Circular import detected:\n  {}",
+                cycle.join("\n  -> ")
+            )));
+        }
+        
+        self.stack.push(path.clone());
+        self.visited.insert(path);
+        Ok(())
+    }
+    
+    fn pop(&mut self) {
+        self.stack.pop();
+    }
+    
+    fn contains(&self, path: &Path) -> bool {
+        self.visited.contains(path)
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct MergedConfig {
@@ -13,8 +58,6 @@ pub struct MergedConfig {
     pub packages: HashMap<PackageId, Vec<PathBuf>>,
     /// Packages to exclude from sync
     pub excludes: Vec<String>,
-    /// Package mappings: config_name -> actual_package_name
-    pub package_mappings: HashMap<String, String>,
     /// Project metadata (merged from first config with meta)
     pub project_metadata: Option<ProjectMetadata>,
     /// Mutually exclusive packages (accumulated from all configs)
@@ -29,6 +72,12 @@ pub struct MergedConfig {
     pub policy: Option<PolicyConfig>,
     /// Pre/post sync hooks (accumulated from all configs)
     pub lifecycle_actions: Option<LifecycleConfig>,
+    /// Preferred editor from KDL config
+    pub editor: Option<String>,
+    /// Backend definitions loaded from imports
+    pub backends: Vec<crate::backends::config::BackendConfig>,
+    /// Source files for each backend definition in load order
+    pub backend_sources: HashMap<String, Vec<PathBuf>>,
 }
 
 impl MergedConfig {
@@ -76,9 +125,9 @@ impl MergedConfig {
 
 pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
     let mut merged = MergedConfig::default();
-    let mut visited_paths = std::collections::HashSet::new();
+    let mut context = ImportContext::new();
 
-    recursive_load(path, &mut merged, &mut visited_paths)?;
+    recursive_load(path, &mut merged, &mut context)?;
 
     Ok(merged)
 }
@@ -99,7 +148,7 @@ impl crate::traits::ConfigLoader for FilesystemConfigLoader {
 fn recursive_load(
     path: &Path,
     merged: &mut MergedConfig,
-    visited: &mut std::collections::HashSet<PathBuf>,
+    context: &mut ImportContext,
 ) -> Result<()> {
     let abs_path = expand_home(path)
         .map_err(|e| DeclarchError::Other(format!("Path expansion error: {}", e)))?;
@@ -116,10 +165,14 @@ fn recursive_load(
         }
     })?;
 
-    if visited.contains(&canonical_path) {
+    // Check for circular imports using the context
+    if context.contains(&canonical_path) {
+        // Already processed in a different branch, skip
         return Ok(());
     }
-    visited.insert(canonical_path.clone());
+    
+    // Add to context for cycle detection
+    context.push(canonical_path.clone())?;
 
     let content = std::fs::read_to_string(&canonical_path)?;
     let file_path_str = canonical_path.display().to_string();
@@ -143,7 +196,6 @@ fn recursive_load(
 
     // Merge other configuration
     merged.excludes.extend(raw.excludes);
-    merged.package_mappings.extend(raw.package_mappings);
 
     // Meta: Only keep the first one
     if merged.project_metadata.is_none() {
@@ -153,6 +205,11 @@ fn recursive_load(
         if has_description || has_author {
             merged.project_metadata = Some(raw.project_metadata);
         }
+    }
+
+    // Editor: Only keep the first one (root config has priority)
+    if merged.editor.is_none() && raw.editor.is_some() {
+        merged.editor = raw.editor;
     }
 
     // Conflicts: Accumulate from all configs
@@ -195,14 +252,62 @@ fn recursive_load(
         merged_hooks.actions.extend(raw.lifecycle_actions.actions);
     }
 
-    // Process imports
+    // Process backend imports (NEW: explicit backend loading)
     let parent_dir = canonical_path.parent().ok_or_else(|| {
         DeclarchError::Other(format!(
             "Cannot determine parent directory for config file: {}",
             canonical_path.display()
         ))
     })?;
+    
+    for backend_import in raw.backend_imports {
+        let backend_path = if backend_import.starts_with("~/") {
+            expand_home(PathBuf::from(backend_import.clone()).as_path())?
+        } else if backend_import.starts_with('/') {
+            PathBuf::from(backend_import.clone())
+        } else {
+            // Relative to parent directory
+            parent_dir.join(backend_import.clone())
+        };
+        
+        if backend_path.exists() {
+            match crate::backends::user_parser::load_user_backends(&backend_path) {
+                Ok(backends) => {
+                    for backend in backends {
+                        // Check for duplicate backend names
+                        if merged.backends.iter().any(|b| b.name == backend.name) {
+                            eprintln!(
+                                "Warning: Duplicate backend '{}' from '{}'",
+                                backend.name,
+                                backend_path.display()
+                            );
+                        }
+                        merged
+                            .backend_sources
+                            .entry(backend.name.clone())
+                            .or_default()
+                            .push(backend_path.clone());
+                        merged.backends.push(backend);
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Warning: Failed to load backends from '{}': {}",
+                        backend_path.display(),
+                        e
+                    );
+                }
+            }
+        } else {
+            return Err(DeclarchError::ConfigError(format!(
+                "Backend import not found: '{}' (resolved to: {})",
+                backend_import,
+                backend_path.display()
+            )));
+        }
+    }
 
+    // Process regular imports (modules)
     for import_str in raw.imports {
         let import_path = if import_str.starts_with("~/") || import_str.starts_with("/") {
             PathBuf::from(import_str)
@@ -226,14 +331,20 @@ fn recursive_load(
             parent_dir.join(import_str)
         };
 
-        match recursive_load(&import_path, merged, visited) {
+        match recursive_load(&import_path, merged, context) {
             Ok(()) => {}
             Err(DeclarchError::ConfigNotFound { .. }) => {
                 // Silently skip missing imports
             }
-            Err(e) => return Err(e),
+            Err(e) => {
+                context.pop();
+                return Err(e);
+            }
         }
     }
 
+    // Remove from stack when done processing
+    context.pop();
+    
     Ok(())
 }

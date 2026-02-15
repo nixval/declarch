@@ -1,6 +1,6 @@
 # install
 
-Add packages to configuration.
+Add packages to config quickly.
 
 ## Usage
 
@@ -8,62 +8,30 @@ Add packages to configuration.
 declarch install [OPTIONS] <PACKAGES>...
 ```
 
-## Examples
-
-### Install Packages
+## Common examples
 
 ```bash
-# Single package
 declarch install neovim
+declarch install bat fzf ripgrep
 
-# Multiple packages
-declarch install bat fzf ripgrep fd
-```
-
-### Specify Backend
-
-```bash
-# With backend prefix
-declarch install aur:neovim
 declarch install npm:typescript
+declarch install aur:neovim
+
+declarch install -b flatpak org.mozilla.firefox
+declarch install --module browsers firefox
 ```
 
-### Target Module
+## What happens
 
-```bash
-# Add to specific module
-declarch install firefox --module browsers
-```
+1. Package entries are written to a module (`modules/others.kdl` by default).
+2. `declarch sync` runs automatically, unless `--no-sync` is used.
 
-## How It Works
-
-1. Adds packages to `modules/others.kdl` (or specified module)
-2. Runs `declarch sync` (unless `--no-sync`)
+If you do not pass backend, declarch selects distro-aware default backend.
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `-b, --backend <NAME>` | Backend for all packages |
-| `-m, --module <NAME>` | Target module |
-| `--no-sync` | Don't sync after adding |
-
-## Examples
-
-```bash
-# Add to default module
-declarch install neovim
-
-# Add to specific backend
-declarch install -b aur neovim
-
-# Add to specific module
-declarch install -m dev docker
-
-# Add only (don't sync)
-declarch install neovim --no-sync
-```
-
-## Default Backend
-
-If no backend specified, packages are added to the `aur` block.
+| `-b, --backend <NAME>` | force backend for all packages |
+| `-m, --module <NAME>` | target module file |
+| `--no-sync` | edit only, skip sync |

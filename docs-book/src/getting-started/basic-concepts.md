@@ -1,84 +1,50 @@
 # Basic Concepts
 
-## Three Core Ideas
+This page is beginner-first.
 
-### 1. Declare, Don't Command
+## 1) Declarch is a wrapper
 
-Instead of running install commands, you declare what you want:
+Declarch orchestrates real package managers.
+You are still using actual tools under the hood (`apt`, `pacman`, `flatpak`, `npm`, `nix`, etc).
+
+## 2) Agnostic design
+
+You can mix ecosystems in one config:
 
 ```kdl
 pkg {
-    aur {
-        neovim
-        firefox
-    }
+    pacman { firefox git }
+    flatpak { org.mozilla.firefox }
+    npm { typescript }
 }
 ```
 
-Not:
-```bash
-paru -S neovim firefox
-```
+## 3) Declarative loop
 
-### 2. Sync to Apply
-
-After editing your config, run:
+1. declare packages
+2. run sync
 
 ```bash
 declarch sync
 ```
 
-This makes your system match your config.
+## 4) Backend configs can evolve
 
-### 3. Modules Organize
+Package managers change over time.
+Declarch backend definitions are designed to be editable and update-friendly.
 
-Split your config into logical files:
+## 5) Modules keep things simple
 
+Use small files by context:
+- `base.kdl`
+- `dev.kdl`
+- `work.kdl`
+- `gaming.kdl`
+
+## 6) Start safe
+
+When unsure, use:
+
+```bash
+declarch sync preview
 ```
-modules/
-├── base.kdl       # Essential tools
-├── dev.kdl        # Development stuff
-└── gaming.kdl     # Games
-```
-
-Import them in `declarch.kdl`:
-```kdl
-imports {
-    "modules/base.kdl"
-    "modules/dev.kdl"
-}
-```
-
-## Backends
-
-Backends are package managers:
-
-| Backend | Description | Example Packages |
-|---------|-------------|------------------|
-| `aur` | AUR helper (paru/yay) | `neovim`, `brave-bin` |
-| `pacman` | Official repos | `firefox`, `git` |
-| `flatpak` | Flatpak apps | `com.spotify.Client` |
-
-Official backends (aur, pacman, flatpak) work out of the box.
-
-## Key Commands
-
-| Command | What It Does |
-|---------|--------------|
-| `declarch init` | Create initial config |
-| `declarch install <pkg>` | Add package to config |
-| `declarch sync` | Apply config to system |
-| `declarch sync preview` | Preview changes |
-
-## Config Files
-
-| File | Purpose |
-|------|---------|
-| `declarch.kdl` | Main entry point, imports modules |
-| `backends.kdl` | Backend definitions |
-| `modules/*.kdl` | Your package lists |
-| `state.json` | Tracks installed packages |
-
----
-
-That's it! You now know the basics.

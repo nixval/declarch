@@ -1,10 +1,8 @@
 # Minimal Setup
 
-The simplest possible declarch configuration.
+Smallest useful setup for beginners.
 
-## Files
-
-### declarch.kdl
+## `declarch.kdl`
 
 ```kdl
 imports {
@@ -12,7 +10,7 @@ imports {
 }
 ```
 
-### modules/base.kdl
+## `modules/base.kdl`
 
 ```kdl
 pkg {
@@ -23,19 +21,15 @@ pkg {
 }
 ```
 
-## That's It
+## Apply
 
-3 packages, 2 files. Run `declarch sync` and you're done.
-
-## Why This Works
-
-- `backends.kdl` already has aur/pacman/flatpak built-in
-- No custom backends needed
-- Single module keeps it simple
-
-## Next Steps
-
-Add more packages:
 ```bash
-declarch install bat fzf ripgrep
+declarch sync preview
+declarch sync
 ```
+
+## Why this is a good start
+
+- only one module
+- easy to read
+- easy to expand later

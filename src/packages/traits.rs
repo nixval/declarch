@@ -30,4 +30,48 @@ pub trait PackageManager: Send + Sync {
     fn supports_search(&self) -> bool {
         false // Default: no search support
     }
+
+    /// Update package list/index (e.g., apt update, pacman -Sy)
+    /// Default: no update support
+    fn update(&self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Check if this package manager supports update
+    fn supports_update(&self) -> bool {
+        false // Default: no update support
+    }
+
+    /// Clean package cache
+    /// Default: no cache clean support
+    fn clean_cache(&self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Check if this package manager supports cache cleaning
+    fn supports_cache_clean(&self) -> bool {
+        false // Default: no cache clean support
+    }
+
+    /// Upgrade packages to latest version
+    /// Default: no upgrade support
+    fn upgrade(&self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Check if this package manager supports upgrade
+    fn supports_upgrade(&self) -> bool {
+        false // Default: no upgrade support
+    }
+
+    /// Search for packages in locally installed packages only
+    /// Default: no local search support
+    fn search_local(&self, _query: &str) -> Result<Vec<PackageSearchResult>> {
+        Ok(Vec::new()) // Default: no local search support
+    }
+
+    /// Check if this package manager supports local search
+    fn supports_search_local(&self) -> bool {
+        false // Default: no local search support
+    }
 }

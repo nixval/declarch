@@ -1,24 +1,23 @@
-# Development Setup
+# Development Example
 
-A complete development environment.
+Beginner-friendly dev setup with separate modules.
 
-## Prerequisites
+## Prerequisite
 
 ```bash
-# Add required backends
 declarch init --backend npm
 ```
 
 ## Structure
 
-```
+```text
 modules/
-├── base.kdl      # Essential tools
-├── dev.kdl       # Development tools
-└── langs.kdl     # Programming languages
+├── base.kdl
+├── dev.kdl
+└── langs.kdl
 ```
 
-## modules/dev.kdl
+## `modules/dev.kdl`
 
 ```kdl
 pkg {
@@ -26,9 +25,8 @@ pkg {
         neovim
         tmux
         docker
-        docker-compose
     }
-    
+
     pacman {
         git
         github-cli
@@ -37,14 +35,14 @@ pkg {
 }
 ```
 
-## modules/langs.kdl
+## `modules/langs.kdl`
 
 ```kdl
 pkg {
     aur {
         rustup
     }
-    
+
     npm {
         typescript
         ts-node
@@ -54,7 +52,7 @@ pkg {
 }
 ```
 
-## declarch.kdl
+## `declarch.kdl`
 
 ```kdl
 imports {
@@ -67,18 +65,6 @@ imports {
 ## Apply
 
 ```bash
+declarch sync preview
 declarch sync
-```
-
-## Post-Install
-
-Some tools need extra setup:
-
-```bash
-# Rust
-rustup default stable
-
-# Docker
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
 ```

@@ -37,17 +37,76 @@ impl BackendParserRegistry {
         Self
     }
 
-    /// DEPRECATED: Parse packages node
-    /// 
-    /// This method is no longer used. Parsing is handled directly in parser.rs.
-    pub fn parse_packages_node(&self, _node: &KdlNode, _config: &mut RawConfig) -> Result<()> {
-        // No-op - parsing is handled by the generic parser
+    /// DEPRECATED: Parse packages node.
+    ///
+    /// Compatibility adapter that delegates to the unified package map format.
+    pub fn parse_packages_node(&self, node: &KdlNode, config: &mut RawConfig) -> Result<()> {
+        let node_name = node.name().value();
+
+        // Support pkg:backend { ... } shorthand
+        if let Some((prefix, backend)) = node_name.split_once(':')
+            && prefix == "pkg"
+        {
+            let mut packages = Vec::new();
+            crate::config::kdl_modules::helpers::packages::extract_packages_to(node, &mut packages);
+            if !packages.is_empty() {
+                config
+                    .packages_by_backend
+                    .entry(backend.to_string())
+                    .or_default()
+                    .extend(packages);
+            }
+            return Ok(());
+        }
+
+        // Support pkg { backend { ... } backend:pkg ... }
+        if node_name == "pkg"
+            && let Some(children) = node.children()
+        {
+            for child in children.nodes() {
+                let child_name = child.name().value();
+                if let Some((backend, package)) = child_name.split_once(':') {
+                    config
+                        .packages_by_backend
+                        .entry(backend.to_string())
+                        .or_default()
+                        .push(crate::config::kdl_modules::types::PackageEntry {
+                            name: package.to_string(),
+                        });
+                } else {
+                    let mut packages = Vec::new();
+                    crate::config::kdl_modules::helpers::packages::extract_packages_to(
+                        child,
+                        &mut packages,
+                    );
+                    if !packages.is_empty() {
+                        config
+                            .packages_by_backend
+                            .entry(child_name.to_string())
+                            .or_default()
+                            .extend(packages);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
     /// DEPRECATED: Parse inline prefix
-    pub fn parse_inline_prefix(&self, _package_str: &str, _config: &mut RawConfig) -> Result<()> {
-        // No-op - parsing is handled by the generic parser
+    pub fn parse_inline_prefix(&self, package_str: &str, config: &mut RawConfig) -> Result<()> {
+        if let Some((backend, package)) = package_str.split_once(':')
+            && !backend.is_empty()
+            && !package.is_empty()
+        {
+            config
+                .packages_by_backend
+                .entry(backend.to_string())
+                .or_default()
+                .push(crate::config::kdl_modules::types::PackageEntry {
+                    name: package.to_string(),
+                });
+        }
         Ok(())
     }
 }

@@ -1,6 +1,6 @@
 # search
 
-Search for packages across backends.
+Search packages across configured backends.
 
 ## Usage
 
@@ -10,42 +10,28 @@ declarch search [OPTIONS] <QUERY>
 
 ## Examples
 
-### Basic Search
-
 ```bash
 declarch search firefox
-```
-
-Searches all backends.
-
-### Search Specific Backend
-
-```bash
-# Single backend
 declarch search firefox -b aur
-
-# Multiple backends
 declarch search firefox -b aur,flatpak
-```
+declarch search npm:typescript
 
-### Filter Results
-
-```bash
-# Only installed
 declarch search firefox --installed-only
-
-# Only available
-declarch search firefox --available-only
-
-# Limit results
-declarch search firefox --limit 5
+declarch search firefox --local
+declarch search firefox --limit all
 ```
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `-b, --backends <NAMES>` | Filter by backends |
-| `--limit <N>` | Max results per backend |
-| `--installed-only` | Show only installed |
-| `--available-only` | Show only available |
+| `-b, --backends <NAMES>` | filter by backend(s) |
+| `--limit <N\|all\|0>` | max per backend (default 10) |
+| `--installed-only` | installed matches only |
+| `--available-only` | available matches only |
+| `--local` | search local installed package list |
+
+## Notes
+
+- Results stream backend by backend.
+- Missing backend binaries are skipped with warning.

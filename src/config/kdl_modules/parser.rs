@@ -10,7 +10,7 @@ use crate::config::kdl_modules::types::{
     PackageEntry, RawConfig,
 };
 use crate::config::kdl_modules::helpers::{
-    conflicts, env, hooks, meta, package_mappings, packages, policy, repositories,
+    conflicts, env, hooks, meta, packages, policy, repositories,
 };
 use crate::error::Result;
 use kdl::{KdlDocument, KdlNode};
@@ -93,14 +93,23 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
             "exclude" | "excludes" => {
                 packages::extract_mixed_values(node, &mut config.excludes);
             }
-            "aliases-pkg" | "alias-pkg" => {
-                package_mappings::extract_aliases(node, &mut config.package_mappings);
+            "backends" => {
+                // Backend definition imports (paths to backend files)
+                packages::extract_strings(node, &mut config.backend_imports);
             }
+
             "description" => {
                 if let Some(entry) = node.entries().first()
                     && let Some(val) = entry.value().as_string()
                 {
                     config.project_metadata.description = Some(val.to_string());
+                }
+            }
+            "editor" => {
+                if let Some(entry) = node.entries().first()
+                    && let Some(val) = entry.value().as_string()
+                {
+                    config.editor = Some(val.to_string());
                 }
             }
             "meta" => {

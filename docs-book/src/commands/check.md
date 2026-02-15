@@ -1,6 +1,6 @@
 # check
 
-Verify configuration.
+Validate config and catch common mistakes.
 
 ## Usage
 
@@ -8,63 +8,30 @@ Verify configuration.
 declarch check [COMMAND]
 ```
 
-## Subcommands
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `all` | Run all checks (default) |
-| `duplicates` | Find duplicate packages |
-| `conflicts` | Find cross-backend conflicts |
-| `validate` | Check syntax only |
+| `all` | full check (default) |
+| `duplicates` | duplicated declarations |
+| `conflicts` | same package name on multiple backends |
+| `validate` | syntax/import only |
 
 ## Examples
 
-### Check Everything
-
 ```bash
 declarch check
-```
-
-Checks:
-- Config syntax
-- Imports exist
-- Duplicate packages
-- Cross-backend conflicts
-
-### Check Duplicates
-
-```bash
 declarch check duplicates
-```
-
-Finds packages defined multiple times.
-
-### Check Conflicts
-
-```bash
 declarch check conflicts
-```
-
-Finds packages with same name in different backends.
-
-### Validate Syntax
-
-```bash
 declarch check validate
 ```
 
-Just checks KDL syntax and imports.
+## Useful flags
 
-## Fixing Errors
-
-If check finds issues, it shows line numbers:
-
-```
-error: No closing '}' for child block
-  --> ~/.config/declarch/base.kdl:8:5
-   |
- 8 │     meta {
-   │      ^
-```
-
-Edit the file and fix the issue.
+| Flag | Description |
+|------|-------------|
+| `--backend <NAME>` | scope by backend |
+| `--diff` | show planning diff |
+| `--fix` | apply supported fixes |
+| `--benchmark` | timing info |
+| `--modules <NAME>...` | temporary modules |

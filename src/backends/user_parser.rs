@@ -5,6 +5,7 @@
 
 use crate::backends::config::{BackendConfig, BinarySpecifier, OutputFormat};
 use crate::error::{DeclarchError, Result};
+use crate::ui;
 use kdl::{KdlDocument, KdlNode};
 use std::path::Path;
 
@@ -43,7 +44,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                 // File doesn't exist, skip
                             }
                             Err(e) => {
-                                eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                ui::warning(&format!("Failed to load backend from '{}': {}", path_val, e));
                             }
                         }
                     }
@@ -82,7 +83,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                         Ok(Some(config)) => backends.push(config),
                                         Ok(None) => {}
                                         Err(e) => {
-                                            eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                            ui::warning(&format!("Failed to load backend from '{}': {}", path_val, e));
                                         }
                                     }
                                 }
@@ -95,7 +96,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                                     Ok(Some(config)) => backends.push(config),
                                     Ok(None) => {}
                                     Err(e) => {
-                                        eprintln!("Warning: Failed to load backend from '{}': {}", child_name, e);
+                                        ui::warning(&format!("Failed to load backend from '{}': {}", child_name, e));
                                     }
                                 }
                             }
@@ -166,6 +167,10 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "install" => parse_install_cmd(child, &mut config)?,
                 "remove" => parse_remove_cmd(child, &mut config)?,
                 "search" => parse_search_cmd(child, &mut config)?,
+                "search_local" => parse_search_local_cmd(child, &mut config)?,
+                "update" => parse_update_cmd(child, &mut config)?,
+                "cache_clean" => parse_cache_clean_cmd(child, &mut config)?,
+                "upgrade" => parse_upgrade_cmd(child, &mut config)?,
                 "noconfirm" => parse_noconfirm(child, &mut config)?,
                 "needs_sudo" | "sudo" => config.needs_sudo = parse_bool(child)?,
                 "env" => parse_env(child, &mut config)?,
@@ -224,19 +229,23 @@ fn get_entry_string(entry: &kdl::KdlEntry) -> Option<String> {
 }
 
 /// Parse list command with output format
+/// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     // Extract command from argument
     let cmd = node
         .entries()
         .first()
-        .and_then(|entry| get_entry_string(entry))
+        .and_then(get_entry_string)
         .ok_or_else(|| {
             DeclarchError::Other(
                 "List command required. Usage: list \"command\" { ... }".to_string(),
             )
         })?;
 
-    config.list_cmd = cmd.to_string();
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.list_cmd = Some(cmd.to_string());
+    }
 
     // Parse output format from children
     if let Some(children) = node.children() {
@@ -247,7 +256,7 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     let format_str = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry))
+                        .and_then(get_entry_string)
                         .ok_or_else(|| {
                             DeclarchError::Other(
                                 "Format value required. Usage: format json|whitespace|tsv|regex"
@@ -259,12 +268,13 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         "json" => OutputFormat::Json,
                         "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "npm_json" => OutputFormat::NpmJson,
+                        "json_object_keys" => OutputFormat::JsonObjectKeys,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, json_lines, npm_json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
@@ -274,19 +284,19 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     config.list_json_path = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "name_key" => {
                     config.list_name_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "version_key" => {
                     config.list_version_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 // Nested json block: json { path "..." name_key "..." version_key "..." }
                 "json" => {
@@ -456,8 +466,9 @@ fn parse_install_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 }
 
 /// Parse remove command
+/// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.remove_cmd = node
+    let cmd = node
         .entries()
         .first()
         .and_then(|entry| entry.value().as_string())
@@ -465,7 +476,71 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             DeclarchError::Other("Remove command required. Usage: remove \"command\"".to_string())
         })?
         .to_string();
+    
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.remove_cmd = Some(cmd);
+    }
+    Ok(())
+}
 
+/// Parse update command
+/// Format: update "command" or update "-" to disable
+/// Example: update "apt update"
+fn parse_update_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other("Update command required. Usage: update \"command\"".to_string())
+        })?
+        .to_string();
+    
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.update_cmd = Some(cmd);
+    }
+    Ok(())
+}
+
+/// Parse cache clean command
+/// Format: cache_clean "command" or cache_clean "-" to disable
+/// Example: cache_clean "npm cache clean --force"
+fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other("Cache clean command required. Usage: cache_clean \"command\"".to_string())
+        })?
+        .to_string();
+    
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.cache_clean_cmd = Some(cmd);
+    }
+    Ok(())
+}
+
+/// Parse upgrade command
+/// Format: upgrade "command" or upgrade "-" to disable
+/// Example: upgrade "paru -Syu"
+fn parse_upgrade_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other("Upgrade command required. Usage: upgrade \"command\"".to_string())
+        })?
+        .to_string();
+    
+    // "-" means explicitly disabled (no warning)
+    if cmd != "-" {
+        config.upgrade_cmd = Some(cmd);
+    }
     Ok(())
 }
 
@@ -480,6 +555,7 @@ fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 }
 
 /// Parse search command with output format
+/// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     // Extract command from argument
     let cmd = node
@@ -492,6 +568,11 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             )
         })?;
 
+    // "-" means explicitly disabled (no warning)
+    if cmd == "-" {
+        return Ok(());
+    }
+    
     config.search_cmd = Some(cmd.to_string());
 
     // Parse output format from children
@@ -503,7 +584,7 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     let format_str = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry))
+                        .and_then(get_entry_string)
                         .ok_or_else(|| {
                             DeclarchError::Other(
                                 "Format value required. Usage: format json|whitespace|tsv|regex"
@@ -515,12 +596,13 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                         "json" => OutputFormat::Json,
                         "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
                         "npm_json" => OutputFormat::NpmJson,
+                        "json_object_keys" => OutputFormat::JsonObjectKeys,
                         "whitespace" => OutputFormat::SplitWhitespace,
                         "tsv" => OutputFormat::TabSeparated,
                         "regex" => OutputFormat::Regex,
                         _ => {
                             return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, json_lines, npm_json, whitespace, tsv, regex",
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
                                 format_str
                             )));
                         }
@@ -530,25 +612,25 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     config.search_json_path = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "name_key" => {
                     config.search_name_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "version_key" => {
                     config.search_version_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 "desc_key" => {
                     config.search_desc_key = child
                         .entries()
                         .first()
-                        .and_then(|entry| get_entry_string(entry));
+                        .and_then(get_entry_string);
                 }
                 // Nested json block for search: json { path "..." name_key "..." }
                 "json" => {
@@ -652,6 +734,151 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     Ok(())
 }
 
+/// Parse search_local command for searching installed packages
+/// Format: search_local "command" { ... } or search_local "-" to disable
+/// Example: search_local "pacman -Q {query}" { format whitespace name_col 0 }
+/// Use {query} placeholder for search term
+fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
+    let cmd = node
+        .entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .ok_or_else(|| {
+            DeclarchError::Other(
+                "Search local command required. Usage: search_local \"command\" { ... }".to_string(),
+            )
+        })?
+        .to_string();
+    
+    // "-" means explicitly disabled (no warning)
+    if cmd == "-" {
+        return Ok(());
+    }
+    
+    config.search_local_cmd = Some(cmd);
+    
+    // Parse output format from children (same as search)
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let child_name = child.name().value();
+            match child_name {
+                "format" => {
+                    let format_str = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string)
+                        .ok_or_else(|| {
+                            DeclarchError::Other(
+                                "Format value required. Usage: format json|whitespace|tsv|regex"
+                                    .to_string(),
+                            )
+                        })?;
+
+                    config.search_local_format = Some(match format_str.as_str() {
+                        "json" => OutputFormat::Json,
+                        "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
+                        "npm_json" => OutputFormat::NpmJson,
+                        "json_object_keys" => OutputFormat::JsonObjectKeys,
+                        "whitespace" => OutputFormat::SplitWhitespace,
+                        "tsv" => OutputFormat::TabSeparated,
+                        "regex" => OutputFormat::Regex,
+                        _ => {
+                            return Err(DeclarchError::Other(format!(
+                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
+                                format_str
+                            )));
+                        }
+                    });
+                }
+                "json_path" => {
+                    config.search_local_json_path = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string);
+                }
+                "name_key" => {
+                    config.search_local_name_key = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string);
+                }
+                "version_key" => {
+                    config.search_local_version_key = child
+                        .entries()
+                        .first()
+                        .and_then(get_entry_string);
+                }
+                // Nested json block
+                "json" => {
+                    if let Some(json_children) = child.children() {
+                        for json_child in json_children.nodes() {
+                            match json_child.name().value() {
+                                "path" => {
+                                    config.search_local_json_path = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "name_key" => {
+                                    config.search_local_name_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                "version_key" => {
+                                    config.search_local_version_key = json_child
+                                        .entries()
+                                        .first()
+                                        .and_then(|entry| entry.value().as_string())
+                                        .map(|s| s.to_string());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                "name_col" => {
+                    config.search_local_name_col = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                // Regex pattern for search
+                "regex" => {
+                    config.search_local_regex = child
+                        .entries()
+                        .first()
+                        .and_then(|entry| entry.value().as_string())
+                        .map(|s| s.to_string());
+                }
+                "name_group" => {
+                    config.search_local_regex_name_group = child.entries().first().and_then(|entry| {
+                        entry
+                            .value()
+                            .as_string()
+                            .and_then(|s| s.parse::<usize>().ok())
+                            .or_else(|| {
+                                let val_str = entry.value().to_string();
+                                val_str.parse::<usize>().ok()
+                            })
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+    
+    Ok(())
+}
+
 /// Parse fallback backend
 fn parse_fallback(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     config.fallback = node
@@ -715,24 +942,108 @@ fn parse_env(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     Ok(())
 }
 
+/// Check if backend has multiple binary alternatives (needs {binary} placeholder)
+fn has_multiple_binaries(config: &BackendConfig) -> bool {
+    matches!(config.binary, BinarySpecifier::Multiple(_))
+}
+
 /// Validate backend configuration
 fn validate_backend_config(config: &BackendConfig) -> Result<()> {
-    if config.list_cmd.is_empty() {
-        return Err(DeclarchError::Other(
-            "Backend 'list_cmd' cannot be empty".to_string(),
-        ));
-    }
-
+    // install_cmd is required - backend must at least support install
     if config.install_cmd.is_empty() {
         return Err(DeclarchError::Other(
             "Backend 'install_cmd' cannot be empty".to_string(),
         ));
     }
 
-    if config.remove_cmd.is_empty() {
-        return Err(DeclarchError::Other(
-            "Backend 'remove_cmd' cannot be empty".to_string(),
+    // Check if this backend has multiple binary alternatives
+    let needs_binary_placeholder = has_multiple_binaries(config);
+
+    // Validate required placeholders in commands
+    // This prevents runtime errors due to typos in backend definitions
+    
+    // list_cmd is optional but recommended
+    if let Some(ref list_cmd) = config.list_cmd {
+        // Only warn about {binary} if backend has multiple binaries
+        if needs_binary_placeholder && !list_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' has multiple binaries but list_cmd missing '{{binary}}' placeholder",
+                config.name
+            ));
+        }
+    } else {
+        // Only show install-only warning for backends that have list capability
+        // (i.e., not intentionally install-only)
+        ui::info(&format!(
+            "Backend '{}' install-only mode (no list_cmd)",
+            config.name
         ));
+    }
+    
+    // install_cmd should contain {packages} placeholder
+    if !config.install_cmd.contains("{packages}") {
+        return Err(DeclarchError::ConfigError(format!(
+            "Backend '{}' install_cmd must contain '{{packages}}' placeholder",
+            config.name
+        )));
+    }
+    
+    // remove_cmd is optional
+    if let Some(ref remove_cmd) = config.remove_cmd {
+        // remove_cmd should contain {packages} placeholder
+        if !remove_cmd.contains("{packages}") {
+            return Err(DeclarchError::ConfigError(format!(
+                "Backend '{}' remove_cmd must contain '{{packages}}' placeholder",
+                config.name
+            )));
+        }
+    }
+    // Note: remove_cmd being None is normal (install-only backends), no warning needed
+    
+    // search_cmd should contain {binary} and {query} if configured
+    if let Some(ref search_cmd) = config.search_cmd {
+        if needs_binary_placeholder && !search_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' has multiple binaries but search_cmd missing '{{binary}}' placeholder",
+                config.name
+            ));
+        }
+        if !search_cmd.contains("{query}") {
+            return Err(DeclarchError::ConfigError(format!(
+                "Backend '{}' search_cmd must contain '{{query}}' placeholder",
+                config.name
+            )));
+        }
+    }
+
+    // update_cmd should contain {binary} if backend has multiple binaries
+    if let Some(ref update_cmd) = config.update_cmd {
+        if needs_binary_placeholder && !update_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' has multiple binaries but update_cmd missing '{{binary}}' placeholder",
+                config.name
+            ));
+        }
+    }
+
+    // cache_clean_cmd should contain {binary} if backend has multiple binaries
+    if let Some(ref cache_clean_cmd) = config.cache_clean_cmd {
+        if needs_binary_placeholder && !cache_clean_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' has multiple binaries but cache_clean_cmd missing '{{binary}}' placeholder",
+                config.name
+            ));
+        }
+    }
+
+    // upgrade_cmd should contain {binary} if backend has multiple binaries
+    if let Some(ref upgrade_cmd) = config.upgrade_cmd {
+        if needs_binary_placeholder && !upgrade_cmd.contains("{binary}") {
+            ui::warning(&format!(
+                "Backend '{}' has multiple binaries but upgrade_cmd missing '{{binary}}' placeholder",
+                config.name
+            ));
+        }
     }
 
     // Validate format-specific requirements
@@ -741,6 +1052,15 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
             if config.list_name_key.is_none() {
                 return Err(DeclarchError::Other(
                     "JSON format requires 'name_key' to be specified in list block".to_string(),
+                ));
+            }
+        }
+        OutputFormat::JsonObjectKeys => {
+            // JsonObjectKeys uses object keys as package names
+            // Only requires version_key, not name_key
+            if config.list_version_key.is_none() {
+                return Err(DeclarchError::Other(
+                    "JsonObjectKeys format requires 'version_key' to be specified in list block".to_string(),
                 ));
             }
         }
@@ -795,9 +1115,9 @@ mod tests {
         let config = parse_backend_node(node).unwrap();
 
         assert_eq!(config.name, "test");
-        assert_eq!(config.list_cmd, "test list");
+        assert_eq!(config.list_cmd, Some("test list".to_string()));
         assert_eq!(config.install_cmd, "test install {packages}");
-        assert_eq!(config.remove_cmd, "test remove {packages}");
+        assert_eq!(config.remove_cmd, Some("test remove {packages}".to_string()));
     }
 
     #[test]
@@ -909,33 +1229,36 @@ mod tests {
 
     #[test]
     fn test_validate_missing_list_cmd() {
+        // list_cmd is now optional - should pass with warning
         let config = BackendConfig {
             name: "test".to_string(),
-            install_cmd: "test install".to_string(),
-            remove_cmd: "test remove".to_string(),
+            list_cmd: None, // Optional - no list command
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: Some("test remove {packages}".to_string()),
             fallback: None,
             ..Default::default()
         };
-        // list_cmd is empty
 
         let result = validate_backend_config(&config);
-        assert!(result.is_err());
+        // Should pass - list_cmd is optional now
+        assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_json_missing_name_key() {
         let config = BackendConfig {
             name: "test".to_string(),
-            list_cmd: "test list".to_string(),
+            list_cmd: Some("test list {binary}".to_string()),
             list_format: OutputFormat::Json,
-            install_cmd: "test install".to_string(),
-            remove_cmd: "test remove".to_string(),
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: Some("test remove {packages}".to_string()),
             fallback: None,
             ..Default::default()
         };
-        // Missing name_key
+        // Missing name_key - should error for JSON format
 
         let result = validate_backend_config(&config);
+        // Should error because JSON format requires name_key
         assert!(result.is_err());
     }
 
@@ -943,16 +1266,34 @@ mod tests {
     fn test_validate_regex_missing_regex() {
         let config = BackendConfig {
             name: "test".to_string(),
-            list_cmd: "test list".to_string(),
+            list_cmd: Some("test list {binary}".to_string()),
             list_format: OutputFormat::Regex,
-            install_cmd: "test install".to_string(),
-            remove_cmd: "test remove".to_string(),
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: Some("test remove {packages}".to_string()),
             fallback: None,
             ..Default::default()
         };
-        // Missing regex
+        // Missing regex - should error for Regex format
 
         let result = validate_backend_config(&config);
+        // Should error because Regex format requires list_regex
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_missing_remove_cmd() {
+        // remove_cmd is now optional - should pass with warning
+        let config = BackendConfig {
+            name: "test".to_string(),
+            list_cmd: Some("test list".to_string()),
+            install_cmd: "test install {packages}".to_string(),
+            remove_cmd: None, // Optional - no remove command
+            fallback: None,
+            ..Default::default()
+        };
+
+        let result = validate_backend_config(&config);
+        // Should pass - remove_cmd is optional now
+        assert!(result.is_ok());
     }
 }

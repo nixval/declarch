@@ -1,89 +1,35 @@
 # Introduction
 
-**Declarch** is a declarative package manager for Linux.
+Declarch is a declarative wrapper for many package managers.
 
-Instead of running `pacman -S`, `npm install`, and `flatpak install` commands every time, you declare all your packages in one config file and run a single command to sync.
+Short version:
+- you list what you want,
+- declarch maps it to backends,
+- `declarch sync` applies it.
 
-## What Does That Mean?
+## Why people use it
 
-**Traditional way:**
-```bash
-# You install things one by one
-paru -S neovim bat fzf
-npm install -g typescript prettier
-flatpak install com.spotify.Client
+- One workflow for mixed ecosystems (`pacman`, `flatpak`, `npm`, `nix`, etc).
+- Config-first style that is easier to review and version.
+- Backend configs are flexible, so they can follow upstream package-manager changes.
 
-# Months later, you forget what you installed and why
-```
+## What it is not
 
-**Declarch way:**
-```kdl
-// ~/.config/declarch/modules/base.kdl
-pkg {
-    aur {
-        neovim
-        bat
-        fzf
-    }
-    
-    npm {
-        typescript
-        prettier
-    }
-    
-    flatpak {
-        com.spotify.Client
-    }
-}
-```
+- Not a replacement for every backend CLI feature.
+- Not guaranteed perfect on every backend/environment pair yet.
 
-Then run:
-```bash
-declarch sync
-```
+## v0.8 note
 
-Your system now matches your config. Add this file to Git and use it on all your machines.
-
-## 30-Second Demo
+v0.8 introduced breaking changes.
+If you are migrating, back up config first and start with preview.
 
 ```bash
-# 1. Install
-curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
-
-# 2. Initialize
-declarch init
-
-# 3. Add some packages
-declarch install bat fzf ripgrep
-
-# 4. Sync
-declarch sync
+cp -r ~/.config/declarch ~/.config/declarch.backup
+declarch sync preview
 ```
 
-Done! Your packages are now managed declaratively.
+## Start here
 
-## Key Features
-
-| Feature | What It Means |
-|---------|---------------|
-| **Declarative** | Define what you want, not how to get it |
-| **Multi-Backend** | One config for AUR, Flatpak, npm, cargo, etc. |
-| **Modular** | Split into multiple files (base, gaming, work) |
-| **Git-Friendly** | Track your setup in version control |
-
-## Who Is This For?
-
-- **Arch Linux users** who want reproducible setups
-- **Developers** using multiple package managers
-- **Multi-machine users** who want consistent environments
-- **Anyone** tired of forgetting what they installed
-
-## Requirements
-
-- Linux (Arch-based distros work best)
-- One of: `paru`, `yay`, or `pacman` installed
-
-## Next Steps
-
-→ [Installation](./getting-started/installation.md)  
-→ [Quick Start Guide](./getting-started/quick-start.md)
+1. [Installation](./getting-started/installation.md)
+2. [Quick Start](./getting-started/quick-start.md)
+3. [Basic Concepts](./getting-started/basic-concepts.md)

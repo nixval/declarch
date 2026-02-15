@@ -12,15 +12,17 @@ pub struct BackendConfig {
     pub binary: BinarySpecifier,
 
     /// Command to list installed packages
-    pub list_cmd: String,
+    /// Optional: if not set, backend cannot track installed packages (install-only mode)
+    pub list_cmd: Option<String>,
 
     /// Command to install packages
     /// Use {packages} as placeholder for package list
+    /// Required: backend must at least support install
     pub install_cmd: String,
 
     /// Command to remove packages
-    /// Use {packages} as placeholder for package list
-    pub remove_cmd: String,
+    /// Optional: if not set, packages cannot be removed via declarch
+    pub remove_cmd: Option<String>,
 
     /// Optional: Command to query package info (for dependencies)
     pub query_cmd: Option<String>,
@@ -61,6 +63,10 @@ pub struct BackendConfig {
 
     /// Environment variables to set before running commands
     pub preinstall_env: Option<HashMap<String, String>>,
+
+    /// Optional package sources/repositories injected into command templates
+    /// Use {repos} placeholder in command templates
+    pub package_sources: Option<Vec<String>>,
 
     /// Whether to use the Rust implementation instead of generic
     pub use_rust_fallback: bool,
@@ -105,6 +111,53 @@ pub struct BackendConfig {
     /// Optional fallback backend name if this backend is not available
     /// Example: paru → pacman, yarn → npm
     pub fallback: Option<String>,
+
+    /// ===== UPDATE SUPPORT =====
+    /// Optional: Command to update package list/index
+    /// Example: "apt update", "pacman -Sy", "npm update"
+    /// Use {binary} as placeholder for binary name
+    pub update_cmd: Option<String>,
+
+    /// ===== CACHE MANAGEMENT =====
+    /// Optional: Command to clean package cache
+    /// Example: "apt clean", "npm cache clean --force", "cargo cache --autoclean"
+    /// Use {binary} as placeholder for binary name
+    pub cache_clean_cmd: Option<String>,
+
+    /// ===== UPGRADE SUPPORT =====
+    /// Optional: Command to upgrade packages to latest version
+    /// Example: "apt upgrade", "paru -Syu", "npm update -g"
+    /// Use {binary} as placeholder for binary name
+    /// Note: Some backends use {packages} for selective upgrade
+    pub upgrade_cmd: Option<String>,
+
+    /// ===== LOCAL SEARCH SUPPORT =====
+    /// Optional: Command to search locally installed packages
+    /// Example: "pacman -Q {query}", "dpkg -l {query}"
+    /// Use {query} as placeholder for search term
+    /// Use {binary} as placeholder for binary name
+    pub search_local_cmd: Option<String>,
+
+    /// How to parse the output of search_local_cmd
+    pub search_local_format: Option<OutputFormat>,
+
+    /// JSON path to results array for local search (for Json format)
+    pub search_local_json_path: Option<String>,
+
+    /// Key name for package name in local search results
+    pub search_local_name_key: Option<String>,
+
+    /// Key name for package version in local search results
+    pub search_local_version_key: Option<String>,
+
+    /// Column index for package name in local search results (for SplitWhitespace/TabSeparated)
+    pub search_local_name_col: Option<usize>,
+
+    /// Regex pattern to extract local search results
+    pub search_local_regex: Option<String>,
+
+    /// Capture group index for package name in local search regex
+    pub search_local_regex_name_group: Option<usize>,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -163,6 +216,11 @@ pub enum OutputFormat {
     /// Format: [\n{...}\n,\n{...}\n]
     NpmJson,
 
+    /// JSON Object with keys as package names
+    /// Format: {"pkg-name": {"version": "1.0"}, ...}
+    /// The object keys are used as package names
+    JsonObjectKeys,
+
     /// Regex-based parsing
     Regex,
 
@@ -175,9 +233,9 @@ impl Default for BackendConfig {
         Self {
             name: "unknown".to_string(),
             binary: BinarySpecifier::Single("unknown".to_string()),
-            list_cmd: String::new(),
+            list_cmd: None,
             install_cmd: String::new(),
-            remove_cmd: String::new(),
+            remove_cmd: None,
             query_cmd: None,
             list_format: OutputFormat::SplitWhitespace,
             list_name_col: Some(0),
@@ -191,6 +249,7 @@ impl Default for BackendConfig {
             noconfirm_flag: None,
             needs_sudo: false,
             preinstall_env: None,
+            package_sources: None,
             use_rust_fallback: false,
             // Search support - all optional
             search_cmd: None,
@@ -205,6 +264,17 @@ impl Default for BackendConfig {
             search_regex_name_group: None,
             search_regex_desc_group: None,
             fallback: None,
+            update_cmd: None,
+            cache_clean_cmd: None,
+            upgrade_cmd: None,
+            search_local_cmd: None,
+            search_local_format: None,
+            search_local_json_path: None,
+            search_local_name_key: None,
+            search_local_version_key: None,
+            search_local_name_col: None,
+            search_local_regex: None,
+            search_local_regex_name_group: None,
         }
     }
 }

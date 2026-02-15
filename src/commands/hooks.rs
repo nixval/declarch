@@ -8,6 +8,10 @@ use colored::Colorize;
 use regex::Regex;
 use std::process::{Command, Stdio};
 use std::sync::LazyLock;
+use std::time::{Duration, Instant};
+
+/// Default timeout for hook execution (30 seconds)
+const DEFAULT_HOOK_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Safe character regex for hook command validation
 /// Compiled once and reused for performance and safety
@@ -57,13 +61,18 @@ pub fn execute_hooks(
             phase_name
         ));
         display_hooks(hooks, phase_name, true);
-        println!("\n{}", "To enable hooks, use the --hooks flag:".dimmed());
-        println!("  {}", "dc sync --hooks".bold());
-        println!(
-            "\n{}",
-            "Security: Hooks from remote configs may contain arbitrary commands.".yellow()
-        );
-        println!("{}", "Review the config before enabling hooks.".yellow());
+        
+        println!("\n{}", "⚠️  Security Warning:".yellow().bold());
+        println!("{}", "   Hooks can execute arbitrary system commands.".yellow());
+        println!("{}", "   Only enable hooks from sources you trust.".yellow());
+        
+        println!("\n{}", "To enable hooks after reviewing:".dimmed());
+        println!("  {}", "declarch sync --hooks".bold());
+        println!("  {}", "dc sync --hooks".dimmed());
+        
+        println!("\n{}", "To review the full config:".dimmed());
+        println!("  {}", "cat ~/.config/declarch/declarch.kdl".dimmed());
+        
         return Ok(());
     }
 
@@ -126,6 +135,13 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
         )));
     }
 
+    // Security: Prevent path traversal in commands
+    if hook.command.contains("../") || hook.command.contains("..\\") {
+        return Err(DeclarchError::ConfigError(
+            "Hook command contains path traversal sequence (../)".to_string()
+        ));
+    }
+
     // Parse the command string into args using shlex (safer than shell_words)
     let args = shlex::split(&hook.command).ok_or_else(|| {
         DeclarchError::ConfigError(format!(
@@ -163,40 +179,96 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    match cmd.status() {
-        Ok(status) if status.success() => Ok(()),
-        Ok(status) => {
-            // Handle based on error_behavior
-            match hook.error_behavior {
-                ErrorBehavior::Required => Err(DeclarchError::Other(format!(
-                    "Required hook failed with status: {}",
-                    status
-                ))),
-                ErrorBehavior::Ignore => Ok(()),
-                ErrorBehavior::Warn => {
-                    output::warning(&format!("Hook exited with status: {}", status));
-                    Ok(())
+    // Spawn the process with timeout
+    let start_time = Instant::now();
+    let timeout = DEFAULT_HOOK_TIMEOUT;
+
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            return handle_hook_error(hook, e, program);
+        }
+    };
+
+    // Wait for completion with timeout
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // Process completed
+                return handle_hook_status(hook, status);
+            }
+            Ok(None) => {
+                // Still running, check timeout
+                if start_time.elapsed() > timeout {
+                    output::warning(&format!(
+                        "Hook timed out after {} seconds, killing process...",
+                        timeout.as_secs()
+                    ));
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    
+                    match hook.error_behavior {
+                        ErrorBehavior::Required => {
+                            return Err(DeclarchError::Other(
+                                "Required hook timed out".to_string()
+                            ));
+                        }
+                        ErrorBehavior::Ignore => return Ok(()),
+                        ErrorBehavior::Warn => {
+                            output::warning("Hook timed out");
+                            return Ok(());
+                        }
+                    }
                 }
+                // Sleep briefly before checking again
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => {
+                return Err(DeclarchError::Other(format!(
+                    "Failed to wait for hook: {}",
+                    e
+                )));
             }
         }
-        Err(e) => {
-            // Handle based on error_behavior
-            match hook.error_behavior {
-                ErrorBehavior::Required => Err(DeclarchError::Other(format!(
-                    "Failed to execute hook: {}",
-                    e
-                ))),
-                ErrorBehavior::Ignore => Ok(()),
-                ErrorBehavior::Warn => {
-                    // If binary not found, helpful error
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        output::warning(&format!("Command not found: {}", program));
-                    } else {
-                        output::warning(&format!("Failed to execute hook: {}", e));
-                    }
-                    Ok(())
-                }
+    }
+}
+
+/// Handle hook execution status
+fn handle_hook_status(hook: &LifecycleAction, status: std::process::ExitStatus) -> Result<()> {
+    if status.success() {
+        return Ok(());
+    }
+    
+    // Handle based on error_behavior
+    match hook.error_behavior {
+        ErrorBehavior::Required => Err(DeclarchError::Other(format!(
+            "Required hook failed with status: {}",
+            status
+        ))),
+        ErrorBehavior::Ignore => Ok(()),
+        ErrorBehavior::Warn => {
+            output::warning(&format!("Hook exited with status: {}", status));
+            Ok(())
+        }
+    }
+}
+
+/// Handle hook execution error
+fn handle_hook_error(hook: &LifecycleAction, e: std::io::Error, program: &str) -> Result<()> {
+    match hook.error_behavior {
+        ErrorBehavior::Required => Err(DeclarchError::Other(format!(
+            "Failed to execute hook: {}",
+            e
+        ))),
+        ErrorBehavior::Ignore => Ok(()),
+        ErrorBehavior::Warn => {
+            // If binary not found, helpful error
+            if e.kind() == std::io::ErrorKind::NotFound {
+                output::warning(&format!("Command not found: {}", program));
+            } else {
+                output::warning(&format!("Failed to execute hook: {}", e));
             }
+            Ok(())
         }
     }
 }
@@ -237,10 +309,19 @@ pub fn execute_on_failure(
     execute_hooks_by_phase(hooks, LifecyclePhase::OnFailure, hooks_enabled, dry_run)
 }
 
-/// Helper to execute post-install hooks for a specific package
-pub fn execute_post_install(
+/// Helper to execute on-update hooks
+pub fn execute_on_update(
+    hooks: &Option<LifecycleConfig>,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_hooks_by_phase(hooks, LifecyclePhase::OnUpdate, hooks_enabled, dry_run)
+}
+
+fn execute_package_phase(
     hooks: &Option<LifecycleConfig>,
     package_name: &str,
+    phase: LifecyclePhase,
     hooks_enabled: bool,
     dry_run: bool,
 ) -> Result<()> {
@@ -253,8 +334,8 @@ pub fn execute_post_install(
     let package_hooks: Vec<_> = hooks
         .actions
         .iter()
-        .filter(|h| h.phase == LifecyclePhase::PostInstall)
-        .filter(|h| h.package.as_deref() == Some(package_name))
+        .filter(|h| h.phase == phase)
+        .filter(|h| h.package.as_deref().is_none() || h.package.as_deref() == Some(package_name))
         .collect();
 
     if package_hooks.is_empty() {
@@ -263,7 +344,71 @@ pub fn execute_post_install(
 
     execute_hooks(
         &package_hooks,
-        &format!("Post-install ({})", package_name),
+        &format!("{:?} ({})", phase, package_name),
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute pre-install hooks for a specific package
+pub fn execute_pre_install(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PreInstall,
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute post-install hooks for a specific package
+pub fn execute_post_install(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PostInstall,
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute pre-remove hooks for a specific package
+pub fn execute_pre_remove(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PreRemove,
+        hooks_enabled,
+        dry_run,
+    )
+}
+
+/// Helper to execute post-remove hooks for a specific package
+pub fn execute_post_remove(
+    hooks: &Option<LifecycleConfig>,
+    package_name: &str,
+    hooks_enabled: bool,
+    dry_run: bool,
+) -> Result<()> {
+    execute_package_phase(
+        hooks,
+        package_name,
+        LifecyclePhase::PostRemove,
         hooks_enabled,
         dry_run,
     )

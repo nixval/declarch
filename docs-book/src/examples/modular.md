@@ -1,22 +1,18 @@
-# Modular Setup
+# Modular Example
 
 Organize by purpose, not by backend.
 
-## Philosophy
+## Example structure
 
-Group packages by **what you use them for**, not where they come from.
-
-## Structure
-
-```
+```text
 modules/
-├── core.kdl          # Always loaded
-├── work.kdl          # Work-specific
-├── gaming.kdl        # Games only
-└── media.kdl         # Photos/video
+├── core.kdl
+├── work.kdl
+├── gaming.kdl
+└── media.kdl
 ```
 
-## Example: core.kdl
+## `core.kdl`
 
 ```kdl
 pkg {
@@ -25,19 +21,19 @@ pkg {
         bat
         fzf
     }
-    
+
     pacman {
         git
         curl
     }
-    
+
     flatpak {
         org.mozilla.firefox
     }
 }
 ```
 
-## Example: work.kdl
+## `work.kdl`
 
 ```kdl
 pkg {
@@ -45,42 +41,25 @@ pkg {
         slack-desktop
         zoom
     }
-    
+
     flatpak {
         com.microsoft.Teams
     }
 }
 ```
 
-## Example: gaming.kdl
+## Select imports per machine
 
 ```kdl
-pkg {
-    aur {
-        steam
-        lutris
-        gamemode
-    }
-    
-    flatpak {
-        com.valvesoftware.Steam
-    }
-}
-```
-
-## Loading Selectively
-
-```kdl
-// declarch.kdl - Work laptop
+// work laptop
 imports {
     "modules/core.kdl"
     "modules/work.kdl"
-    // "modules/gaming.kdl"  # Disabled
 }
 ```
 
 ```kdl
-// declarch.kdl - Gaming PC
+// gaming pc
 imports {
     "modules/core.kdl"
     "modules/gaming.kdl"
@@ -88,8 +67,8 @@ imports {
 }
 ```
 
-## Benefits
+## Why this pattern works
 
-- **Per-machine configs** - Load only what you need
-- **Git-friendly** - Track different setups in branches
-- **Shareable** - Share work module with colleagues
+- cleaner diffs
+- easier reuse
+- machine-specific setups stay simple

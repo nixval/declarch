@@ -43,7 +43,7 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
     let client = Client::builder()
         .timeout(REQUEST_TIMEOUT)
         .build()
-        .map_err(|e| DeclarchError::Other(format!("Failed to create HTTP client: {}", e)))?;
+        .map_err(|e| DeclarchError::RemoteFetchError(format!("HTTP client creation: {}", e)))?;
 
     // Try different URL patterns
     let urls = build_urls(target_path);
@@ -314,13 +314,13 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
         .get(url)
         .header("User-Agent", "declarch-cli")
         .send()
-        .map_err(|e| DeclarchError::Other(format!("Network error: {}", e)))?;
+        .map_err(|e| DeclarchError::RemoteFetchError(format!("Network request: {}", e)))?;
 
     if resp.status().is_success() {
         resp.text()
-            .map_err(|e| DeclarchError::Other(format!("Failed to read response: {}", e)))
+            .map_err(|e| DeclarchError::RemoteFetchError(format!("Response read: {}", e)))
     } else {
-        Err(DeclarchError::Other(format!("HTTP {}", resp.status())))
+        Err(DeclarchError::RemoteFetchError(format!("HTTP {}", resp.status())))
     }
 }
 
@@ -328,12 +328,12 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
 fn validate_url(url_str: &str) -> Result<()> {
     // Parse URL to validate scheme
     let parsed = reqwest::Url::parse(url_str)
-        .map_err(|_| DeclarchError::Other(format!("Invalid URL: {}", url_str)))?;
+        .map_err(|_| DeclarchError::RemoteFetchError(format!("Invalid URL: {}", url_str)))?;
 
     // Check scheme is allowed
     let scheme = parsed.scheme();
     if !ALLOWED_SCHEMES.contains(&scheme) {
-        return Err(DeclarchError::Other(format!(
+        return Err(DeclarchError::RemoteFetchError(format!(
             "URL scheme '{}' not allowed. Only HTTP and HTTPS are permitted.",
             scheme
         )));
@@ -342,7 +342,7 @@ fn validate_url(url_str: &str) -> Result<()> {
     // Prevent access to localhost/private networks (basic check)
     let host = parsed.host_str().unwrap_or("");
     if is_private_address(host) {
-        return Err(DeclarchError::Other(format!(
+        return Err(DeclarchError::RemoteFetchError(format!(
             "Access to private addresses is not allowed: {}",
             host
         )));

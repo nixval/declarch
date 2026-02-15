@@ -1,91 +1,46 @@
 # Quick Start
 
-Get up and running in 3 minutes.
+Fast first run.
 
-## Step 1: Initialize
+## 1) Initialize
 
 ```bash
 declarch init
 ```
 
-Output:
-```
-Initializing declarch root
-Created config directory: ~/.config/declarch
-Created backends configuration: ~/.config/declarch/backends.kdl
-Created config file: ~/.config/declarch/declarch.kdl
-Created modules directory: ~/.config/declarch/modules
-Created base module: ~/.config/declarch/modules/base.kdl
-Initialized state for host: myhostname
-```
+Expected structure:
 
-This creates:
-```
+```text
 ~/.config/declarch/
-├── declarch.kdl          # Main config - imports modules
-├── backends.kdl          # Backend definitions (aur, pacman, flatpak)
-├── modules/
-│   └── base.kdl          # Your packages go here
-└── state.json            # Tracks installed packages
+├── declarch.kdl
+├── backends.kdl
+├── state.json
+├── backends/
+└── modules/
+    └── base.kdl
 ```
 
-## Step 2: Add Packages
-
-### Method A: Command Line
+## 2) Add packages
 
 ```bash
-# Add single package
-declarch install neovim
-
-# Add multiple packages
-declarch install bat fzf ripgrep fd
-
-# Add with backend prefix
-declarch install aur:neovim
+declarch install bat fzf ripgrep
+declarch install npm:typescript
 ```
 
-### Method B: Edit Config Directly
-
-Open `~/.config/declarch/modules/base.kdl`:
-
-```kdl
-pkg {
-    aur {
-        neovim
-        bat
-        fzf
-        ripgrep
-        fd
-    }
-}
-```
-
-## Step 3: Sync
+## 3) Preview and apply
 
 ```bash
+declarch sync preview
 declarch sync
 ```
 
-You'll see:
+## 4) Add more backends only when needed
+
+```bash
+declarch init --backend npm
+declarch init --backend pnpm,yarn
+# also valid
+declarch init --backend pnpm yarn
 ```
-Changes:
-  Adopt: (aur): neovim, bat, fzf, ripgrep, fd
 
-? Proceed with sync? [Y/n]
-```
-
-Type `y` and Enter. Declarch will install all packages.
-
-## What Just Happened?
-
-1. **Declarch read your config** and saw you want those packages
-2. **It checked what's already installed** on your system
-3. **It showed you the changes** it would make
-4. **You confirmed**, and it installed the packages
-5. **It recorded the state** so it knows what's managed
-
-## Next Steps
-
-- Learn about [backends](../configuration/backends.md)
-- Organize with [modules](../configuration/modules.md)
-- See all [commands](../commands/index.md)
+That is the core workflow.

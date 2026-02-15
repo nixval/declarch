@@ -6,9 +6,20 @@
 //! - `declarch init <path>` - Add a module
 //! - `declarch init --list backends` - List available backends
 //! - `declarch init --list modules` - List available modules
+//! - `declarch init --restore-backends` - Restore backends.kdl
+//! - `declarch init --restore-declarch` - Restore declarch.kdl
 
-use crate::error::Result;
+use crate::error::{DeclarchError, Result};
 use crate::ui as output;
+use crate::utils::paths;
+use std::fs;
+
+/// Validate KDL content
+pub fn validate_kdl(content: &str, context: &str) -> Result<()> {
+    kdl::KdlDocument::parse(content)
+        .map_err(|e| DeclarchError::ConfigError(format!("Invalid KDL in {}: {}", context, e)))?;
+    Ok(())
+}
 
 pub mod backend;
 pub mod list;
@@ -33,17 +44,32 @@ pub struct InitOptions {
     pub local: bool,
 }
 
+fn normalize_backend_args(backends: &[String]) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for item in backends {
+        for part in item.split(',') {
+            let name = part.trim();
+            if !name.is_empty() {
+                normalized.push(name.to_string());
+            }
+        }
+    }
+    normalized
+}
+
 /// Main entry point for init command
 pub fn run(options: InitOptions) -> Result<()> {
+    let normalized_backends = normalize_backend_args(&options.backends);
+
     // CASE A: MODULE INITIALIZATION
     if let Some(target_path) = options.path {
         return module::init_module(&target_path, options.force, options.yes, options.local);
     }
 
     // CASE A2: BACKEND INITIALIZATION (supports multiple)
-    if !options.backends.is_empty() {
+    if !normalized_backends.is_empty() {
         let force = options.force || options.yes;
-        let total = options.backends.len();
+        let total = normalized_backends.len();
         
         // Ensure root config exists first
         let config_file = crate::utils::paths::config_file()?;
@@ -55,7 +81,7 @@ pub fn run(options: InitOptions) -> Result<()> {
             output::header(&format!("Initializing {} backends", total));
         }
         
-        for (i, backend_name) in options.backends.iter().enumerate() {
+        for (i, backend_name) in normalized_backends.iter().enumerate() {
             if total > 1 {
                 println!();
                 output::info(&format!("[{}/{}] Initializing '{}'", i + 1, total, backend_name));
@@ -69,7 +95,103 @@ pub fn run(options: InitOptions) -> Result<()> {
     root::init_root(options.host, options.force)
 }
 
+/// Restore backends.kdl from template
+/// 
+/// Recreates backends.kdl without affecting other config files
+pub fn restore_backends() -> Result<()> {
+    let backends_file = paths::backend_config()?;
+    
+    // Check if declarch is initialized
+    let config_dir = paths::config_dir()?;
+    if !config_dir.exists() {
+        return Err(DeclarchError::Other(
+            "Declarch not initialized. Run 'declarch init' first.".into(),
+        ));
+    }
+    
+    output::header("Restoring Backends Configuration");
+    
+    // Create from template
+    let backends_template = backend::default_backends_kdl();
+    fs::write(&backends_file, backends_template)?;
+    
+    output::success(&format!("Restored: {}", backends_file.display()));
+    output::info("Your custom backends in backends/ folder are preserved.");
+    output::warning("Official backends (aur, pacman, flatpak, npm) have been reset to defaults.");
+    
+    Ok(())
+}
+
+/// Restore declarch.kdl from template
+///
+/// Recreates declarch.kdl without affecting backends.kdl or modules/
+pub fn restore_declarch(host: Option<String>) -> Result<()> {
+    let config_file = paths::config_file()?;
+    
+    // Check if declarch is initialized
+    let config_dir = paths::config_dir()?;
+    if !config_dir.exists() {
+        return Err(DeclarchError::Other(
+            "Declarch not initialized. Run 'declarch init' first.".into(),
+        ));
+    }
+    
+    output::header("Restoring Main Configuration");
+    
+    // Preserve existing imports if possible
+    let existing_imports = if config_file.exists() {
+        fs::read_to_string(&config_file).ok()
+    } else {
+        None
+    };
+    
+    // Get hostname
+    let hostname = host.unwrap_or_else(|| {
+        hostname::get()
+            .map(|h| h.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| "unknown".to_string())
+    });
+    
+    // Create from template
+    let template = crate::utils::templates::default_host(&hostname);
+    fs::write(&config_file, template)?;
+    
+    output::success(&format!("Restored: {}", config_file.display()));
+    
+    if existing_imports.is_some() {
+        output::warning("Previous configuration overwritten. Check your module imports.");
+    }
+    
+    Ok(())
+}
+
 // Re-export list functions for CLI
 pub use list::is_module_available;
 pub use list::list_available_backends;
 pub use list::list_available_modules;
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_backend_args;
+
+    #[test]
+    fn normalize_backend_args_supports_comma_and_space_forms() {
+        let input = vec![
+            "pnpm,yarn".to_string(),
+            "bun".to_string(),
+            "  ".to_string(),
+            "paru, yay".to_string(),
+        ];
+        let normalized = normalize_backend_args(&input);
+        assert_eq!(
+            normalized,
+            vec![
+                "pnpm".to_string(),
+                "yarn".to_string(),
+                "bun".to_string(),
+                "paru".to_string(),
+                "yay".to_string()
+            ]
+        );
+    }
+}

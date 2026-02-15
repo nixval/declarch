@@ -8,6 +8,10 @@ use std::collections::{HashMap, HashSet};
 pub struct RawConfig {
     /// Import statements
     pub imports: Vec<String>,
+
+    /// Preferred editor for 'declarch edit' command
+    /// Priority: $VISUAL env → $EDITOR env → this field → "nano"
+    pub editor: Option<String>,
     
     /// Unified package storage: backend_name -> packages
     /// 
@@ -24,9 +28,6 @@ pub struct RawConfig {
 
     /// Packages to exclude from sync
     pub excludes: Vec<String>,
-    
-    /// Package mappings: config_name -> actual_package_name
-    pub package_mappings: HashMap<String, String>,
 
     /// Project metadata
     pub project_metadata: ProjectMetadata,
@@ -48,6 +49,10 @@ pub struct RawConfig {
 
     /// Pre/post sync lifecycle actions
     pub lifecycle_actions: LifecycleConfig,
+    
+    /// Backend definition imports (paths to backend files)
+    /// These define which backends are available for package operations
+    pub backend_imports: Vec<String>,
 }
 
 /// Package entry (minimal - just name for now)

@@ -47,8 +47,19 @@ fi
 echo "Installing to /usr/local/bin/..."
 sudo install -m 755 declarch /usr/local/bin/
 
+# Create short alias command (decl -> declarch) if possible.
+# Keep existing user-managed decl binary untouched.
+if [ -e /usr/local/bin/decl ] && [ ! -L /usr/local/bin/decl ]; then
+    echo "⚠️  Skipping alias creation: /usr/local/bin/decl already exists and is not a symlink."
+else
+    sudo ln -sfn /usr/local/bin/declarch /usr/local/bin/decl
+fi
+
 INSTALLED_VERSION=$(/usr/local/bin/declarch --version)
 echo "✓ Installed $INSTALLED_VERSION to /usr/local/bin/declarch"
+if [ -x /usr/local/bin/decl ]; then
+    echo "✓ Alias installed: /usr/local/bin/decl -> /usr/local/bin/declarch"
+fi
 
 # Verify it's in PATH and accessible
 if ! command -v declarch &>/dev/null; then
@@ -57,5 +68,5 @@ if ! command -v declarch &>/dev/null; then
 fi
 
 # Cleanup downloaded files
-rm -f declarch dcl /tmp/declarch.tar.gz
+rm -f declarch decl dcl /tmp/declarch.tar.gz
 echo "✓ Cleanup complete"

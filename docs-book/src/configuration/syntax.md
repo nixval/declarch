@@ -1,341 +1,94 @@
-# Configuration Syntax
+# Syntax Reference (Advanced)
 
-Complete reference for declarch KDL configuration files.
+Technical reference for KDL structures used by declarch.
 
-## File Structure
+If you are new, read:
+- [Quick Start](../getting-started/quick-start.md)
+- [KDL Basics](./kdl-syntax.md)
+- [Backends](./backends.md)
 
-```
-~/.config/declarch/
-├── declarch.kdl       # Main config with imports
-├── backends.kdl       # Backend definitions
-├── modules/
-│   └── base.kdl       # Package modules
-└── state.json         # Tracked packages (auto-generated)
-```
+## Core blocks
 
-## Basic Syntax
-
-### Comments
 ```kdl
-// Single line comment
-
-/*
-  Multi-line comment
-*/
+meta { ... }
+imports { ... }
+pkg { ... }
 ```
 
-### Strings
-All string values must be quoted:
-```kdl
-// Correct
-title "My Config"
-format "whitespace"
+## Package declarations
 
-// Wrong - will error
-title My Config
-format whitespace
-```
-
-## Main Config (declarch.kdl)
-
-### Meta Block
-```kdl
-meta {
-    title "My Setup"
-    description "Development workstation"
-    author "your-name"
-    version "1.0.0"
-}
-```
-
-### Imports
-Import other config files:
-```kdl
-imports {
-    "backends.kdl"
-    "modules/base.kdl"
-    "modules/dev.kdl"
-}
-```
-
-### Package Declaration
-The `pkg` block contains all your packages:
+### Preferred (nested)
 
 ```kdl
 pkg {
-    // Backend-specific blocks
-    aur {
-        neovim
-        bat
-        fzf
-    }
-    
-    pacman {
-        firefox
-        git
-    }
-    
-    flatpak {
-        com.spotify.Client
-    }
+    pacman { firefox git }
+    flatpak { org.mozilla.firefox }
+    npm { typescript }
 }
 ```
 
-### Inline Backend Syntax
-For single packages, use colon syntax:
-```kdl
-pkg:aur {
-    neovim
-}
+### Also accepted (compatibility)
 
-// Same as:
+```kdl
+pkg:pacman { firefox git }
+
 pkg {
-    aur {
-        neovim
-    }
+    pacman:firefox
+    npm:typescript
 }
 ```
 
-## Backend Config (backends.kdl)
+## Optional advanced blocks
 
-### Official Backends (Built-in)
+### Backend options override
+
 ```kdl
-backend "aur" {
-    meta {
-        title "AUR Helper"
-        description "Arch User Repository"
-    }
-    
-    binary "paru" "yay"
-    
-    list "{binary} -Q" {
-        format "whitespace"
-        name_col 0
-        version_col 1
-    }
-    
-    install "{binary} -S --needed {packages}"
-    remove "{binary} -R {packages}"
-    
-    fallback "pacman"
+options:pacman {
+    noconfirm_flag "--noconfirm"
 }
 ```
 
-### Custom Backend Imports
+### Env override
+
 ```kdl
-imports {
-    "backends/npm.kdl"
-    "backends/cargo.kdl"
+env:global {
+    "http_proxy=http://127.0.0.1:8080"
+}
+
+env:npm {
+    "NPM_CONFIG_REGISTRY=https://registry.npmjs.org"
 }
 ```
 
-## Advanced Features
+### Package source overrides (backend-specific)
 
-### Conflicts
-Mark packages that conflict with each other:
 ```kdl
-conflicts {
-    vim neovim
-    pipewire pulseaudio
-}
-```
-
-### Excludes
-Packages to exclude from sync:
-```kdl
-excludes {
-    unwanted-package
-    another-package
-}
-```
-
-### Environment Variables
-Set env vars for package operations:
-```kdl
-env "EDITOR" {
-    nvim
-}
-
-// Or with backend prefix
-env:paru {
-    MAKEFLAGS "-j4"
-}
-```
-
-### Backend Options
-Configure backend-specific options:
-```kdl
-options:aur {
-    noconfirm
-}
-```
-
-### Repositories
-Add custom repositories:
-```kdl
-repos:aur {
-    "https://aur.archlinux.org"
+repos:pacman {
+    "core"
+    "extra"
 }
 ```
 
 ### Hooks
-Run commands at specific times:
+
 ```kdl
-on-sync "notify-send 'Sync complete'"
-on-pre-sync "backup-configs.sh"
+hooks {
+    pre-sync "echo before"
+    post-sync "echo after"
+}
 ```
 
 ### Policy
-Configure sync behavior:
+
 ```kdl
 policy {
-    protected {
-        linux
-        systemd
-    }
-    orphans "ask"  // or "remove", "keep"
+    protected "linux" "systemd"
+    orphans "ask"
 }
 ```
 
-## Placeholders
+## Validation notes
 
-Backend commands support placeholders:
-
-| Placeholder | Replaced With |
-|-------------|---------------|
-| `{packages}` | Space-separated package names |
-| `{binary}` | The backend binary command |
-| `{query}` | Search query string |
-
-Example:
-```kdl
-install "pacman -S --needed {packages}"
-search "{binary} -Ss {query}"
-```
-
-## Output Formats
-
-For backend `list` commands, specify output format:
-
-### whitespace
-```kdl
-list "pacman -Q" {
-    format "whitespace"
-    name_col 0
-    version_col 1
-}
-```
-
-### tsv (Tab-Separated)
-```kdl
-list "flatpak list" {
-    format "tsv"
-    name_col 0
-}
-```
-
-### json
-```kdl
-list "npm list -g --json" {
-    format "json"
-    json {
-        path "dependencies"
-        name_key "name"
-        version_key "version"
-    }
-}
-```
-
-### regex
-```kdl
-list "apt list --installed" {
-    format "regex"
-    regex {
-        pattern "^([^/]+)/[^ ]+ ([^ ]+)"
-        name_group 1
-        version_group 2
-    }
-}
-```
-
-## Full Example
-
-```kdl
-// ~/.config/declarch/declarch.kdl
-meta {
-    title "Developer Workstation"
-    author "johndoe"
-    version "2.0.0"
-}
-
-imports {
-    "backends.kdl"
-    "modules/base.kdl"
-    "modules/dev.kdl"
-}
-
-pkg {
-    aur {
-        neovim
-        visual-studio-code-bin
-    }
-}
-
-env "EDITOR" {
-    nvim
-}
-
-on-sync "echo 'System updated'"
-```
-
-## Common Mistakes
-
-### 1. Forgetting Quotes
-```kdl
-// Wrong
-needs_sudo true
-format whitespace
-
-// Correct
-needs_sudo "true"
-format "whitespace"
-```
-
-### 2. Missing Closing Braces
-```kdl
-// Wrong
-pkg {
-    aur {
-        neovim
-
-// Correct
-pkg {
-    aur {
-        neovim
-    }
-}
-```
-
-### 3. Wrong Block Structure
-```kdl
-// Wrong
-pkg:aur {
-    package
-}
-
-// Correct (aur inside pkg)
-pkg {
-    aur {
-        package
-    }
-}
-```
-
-## Validation
-
-Use `declarch check` to validate syntax:
-```bash
-declarch check
-```
-
-This will show line numbers for any errors.
+- Keep beginner config in nested `pkg` style unless migration requires compatibility syntax.
+- Unknown keys may be ignored in some contexts for forward compatibility.
+- Use `declarch check validate` after manual edits.

@@ -87,18 +87,36 @@ use crate::config::kdl_modules::parse_kdl_content;
     }
 
     #[test]
-    fn test_aliases_parsing() {
+    fn test_legacy_packages_colon_backend_alias_still_works() {
         let kdl = r#"
-            aliases-pkg pipewire pipewire-jack2
-            aliases-pkg python-poetry python-poetry-core
+            packages:npm {
+                typescript
+                prettier
+            }
         "#;
 
         let config = parse_kdl_content(kdl).unwrap();
-        assert_eq!(config.package_mappings.len(), 2);
-        assert_eq!(
-            config.package_mappings.get("pipewire"),
-            Some(&"pipewire-jack2".to_string())
-        );
+        assert!(config.packages_by_backend.contains_key("npm"));
+        let npm_packages = config.packages_by_backend.get("npm").unwrap();
+        assert_eq!(npm_packages.len(), 2);
+        assert!(npm_packages.iter().any(|p| p.name == "typescript"));
+        assert!(npm_packages.iter().any(|p| p.name == "prettier"));
+    }
+
+    #[test]
+    fn test_legacy_packages_nested_backend_alias_still_works() {
+        let kdl = r#"
+            packages {
+                aur { neovim git }
+                flatpak { org.mozilla.firefox }
+            }
+        "#;
+
+        let config = parse_kdl_content(kdl).unwrap();
+        assert!(config.packages_by_backend.contains_key("aur"));
+        assert!(config.packages_by_backend.contains_key("flatpak"));
+        assert_eq!(config.packages_by_backend.get("aur").unwrap().len(), 2);
+        assert_eq!(config.packages_by_backend.get("flatpak").unwrap().len(), 1);
     }
 
     #[test]

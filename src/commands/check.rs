@@ -19,6 +19,7 @@ pub fn run(
     validate_only: bool,
     benchmark: bool,
     extra_modules: Vec<String>,
+    fix: bool,
 ) -> Result<()> {
     let start_time = std::time::Instant::now();
 
@@ -119,7 +120,108 @@ pub fn run(
         }
     }
 
+    // Handle --fix flag
+    if fix {
+        apply_fixes(&config_path, &config)?;
+    }
+
     Ok(())
+}
+
+/// Apply auto-fixes to configuration
+fn apply_fixes(config_path: &std::path::PathBuf, _config: &loader::MergedConfig) -> Result<()> {
+    use crate::ui as output;
+    use std::fs;
+
+    output::header("Applying Fixes");
+
+    // Read the config file
+    let content = fs::read_to_string(config_path)?;
+
+    // Apply fixes: sort imports, format consistently
+    let fixed_content = fix_kdl_formatting(&content);
+
+    // Write back if changed
+    if fixed_content != content {
+        fs::write(config_path, &fixed_content)?;
+        output::success("Fixed and formatted configuration");
+    } else {
+        output::info("Configuration already properly formatted");
+    }
+
+    // Also fix module files
+    if let Ok(module_dir) = crate::utils::paths::modules_dir() {
+        if module_dir.exists() {
+            for entry in std::fs::read_dir(&module_dir)? {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.extension().map(|e| e == "kdl").unwrap_or(false) {
+                        let content = fs::read_to_string(&path)?;
+                        let fixed = fix_kdl_formatting(&content);
+                        if fixed != content {
+                            fs::write(&path, &fixed)?;
+                            output::success(&format!("Fixed: {}", path.display()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    output::success("All fixes applied");
+    Ok(())
+}
+
+/// Simple KDL formatting fixes
+fn fix_kdl_formatting(content: &str) -> String {
+    let mut result = String::new();
+    let mut imports: Vec<String> = Vec::new();
+    let mut in_imports = false;
+    let mut imports_block_indent = String::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Detect imports block
+        if trimmed == "imports {" || trimmed.starts_with("imports {") {
+            in_imports = true;
+            imports_block_indent = line[..line.find("imports").unwrap_or(0)].to_string();
+            result.push_str(line);
+            result.push('\n');
+            continue;
+        }
+
+        if in_imports && trimmed == "}" {
+            // End of imports block - sort and write imports
+            imports.sort();
+            for imp in &imports {
+                result.push_str(&format!("{}  {}\n", imports_block_indent, imp));
+            }
+            in_imports = false;
+            imports.clear();
+            result.push_str(line);
+            result.push('\n');
+            continue;
+        }
+
+        if in_imports && (trimmed.starts_with('"') || trimmed.starts_with("//")) {
+            // Collect import lines (skip comments)
+            if !trimmed.starts_with("//") {
+                imports.push(trimmed.to_string());
+            } else {
+                result.push_str(line);
+                result.push('\n');
+            }
+            continue;
+        }
+
+        // Normal line
+        result.push_str(line);
+        result.push('\n');
+    }
+
+    // Remove trailing blank lines
+    result.trim_end().to_string() + "\n"
 }
 
 /// Show planned changes (diff between config and state)

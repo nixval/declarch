@@ -1,44 +1,52 @@
 // ============================================================================
-// BACKENDS.KDL - Complete Example
+// BACKENDS.KDL - Complete Example with All Features
 // ============================================================================
-// This file defines all package manager backends for declarch.
-// Each backend describes how to list, install, and remove packages.
+// This file demonstrates all available backend configuration options.
+// Copy relevant sections to ~/.config/declarch/backends.kdl
+// ============================================================================
+
+// =============================================================================
+// COMMAND REFERENCE
+// =============================================================================
+// Required:
+//   install "cmd {packages}"      - Install packages
 //
-// Location: ~/.config/declarch/backends.kdl
-// ============================================================================
+// Optional (use "-" to disable without warning):
+//   list "cmd" { ... }           - List installed packages
+//   remove "cmd {packages}"       - Remove packages
+//   update "cmd"                  - Update package index ("-" if not applicable)
+//   upgrade "cmd"                 - Upgrade packages
+//   cache_clean "cmd"             - Clean cache
+//   search "cmd {query}" { ... }  - Search remote repos
+//   search_local "cmd {query}" { ... } - Search installed packages
+//
+// Placeholders: {binary}, {packages}, {query}
 
 // =============================================================================
 // APT (Debian/Ubuntu)
 // =============================================================================
 backend "apt" {
-    // Binary to use (can specify multiple alternatives)
     binary "apt"
     
-    // Command to list installed packages
-    list "apt list --installed" {
+    list "{binary} list --installed" {
         format regex
-        // Pattern: package_name/... [installed,...] version ...
-        regex {
-            pattern "^(\S+)/\S+\s+\S+\s+\[installed.*\]"
-            name_group 1
-        }
+        regex "^(\\S+)/\\S+\\s+\\S+\\s+\\[installed.*\]"
+        name_group 1
     }
     
-    // Install command - {packages} will be replaced with space-separated list
-    install "apt install {packages}"
+    install "{binary} install {packages}"
+    remove "{binary} remove {packages}"
+    update "{binary} update"
+    upgrade "{binary} upgrade -y"
+    cache_clean "{binary} clean"
     
-    // Remove command
-    remove "apt remove {packages}"
-    
-    // Auto-confirmation flag
     noconfirm "-y"
-    
-    // APT requires sudo for install/remove
     needs_sudo true
 }
 
 // =============================================================================
 // AUR Helper (paru/yay with pacman fallback)
+// Uses {binary} placeholder for fallback chain support
 // =============================================================================
 backend "aur" {
     meta {
@@ -47,23 +55,20 @@ backend "aur" {
         platforms "arch"
     }
     
-    // Try paru first, then yay (fallback chain)
     binary "paru" "yay"
     
-    // List all installed packages (including AUR and official repo)
     list "{binary} -Q" {
         format whitespace
         name_col 0
         version_col 1
     }
     
-    // Install from AUR or official repos
     install "{binary} -S --needed {packages}"
-    
-    // Remove packages
     remove "{binary} -R {packages}"
+    update "{binary} -Sy"
+    upgrade "{binary} -Syu"
+    cache_clean "{binary} -Sc --noconfirm"
     
-    // Search packages - uses regex for multiline output
     search "{binary} -Ss {query}" {
         format regex
         regex "(?m)^(\\S+)\\s+.*\\n\\s+(.*)$"
@@ -71,8 +76,41 @@ backend "aur" {
         desc_group 2
     }
     
-    // If no AUR helper found, use pacman
+    search_local "{binary} -Q {query}" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
     fallback "pacman"
+}
+
+// =============================================================================
+// Pacman (Arch Linux native)
+// Single binary - {binary} optional but recommended for consistency
+// =============================================================================
+backend "pacman" {
+    binary "pacman"
+    
+    list "{binary} -Q" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    install "{binary} -S --needed {packages}"
+    remove "{binary} -R {packages}"
+    update "{binary} -Sy"
+    upgrade "{binary} -Syu"
+    cache_clean "{binary} -Sc --noconfirm"
+    
+    search_local "{binary} -Q {query}" {
+        format whitespace
+        name_col 0
+        version_col 1
+    }
+    
+    needs_sudo true
 }
 
 // =============================================================================
@@ -81,34 +119,35 @@ backend "aur" {
 backend "flatpak" {
     binary "flatpak"
     
-    // List installed flatpaks (app ID format: com.vendor.AppName)
-    list "flatpak list --app --columns=application,version" {
+    list "{binary} list --app --columns=application,version" {
         format tsv
         name_col 0
         version_col 1
     }
     
-    // Install from flathub
-    install "flatpak install flathub {packages}"
+    install "{binary} install flathub {packages}"
+    remove "{binary} uninstall {packages}"
+    update "{binary} update --appstream"
+    upgrade "{binary} update -y"
+    cache_clean "{binary} uninstall --unused -y"
     
-    // Remove
-    remove "flatpak uninstall {packages}"
+    search "{binary} search {query}" {
+        format tsv
+        name_col 2
+        desc_col 1
+    }
     
-    // Auto-confirm
     noconfirm "-y"
-    
-    // Flatpak doesn't need sudo for user installs
     needs_sudo false
 }
 
 // =============================================================================
-// NPM (Node.js)
+// NPM (Node.js) - Example with sentinel value
 // =============================================================================
 backend "npm" {
     binary "npm"
     
-    // List globally installed packages
-    list "npm list -g --json" {
+    list "{binary} list -g --json" {
         format json
         json {
             path "dependencies"
@@ -117,22 +156,61 @@ backend "npm" {
         }
     }
     
-    // Global install (silent to reduce noise)
-    install "npm install -g --silent {packages}"
+    install "{binary} install -g --silent {packages}"
+    remove "{binary} uninstall -g --silent {packages}"
     
-    // Global remove (silent to reduce noise)  
-    remove "npm uninstall -g --silent {packages}"
+    // NPM has no package index update - use "-" to disable without warning
+    update "-"
+    upgrade "{binary} update -g"
+    cache_clean "{binary} cache clean --force"
+    
+    search "{binary} search {query} --json" {
+        format npm_json
+        name_key "name"
+        version_key "version"
+        desc_key "description"
+    }
+    
+    search_local "{binary} list -g {query} --json" {
+        format json
+        json {
+            path "dependencies"
+            name_key "name"
+            version_key "version"
+        }
+    }
     
     needs_sudo false
 }
 
 // =============================================================================
-// Alternative: Import from separate files (recommended for many backends)
+// Cargo (Rust) - Install-only backend example
 // =============================================================================
-// Instead of defining all backends here, you can split them into files:
-//
-// import "backends/apt.kdl"
-// import "backends/aur.kdl"
-// import "backends/flatpak.kdl"
-// import "backends/npm.kdl"
-// import "backends/cargo.kdl"
+backend "cargo" {
+    meta {
+        title "Cargo"
+        description "Rust package manager (install-only)"
+    }
+    
+    binary "cargo"
+    
+    // Install-only: no list_cmd, no remove_cmd
+    install "{binary} install {packages}"
+    
+    // Explicitly disable unsupported features
+    list "-"
+    remove "-"
+    update "-"
+    
+    upgrade "{binary} install {packages} --force"
+    cache_clean "{binary} cache --autoclean"
+    
+    needs_sudo false
+}
+
+// =============================================================================
+// Import from separate files (recommended for many backends)
+// =============================================================================
+// imports {
+//     "backends/custom.kdl"
+// }

@@ -1,6 +1,6 @@
 # sync
 
-Synchronize system with configuration.
+Synchronize your system with config.
 
 ## Usage
 
@@ -8,79 +8,40 @@ Synchronize system with configuration.
 declarch sync [COMMAND] [OPTIONS]
 ```
 
-## Subcommands
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `sync` | Full sync (default) |
-| `preview` | Preview changes without executing |
-| `update` | Sync + update system packages |
-| `prune` | Sync + remove unmanaged packages |
+| `sync` | normal sync |
+| `preview` | show plan only |
+| `update` | refresh indexes then sync |
+| `prune` | remove unmanaged packages |
+| `cache` | clean backend cache |
+| `upgrade` | run backend upgrades |
 
-## Examples
-
-### Basic Sync
-
-```bash
-declarch sync
-```
-
-Shows:
-```
-Changes:
-  Adopt: (aur): neovim, bat, fzf
-  Install: (npm): typescript
-
-? Proceed with sync? [Y/n]
-```
-
-### Preview Changes
+## Typical flow
 
 ```bash
 declarch sync preview
+declarch sync
 ```
 
-Shows what would happen without doing it.
-
-### Sync with System Update
+## More examples
 
 ```bash
 declarch sync update
-```
-
-Updates system packages first, then syncs.
-
-### Remove Unmanaged Packages
-
-```bash
 declarch sync prune
+declarch sync sync --target firefox
+declarch sync sync --hooks
 ```
 
-Removes packages not in your config.
-
-## Options
+## Common options
 
 | Option | Description |
 |--------|-------------|
-| `--gc` | Garbage collect orphans after sync |
-| `--target <NAME>` | Sync only specific package/backend |
-| `--noconfirm` | Skip package manager prompts |
-| `--hooks` | Enable lifecycle hooks |
-
-## What "Adopt" Means
-
-When you see:
-```
-Adopt: (aur): neovim
-```
-
-It means neovim is already installed. Declarch will "adopt" it into management.
-
-## Safety
-
-Sync always asks before making changes (unless `-y` flag).
-
-```bash
-# Auto-confirm
-declarch sync -y
-```
+| `--gc` | garbage-collect orphans after sync |
+| `--target <NAME>` | sync one package/scope |
+| `--noconfirm` | skip backend prompt flags |
+| `--hooks` | enable lifecycle hooks |
+| `--modules <NAME>...` | temporary extra modules |
+| `--diff` | show plan diff |

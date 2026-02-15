@@ -71,9 +71,9 @@
 //! let config = BackendConfig {
 //!     name: "mybackend".to_string(),
 //!     binary: BinarySpecifier::Single("mybackend".to_string()),
-//!     list_cmd: "mybackend list --json".to_string(),
+//!     list_cmd: Some("mybackend list --json".to_string()),
 //!     install_cmd: "mybackend install {packages}".to_string(),
-//!     remove_cmd: "mybackend uninstall {packages}".to_string(),
+//!     remove_cmd: Some("mybackend uninstall {packages}".to_string()),
 //!     query_cmd: None,
 //!     list_format: OutputFormat::Json,
 //!     list_name_col: None,
@@ -87,6 +87,7 @@
 //!     noconfirm_flag: Some("--yes".to_string()),
 //!     needs_sudo: false,
 //!     preinstall_env: None,
+//!     package_sources: None,
 //!     use_rust_fallback: false,
 //!     fallback: None,
 //!     search_cmd: None,
@@ -100,6 +101,17 @@
 //!     search_regex: None,
 //!     search_regex_name_group: None,
 //!     search_regex_desc_group: None,
+//!     search_local_cmd: None,
+//!     search_local_format: None,
+//!     search_local_json_path: None,
+//!     search_local_name_key: None,
+//!     search_local_version_key: None,
+//!     search_local_name_col: None,
+//!     search_local_regex: None,
+//!     search_local_regex_name_group: None,
+//!     update_cmd: None,
+//!     cache_clean_cmd: None,
+//!     upgrade_cmd: None,
 //! };
 //! ```
 //!
@@ -135,4 +147,4 @@ pub use config::{BackendConfig, BinarySpecifier, OutputFormat};
 pub use generic::GenericManager;
 
 // Re-export commonly used items
-pub use registry::load_all_backends;
+pub use registry::{load_all_backends, load_backends_from_config, load_all_backends_unified};

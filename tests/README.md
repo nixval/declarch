@@ -1,57 +1,35 @@
-# Declarch Test Suite
+# Tests
 
-## Directory Structure
+Current test files in this repository:
 
-```
+```text
 tests/
-├── unit/           # Unit tests for individual modules
-├── integration/    # Integration tests for workflows
-└── fixtures/       # Test fixtures and sample data
-    ├── configs/    # Sample KDL configurations
-    └── states/     # Sample state.json files
+├── backend_parsers.rs
+├── cli_suite.rs
+├── smart_matching.rs
+├── state_restore.rs
+├── test_custom_backends.rs
+└── unit/
+    └── state_io_tests.rs
 ```
 
-## Running Tests
+## Run tests
 
 ```bash
-# Run all tests
+# all tests
 cargo test
 
-# Run only unit tests
-cargo test --test unit_
+# one file
+cargo test --test cli_suite
 
-# Run only integration tests
-cargo test --test integration_
+# one unit module
+cargo test state_io_tests
 
-# Run with output
+# verbose output
 cargo test -- --nocapture
-
-# Run specific test
-cargo test test_state_locking
 ```
 
-## Test Categories
+## Notes
 
-### Unit Tests (`unit/`)
-- `state_io_tests.rs` - State locking, save/load, backup rotation
-- `matcher_tests.rs` - Package matching logic
-- `parser_tests.rs` - KDL parsing
-
-### Integration Tests (`integration/`)
-- `sync_flow_tests.rs` - Full sync workflow
-- `backend_tests.rs` - Backend implementations
-- `install_tests.rs` - Install command workflow
-
-## Fixtures
-
-### Configs (`fixtures/configs/`)
-Sample KDL configurations for testing:
-- `minimal.kdl` - Minimal valid config
-- `desktop.kdl` - Full desktop setup
-- `conflicts.kdl` - Config with conflicts
-
-### States (`fixtures/states/`)
-Sample state.json files:
-- `empty_state.json` - Fresh install state
-- `populated_state.json` - State with packages
-- `outdated_state.json` - State needing migration
+- Integration-style coverage is mostly in top-level `tests/*.rs`.
+- Focus areas: parser correctness, CLI behavior, state safety, and custom backend support.

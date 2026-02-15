@@ -1,6 +1,8 @@
 # Installation
 
-## Arch Linux (Recommended)
+Pick one method.
+
+## Arch Linux (AUR)
 
 ```bash
 paru -S declarch
@@ -8,40 +10,31 @@ paru -S declarch
 yay -S declarch
 ```
 
-## Any Linux (Binary)
+## Linux (install script)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
-This downloads and installs the latest release to `/usr/local/bin/`.
-
-## Manual Install
+## Manual binary install
 
 ```bash
-# Download latest release
 wget https://github.com/nixval/declarch/releases/latest/download/declarch-x86_64-unknown-linux-gnu.tar.gz
-
-# Extract
 tar xzf declarch-x86_64-unknown-linux-gnu.tar.gz
-
-# Install
 sudo install declarch /usr/local/bin/
 ```
 
-## From Source
+## Build from source
 
 ```bash
 cargo install declarch --git https://github.com/nixval/declarch
 ```
 
-## Verify Installation
+## Verify
 
 ```bash
 declarch --version
 declarch --help
 ```
 
-## Next
-
-→ [Quick Start Guide](./quick-start.md)
+Next: [Quick Start](./quick-start.md)

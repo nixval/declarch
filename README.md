@@ -1,205 +1,130 @@
-# ⚠️ BREAKING CHANGES IN v0.8.0
-
-> **ESPECT SOME ERRORS** when upgrading from v0.5.x or earlier
-
-## What Changed
-
-- **New architecture**: Backend system completely rewritten
-  - Official backends (aur, pacman, flatpak) are now built-in
-  - Custom backends use import pattern
-  - No more auto-loading from directories
-
-- **New KDL syntax**:
-  - Use `pkg` instead of `packages`
-  - All string values must be quoted: `"whitespace"`, `"true"`
-  - Backend blocks go inside `pkg { }`
-
-- **New CLI structure**:
-  - `declarch sync --update` → `declarch sync update`
-  - `declarch sync --prune` → `declarch sync prune`
-  - `declarch sync --dry-run` → `declarch sync preview`
-
-## Migration Guide
-
-```bash
-# Backup your config
-cp -r ~/.config/declarch ~/.config/declarch.backup
-
-# Re-initialize (keeps your modules)
-declarch init
-
-# Fix syntax in your .kdl files:
-# - Change 'packages {' to 'pkg {'
-# - Change 'format whitespace' to 'format "whitespace"'
-# - Change 'needs_sudo true' to 'needs_sudo "true"'
-
-# Sync
-declarch sync
-```
-
----
-
 # declarch
 
-> **Declarative Package Manager for Linux**
+Declarch is a declarative, agnostic wrapper over many package managers.
 
-Define your packages once in config files, then sync your system with one command.
+You define packages in config, then run `declarch sync`.
+Declarch coordinates backend commands for you.
+
+## WARNING: v0.8.0 has BREAKING CHANGES
+
+If you are upgrading from older versions, expect syntax and workflow changes.
+
+Before upgrading:
 
 ```bash
-# Initialize
-$ declarch init
-✓ Created config at ~/.config/declarch/
-
-# Add packages
-$ declarch install bat fzf ripgrep
-✓ Added to modules/others.kdl
-
-# Sync system
-$ declarch sync
-? Proceed with sync? [Y/n] y
-✓ System synchronized
+cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
----
+Reality check:
+- declarch is still evolving,
+- backend/environment coverage is improving,
+- not every backend combination is tested equally yet.
 
-## Quick Start (3 minutes)
+Use `declarch sync preview` first when unsure.
 
-### 1. Install
+## What declarch is
+
+- **Wrapper** for existing package managers.
+- **Agnostic** architecture (not tied to one ecosystem).
+- **Flexible backend config** that can evolve with upstream tools.
+
+## Common backends
+Package manager, wrapper, helper, etc I called it as backends instead here. You can customize your own backends declaratively. Declarch provide 
+
+`aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`.
+
+## Installation
+
+### Arch Linux (AUR)
 
 ```bash
-# Arch Linux (AUR)
 paru -S declarch
+```
 
-# Any Linux (Binary)
+### Script install
+
+```bash
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
-### 2. Initialize
+## First-time setup
+
+### 1. Initialize
 
 ```bash
 declarch init
 ```
 
-This creates:
-```
-~/.config/declarch/
-├── declarch.kdl       # Main config
-├── backends.kdl       # Backend definitions (aur, pacman, flatpak)
-└── modules/
-    └── base.kdl       # Your packages
-```
-
-### 3. Add Packages
+### 2. Add packages
 
 ```bash
-# Add to default module
 declarch install bat fzf ripgrep
-
-# Add to specific backend
-declarch install aur:neovim
-
-# Add to specific module
-declarch install firefox --module browsers
+declarch install npm:typescript
 ```
 
-### 4. Sync
+### 3. Apply
 
 ```bash
 declarch sync
 ```
 
----
+Use preview when needed:
 
-## Configuration
+```bash
+declarch sync preview
+```
 
-Edit `~/.config/declarch/modules/base.kdl`:
+## Basic config example
 
 ```kdl
 pkg {
-    // Official backends (aur, pacman, flatpak) work out of the box
-    aur {
-        neovim
-        bat
-        exa
-    }
-    
-    pacman {
-        firefox
-        thunderbird
-    }
-    
-    flatpak {
-        com.spotify.Client
-        com.discordapp.Discord
-    }
+    pacman { firefox git }
+    flatpak { org.mozilla.firefox }
+    npm { typescript pnpm }
+    nix { nil }
 }
 ```
 
----
-
-## Common Commands
+## Backend setup
 
 ```bash
-# Add packages
-declarch install <package>
-
-# Add with backend prefix
-declarch install npm:typescript
-
-# Sync system
-declarch sync
-
-# Preview changes (dry-run)
-declarch sync preview
-
-# Sync + update system packages
-declarch sync update
-
-# Remove unmanaged packages
-declarch sync prune
-
-# Search packages
-declarch search firefox
-
-# Check config
-declarch check
-```
-
----
-
-## Custom Backends
-
-Need npm, cargo, or other package managers?
-
-```bash
-# Add npm backend
 declarch init --backend npm
-✓ Backend 'npm' adopted!
-
-# Use it
-declarch install npm:prettier
+declarch init --backend pnpm,yarn
+# also valid:
+declarch init --backend pnpm yarn
 ```
 
----
+Use `--force` to overwrite an existing backend file.
 
-## Features
+## Common commands
 
-- **Declarative** - Define packages in KDL files
-- **Multi-Backend** - AUR, pacman, flatpak, npm, cargo, pip, and more
-- **Modular** - Split into multiple files (base, gaming, work, etc.)
-- **Smart Errors** - Clear error messages with line numbers
-- **Fast** - Only installs what you need
-
----
+```bash
+declarch sync
+declarch sync preview
+declarch sync update
+declarch sync prune
+declarch search firefox
+declarch check
+declarch info
+declarch info list
+```
 
 ## Documentation
 
-- **[Full Docs](https://nixval.github.io/declarch/)** - Complete guide
-- **[Getting Started](https://nixval.github.io/declarch/getting-started/quick-start.html)** - Detailed walkthrough
-- **[Command Reference](https://nixval.github.io/declarch/commands/)** - All commands
+Hosted docs:
+- https://nixval.github.io/declarch/
 
----
+mdDocs source pages (`docs-book/src`):
+- [Introduction](docs-book/src/intro.md)
+- [Installation](docs-book/src/getting-started/installation.md)
+- [Quick Start](docs-book/src/getting-started/quick-start.md)
+- [Command Overview](docs-book/src/commands/index.md)
+- [Backends](docs-book/src/configuration/backends.md)
+- [KDL Basics](docs-book/src/configuration/kdl-syntax.md)
+- [Syntax Reference (Advanced)](docs-book/src/configuration/syntax.md)
+- [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
+- [Full sidebar](docs-book/src/SUMMARY.md)
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
+MIT - see `LICENSE`.

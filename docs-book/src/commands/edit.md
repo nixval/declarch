@@ -1,6 +1,6 @@
 # edit
 
-Open config in your $EDITOR.
+Open config in your editor.
 
 ## Usage
 
@@ -8,56 +8,34 @@ Open config in your $EDITOR.
 declarch edit [TARGET]
 ```
 
-## Configuration
+## Set editor
 
-Set your preferred editor in `declarch.kdl`:
+Put this in `declarch.kdl`:
 
 ```kdl
-// Use vim (default if not specified)
-editor "vim"
-
-// Or use neovim
 editor "nvim"
-
-// Or use VS Code
-editor "code"
 ```
 
-**Priority order:**
-1. `declarch.kdl` editor setting
-2. `$EDITOR` environment variable
-3. Fallback to `nano`
+Editor priority:
+1. `declarch.kdl` (`editor`)
+2. `$EDITOR`
+3. fallback `nano`
 
 ## Examples
 
-### Edit Main Config
-
 ```bash
+# open main config
 declarch edit
-```
 
-Opens `~/.config/declarch/declarch.kdl`
-
-### Edit Module
-
-```bash
+# open module
 declarch edit base
-```
 
-Opens `~/.config/declarch/modules/base.kdl`
-
-### Edit Backends
-
-```bash
+# open backend config
 declarch edit backends
 ```
 
-Opens `~/.config/declarch/backends.kdl`
-
-## After Editing
-
-Remember to sync:
+After editing, run:
 
 ```bash
-declarch sync
+declarch sync preview
 ```

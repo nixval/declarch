@@ -1,84 +1,112 @@
-# Troubleshooting
+# Troubleshooting (Advanced)
 
-## Common Issues
+Use this page for concrete diagnosis when commands fail.
 
-### "Backend 'xxx' not found"
+## 1) Backend not found
 
-**Cause:** Backend not installed or not imported.
+Error pattern:
 
-**Fix:**
+```text
+Backend 'xxx' not found
+```
+
+Actions:
+
 ```bash
-# Install the backend
 declarch init --backend xxx
-
-# Or re-initialize
-declarch init
+declarch check validate
 ```
 
-### "Failed to parse KDL document"
+Then confirm backend presence in `~/.config/declarch/backends.kdl` imports.
 
-**Cause:** Syntax error in your .kdl file.
+## 2) Missing backend binary
 
-**Fix:**
-Check the error message - it shows line and column:
+Error pattern:
 
-```
-error: No closing '}' for child block
-  --> ~/.config/declarch/base.kdl:8:5
-   |
- 8 │     meta {
-   │      ^
+```text
+Package manager error: yarn not found
 ```
 
-Common fixes:
-- Add quotes: `format "whitespace"` not `format whitespace`
-- Close braces: Every `{` needs a `}`
-- Quote booleans: `needs_sudo "true"` not `needs_sudo true`
+Actions:
 
-### Sync Shows No Changes
+1. install the binary, or
+2. remove backend from active flow, or
+3. configure fallback (`yarn -> npm`).
 
-**Cause:** Packages already installed.
-
-**Fix:** This is normal. Use `declarch list orphans` to see unmanaged packages.
-
-### Permission Denied
-
-**Cause:** Declarch needs write access to `~/.config/declarch/`.
-
-**Fix:**
-```bash
-mkdir -p ~/.config/declarch
-chmod 755 ~/.config/declarch
-```
-
-## Debug Mode
-
-Get more output:
+Verify with:
 
 ```bash
-declarch -v sync
-declarch -vv sync  # Even more verbose
+command -v yarn
 ```
 
-## Check Config
+## 3) Parse errors (KDL)
 
-Validate without syncing:
+Error pattern includes line/column.
+
+Actions:
+
+- fix unbalanced braces
+- check quoting for string values
+- verify command templates contain required placeholders
+
+Validate quickly:
 
 ```bash
 declarch check validate
 ```
 
-## Reset State
+## 4) Search timeout/slow backend
 
-If state gets corrupted:
+Actions:
+
+```bash
+# narrow scope
+declarch search firefox -b flatpak --limit 10
+
+# local-only mode
+declarch search firefox --local
+```
+
+Also audit backend `search`/`search_local` command for interactive behavior.
+
+## 5) Sync appears to do nothing
+
+Not always a failure. It often means desired and current state already match.
+
+Inspect drift/orphans:
+
+```bash
+declarch info list orphans
+```
+
+## 6) Permissions / sudo
+
+If backend requires root, ensure backend is configured correctly (`needs_sudo`) and your environment can prompt or run privileged commands.
+
+Check config path permissions:
+
+```bash
+mkdir -p ~/.config/declarch
+chmod 755 ~/.config/declarch
+```
+
+## 7) State reset procedure
 
 ```bash
 rm ~/.config/declarch/state.json
 declarch init
+declarch sync preview
 ```
 
-## Still Stuck?
+## 8) Debug bundle
 
-1. Run `declarch check` for diagnostics
-2. Run with `-v` for verbose output
-3. Check [GitHub Issues](https://github.com/nixval/declarch/issues)
+Run this sequence before opening issue:
+
+```bash
+declarch -v check validate
+declarch -v info
+declarch -v sync preview
+```
+
+Issue tracker:
+- https://github.com/nixval/declarch/issues

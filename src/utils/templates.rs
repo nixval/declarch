@@ -12,7 +12,6 @@ pub fn default_host(hostname: &str) -> String {
         r#"// Host configuration for {hostname}
 // Declarch v0.8.0
 
-// === META ===
 meta {{
     title "{hostname} Setup"
     description "My {hostname} setup"
@@ -20,30 +19,31 @@ meta {{
     version "1.0.0"
 }}
 
-// === IMPORTS ===
-imports {{
+// Editor for 'declarch edit' command
+// Priority: this field → $VISUAL → $EDITOR → "nano"
+// To use env var instead: delete this line, then export EDITOR=nvim
+editor "nano"
+
+backends {{
     "backends.kdl"
+}}
+
+imports {{
     "modules/base.kdl"
     // Add more modules here
     // "modules/desktop.kdl"
     // "modules/development.kdl"
 }}
 
-// === EDITOR ===
-// Editor used for 'declarch edit' command
-editor "vim"
-
-// === PACKAGES ===
-// Packages are grouped by backend
 pkg {{
+    // Define your packages here
+    // Example:
     // aur {{
-    //     // AUR packages
     //     hyprland
     //     waybar
     // }}
     
     // pacman {{
-    //     // Official repo packages
     //     bat
     //     eza
     //     fd
@@ -51,51 +51,9 @@ pkg {{
     // }}
     
     // flatpak {{
-    //     // Flatpak applications
     //     com.spotify.Client
     // }}
 }}
-
-// === CONFLICTS ===
-// Define packages that cannot be installed together
-// conflicts {{
-//     vim neovim
-//     pipewire pulseaudio
-// }}
-
-// === BACKEND OPTIONS ===
-// Per-backend configuration
-// options:paru {{
-//     noconfirm
-// }}
-
-// === ENVIRONMENT VARIABLES ===
-// Global and per-backend environment variables
-// env EDITOR="vim" VISUAL="vim"
-// env:paru MAKEFLAGS="-j4"
-
-// === REPOSITORIES ===
-// Custom repositories for backends
-// repos:paru {{
-//     "https://aur.archlinux.org"
-// }}
-
-// === POLICY ===
-// System protection and orphan handling
-// policy {{
-//     protected {{
-//         linux
-//         systemd
-//     }}
-//     orphans "ask"  // ask, remove, or keep
-// }}
-
-// === HOOKS ===
-// Note: Hooks are disabled by default for security.
-// Use --hooks flag to enable: declarch sync --hooks
-//
-// on-sync "notify-send 'Packages updated'"
-// on-sync-sudo "systemctl restart gdm"
 
 excludes {{
     // Add packages to exclude from sync

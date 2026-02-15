@@ -1,12 +1,22 @@
 use crate::config::loader;
+use crate::commands::runtime_overrides::{
+    apply_runtime_backend_overrides, load_runtime_config_for_command,
+};
 use crate::error::Result;
+use crate::packages::traits::PackageManager;
 use crate::state;
 use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
-use std::process::Command;
 use terminal_size::{Width, terminal_size};
+
+/// Indentation width used for package display formatting
+const PACKAGE_INDENT_WIDTH: usize = 4;
+/// Prefix length reserved for backend name in package listing
+const BACKEND_PREFIX_LEN: usize = 10;
+/// Indentation for line continuation in multi-line package lists
+const CONTINUATION_INDENT: &str = "     ";
 
 pub struct InfoOptions {
     pub doctor: bool,
@@ -18,6 +28,10 @@ pub struct InfoOptions {
 
 pub fn run(options: InfoOptions) -> Result<()> {
     if options.debug {
+        // SAFETY: This is safe because:
+        // 1. We're in single-threaded startup context before any threads are spawned
+        // 2. No other code is concurrently accessing environment variables
+        // 3. This is a debug-only code path
         unsafe { std::env::set_var("RUST_LOG", "debug") };
         output::info("Debug logging enabled");
     }
@@ -62,8 +76,8 @@ fn run_info(options: &InfoOptions) -> Result<()> {
     let format_str = options.format.as_deref().unwrap_or("table");
 
     match format_str {
-        "json" => output_json_filtered(&filtered_packages, &state),
-        "yaml" => output_yaml_filtered(&filtered_packages, &state),
+        "json" => output_json_filtered(&filtered_packages),
+        "yaml" => output_yaml_filtered(&filtered_packages),
         _ => output_table_filtered(&state, &filtered_packages),
     }
 }
@@ -111,7 +125,6 @@ fn output_table_filtered(
 
 fn output_json_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
-    _state: &state::types::State,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
@@ -123,13 +136,12 @@ fn output_json_filtered(
 
 fn output_yaml_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
-    _state: &state::types::State,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
 
     let json_value = serde_json::to_value(&packages)?;
-    let yaml = serde_yaml::to_string(&json_value)?;
+    let yaml = serde_yml::to_string(&json_value)?;
     println!("{}", yaml);
     Ok(())
 }
@@ -277,29 +289,28 @@ fn run_doctor() -> Result<()> {
     Ok(())
 }
 
-/// Check backends dynamically from backends.kdl
+/// Check backends dynamically from config
 fn check_backends_dynamically() -> Result<Vec<String>> {
     let mut available = Vec::new();
+    let runtime_config = load_runtime_config_for_command("doctor backend checks");
     
-    // Load backend configs
-    match crate::backends::load_all_backends() {
+    // Load backend configs (import-based or legacy)
+    match crate::backends::load_all_backends_unified() {
         Ok(backends) => {
-            for (name, config) in backends {
-                // Check if binary is available
-                let binary_available = match &config.binary {
-                    crate::backends::config::BinarySpecifier::Single(bin) => {
-                        is_command_available(bin)
-                    }
-                    crate::backends::config::BinarySpecifier::Multiple(bins) => {
-                        bins.iter().any(|b| is_command_available(b))
-                    }
-                };
-                
-                if binary_available {
+            for (name, mut config) in backends {
+                apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
+
+                let manager = crate::backends::GenericManager::from_config(
+                    config,
+                    crate::core::types::Backend::from(name.as_str()),
+                    false,
+                );
+
+                if manager.is_available() {
                     output::success(&format!("{}: Available", name));
                     available.push(name);
                 } else {
-                    output::warning(&format!("{}: Binary not found", name));
+                    output::warning(&format!("{}: Backend binary not found", name));
                 }
             }
         }
@@ -314,14 +325,6 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
     }
     
     Ok(available)
-}
-
-fn is_command_available(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
 }
 
 /// Print packages grouped by backend with horizontal display per group
@@ -364,8 +367,7 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
 }
 
 fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
-    let prefix_len = 10;
-    let available_width = term_width.saturating_sub(prefix_len + 4);
+    let available_width = term_width.saturating_sub(BACKEND_PREFIX_LEN + PACKAGE_INDENT_WIDTH);
 
     if available_width < 20 {
         return pkg_names.join(" ");
@@ -397,7 +399,7 @@ fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
     }
 
     if lines.len() > 1 {
-        lines.join("\n     ")
+        lines.join(&format!("\n{CONTINUATION_INDENT}"))
     } else {
         lines.join("\n")
     }
