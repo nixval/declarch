@@ -48,7 +48,9 @@ jobs:
       - name: Prepare archive
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../declarch-${{ matrix.target }}.tar.gz declarch decl
+          cp ../../../README.md .
+          cp ../../../LICENSE .
+          tar czf ../../declarch-${{ matrix.target }}.tar.gz declarch decl README.md LICENSE
           cd ../..
 
       - name: Upload artifact
@@ -96,4 +98,4 @@ jobs:
       - name: Publish info
         run: |
           echo "Release created!"
-          echo "Publish to AUR with: ./.aur/publish.sh"
+          echo "Publish to AUR with: ./.aur/scripts/publish.sh"

@@ -41,6 +41,7 @@ personal-docs/
 
 # Keep AUR templates tracked
 !.aur/templates/
+!.aur/templates/**
 
 # =============================================================================
 # Config and state files (runtime)

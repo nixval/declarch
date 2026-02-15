@@ -26,7 +26,7 @@ Complete release process with one command:
 
 ```bash
 # From repository root
-./.aur/scripts/release.sh 0.4.0
+./.aur/scripts/release.sh 0.8.0
 ```
 
 This script will:
@@ -46,7 +46,7 @@ If you prefer manual control:
 
 #### Step 1: Prepare Release
 ```bash
-./.aur/scripts/release.sh 0.4.0
+./.aur/scripts/release.sh 0.8.0
 ```
 
 #### Step 2: Wait for GitHub Actions
@@ -56,7 +56,7 @@ Wait until all checks pass (±10 minutes).
 
 #### Step 3: Publish to AUR
 ```bash
-./.aur/scripts/publish.sh 0.4.0
+./.aur/scripts/publish.sh 0.8.0
 ```
 
 This script will:
@@ -123,8 +123,8 @@ Then run the script again.
 
 | Command | Purpose |
 |---------|---------|
-| `./.aur/scripts/release.sh 0.4.0` | Complete release automation |
-| `./.aur/scripts/publish.sh 0.4.0` | Publish to AUR (after GitHub Actions) |
+| `./.aur/scripts/release.sh 0.8.0` | Complete release automation |
+| `./.aur/scripts/publish.sh 0.8.0` | Publish to AUR (after GitHub Actions) |
 | `https://github.com/nixval/declarch/actions` | Monitor GitHub Actions |
 
 ## Version Auto-Detection
@@ -139,6 +139,6 @@ Scripts can automatically detect version from `Cargo.toml`:
 Or specify version explicitly:
 
 ```bash
-./.aur/scripts/release.sh 0.4.0
-./.aur/scripts/publish.sh 0.4.0
+./.aur/scripts/release.sh 0.8.0
+./.aur/scripts/publish.sh 0.8.0
 ```

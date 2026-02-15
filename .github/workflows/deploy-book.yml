@@ -6,7 +6,7 @@ on:
     branches: ["main"]
     paths:
       - 'docs-book/**'
-      - 'book.toml'
+      - 'docs-book/book.toml'
       - '.github/workflows/deploy-book.yml'
 
   # Allows you to run this workflow manually from the Actions tab

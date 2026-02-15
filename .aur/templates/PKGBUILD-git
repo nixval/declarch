@@ -42,11 +42,11 @@ package() {
 
   # Strip binaries
   strip --strip-all "target/release/$_pkgname"
-  strip --strip-all "target/release/dcl"
+  strip --strip-all "target/release/decl"
 
   # Install binaries
   install -Dm755 "target/release/$_pkgname" "$pkgdir/usr/bin/$_pkgname"
-  install -Dm755 "target/release/dcl" "$pkgdir/usr/bin/dcl"
+  install -Dm755 "target/release/decl" "$pkgdir/usr/bin/decl"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
