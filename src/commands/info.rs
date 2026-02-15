@@ -1,7 +1,7 @@
-use crate::config::loader;
 use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
 };
+use crate::config::loader;
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
 use crate::state;
@@ -58,9 +58,10 @@ fn run_info(options: &InfoOptions) -> Result<()> {
                     let name = extract_package_name(key);
 
                     if let Some(filter_pkg) = package_filter
-                        && !name.contains(filter_pkg) {
-                            return false;
-                        }
+                        && !name.contains(filter_pkg)
+                    {
+                        return false;
+                    }
 
                     if let Some(filter_backend) = backend_filter {
                         pkg_state.backend == crate::core::types::Backend::from(filter_backend)
@@ -293,7 +294,7 @@ fn run_doctor() -> Result<()> {
 fn check_backends_dynamically() -> Result<Vec<String>> {
     let mut available = Vec::new();
     let runtime_config = load_runtime_config_for_command("doctor backend checks");
-    
+
     // Load backend configs (import-based or legacy)
     match crate::backends::load_all_backends_unified() {
         Ok(backends) => {
@@ -318,12 +319,12 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
             output::warning(&format!("Could not load backend configs: {}", e));
         }
     }
-    
+
     if available.is_empty() {
         output::warning("No backends configured or available");
         output::info("Run 'declarch init --backend <name>' to add a backend");
     }
-    
+
     Ok(available)
 }
 
@@ -356,13 +357,14 @@ fn print_packages_horizontally(packages: Vec<(&String, &state::types::PackageSta
     // Display each backend group
     for backend in backends {
         if let Some(pkg_names) = grouped.get(&backend)
-            && !pkg_names.is_empty() {
-                println!(
-                    "  {}: {}",
-                    backend.bold().cyan(),
-                    format_packages_inline(pkg_names, term_width)
-                );
-            }
+            && !pkg_names.is_empty()
+        {
+            println!(
+                "  {}: {}",
+                backend.bold().cyan(),
+                format_packages_inline(pkg_names, term_width)
+            );
+        }
     }
 }
 

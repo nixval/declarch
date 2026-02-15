@@ -15,9 +15,8 @@ const DEFAULT_HOOK_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Safe character regex for hook command validation
 /// Compiled once and reused for performance and safety
-static SAFE_CHAR_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9_\-.\s/:]+$").expect("Valid regex pattern")
-});
+static SAFE_CHAR_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-.\s/:]+$").expect("Valid regex pattern"));
 
 /// Execute hooks for a specific phase
 pub fn execute_hooks_by_phase(
@@ -61,18 +60,24 @@ pub fn execute_hooks(
             phase_name
         ));
         display_hooks(hooks, phase_name, true);
-        
+
         println!("\n{}", "⚠️  Security Warning:".yellow().bold());
-        println!("{}", "   Hooks can execute arbitrary system commands.".yellow());
-        println!("{}", "   Only enable hooks from sources you trust.".yellow());
-        
+        println!(
+            "{}",
+            "   Hooks can execute arbitrary system commands.".yellow()
+        );
+        println!(
+            "{}",
+            "   Only enable hooks from sources you trust.".yellow()
+        );
+
         println!("\n{}", "To enable hooks after reviewing:".dimmed());
         println!("  {}", "declarch sync --hooks".bold());
         println!("  {}", "dc sync --hooks".dimmed());
-        
+
         println!("\n{}", "To review the full config:".dimmed());
         println!("  {}", "cat ~/.config/declarch/declarch.kdl".dimmed());
-        
+
         return Ok(());
     }
 
@@ -138,7 +143,7 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
     // Security: Prevent path traversal in commands
     if hook.command.contains("../") || hook.command.contains("..\\") {
         return Err(DeclarchError::ConfigError(
-            "Hook command contains path traversal sequence (../)".to_string()
+            "Hook command contains path traversal sequence (../)".to_string(),
         ));
     }
 
@@ -206,11 +211,11 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
                     ));
                     let _ = child.kill();
                     let _ = child.wait();
-                    
+
                     match hook.error_behavior {
                         ErrorBehavior::Required => {
                             return Err(DeclarchError::Other(
-                                "Required hook timed out".to_string()
+                                "Required hook timed out".to_string(),
                             ));
                         }
                         ErrorBehavior::Ignore => return Ok(()),
@@ -238,7 +243,7 @@ fn handle_hook_status(hook: &LifecycleAction, status: std::process::ExitStatus) 
     if status.success() {
         return Ok(());
     }
-    
+
     // Handle based on error_behavior
     match hook.error_behavior {
         ErrorBehavior::Required => Err(DeclarchError::Other(format!(

@@ -167,7 +167,10 @@ mod tests {
 
         assert_eq!(identity.config_name, "hyprland");
         assert_eq!(identity.provides_name, "hyprland");
-        assert_eq!(identity.actual_package_name, Some("hyprland-git".to_string()));
+        assert_eq!(
+            identity.actual_package_name,
+            Some("hyprland-git".to_string())
+        );
     }
 
     #[test]

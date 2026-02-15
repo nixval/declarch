@@ -91,7 +91,11 @@ fn test_smart_match_prefix_variant() {
 
 #[test]
 fn test_smart_match_flatpak_case_insensitive() {
-    let snapshot = create_snapshot(vec![("com.spotify.Client", Backend::from("flatpak"), "1.2.0")]);
+    let snapshot = create_snapshot(vec![(
+        "com.spotify.Client",
+        Backend::from("flatpak"),
+        "1.2.0",
+    )]);
 
     let matcher = PackageMatcher::new();
     let target = PackageId {

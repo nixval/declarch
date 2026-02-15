@@ -2,15 +2,23 @@
 //!
 //! Handles package variant matching (-bin, -git, etc.) for smart package identification
 
-use crate::core::types::PackageId;
 use super::InstalledSnapshot;
+use crate::core::types::PackageId;
 
 /// Common package variant suffixes for smart matching
-const VARIANT_SUFFIXES: &[&str] = &["-bin", "-git", "-hg", "-nightly", "-beta", "-wayland", "-appimage"];
+const VARIANT_SUFFIXES: &[&str] = &[
+    "-bin",
+    "-git",
+    "-hg",
+    "-nightly",
+    "-beta",
+    "-wayland",
+    "-appimage",
+];
 
 /// Try to find a package variant in the installed snapshot
 /// Returns the variant name if found, otherwise None
-/// 
+///
 /// This works for any backend, not just AUR. For example:
 /// - "hyprland" might match "hyprland-git" or "hyprland-bin"
 /// - "firefox" might match "firefox-nightly"
@@ -65,8 +73,7 @@ pub fn resolve_installed_package_name(
     // (where package IDs are long like com.spotify.Client)
     let search = pkg.name.to_lowercase();
     for installed_id in installed_snapshot.keys() {
-        if installed_id.backend == pkg.backend
-            && installed_id.name.to_lowercase().contains(&search)
+        if installed_id.backend == pkg.backend && installed_id.name.to_lowercase().contains(&search)
         {
             return installed_id.name.clone();
         }
@@ -79,5 +86,7 @@ pub fn resolve_installed_package_name(
 /// Check if a package name looks like a variant (has known suffix)
 #[allow(dead_code)]
 pub fn is_variant(package_name: &str) -> bool {
-    VARIANT_SUFFIXES.iter().any(|suffix| package_name.ends_with(suffix))
+    VARIANT_SUFFIXES
+        .iter()
+        .any(|suffix| package_name.ends_with(suffix))
 }

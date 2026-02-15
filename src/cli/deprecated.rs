@@ -18,7 +18,7 @@ pub fn handle_deprecated_sync_flags(
 ) -> (bool, SyncCommand, &'static str) {
     // Check if any deprecated flag is actually used
     let has_deprecated_flags = dry_run || update || prune;
-    
+
     let deprecated_command = if dry_run {
         SyncCommand::Preview {
             gc,
@@ -148,10 +148,7 @@ pub fn handle_deprecated_info_flags(doctor: bool) -> (bool, InfoCommand) {
 }
 
 /// Convert deprecated list flags to ListSubcommand
-pub fn handle_deprecated_list_flags(
-    orphans: bool,
-    synced: bool,
-) -> (bool, ListSubcommand, String) {
+pub fn handle_deprecated_list_flags(orphans: bool, synced: bool) -> (bool, ListSubcommand, String) {
     let (has_deprecated, deprecated_command) = if orphans {
         (true, ListSubcommand::Orphans { backend: None })
     } else if synced {

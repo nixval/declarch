@@ -2,11 +2,14 @@
 //!
 //! Updates state.json with new package information.
 
-use crate::core::{resolver, types::{PackageId, PackageMetadata}};
-use crate::error::Result;
-use crate::state::types::{State, PackageState};
-use crate::ui;
 use super::{InstalledSnapshot, SyncOptions};
+use crate::core::{
+    resolver,
+    types::{PackageId, PackageMetadata},
+};
+use crate::error::Result;
+use crate::state::types::{PackageState, State};
+use crate::ui;
 use chrono::Utc;
 use std::collections::HashSet;
 
@@ -50,11 +53,12 @@ pub fn update_state_with_success(
             continue;
         }
 
-        let (version, actual_name) = if let Some((meta, name)) = find_package_info(pkg, installed_snapshot) {
-            (meta.version.clone(), name)
-        } else {
-            (None, None)
-        };
+        let (version, actual_name) =
+            if let Some((meta, name)) = find_package_info(pkg, installed_snapshot) {
+                (meta.version.clone(), name)
+            } else {
+                (None, None)
+            };
         let key = resolver::make_state_key(pkg);
 
         state.packages.insert(
@@ -73,11 +77,12 @@ pub fn update_state_with_success(
 
     // Process adoptions (these are already installed, so always add)
     for pkg in &transaction.to_adopt {
-        let (version, actual_name) = if let Some((meta, name)) = find_package_info(pkg, installed_snapshot) {
-            (meta.version.clone(), name)
-        } else {
-            (None, None)
-        };
+        let (version, actual_name) =
+            if let Some((meta, name)) = find_package_info(pkg, installed_snapshot) {
+                (meta.version.clone(), name)
+            } else {
+                (None, None)
+            };
         let key = resolver::make_state_key(pkg);
 
         state.packages.insert(
@@ -105,7 +110,10 @@ pub fn update_state_with_success(
         ui::success(&format!("Added {} package(s) to state", added_count));
     }
     if failed_count > 0 {
-        ui::warning(&format!("{} package(s) failed and were not added to state", failed_count));
+        ui::warning(&format!(
+            "{} package(s) failed and were not added to state",
+            failed_count
+        ));
     }
 
     Ok(state)
@@ -127,7 +135,7 @@ fn find_package_info<'a>(
     let matcher = crate::core::matcher::PackageMatcher::new();
     let matched_id = matcher.find_package(pkg, installed_snapshot)?;
     let meta = installed_snapshot.get(&matched_id)?;
-    
+
     // Return metadata + actual package name (variant)
     Some((meta, Some(matched_id.name.clone())))
 }

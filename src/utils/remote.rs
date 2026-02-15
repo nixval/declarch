@@ -5,7 +5,8 @@ use reqwest::blocking::Client;
 use std::time::Duration;
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
-const BACKENDS_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main/backends";
+const BACKENDS_REGISTRY: &str =
+    "https://raw.githubusercontent.com/nixval/declarch-packages/main/backends";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Allowed URL schemes for security (prevent SSRF)
@@ -130,7 +131,10 @@ fn build_backend_urls(backend_name: &str) -> Vec<String> {
             let (owner, repo) = (parts[0], parts[1]);
             urls.push(format!(
                 "https://raw.githubusercontent.com/{}/{}/main/backends/{}.{}",
-                owner, repo, parts.last().unwrap_or(&"backend"), CONFIG_EXTENSION
+                owner,
+                repo,
+                parts.last().unwrap_or(&"backend"),
+                CONFIG_EXTENSION
             ));
         }
     }
@@ -320,7 +324,10 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
         resp.text()
             .map_err(|e| DeclarchError::RemoteFetchError(format!("Response read: {}", e)))
     } else {
-        Err(DeclarchError::RemoteFetchError(format!("HTTP {}", resp.status())))
+        Err(DeclarchError::RemoteFetchError(format!(
+            "HTTP {}",
+            resp.status()
+        )))
     }
 }
 

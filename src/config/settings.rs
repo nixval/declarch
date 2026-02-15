@@ -167,7 +167,10 @@ impl Settings {
                         continue;
                     }
                     // Basic validation: alphanumeric and hyphens only
-                    if !backend.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+                    if !backend
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '-')
+                    {
                         return Err(DeclarchError::Other(format!(
                             "Invalid backend name: '{}'. Use only letters, numbers, and hyphens.",
                             backend

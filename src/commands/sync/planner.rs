@@ -2,15 +2,15 @@
 //!
 //! Determines what packages to install, adopt, prune, and update.
 
+use super::{InstalledSnapshot, ManagerMap, SyncOptions};
 use crate::config::loader;
 use crate::constants::CRITICAL_PACKAGES;
 use crate::core::{resolver, types::SyncTarget};
 use crate::error::{DeclarchError, Result};
 use crate::state::types::State;
 use crate::ui as output;
-use colored::Colorize;
 use chrono::Utc;
-use super::{InstalledSnapshot, SyncOptions, ManagerMap};
+use colored::Colorize;
 
 /// Create transaction from current state and desired config
 /// This is a wrapper that calls resolve_and_filter_packages
@@ -51,13 +51,16 @@ pub fn resolve_and_filter_packages(
     let skipped_count = total_packages - filtered_packages.len();
     if skipped_count > 0 {
         // Group skipped packages by backend for concise output
-        let mut skipped_by_backend: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut skipped_by_backend: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         for (pkg_id, _) in config.packages.iter() {
             if !available_backends.contains(&pkg_id.backend) {
-                *skipped_by_backend.entry(pkg_id.backend.to_string()).or_insert(0) += 1;
+                *skipped_by_backend
+                    .entry(pkg_id.backend.to_string())
+                    .or_insert(0) += 1;
             }
         }
-        
+
         for (backend, count) in skipped_by_backend {
             output::warning(&format!(
                 "Skipping {} package(s), backend '{}' not available. Run 'declarch init --backend {}'",
@@ -222,10 +225,16 @@ pub fn warn_partial_upgrade(state: &State, tx: &resolver::Transaction, options: 
 }
 
 /// Group packages by backend for display
-fn group_by_backend(packages: &[crate::core::types::PackageId]) -> std::collections::HashMap<String, Vec<String>> {
-    let mut groups: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+fn group_by_backend(
+    packages: &[crate::core::types::PackageId],
+) -> std::collections::HashMap<String, Vec<String>> {
+    let mut groups: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for pkg in packages {
-        groups.entry(pkg.backend.to_string()).or_default().push(pkg.name.clone());
+        groups
+            .entry(pkg.backend.to_string())
+            .or_default()
+            .push(pkg.name.clone());
     }
     // Sort packages within each backend
     for packages in groups.values_mut() {
@@ -238,14 +247,15 @@ fn group_by_backend(packages: &[crate::core::types::PackageId]) -> std::collecti
 fn format_backend_groups(groups: &std::collections::HashMap<String, Vec<String>>) -> String {
     let mut backends: Vec<_> = groups.keys().collect();
     backends.sort();
-    
+
     let mut result = String::new();
     for (i, backend) in backends.iter().enumerate() {
         if let Some(packages) = groups.get(*backend) {
             if i > 0 {
                 result.push_str("\n         ");
             }
-            result.push_str(&format!("({}): {}", 
+            result.push_str(&format!(
+                "({}): {}",
                 backend.cyan(),
                 packages.join(", ").dimmed()
             ));
@@ -255,26 +265,33 @@ fn format_backend_groups(groups: &std::collections::HashMap<String, Vec<String>>
 }
 
 /// Display the transaction plan to the user with backend grouping
-pub fn display_transaction_plan(
-    tx: &resolver::Transaction,
-    should_prune: bool,
-) {
-    let has_changes = !tx.to_install.is_empty() || !tx.to_adopt.is_empty() || (!tx.to_prune.is_empty() && should_prune);
-    
+pub fn display_transaction_plan(tx: &resolver::Transaction, should_prune: bool) {
+    let has_changes = !tx.to_install.is_empty()
+        || !tx.to_adopt.is_empty()
+        || (!tx.to_prune.is_empty() && should_prune);
+
     if !has_changes {
         return;
     }
-    
+
     println!("{}", "Changes:".green().bold());
 
     if !tx.to_install.is_empty() {
         let groups = group_by_backend(&tx.to_install);
-        println!("  {} {}", "Install:".green(), format_backend_groups(&groups));
+        println!(
+            "  {} {}",
+            "Install:".green(),
+            format_backend_groups(&groups)
+        );
     }
 
     if !tx.to_adopt.is_empty() {
         let groups = group_by_backend(&tx.to_adopt);
-        println!("  {}   {}", "Adopt:".yellow(), format_backend_groups(&groups));
+        println!(
+            "  {}   {}",
+            "Adopt:".yellow(),
+            format_backend_groups(&groups)
+        );
     }
 
     if !tx.to_prune.is_empty() && should_prune {
@@ -295,7 +312,11 @@ pub fn display_transaction_plan(
                 (backend, modified)
             })
             .collect();
-        println!("  {}  {}", "Remove:".red(), format_backend_groups(&formatted));
+        println!(
+            "  {}  {}",
+            "Remove:".red(),
+            format_backend_groups(&formatted)
+        );
     }
 }
 
@@ -306,28 +327,39 @@ pub fn display_dry_run_details(
     should_prune: bool,
     installed_snapshot: &InstalledSnapshot,
 ) {
-    let has_changes = !tx.to_install.is_empty() || !tx.to_adopt.is_empty() || (!tx.to_prune.is_empty() && should_prune);
-    
+    let has_changes = !tx.to_install.is_empty()
+        || !tx.to_adopt.is_empty()
+        || (!tx.to_prune.is_empty() && should_prune);
+
     if !has_changes {
         output::success("Dry-run: No changes needed - everything is up to date!");
         return;
     }
-    
+
     output::separator();
     println!("{}", "🧪 DRY-RUN SIMULATION".cyan().bold());
-    println!("{}", "   No changes will be made to your system.\n".dimmed());
+    println!(
+        "{}",
+        "   No changes will be made to your system.\n".dimmed()
+    );
 
     // Summary statistics
     let install_count = tx.to_install.len();
     let adopt_count = tx.to_adopt.len();
     let prune_count = if should_prune { tx.to_prune.len() } else { 0 };
-    
+
     println!("{}", "Summary:".bold());
     if install_count > 0 {
-        println!("  • {} new package(s) to install", install_count.to_string().green());
+        println!(
+            "  • {} new package(s) to install",
+            install_count.to_string().green()
+        );
     }
     if adopt_count > 0 {
-        println!("  • {} package(s) to adopt into state", adopt_count.to_string().yellow());
+        println!(
+            "  • {} package(s) to adopt into state",
+            adopt_count.to_string().yellow()
+        );
     }
     if prune_count > 0 {
         println!("  • {} package(s) to remove", prune_count.to_string().red());
@@ -352,7 +384,11 @@ pub fn display_dry_run_details(
             println!("  {}:", backend.cyan());
             for pkg in packages {
                 if CRITICAL_PACKAGES.contains(&pkg.as_str()) {
-                    println!("    • {} {} (protected)", pkg.red(), "[will be kept]".yellow());
+                    println!(
+                        "    • {} {} (protected)",
+                        pkg.red(),
+                        "[will be kept]".yellow()
+                    );
                 } else {
                     println!("    • {}", pkg.red());
                 }
@@ -364,12 +400,18 @@ pub fn display_dry_run_details(
     println!();
     output::separator();
     println!("{}", "Pre-flight Checks:".bold());
-    
+
     // Check for packages already installed (would be adopted instead)
-    let already_installed: Vec<_> = tx.to_install.iter()
-        .filter(|pkg| installed_snapshot.keys().any(|pkg_id| pkg_id.name == pkg.name))
+    let already_installed: Vec<_> = tx
+        .to_install
+        .iter()
+        .filter(|pkg| {
+            installed_snapshot
+                .keys()
+                .any(|pkg_id| pkg_id.name == pkg.name)
+        })
         .collect();
-    
+
     if !already_installed.is_empty() {
         output::warning(&format!(
             "{} package(s) appear to already be installed but not tracked in state",
@@ -394,14 +436,23 @@ fn display_package_groups_detailed(
         println!("  {}:", backend.cyan());
         for name in pkg_names {
             // Check if this package is already installed (would be variant transition)
-            let variant_info = installed_snapshot.iter()
+            let variant_info = installed_snapshot
+                .iter()
                 .find(|(pkg_id, _)| pkg_id.name == name && pkg_id.backend.to_string() == backend);
-            
+
             if let Some((_, meta)) = variant_info {
                 if let Some(ref version) = meta.version {
-                    println!("    • {} {}", name.green(), format!("(v{} already installed)", version).dimmed());
+                    println!(
+                        "    • {} {}",
+                        name.green(),
+                        format!("(v{} already installed)", version).dimmed()
+                    );
                 } else {
-                    println!("    • {} {}", name.green(), "(already installed, untracked)".dimmed());
+                    println!(
+                        "    • {} {}",
+                        name.green(),
+                        "(already installed, untracked)".dimmed()
+                    );
                 }
             } else {
                 println!("    • {}", name.green());

@@ -2,16 +2,19 @@
 //!
 //! Installs, adopts, and prunes packages based on transaction plan.
 
-use crate::config::loader;
-use crate::constants::CRITICAL_PACKAGES;
-use crate::core::{resolver, types::{Backend, PackageId}};
-use crate::error::{DeclarchError, Result};
-use crate::ui as output;
+use super::variants::resolve_installed_package_name;
+use super::{InstalledSnapshot, ManagerMap, SyncOptions};
 use crate::commands::sync::hooks::{
     execute_post_install, execute_post_remove, execute_pre_install, execute_pre_remove,
 };
-use super::{ManagerMap, SyncOptions, InstalledSnapshot};
-use super::variants::resolve_installed_package_name;
+use crate::config::loader;
+use crate::constants::CRITICAL_PACKAGES;
+use crate::core::{
+    resolver,
+    types::{Backend, PackageId},
+};
+use crate::error::{DeclarchError, Result};
+use crate::ui as output;
 use colored::Colorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -34,7 +37,7 @@ where
     F: FnMut() -> Result<()>,
 {
     let mut last_error = None;
-    
+
     for attempt in 1..=max_retries {
         match operation() {
             Ok(()) => return Ok(()),
@@ -53,9 +56,12 @@ where
             }
         }
     }
-    
+
     Err(last_error.unwrap_or_else(|| {
-        DeclarchError::Other(format!("{} failed after {} attempts", operation_name, max_retries))
+        DeclarchError::Other(format!(
+            "{} failed after {} attempts",
+            operation_name, max_retries
+        ))
     }))
 }
 
@@ -112,13 +118,7 @@ pub fn execute_transaction(
 
     // Execute pruning if enabled
     if options.prune && !transaction.to_prune.is_empty() {
-        execute_pruning(
-            config,
-            transaction,
-            managers,
-            options,
-            &installed_snapshot,
-        )?;
+        execute_pruning(config, transaction, managers, options, &installed_snapshot)?;
     }
 
     Ok(successfully_installed)
@@ -161,7 +161,10 @@ fn execute_installations(
             let pre_install_snapshot: HashSet<_> = match mgr.list_installed() {
                 Ok(pkgs) => pkgs.keys().cloned().collect(),
                 Err(e) => {
-                    output::error(&format!("Failed to list installed packages for {}: {}", backend, e));
+                    output::error(&format!(
+                        "Failed to list installed packages for {}: {}",
+                        backend, e
+                    ));
                     continue;
                 }
             };
@@ -175,7 +178,10 @@ fn execute_installations(
             );
 
             if let Err(e) = install_result {
-                output::error(&format!("Failed to install packages for {}: {}", backend, e));
+                output::error(&format!(
+                    "Failed to install packages for {}: {}",
+                    backend, e
+                ));
                 output::info("Continuing with other backends...");
                 continue;
             }
@@ -184,7 +190,10 @@ fn execute_installations(
             let post_install_snapshot: HashSet<_> = match mgr.list_installed() {
                 Ok(pkgs) => pkgs.keys().cloned().collect(),
                 Err(e) => {
-                    output::warning(&format!("Failed to verify installation for {}: {}", backend, e));
+                    output::warning(&format!(
+                        "Failed to verify installation for {}: {}",
+                        backend, e
+                    ));
                     // Assume all packages were installed
                     for pkg_name in &pkgs {
                         execute_post_install(
@@ -366,12 +375,10 @@ fn execute_pruning(
                     if error_msg.contains("does not support removing") {
                         output::warning(&format!(
                             "Cannot remove {} package(s) - backend '{}' does not support removal",
-                            pkgs.len(), backend
+                            pkgs.len(),
+                            backend
                         ));
-                        output::info(&format!(
-                            "Packages not removed: {}",
-                            pkgs.join(", ")
-                        ));
+                        output::info(&format!("Packages not removed: {}", pkgs.join(", ")));
                     } else {
                         return Err(e);
                     }

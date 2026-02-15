@@ -32,22 +32,25 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
             }
             "import" => {
                 // Handle top-level import statements: import "backends/name.kdl"
-                if let Some(path_val) = node.entries().first()
-                    .and_then(|e| e.value().as_string())
-                    && let Ok(config_dir) = crate::utils::paths::config_dir() {
-                        let import_path = config_dir.join(path_val);
-                        match load_backend_file(&import_path) {
-                            Ok(Some(config)) => {
-                                backends.push(config);
-                            }
-                            Ok(None) => {
-                                // File doesn't exist, skip
-                            }
-                            Err(e) => {
-                                ui::warning(&format!("Failed to load backend from '{}': {}", path_val, e));
-                            }
+                if let Some(path_val) = node.entries().first().and_then(|e| e.value().as_string())
+                    && let Ok(config_dir) = crate::utils::paths::config_dir()
+                {
+                    let import_path = config_dir.join(path_val);
+                    match load_backend_file(&import_path) {
+                        Ok(Some(config)) => {
+                            backends.push(config);
+                        }
+                        Ok(None) => {
+                            // File doesn't exist, skip
+                        }
+                        Err(e) => {
+                            ui::warning(&format!(
+                                "Failed to load backend from '{}': {}",
+                                path_val, e
+                            ));
                         }
                     }
+                }
             }
             "imports" => {
                 // Handle imports { ... } block
@@ -56,50 +59,63 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                 for entry in node.entries() {
                     if let Some(path_val) = entry.value().as_string()
                         && path_val.ends_with(".kdl")
-                            && let Ok(config_dir) = crate::utils::paths::config_dir() {
+                        && let Ok(config_dir) = crate::utils::paths::config_dir()
+                    {
+                        let import_path = config_dir.join(path_val);
+                        match load_backend_file(&import_path) {
+                            Ok(Some(config)) => backends.push(config),
+                            Ok(None) => {}
+                            Err(e) => {
+                                eprintln!(
+                                    "Warning: Failed to load backend from '{}': {}",
+                                    path_val, e
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Also check children (for import "path" style or other node types)
+                if let Some(children) = node.children() {
+                    for child in children.nodes() {
+                        let child_name = child.name().value();
+
+                        // Handle import "path" nodes
+                        if child_name == "import" {
+                            if let Some(path_val) =
+                                child.entries().first().and_then(|e| e.value().as_string())
+                                && let Ok(config_dir) = crate::utils::paths::config_dir()
+                            {
                                 let import_path = config_dir.join(path_val);
                                 match load_backend_file(&import_path) {
                                     Ok(Some(config)) => backends.push(config),
                                     Ok(None) => {}
                                     Err(e) => {
-                                        eprintln!("Warning: Failed to load backend from '{}': {}", path_val, e);
+                                        ui::warning(&format!(
+                                            "Failed to load backend from '{}': {}",
+                                            path_val, e
+                                        ));
                                     }
                                 }
                             }
-                }
-                
-                // Also check children (for import "path" style or other node types)
-                if let Some(children) = node.children() {
-                    for child in children.nodes() {
-                        let child_name = child.name().value();
-                        
-                        // Handle import "path" nodes
-                        if child_name == "import" {
-                            if let Some(path_val) = child.entries().first()
-                                .and_then(|e| e.value().as_string())
-                                && let Ok(config_dir) = crate::utils::paths::config_dir() {
-                                    let import_path = config_dir.join(path_val);
-                                    match load_backend_file(&import_path) {
-                                        Ok(Some(config)) => backends.push(config),
-                                        Ok(None) => {}
-                                        Err(e) => {
-                                            ui::warning(&format!("Failed to load backend from '{}': {}", path_val, e));
-                                        }
-                                    }
-                                }
                         }
                         // Handle bare string child nodes like "backends/name.kdl"
-                        else if child_name.ends_with(".kdl") && child_name.contains('/')
-                            && let Ok(config_dir) = crate::utils::paths::config_dir() {
-                                let import_path = config_dir.join(child_name);
-                                match load_backend_file(&import_path) {
-                                    Ok(Some(config)) => backends.push(config),
-                                    Ok(None) => {}
-                                    Err(e) => {
-                                        ui::warning(&format!("Failed to load backend from '{}': {}", child_name, e));
-                                    }
+                        else if child_name.ends_with(".kdl")
+                            && child_name.contains('/')
+                            && let Ok(config_dir) = crate::utils::paths::config_dir()
+                        {
+                            let import_path = config_dir.join(child_name);
+                            match load_backend_file(&import_path) {
+                                Ok(Some(config)) => backends.push(config),
+                                Ok(None) => {}
+                                Err(e) => {
+                                    ui::warning(&format!(
+                                        "Failed to load backend from '{}': {}",
+                                        child_name, e
+                                    ));
                                 }
                             }
+                        }
                     }
                 }
             }
@@ -111,7 +127,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
 }
 
 /// Parse a single backend from file content
-/// 
+///
 /// Used for individual backend files in backends/ directory
 pub fn parse_backend_file(content: &str) -> Result<Option<BackendConfig>> {
     let doc = KdlDocument::parse(content)
@@ -281,22 +297,13 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     };
                 }
                 "json_path" => {
-                    config.list_json_path = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.list_json_path = child.entries().first().and_then(get_entry_string);
                 }
                 "name_key" => {
-                    config.list_name_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.list_name_key = child.entries().first().and_then(get_entry_string);
                 }
                 "version_key" => {
-                    config.list_version_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.list_version_key = child.entries().first().and_then(get_entry_string);
                 }
                 // Nested json block: json { path "..." name_key "..." version_key "..." }
                 "json" => {
@@ -372,28 +379,30 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                                         .map(|s| s.to_string());
                                 }
                                 "name_group" => {
-                                    config.list_regex_name_group = regex_child.entries().first().and_then(|entry| {
-                                        entry
-                                            .value()
-                                            .as_string()
-                                            .and_then(|s| s.parse::<usize>().ok())
-                                            .or_else(|| {
-                                                let val_str = entry.value().to_string();
-                                                val_str.parse::<usize>().ok()
-                                            })
-                                    });
+                                    config.list_regex_name_group =
+                                        regex_child.entries().first().and_then(|entry| {
+                                            entry
+                                                .value()
+                                                .as_string()
+                                                .and_then(|s| s.parse::<usize>().ok())
+                                                .or_else(|| {
+                                                    let val_str = entry.value().to_string();
+                                                    val_str.parse::<usize>().ok()
+                                                })
+                                        });
                                 }
                                 "version_group" => {
-                                    config.list_regex_version_group = regex_child.entries().first().and_then(|entry| {
-                                        entry
-                                            .value()
-                                            .as_string()
-                                            .and_then(|s| s.parse::<usize>().ok())
-                                            .or_else(|| {
-                                                let val_str = entry.value().to_string();
-                                                val_str.parse::<usize>().ok()
-                                            })
-                                    });
+                                    config.list_regex_version_group =
+                                        regex_child.entries().first().and_then(|entry| {
+                                            entry
+                                                .value()
+                                                .as_string()
+                                                .and_then(|s| s.parse::<usize>().ok())
+                                                .or_else(|| {
+                                                    let val_str = entry.value().to_string();
+                                                    val_str.parse::<usize>().ok()
+                                                })
+                                        });
                                 }
                                 _ => {}
                             }
@@ -405,9 +414,9 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                             .entries()
                             .first()
                             .and_then(|entry| entry.value().as_string())
-                        {
-                            config.list_regex = Some(pattern.to_string());
-                        }
+                    {
+                        config.list_regex = Some(pattern.to_string());
+                    }
                 }
                 // Flat format (legacy support)
                 "pattern" | "regex_pat" | "myregex" => {
@@ -476,7 +485,7 @@ fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             DeclarchError::Other("Remove command required. Usage: remove \"command\"".to_string())
         })?
         .to_string();
-    
+
     // "-" means explicitly disabled (no warning)
     if cmd != "-" {
         config.remove_cmd = Some(cmd);
@@ -496,7 +505,7 @@ fn parse_update_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             DeclarchError::Other("Update command required. Usage: update \"command\"".to_string())
         })?
         .to_string();
-    
+
     // "-" means explicitly disabled (no warning)
     if cmd != "-" {
         config.update_cmd = Some(cmd);
@@ -513,10 +522,12 @@ fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<(
         .first()
         .and_then(|entry| entry.value().as_string())
         .ok_or_else(|| {
-            DeclarchError::Other("Cache clean command required. Usage: cache_clean \"command\"".to_string())
+            DeclarchError::Other(
+                "Cache clean command required. Usage: cache_clean \"command\"".to_string(),
+            )
         })?
         .to_string();
-    
+
     // "-" means explicitly disabled (no warning)
     if cmd != "-" {
         config.cache_clean_cmd = Some(cmd);
@@ -536,7 +547,7 @@ fn parse_upgrade_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
             DeclarchError::Other("Upgrade command required. Usage: upgrade \"command\"".to_string())
         })?
         .to_string();
-    
+
     // "-" means explicitly disabled (no warning)
     if cmd != "-" {
         config.upgrade_cmd = Some(cmd);
@@ -572,7 +583,7 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     if cmd == "-" {
         return Ok(());
     }
-    
+
     config.search_cmd = Some(cmd.to_string());
 
     // Parse output format from children
@@ -609,28 +620,16 @@ fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
                     });
                 }
                 "json_path" => {
-                    config.search_json_path = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_json_path = child.entries().first().and_then(get_entry_string);
                 }
                 "name_key" => {
-                    config.search_name_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_name_key = child.entries().first().and_then(get_entry_string);
                 }
                 "version_key" => {
-                    config.search_version_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_version_key = child.entries().first().and_then(get_entry_string);
                 }
                 "desc_key" => {
-                    config.search_desc_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_desc_key = child.entries().first().and_then(get_entry_string);
                 }
                 // Nested json block for search: json { path "..." name_key "..." }
                 "json" => {
@@ -745,18 +744,19 @@ fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<
         .and_then(|entry| entry.value().as_string())
         .ok_or_else(|| {
             DeclarchError::Other(
-                "Search local command required. Usage: search_local \"command\" { ... }".to_string(),
+                "Search local command required. Usage: search_local \"command\" { ... }"
+                    .to_string(),
             )
         })?
         .to_string();
-    
+
     // "-" means explicitly disabled (no warning)
     if cmd == "-" {
         return Ok(());
     }
-    
+
     config.search_local_cmd = Some(cmd);
-    
+
     // Parse output format from children (same as search)
     if let Some(children) = node.children() {
         for child in children.nodes() {
@@ -791,22 +791,16 @@ fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<
                     });
                 }
                 "json_path" => {
-                    config.search_local_json_path = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_local_json_path =
+                        child.entries().first().and_then(get_entry_string);
                 }
                 "name_key" => {
-                    config.search_local_name_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_local_name_key =
+                        child.entries().first().and_then(get_entry_string);
                 }
                 "version_key" => {
-                    config.search_local_version_key = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string);
+                    config.search_local_version_key =
+                        child.entries().first().and_then(get_entry_string);
                 }
                 // Nested json block
                 "json" => {
@@ -860,22 +854,23 @@ fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<
                         .map(|s| s.to_string());
                 }
                 "name_group" => {
-                    config.search_local_regex_name_group = child.entries().first().and_then(|entry| {
-                        entry
-                            .value()
-                            .as_string()
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .or_else(|| {
-                                let val_str = entry.value().to_string();
-                                val_str.parse::<usize>().ok()
-                            })
-                    });
+                    config.search_local_regex_name_group =
+                        child.entries().first().and_then(|entry| {
+                            entry
+                                .value()
+                                .as_string()
+                                .and_then(|s| s.parse::<usize>().ok())
+                                .or_else(|| {
+                                    let val_str = entry.value().to_string();
+                                    val_str.parse::<usize>().ok()
+                                })
+                        });
                 }
                 _ => {}
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -893,12 +888,12 @@ fn parse_fallback(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
 /// Accepts both boolean literals (true/false) and strings ("true"/"false")
 fn parse_bool(node: &KdlNode) -> Result<bool> {
     let entry = node.entries().first();
-    
+
     // Try as boolean literal first
     if let Some(val) = entry.and_then(|e| e.value().as_bool()) {
         return Ok(val);
     }
-    
+
     // Try as string "true" or "false"
     if let Some(s) = entry.and_then(|e| e.value().as_string()) {
         match s.to_lowercase().as_str() {
@@ -907,8 +902,10 @@ fn parse_bool(node: &KdlNode) -> Result<bool> {
             _ => {}
         }
     }
-    
-    Err(DeclarchError::Other("Boolean value required. Usage: needs_sudo true or needs_sudo \"true\"".to_string()))
+
+    Err(DeclarchError::Other(
+        "Boolean value required. Usage: needs_sudo true or needs_sudo \"true\"".to_string(),
+    ))
 }
 
 /// Parse environment variables
@@ -961,7 +958,7 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
 
     // Validate required placeholders in commands
     // This prevents runtime errors due to typos in backend definitions
-    
+
     // list_cmd is optional but recommended
     if let Some(ref list_cmd) = config.list_cmd {
         // Only warn about {binary} if backend has multiple binaries
@@ -979,7 +976,7 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
             config.name
         ));
     }
-    
+
     // install_cmd should contain {packages} placeholder
     if !config.install_cmd.contains("{packages}") {
         return Err(DeclarchError::ConfigError(format!(
@@ -987,7 +984,7 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
             config.name
         )));
     }
-    
+
     // remove_cmd is optional
     if let Some(ref remove_cmd) = config.remove_cmd {
         // remove_cmd should contain {packages} placeholder
@@ -999,7 +996,7 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
         }
     }
     // Note: remove_cmd being None is normal (install-only backends), no warning needed
-    
+
     // search_cmd should contain {binary} and {query} if configured
     if let Some(ref search_cmd) = config.search_cmd {
         if needs_binary_placeholder && !search_cmd.contains("{binary}") {
@@ -1060,7 +1057,8 @@ fn validate_backend_config(config: &BackendConfig) -> Result<()> {
             // Only requires version_key, not name_key
             if config.list_version_key.is_none() {
                 return Err(DeclarchError::Other(
-                    "JsonObjectKeys format requires 'version_key' to be specified in list block".to_string(),
+                    "JsonObjectKeys format requires 'version_key' to be specified in list block"
+                        .to_string(),
                 ));
             }
         }
@@ -1117,7 +1115,10 @@ mod tests {
         assert_eq!(config.name, "test");
         assert_eq!(config.list_cmd, Some("test list".to_string()));
         assert_eq!(config.install_cmd, "test install {packages}");
-        assert_eq!(config.remove_cmd, Some("test remove {packages}".to_string()));
+        assert_eq!(
+            config.remove_cmd,
+            Some("test remove {packages}".to_string())
+        );
     }
 
     #[test]

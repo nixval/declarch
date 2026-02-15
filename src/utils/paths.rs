@@ -31,8 +31,10 @@ pub fn expand_home(path: &Path) -> Result<PathBuf> {
 }
 
 pub fn config_dir() -> Result<PathBuf> {
-    let proj = ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME)
-        .ok_or_else(|| DeclarchError::PathError("Could not determine config directory".to_string()))?;
+    let proj =
+        ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME).ok_or_else(|| {
+            DeclarchError::PathError("Could not determine config directory".to_string())
+        })?;
     Ok(proj.config_dir().to_path_buf())
 }
 

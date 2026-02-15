@@ -81,12 +81,13 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             skipped_no_cmd.push(name);
             continue;
         }
-        
-        let manager: Box<dyn PackageManager> = Box::new(crate::backends::GenericManager::from_config(
-            config,
-            Backend::from(name.as_str()),
-            false,
-        ));
+
+        let manager: Box<dyn PackageManager> =
+            Box::new(crate::backends::GenericManager::from_config(
+                config,
+                Backend::from(name.as_str()),
+                false,
+            ));
         if manager.is_available() && manager.supports_upgrade() {
             upgradable_backends.push((name, manager));
         } else if !manager.is_available() {
@@ -131,7 +132,10 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
     }
 
     // Count results
-    let upgraded_count = upgrade_results.iter().filter(|(_, success)| *success).count();
+    let upgraded_count = upgrade_results
+        .iter()
+        .filter(|(_, success)| *success)
+        .count();
     let failed_count = upgrade_results.len() - upgraded_count;
 
     output::separator();
@@ -146,14 +150,14 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
     if !options.no_sync && upgraded_count > 0 {
         output::separator();
         output::info("Running sync to adopt upgraded packages...");
-        
+
         // Run sync with adopt mode to update state with new versions
         crate::commands::sync::run(crate::commands::sync::SyncOptions {
             dry_run: false,
             prune: false,
             gc: false,
             update: false,
-            yes: true,  // Auto-yes since we just did upgrade
+            yes: true, // Auto-yes since we just did upgrade
             force: false,
             target: None,
             noconfirm: false,
@@ -161,7 +165,7 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             modules: Vec::new(),
             diff: false,
         })?;
-        
+
         output::separator();
         output::success("Upgrade and sync completed successfully!");
     } else if options.no_sync {

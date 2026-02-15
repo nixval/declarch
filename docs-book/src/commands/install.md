@@ -8,25 +8,31 @@ Add packages to config quickly.
 declarch install [OPTIONS] <PACKAGES>...
 ```
 
+## Important
+
+`install` requires explicit backend now.
+
+Use one of these styles:
+- `backend:package` per package
+- `--backend <name>` for all packages
+
 ## Common examples
 
 ```bash
-declarch install neovim
-declarch install bat fzf ripgrep
+declarch install aur:neovim
+declarch install aur:bat aur:fzf aur:ripgrep
 
 declarch install npm:typescript
-declarch install aur:neovim
 
-declarch install -b flatpak org.mozilla.firefox
-declarch install --module browsers firefox
+declarch install org.mozilla.firefox --backend flatpak
+declarch install firefox --module browsers --backend aur
 ```
 
 ## What happens
 
 1. Package entries are written to a module (`modules/others.kdl` by default).
 2. `declarch sync` runs automatically, unless `--no-sync` is used.
-
-If you do not pass backend, declarch selects distro-aware default backend.
+3. If sync is cancelled or fails, config changes are rolled back.
 
 ## Options
 

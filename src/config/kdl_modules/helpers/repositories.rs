@@ -69,7 +69,14 @@ mod tests {
         parse_repositories(&node2, &mut repos).expect("parse node2");
 
         let paru = repos.get("paru").expect("paru repos present");
-        assert_eq!(paru, &vec!["core".to_string(), "extra".to_string(), "multilib".to_string()]);
+        assert_eq!(
+            paru,
+            &vec![
+                "core".to_string(),
+                "extra".to_string(),
+                "multilib".to_string()
+            ]
+        );
     }
 
     #[test]

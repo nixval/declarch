@@ -55,7 +55,8 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     if sanitized_name.is_empty() {
         return Err(DeclarchError::Other(
-            "Invalid backend name. Use alphanumeric characters, hyphens, or underscores.".to_string()
+            "Invalid backend name. Use alphanumeric characters, hyphens, or underscores."
+                .to_string(),
         ));
     }
 
@@ -66,26 +67,34 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     }
 
     // STEP 3: Show fetching message and fetch backend content
-    println!("fetching '{}' from nixval/declarch-packages", sanitized_name);
-    
+    println!(
+        "fetching '{}' from nixval/declarch-packages",
+        sanitized_name
+    );
+
     let backend_content = match remote::fetch_backend_content(&sanitized_name) {
         Ok(content) => content,
         Err(_) => {
             return Err(DeclarchError::Other(
-                "not found, please check 'declarch init --list backends'".to_string()
+                "not found, please check 'declarch init --list backends'".to_string(),
             ));
         }
     };
 
     // STEP 3b: Validate KDL (warning only, can bypass with --force)
-    if let Err(e) = super::validate_kdl(&backend_content, &format!("backend '{}'", sanitized_name)) {
+    if let Err(e) = super::validate_kdl(&backend_content, &format!("backend '{}'", sanitized_name))
+    {
         if !force {
             output::warning(&format!("{}", e));
-            output::info("The backend may be malformed or incompatible with your declarch version.");
+            output::info(
+                "The backend may be malformed or incompatible with your declarch version.",
+            );
             output::info("You can still adopt it with --force, then edit the file manually.");
-            
+
             if !output::prompt_yes_no("Continue with potentially invalid backend") {
-                output::info("Cancelled. You can try a different backend or use --force to override.");
+                output::info(
+                    "Cancelled. You can try a different backend or use --force to override.",
+                );
                 return Ok(());
             }
         }
@@ -118,13 +127,21 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     // STEP 4: Check if file already exists
     let backend_file = backends_dir.join(format!("{}.kdl", sanitized_name));
     if backend_file.exists() && !force {
-        output::warning(&format!("Backend file already exists: {}", backend_file.display()));
+        output::warning(&format!(
+            "Backend file already exists: {}",
+            backend_file.display()
+        ));
         output::info("Use --force to overwrite.");
         return Ok(());
     }
 
     // STEP 5: Prompt for adoption confirmation (skip if force)
-    if !force && !output::prompt_yes_no(&format!("Are you sure you want this '{}' being adopted", sanitized_name)) {
+    if !force
+        && !output::prompt_yes_no(&format!(
+            "Are you sure you want this '{}' being adopted",
+            sanitized_name
+        ))
+    {
         output::info("Cancelled.");
         return Ok(());
     }
@@ -136,7 +153,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     // Check if backends.kdl exists
     let backends_kdl_path = root_dir.join("backends.kdl");
     let declarch_kdl_path = root_dir.join("declarch.kdl");
-    
+
     if backends_kdl_path.exists() {
         // Standard flow: import to backends.kdl
         let want_import = if force {
@@ -147,15 +164,14 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
         if want_import {
             let import_result = add_backend_import(&backends_kdl_path, &sanitized_name);
-            
+
             match import_result {
-                Ok(ImportResult::Added) |
-                Ok(ImportResult::AlreadyImported) |
-                Ok(ImportResult::AlreadyExistsInline) => {
+                Ok(ImportResult::Added)
+                | Ok(ImportResult::AlreadyImported)
+                | Ok(ImportResult::AlreadyExistsInline) => {
                     println!("Backend '{}' adopted.", sanitized_name);
                 }
-                Ok(ImportResult::FileNotFound) |
-                Ok(ImportResult::NoImportsBlock) => {
+                Ok(ImportResult::FileNotFound) | Ok(ImportResult::NoImportsBlock) => {
                     output::warning("Could not auto-import. Please add to backends.kdl manually:");
                     output::info(&format!(r#"    "backends/{}.kdl""#, sanitized_name));
                 }
@@ -164,25 +180,37 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
                 }
             }
         } else {
-            println!("Backend '{}' fetched. Add to backends.kdl to use:", sanitized_name);
+            println!(
+                "Backend '{}' fetched. Add to backends.kdl to use:",
+                sanitized_name
+            );
             output::info(&format!(r#"    "backends/{}.kdl""#, sanitized_name));
         }
     } else {
         // backends.kdl doesn't exist: import directly to declarch.kdl
         let import_result = add_backend_to_declarch(&declarch_kdl_path, &sanitized_name);
-        
+
         match import_result {
             Ok(true) => {
-                println!("Backend '{}' adopted (added to declarch.kdl).", sanitized_name);
+                println!(
+                    "Backend '{}' adopted (added to declarch.kdl).",
+                    sanitized_name
+                );
             }
             Ok(false) => {
                 // backends {} block not found, manual import needed
-                println!("Backend '{}' fetched. Add to declarch.kdl to use:", sanitized_name);
+                println!(
+                    "Backend '{}' fetched. Add to declarch.kdl to use:",
+                    sanitized_name
+                );
                 output::info(&format!("backends {{\"backends/{}.kdl\"}}", sanitized_name));
             }
             Err(e) => {
                 output::warning(&format!("Could not auto-import: {}", e));
-                output::info(&format!("Add manually to declarch.kdl: backends {{\"backends/{}.kdl\"}}", sanitized_name));
+                output::info(&format!(
+                    "Add manually to declarch.kdl: backends {{\"backends/{}.kdl\"}}",
+                    sanitized_name
+                ));
             }
         }
     }
@@ -196,44 +224,52 @@ pub fn add_backend_import(backends_kdl_path: &Path, backend_name: &str) -> Resul
     if !backends_kdl_path.exists() {
         return Ok(ImportResult::FileNotFound);
     }
-    
+
     let content = fs::read_to_string(backends_kdl_path)?;
     let import_path = format!("backends/{}.kdl", backend_name);
-    
+
     // Check if backend already defined inline (default backends: aur, pacman, flatpak)
     let backend_pattern = format!(r#"(?m)^backend\s+"{}""#, regex::escape(backend_name));
-    if Regex::new(&backend_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+    if Regex::new(&backend_pattern)
+        .map(|re| re.is_match(&content))
+        .unwrap_or(false)
+    {
         return Ok(ImportResult::AlreadyExistsInline);
     }
-    
+
     // Check if already imported as an active import (not commented)
     // Look for the exact import line pattern
     let active_import_pattern = format!(r#"(?m)^\s+"{}""#, regex::escape(&import_path));
-    if Regex::new(&active_import_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+    if Regex::new(&active_import_pattern)
+        .map(|re| re.is_match(&content))
+        .unwrap_or(false)
+    {
         return Ok(ImportResult::AlreadyImported);
     }
-    
+
     // Find imports block using regex that handles various formats:
     // - imports {
-    // - imports{ 
+    // - imports{
     // - imports  {
     // And handles position anywhere in file (start, middle, end)
     let imports_re = Regex::new(r#"(?m)^(\s*imports\s*\{)"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
-    
+
     if !imports_re.is_match(&content) {
         // No imports block found
         return Ok(ImportResult::NoImportsBlock);
     }
-    
+
     // Format import line with proper indentation (4 spaces)
     let import_line = format!(r#"    "{}""#, import_path);
-    
+
     // Find the imports block and add the import line
-    let new_content = imports_re.replace(&content, |caps: &regex::Captures| {
-        format!("{}\n{}", &caps[0], import_line)
-    }).to_string();
-    
+    let new_content = imports_re
+        .replace(&content, |caps: &regex::Captures| {
+            format!("{}\n{}", &caps[0], import_line)
+        })
+        .to_string();
+
     fs::write(backends_kdl_path, new_content)?;
     Ok(ImportResult::Added)
 }
@@ -244,60 +280,69 @@ pub fn remove_backend_import(backends_kdl_path: &Path, backend_name: &str) -> Re
     if !backends_kdl_path.exists() {
         return Ok(());
     }
-    
+
     let content = fs::read_to_string(backends_kdl_path)?;
-    let import_pattern = format!(r#"(?m)^\s+"backends/{}\.kdl"\s*$"#, regex::escape(backend_name));
-    
+    let import_pattern = format!(
+        r#"(?m)^\s+"backends/{}\.kdl"\s*$"#,
+        regex::escape(backend_name)
+    );
+
     let re = Regex::new(&import_pattern)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
-    
+
     let new_content = re.replace_all(&content, "").to_string();
     fs::write(backends_kdl_path, new_content)?;
     Ok(())
 }
 
 /// Add backend import directly to declarch.kdl (fallback when backends.kdl doesn't exist)
-/// 
+///
 /// Returns:
 /// - Ok(true): Successfully added
 /// - Ok(false): backends {} block not found, manual import needed
 /// - Err: Error during file operation
 pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> Result<bool> {
     if !declarch_kdl_path.exists() {
-        return Err(DeclarchError::Other(
-            format!("declarch.kdl not found at {}", declarch_kdl_path.display())
-        ));
+        return Err(DeclarchError::Other(format!(
+            "declarch.kdl not found at {}",
+            declarch_kdl_path.display()
+        )));
     }
-    
+
     let content = fs::read_to_string(declarch_kdl_path)?;
     let import_path = format!("backends/{}.kdl", backend_name);
-    
+
     // Check if already imported
     let existing_pattern = format!(r#""{}""#, regex::escape(&import_path));
-    if Regex::new(&existing_pattern).map(|re| re.is_match(&content)).unwrap_or(false) {
+    if Regex::new(&existing_pattern)
+        .map(|re| re.is_match(&content))
+        .unwrap_or(false)
+    {
         return Ok(true); // Already exists
     }
-    
+
     // Look for backends { ... } block
     let backends_re = Regex::new(r#"(?m)^\s*backends\b"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
-    
+
     if !backends_re.is_match(&content) {
         // No backends block found - user needs to add manually
         return Ok(false);
     }
-    
+
     // Find backends block and add import line
     // Pattern matches: backends { or backends "existing" {
     let backends_block_re = Regex::new(r#"(?m)^(\s*backends(?:\s+"[^"]*")?\s*\{)"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
-    
+
     let import_line = format!(r#"    "{}""#, import_path);
-    
-    let new_content = backends_block_re.replace(&content, |caps: &regex::Captures| {
-        format!("{}\n{}", &caps[0], import_line)
-    }).to_string();
-    
+
+    let new_content = backends_block_re
+        .replace(&content, |caps: &regex::Captures| {
+            format!("{}\n{}", &caps[0], import_line)
+        })
+        .to_string();
+
     fs::write(declarch_kdl_path, new_content)?;
     Ok(true)
 }
@@ -317,9 +362,9 @@ pub struct BackendMeta {
 pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
     let doc = kdl::KdlDocument::parse(content)
         .map_err(|e| DeclarchError::Other(format!("Failed to parse backend KDL: {}", e)))?;
-    
+
     let mut meta = BackendMeta::default();
-    
+
     // Find the backend node
     for node in doc.nodes() {
         if node.name().value() == "backend" {
@@ -332,31 +377,41 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
                                 let name = meta_node.name().value();
                                 match name {
                                     "title" => {
-                                        meta.title = meta_node.entries().first()
+                                        meta.title = meta_node
+                                            .entries()
+                                            .first()
                                             .and_then(|e| e.value().as_string())
                                             .unwrap_or("")
                                             .to_string();
                                     }
                                     "description" => {
-                                        meta.description = meta_node.entries().first()
+                                        meta.description = meta_node
+                                            .entries()
+                                            .first()
                                             .and_then(|e| e.value().as_string())
                                             .unwrap_or("")
                                             .to_string();
                                     }
                                     "maintained" => {
-                                        meta.maintained = meta_node.entries().first()
+                                        meta.maintained = meta_node
+                                            .entries()
+                                            .first()
                                             .and_then(|e| e.value().as_string())
                                             .unwrap_or("")
                                             .to_string();
                                     }
                                     "homepage" => {
-                                        meta.homepage = meta_node.entries().first()
+                                        meta.homepage = meta_node
+                                            .entries()
+                                            .first()
                                             .and_then(|e| e.value().as_string())
                                             .unwrap_or("")
                                             .to_string();
                                     }
                                     "requires" => {
-                                        meta.requires = meta_node.entries().first()
+                                        meta.requires = meta_node
+                                            .entries()
+                                            .first()
                                             .and_then(|e| e.value().as_string())
                                             .unwrap_or("")
                                             .to_string();
@@ -379,7 +434,7 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
             break;
         }
     }
-    
+
     Ok(meta)
 }
 
@@ -408,10 +463,10 @@ imports {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "npm").unwrap();
         assert_eq!(result, ImportResult::Added);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(new_content.contains("backends/npm.kdl"));
         assert!(new_content.contains("imports {"));
@@ -430,10 +485,10 @@ backend "aur" {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "cargo").unwrap();
         assert_eq!(result, ImportResult::Added);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(new_content.contains("backends/cargo.kdl"));
     }
@@ -451,10 +506,10 @@ imports {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "pip").unwrap();
         assert_eq!(result, ImportResult::Added);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(new_content.contains("backends/pip.kdl"));
     }
@@ -468,10 +523,10 @@ imports {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "npm").unwrap();
         assert_eq!(result, ImportResult::NoImportsBlock);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(!new_content.contains("backends/npm.kdl")); // Should not be modified
     }
@@ -480,7 +535,7 @@ imports {
     fn test_add_backend_import_file_not_exist() {
         // Test when backends.kdl doesn't exist
         let non_existent_path = PathBuf::from("/tmp/non_existent_backends.kdl");
-        
+
         let result = add_backend_import(&non_existent_path, "npm").unwrap();
         assert_eq!(result, ImportResult::FileNotFound);
     }
@@ -494,10 +549,10 @@ imports {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "npm").unwrap();
         assert_eq!(result, ImportResult::AlreadyImported);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         // Should not add duplicate
         let count = new_content.matches("backends/npm.kdl").count();
@@ -517,7 +572,7 @@ imports {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "npm").unwrap();
         assert_eq!(result, ImportResult::AlreadyExistsInline);
     }
@@ -534,10 +589,10 @@ backend "aur" {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "cargo").unwrap();
         assert_eq!(result, ImportResult::Added);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(new_content.contains("backends/cargo.kdl"));
     }
@@ -555,10 +610,10 @@ backend "aur" {
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(content.as_bytes()).unwrap();
-        
+
         let result = add_backend_import(temp_file.path(), "pip").unwrap();
         assert_eq!(result, ImportResult::Added);
-        
+
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
         assert!(new_content.contains("backends/pip.kdl"));
     }

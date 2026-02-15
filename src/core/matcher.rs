@@ -102,7 +102,7 @@ impl PackageMatcher {
             }
 
             let installed_name = installed_id.name.to_lowercase();
-            
+
             // Check if one contains the other
             if installed_name.contains(&search) || search.contains(&installed_name) {
                 return Some(installed_id.clone());

@@ -7,19 +7,21 @@
 //! - Hook execution (hooks.rs)
 //! - Variant matching (variants.rs)
 
-mod planner;
 mod executor;
-mod state_sync;
 mod hooks;
+mod planner;
+mod state_sync;
 mod variants;
 
 // Re-export public API
-pub use planner::{create_transaction, check_variant_transitions, warn_partial_upgrade, display_transaction_plan};
 pub use executor::execute_transaction;
-pub use state_sync::{update_state, update_state_with_success};
 pub use hooks::{
     execute_on_failure, execute_on_success, execute_on_update, execute_post_sync, execute_pre_sync,
 };
+pub use planner::{
+    check_variant_transitions, create_transaction, display_transaction_plan, warn_partial_upgrade,
+};
+pub use state_sync::{update_state, update_state_with_success};
 pub use variants::{find_variant, resolve_installed_package_name};
 
 use crate::config::loader;
@@ -31,8 +33,8 @@ use std::path::Path;
 
 use crate::core::types::{PackageId, PackageMetadata};
 use crate::packages::PackageManager;
-use crate::state::types::Backend;
 use crate::state;
+use crate::state::types::Backend;
 use std::collections::HashMap;
 
 // Re-export dry-run display function
@@ -65,7 +67,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
         match state::io::acquire_lock() {
             Ok(lock) => Some(lock),
             Err(_) => {
-                output::warning("Another declarch process is running. Dry-run may show stale state.");
+                output::warning(
+                    "Another declarch process is running. Dry-run may show stale state.",
+                );
                 None
             }
         }
@@ -120,7 +124,13 @@ pub fn run(options: SyncOptions) -> Result<()> {
     let state = state::io::load_state()?;
 
     // 5. Create Transaction
-    let transaction = create_transaction(&mut config, &state, &installed_snapshot, &managers, &sync_target)?;
+    let transaction = create_transaction(
+        &mut config,
+        &state,
+        &installed_snapshot,
+        &managers,
+        &sync_target,
+    )?;
 
     // 5.5 Check for dangerous variant transitions and warn about stale updates
     check_variant_transitions(
@@ -134,9 +144,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
     warn_partial_upgrade(&state, &transaction, &options);
 
     // 6. Display Plan
-    if transaction.to_install.is_empty() 
-        && transaction.to_prune.is_empty() 
-        && transaction.to_adopt.is_empty() {
+    if transaction.to_install.is_empty()
+        && transaction.to_prune.is_empty()
+        && transaction.to_adopt.is_empty()
+    {
         output::success("Everything is up to date!");
         execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
         execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
@@ -163,13 +174,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
             return Err(crate::error::DeclarchError::Interrupted);
         }
 
-        let successfully_installed = match execute_transaction(&transaction, &managers, &config, &options) {
-            Ok(installed) => installed,
-            Err(e) => {
-                let _ = execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
-                return Err(e);
-            }
-        };
+        let successfully_installed =
+            match execute_transaction(&transaction, &managers, &config, &options) {
+                Ok(installed) => installed,
+                Err(e) => {
+                    let _ = execute_on_failure(
+                        &config.lifecycle_actions,
+                        options.hooks,
+                        options.dry_run,
+                    );
+                    return Err(e);
+                }
+            };
 
         // 8. Refresh installed snapshot and update state with successful packages
         let post_execution_snapshot = refresh_installed_snapshot(&managers);
@@ -181,17 +197,19 @@ pub fn run(options: SyncOptions) -> Result<()> {
             &options,
             &successfully_installed,
         )?;
-        
+
         // Save state with lock held (ensures no concurrent modifications)
         if let Some(ref lock) = lock {
             if let Err(e) = state::io::save_state_locked(&new_state, lock) {
-                let _ = execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                let _ =
+                    execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
                 return Err(e);
             }
         } else {
             // This shouldn't happen for non-dry-run, but handle gracefully
             if let Err(e) = state::io::save_state(&new_state) {
-                let _ = execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                let _ =
+                    execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
                 return Err(e);
             }
         }
@@ -233,7 +251,13 @@ fn show_sync_diff(
                 .and_then(|m| m.version.as_ref())
                 .map(|v| format!(" ({})", v))
                 .unwrap_or_default();
-            println!("  {} {} {}{}", "-".red(), pkg_id.backend, pkg_id.name, version.dimmed());
+            println!(
+                "  {} {} {}{}",
+                "-".red(),
+                pkg_id.backend,
+                pkg_id.name,
+                version.dimmed()
+            );
         }
     }
 
@@ -247,7 +271,8 @@ fn show_sync_diff(
 
     // Summary
     println!();
-    let total_changes = transaction.to_install.len() + transaction.to_prune.len() + transaction.to_adopt.len();
+    let total_changes =
+        transaction.to_install.len() + transaction.to_prune.len() + transaction.to_adopt.len();
     output::info(&format!("Total changes: {}", total_changes));
     output::info("Run 'declarch sync' to apply these changes");
 }
@@ -329,11 +354,12 @@ fn initialize_managers_and_snapshot(
         apply_backend_env_overrides(&mut backend_config, &backend_name, config);
         apply_backend_package_sources(&mut backend_config, &backend_name, config);
 
-        let manager: Box<dyn PackageManager> = Box::new(crate::backends::GenericManager::from_config(
-            backend_config,
-            backend.clone(),
-            options.noconfirm,
-        ));
+        let manager: Box<dyn PackageManager> =
+            Box::new(crate::backends::GenericManager::from_config(
+                backend_config,
+                backend.clone(),
+                options.noconfirm,
+            ));
 
         let available = manager.is_available();
 
@@ -356,10 +382,7 @@ fn initialize_managers_and_snapshot(
                     }
                 }
                 Err(e) => {
-                    output::warning(&format!(
-                        "Failed to list packages for {}: {}",
-                        backend, e
-                    ));
+                    output::warning(&format!("Failed to list packages for {}: {}", backend, e));
                 }
             }
             managers.insert(backend.clone(), manager);
@@ -394,7 +417,9 @@ pub(crate) fn apply_backend_option_overrides(
             "noconfirm_flag" => {
                 backend_config.noconfirm_flag = if disable { None } else { Some(value.clone()) }
             }
-            "fallback" => backend_config.fallback = if disable { None } else { Some(value.clone()) },
+            "fallback" => {
+                backend_config.fallback = if disable { None } else { Some(value.clone()) }
+            }
             "install_cmd" => {
                 if disable {
                     output::warning(&format!(
@@ -422,7 +447,9 @@ pub(crate) fn apply_backend_option_overrides(
                     backend_config.remove_cmd = Some(value.clone());
                 }
             }
-            "list_cmd" => backend_config.list_cmd = if disable { None } else { Some(value.clone()) },
+            "list_cmd" => {
+                backend_config.list_cmd = if disable { None } else { Some(value.clone()) }
+            }
             "search_cmd" => {
                 if disable {
                     backend_config.search_cmd = None;
@@ -447,11 +474,15 @@ pub(crate) fn apply_backend_option_overrides(
                     backend_config.search_local_cmd = Some(value.clone());
                 }
             }
-            "update_cmd" => backend_config.update_cmd = if disable { None } else { Some(value.clone()) },
+            "update_cmd" => {
+                backend_config.update_cmd = if disable { None } else { Some(value.clone()) }
+            }
             "cache_clean_cmd" => {
                 backend_config.cache_clean_cmd = if disable { None } else { Some(value.clone()) }
             }
-            "upgrade_cmd" => backend_config.upgrade_cmd = if disable { None } else { Some(value.clone()) },
+            "upgrade_cmd" => {
+                backend_config.upgrade_cmd = if disable { None } else { Some(value.clone()) }
+            }
             "needs_sudo" | "sudo" => {
                 if let Some(parsed) = parse_bool_option(value) {
                     backend_config.needs_sudo = parsed;
@@ -477,7 +508,8 @@ pub(crate) fn apply_backend_env_overrides(
     backend_name: &str,
     config: &loader::MergedConfig,
 ) {
-    let mut merged_env: HashMap<String, String> = backend_config.preinstall_env.clone().unwrap_or_default();
+    let mut merged_env: HashMap<String, String> =
+        backend_config.preinstall_env.clone().unwrap_or_default();
 
     for scope in ["global", backend_name] {
         if let Some(vars) = config.env.get(scope) {
@@ -577,10 +609,7 @@ fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
         }
 
         if !manager.supports_update() {
-            output::info(&format!(
-                "Skipping '{}': no update_cmd configured",
-                backend
-            ));
+            output::info(&format!("Skipping '{}': no update_cmd configured", backend));
             skipped_count += 1;
             continue;
         }
@@ -590,10 +619,7 @@ fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
                 updated_count += 1;
             }
             Err(e) => {
-                output::warning(&format!(
-                    "Failed to update '{}': {}",
-                    backend, e
-                ));
+                output::warning(&format!("Failed to update '{}': {}", backend, e));
                 skipped_count += 1;
             }
         }
@@ -693,8 +719,8 @@ fn load_config_with_modules(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::types::PackageId;
     use crate::backends::config::BackendConfig;
+    use crate::core::types::PackageId;
     use std::collections::HashMap;
     use std::path::PathBuf;
 
@@ -799,7 +825,10 @@ mod tests {
 
         apply_backend_option_overrides(&mut backend, "pacman", &merged);
 
-        assert_eq!(backend.remove_cmd.as_deref(), Some("pacman -Rns {packages}"));
+        assert_eq!(
+            backend.remove_cmd.as_deref(),
+            Some("pacman -Rns {packages}")
+        );
         assert_eq!(backend.update_cmd.as_deref(), Some("pacman -Sy"));
         assert_eq!(backend.noconfirm_flag.as_deref(), Some("--noconfirm"));
         assert!(backend.needs_sudo);

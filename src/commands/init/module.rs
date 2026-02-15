@@ -63,11 +63,15 @@ pub fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Re
     if let Err(e) = super::validate_kdl(&content, &format!("module '{}'", target_path)) {
         if !force {
             crate::ui::warning(&format!("{}", e));
-            crate::ui::info("The module may be malformed or incompatible with your declarch version.");
+            crate::ui::info(
+                "The module may be malformed or incompatible with your declarch version.",
+            );
             crate::ui::info("You can still import it with --force, then edit the file manually.");
-            
+
             if !crate::ui::prompt_yes_no("Continue with potentially invalid module") {
-                crate::ui::info("Cancelled. You can try a different module or use --force to override.");
+                crate::ui::info(
+                    "Cancelled. You can try a different module or use --force to override.",
+                );
                 return Ok(());
             }
         }
@@ -132,7 +136,7 @@ Try one of these alternatives:
 
     // STRATEGY D: Check registry availability
     let is_available = super::is_module_available(target_path);
-    
+
     if !is_available {
         return Err(DeclarchError::ConfigError(format!(
             "Module '{}' not found in registry.
@@ -233,7 +237,8 @@ fn inject_import_to_root(
     }
 
     // Prompt for consent
-    if !force && !yes
+    if !force
+        && !yes
         && !crate::ui::prompt_yes_no(&format!(
             "Add '{}' to imports in {}?",
             import_path,

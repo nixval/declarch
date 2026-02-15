@@ -52,7 +52,12 @@ fn config_uses_explicit_backends(config_path: &Path) -> crate::error::Result<boo
 
 fn strict_backend_mode_enabled() -> bool {
     std::env::var("DECLARCH_STRICT_BACKENDS")
-        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .map(|v| {
+            matches!(
+                v.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
         .unwrap_or(false)
 }
 
@@ -95,21 +100,22 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
             output::info("Add the following to declarch.kdl to silence this warning:");
             output::info("  backends \"backends.kdl\"");
         }
-        
+
         let user_backends = user_parser::load_user_backends(&backends_path)?;
         for config in user_backends {
             let source = BackendSource {
                 name: config.name.clone(),
                 source_file: backends_path.display().to_string(),
             };
-            
+
             // Check for duplicates
             if backends.contains_key(&config.name) {
-                let existing = backend_sources.iter()
+                let existing = backend_sources
+                    .iter()
                     .find(|s| s.name == config.name)
                     .map(|s| s.source_file.clone())
                     .unwrap_or_else(|| "unknown".to_string());
-                
+
                 output::warning(&format!(
                     "Duplicate backend '{}' defined in '{}' and '{}'. Using the later definition.",
                     config.name,
@@ -117,7 +123,7 @@ pub fn load_all_backends() -> crate::error::Result<HashMap<String, BackendConfig
                     backends_path.display()
                 ));
             }
-            
+
             backend_sources.push(source);
             backends.insert(config.name.clone(), config);
         }
@@ -148,7 +154,7 @@ impl crate::traits::BackendRegistry for FilesystemBackendRegistry {
 }
 
 /// Load backends from declarch.kdl config (import-based architecture)
-/// 
+///
 /// This is the new way to load backends when using explicit imports in declarch.kdl.
 /// It loads the config file and returns the backends defined in the 'backends {}' block.
 ///
@@ -161,16 +167,16 @@ pub fn load_backends_from_config() -> crate::error::Result<Vec<BackendConfig>> {
 }
 
 /// Load backends and source paths from declarch.kdl config (import-based architecture).
-pub fn load_backends_from_config_with_sources(
-) -> crate::error::Result<(Vec<BackendConfig>, HashMap<String, Vec<String>>)> {
+pub fn load_backends_from_config_with_sources()
+-> crate::error::Result<(Vec<BackendConfig>, HashMap<String, Vec<String>>)> {
     use crate::utils::paths;
-    
+
     let config_path = paths::config_file()?;
-    
+
     if !config_path.exists() {
         return Ok((Vec::new(), HashMap::new()));
     }
-    
+
     let config = crate::config::loader::load_root_config(&config_path)?;
     let backend_sources = config
         .backend_sources
@@ -258,7 +264,9 @@ mod tests {
 
     #[test]
     fn test_has_explicit_backend_declaration() {
-        assert!(has_explicit_backend_declaration(r#"backends "backends.kdl""#));
+        assert!(has_explicit_backend_declaration(
+            r#"backends "backends.kdl""#
+        ));
         assert!(has_explicit_backend_declaration(
             r#"
             backends {

@@ -23,7 +23,7 @@ impl ImportContext {
             visited: HashSet::new(),
         }
     }
-    
+
     fn push(&mut self, path: PathBuf) -> Result<()> {
         // Check if this path is already in the stack (circular import)
         if let Some(pos) = self.stack.iter().position(|p| p == &path) {
@@ -37,16 +37,16 @@ impl ImportContext {
                 cycle.join("\n  -> ")
             )));
         }
-        
+
         self.stack.push(path.clone());
         self.visited.insert(path);
         Ok(())
     }
-    
+
     fn pop(&mut self) {
         self.stack.pop();
     }
-    
+
     fn contains(&self, path: &Path) -> bool {
         self.visited.contains(path)
     }
@@ -159,18 +159,17 @@ fn recursive_load(
         abs_path.clone()
     };
 
-    let canonical_path = std::fs::canonicalize(&path_with_ext).map_err(|_e| {
-        DeclarchError::ConfigNotFound {
+    let canonical_path =
+        std::fs::canonicalize(&path_with_ext).map_err(|_e| DeclarchError::ConfigNotFound {
             path: path_with_ext.clone(),
-        }
-    })?;
+        })?;
 
     // Check for circular imports using the context
     if context.contains(&canonical_path) {
         // Already processed in a different branch, skip
         return Ok(());
     }
-    
+
     // Add to context for cycle detection
     context.push(canonical_path.clone())?;
 
@@ -259,7 +258,7 @@ fn recursive_load(
             canonical_path.display()
         ))
     })?;
-    
+
     for backend_import in raw.backend_imports {
         let backend_path = if backend_import.starts_with("~/") {
             expand_home(PathBuf::from(backend_import.clone()).as_path())?
@@ -269,7 +268,7 @@ fn recursive_load(
             // Relative to parent directory
             parent_dir.join(backend_import.clone())
         };
-        
+
         if backend_path.exists() {
             match crate::backends::user_parser::load_user_backends(&backend_path) {
                 Ok(backends) => {
@@ -317,17 +316,17 @@ fn recursive_load(
             let normalized = import_str.replace('\\', "/");
             if normalized.split('/').any(|part| part == "..") {
                 return Err(DeclarchError::ConfigError(
-                    "Path traversal blocked: import paths cannot contain '..'".to_string()
+                    "Path traversal blocked: import paths cannot contain '..'".to_string(),
                 ));
             }
-            
+
             // Additional check: ensure import doesn't start with /
             if import_str.starts_with('/') {
                 return Err(DeclarchError::ConfigError(
-                    "Invalid import path: absolute paths not allowed".to_string()
+                    "Invalid import path: absolute paths not allowed".to_string(),
                 ));
             }
-            
+
             parent_dir.join(import_str)
         };
 
@@ -345,6 +344,6 @@ fn recursive_load(
 
     // Remove from stack when done processing
     context.pop();
-    
+
     Ok(())
 }

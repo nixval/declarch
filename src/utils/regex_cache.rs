@@ -34,9 +34,10 @@ static REGEX_CACHE: LazyLock<Mutex<HashMap<String, Regex>>> =
 pub fn get_cached_regex(pattern: &str) -> Result<Regex, regex::Error> {
     // Try to get from cache first
     if let Ok(cache) = REGEX_CACHE.lock()
-        && let Some(regex) = cache.get(pattern) {
-            return Ok(regex.clone());
-        }
+        && let Some(regex) = cache.get(pattern)
+    {
+        return Ok(regex.clone());
+    }
 
     // Compile new regex
     let regex = Regex::new(pattern)?;
@@ -78,10 +79,7 @@ pub fn clear_cache() {
 /// # Returns
 /// The number of patterns currently in the cache
 pub fn cache_size() -> usize {
-    REGEX_CACHE
-        .lock()
-        .map(|cache| cache.len())
-        .unwrap_or(0)
+    REGEX_CACHE.lock().map(|cache| cache.len()).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -102,10 +100,10 @@ mod tests {
     fn test_caching() {
         // Use a pattern unlikely to be used elsewhere
         let pattern = r"test_caching_abc123_\w+";
-        
+
         // First call
         let _ = get_cached_regex(pattern).unwrap();
-        
+
         // Should now be cached
         assert!(is_cached(pattern));
     }
@@ -125,13 +123,13 @@ mod tests {
         // Add a pattern
         let pattern = r"test_clear_\d+";
         get_cached_regex(pattern).unwrap();
-        
+
         // Verify it's cached
         assert!(is_cached(pattern));
-        
+
         // Clear cache
         clear_cache();
-        
+
         // Verify it's gone
         assert!(!is_cached(pattern));
     }

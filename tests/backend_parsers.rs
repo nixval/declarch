@@ -100,7 +100,8 @@ mod json_lines_tests {
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::json_parser::parse_json_lines(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::json_parser::parse_json_lines(output, &config).unwrap();
 
         assert_eq!(result.len(), 3);
         assert_eq!(result["pkg1"].version.as_deref(), Some("1.0.0"));
@@ -122,7 +123,8 @@ not valid json
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::json_parser::parse_json_lines(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::json_parser::parse_json_lines(output, &config).unwrap();
 
         assert_eq!(result.len(), 2);
         assert!(result.contains_key("valid"));
@@ -140,7 +142,8 @@ not valid json
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::json_parser::parse_json_lines(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::json_parser::parse_json_lines(output, &config).unwrap();
         assert!(result.is_empty());
     }
 }
@@ -159,7 +162,9 @@ mod whitespace_tests {
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::whitespace::parse_whitespace_split(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::whitespace::parse_whitespace_split(output, &config)
+                .unwrap();
 
         assert_eq!(result.len(), 3);
         assert_eq!(result["vim"].version.as_deref(), Some("9.0"));
@@ -178,7 +183,9 @@ mod whitespace_tests {
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::whitespace::parse_whitespace_split(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::whitespace::parse_whitespace_split(output, &config)
+                .unwrap();
 
         assert_eq!(result.len(), 3);
         assert_eq!(result["package1"].version, None);
@@ -195,7 +202,9 @@ mod whitespace_tests {
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::whitespace::parse_whitespace_split(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::whitespace::parse_whitespace_split(output, &config)
+                .unwrap();
 
         assert_eq!(result.len(), 3);
     }
@@ -270,7 +279,8 @@ curl 8.5.0-1";
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::regex_parser::parse_regex(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::regex_parser::parse_regex(output, &config).unwrap();
 
         // The regex should match all 3 lines
         assert_eq!(result.len(), 3);
@@ -293,7 +303,8 @@ package3 3.0";
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::regex_parser::parse_regex(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::regex_parser::parse_regex(output, &config).unwrap();
 
         assert_eq!(result.len(), 3);
         assert_eq!(result["package1"].version.as_deref(), Some("1.0"));
@@ -335,7 +346,8 @@ mod npm_json_tests {
             ..Default::default()
         };
 
-        let result = declarch::backends::parsers::json_parser::parse_npm_json(output, &config).unwrap();
+        let result =
+            declarch::backends::parsers::json_parser::parse_npm_json(output, &config).unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(result["lodash"].version.as_deref(), Some("4.17.21"));

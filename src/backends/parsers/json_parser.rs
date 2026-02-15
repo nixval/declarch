@@ -101,10 +101,9 @@ pub fn parse_json_lines(
     output: &str,
     config: &BackendConfig,
 ) -> Result<HashMap<String, PackageMetadata>> {
-    let name_key = config
-        .list_name_key
-        .as_ref()
-        .ok_or_else(|| DeclarchError::Other("Missing list_name_key for JSON Lines parser".to_string()))?;
+    let name_key = config.list_name_key.as_ref().ok_or_else(|| {
+        DeclarchError::Other("Missing list_name_key for JSON Lines parser".to_string())
+    })?;
 
     let version_key = config.list_version_key.as_ref().ok_or_else(|| {
         DeclarchError::Other("Missing list_version_key for JSON Lines parser".to_string())
@@ -160,10 +159,9 @@ pub fn parse_npm_json(
     output: &str,
     config: &BackendConfig,
 ) -> Result<HashMap<String, PackageMetadata>> {
-    let name_key = config
-        .list_name_key
-        .as_ref()
-        .ok_or_else(|| DeclarchError::Other("Missing list_name_key for NPM JSON parser".to_string()))?;
+    let name_key = config.list_name_key.as_ref().ok_or_else(|| {
+        DeclarchError::Other("Missing list_name_key for NPM JSON parser".to_string())
+    })?;
 
     let version_key = config.list_version_key.as_ref().ok_or_else(|| {
         DeclarchError::Other("Missing list_version_key for NPM JSON parser".to_string())
@@ -175,15 +173,15 @@ pub fn parse_npm_json(
     // Each line can be: "[", "{...}", ",", or "]"
     for line in output.lines() {
         let line = line.trim();
-        
+
         // Skip array markers and commas
         if line.is_empty() || line == "[" || line == "]" || line == "," {
             continue;
         }
-        
+
         // Lines might end with comma, remove it
         let line = line.trim_end_matches(',');
-        
+
         // Try to parse as JSON object
         match serde_json::from_str::<Value>(line) {
             Ok(json) => {

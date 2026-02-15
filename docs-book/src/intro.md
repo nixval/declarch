@@ -28,6 +28,11 @@ cp -r ~/.config/declarch ~/.config/declarch.backup
 declarch sync preview
 ```
 
+## One important behavior
+
+`declarch install` expects explicit backend now.
+Use `backend:package` or `--backend <name>`.
+
 ## Start here
 
 1. [Installation](./getting-started/installation.md)

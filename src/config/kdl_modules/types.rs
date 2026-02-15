@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 /// Raw configuration parsed from KDL files
-/// 
+///
 /// In v0.6+, this uses unified package storage where all packages are
 /// organized by backend name in a HashMap. No backend-specific fields.
 #[derive(Debug, Clone, Default)]
@@ -12,15 +12,15 @@ pub struct RawConfig {
     /// Preferred editor for 'declarch edit' command
     /// Priority: $VISUAL env → $EDITOR env → this field → "nano"
     pub editor: Option<String>,
-    
+
     /// Unified package storage: backend_name -> packages
-    /// 
+    ///
     /// All packages are stored here, organized by their backend.
     /// Examples:
     /// - "paru" -> [hyprland, waybar, git]
     /// - "npm" -> [typescript, eslint]
     /// - "flatpak" -> [com.spotify.Client]
-    /// 
+    ///
     /// Syntax in KDL:
     ///   pkg { paru { hyprland waybar } }
     ///   pkg:paru { hyprland waybar }
@@ -49,7 +49,7 @@ pub struct RawConfig {
 
     /// Pre/post sync lifecycle actions
     pub lifecycle_actions: LifecycleConfig,
-    
+
     /// Backend definition imports (paths to backend files)
     /// These define which backends are available for package operations
     pub backend_imports: Vec<String>,

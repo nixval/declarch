@@ -89,7 +89,7 @@ pub enum Command {
         ///
         /// Creates backend definition files in ~/.config/declarch/backends/
         /// Supports multiple backends via multiple flags
-        /// 
+        ///
         /// Examples:
         ///   declarch init --backend cargo
         ///   declarch init --backend apt --backend cargo
@@ -108,7 +108,7 @@ pub enum Command {
         /// Shows all available items in the declarch-packages registry
         #[arg(long, value_name = "WHAT")]
         list: Option<String>,
-        
+
         /// Create local module (skip registry lookup)
         ///
         /// Bypasses registry lookup and creates a local module directly
@@ -122,7 +122,6 @@ pub enum Command {
         /// Restore declarch.kdl from template (overwrite existing)  
         #[arg(long, group = "restore")]
         restore_declarch: bool,
-
     },
 
     /// Synchronize system state with configuration
@@ -280,7 +279,13 @@ pub enum Command {
         query: String,
 
         /// Filter by backends (comma-separated or multiple flags)
-        #[arg(short = 'b', long, value_name = "BACKENDS", value_delimiter = ',', help_heading = "Filtering")]
+        #[arg(
+            short = 'b',
+            long,
+            value_name = "BACKENDS",
+            value_delimiter = ',',
+            help_heading = "Filtering"
+        )]
         backends: Vec<String>,
 
         /// Limit results per backend (default: 10, use "all" or 0 for unlimited)
@@ -548,8 +553,6 @@ pub enum ListSubcommand {
     },
 }
 
-
-
 #[derive(Subcommand, Debug, Clone)]
 pub enum CheckCommand {
     /// Run all checks (default)
@@ -631,4 +634,3 @@ pub enum CheckCommand {
         modules: Vec<String>,
     },
 }
-

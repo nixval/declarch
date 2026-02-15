@@ -57,10 +57,12 @@ impl BackendRegistry {
         let backend_name = backend.name();
 
         // Look up backend config
-        let backend_config = self
-            .configs
-            .get(backend_name)
-            .ok_or_else(|| format!("Backend '{}' not found. Run 'declarch init --backend {}'", backend_name, backend_name))?;
+        let backend_config = self.configs.get(backend_name).ok_or_else(|| {
+            format!(
+                "Backend '{}' not found. Run 'declarch init --backend {}'",
+                backend_name, backend_name
+            )
+        })?;
 
         // Create GenericManager from config
         Ok(Box::new(GenericManager::from_config(

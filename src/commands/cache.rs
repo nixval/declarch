@@ -3,11 +3,11 @@
 //! Cleans package manager caches for configured backends.
 
 use crate::backends::load_all_backends_unified;
-use crate::packages::traits::PackageManager;
-use crate::error::Result;
 use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
 };
+use crate::error::Result;
+use crate::packages::traits::PackageManager;
 use crate::ui as output;
 use std::collections::HashSet;
 
@@ -74,12 +74,13 @@ pub fn run(options: CacheOptions) -> Result<()> {
             skipped_no_cmd.push(name);
             continue;
         }
-        
-        let manager: Box<dyn PackageManager> = Box::new(crate::backends::GenericManager::from_config(
-            config,
-            crate::core::types::Backend::from(name.as_str()),
-            false,
-        ));
+
+        let manager: Box<dyn PackageManager> =
+            Box::new(crate::backends::GenericManager::from_config(
+                config,
+                crate::core::types::Backend::from(name.as_str()),
+                false,
+            ));
         if manager.is_available() && manager.supports_cache_clean() {
             cleanable_backends.push((name, manager));
         } else if !manager.is_available() {
@@ -123,9 +124,14 @@ pub fn run(options: CacheOptions) -> Result<()> {
             Err(e) => {
                 if options.verbose {
                     output::warning(&format!("Failed to clean '{}': {}", name, e));
-                    output::info(&format!("  Recommendation: Check backend configuration or run with --force to ignore errors"));
+                    output::info(&format!(
+                        "  Recommendation: Check backend configuration or run with --force to ignore errors"
+                    ));
                 } else {
-                    output::warning(&format!("Failed to clean '{}' (use --verbose for details)", name));
+                    output::warning(&format!(
+                        "Failed to clean '{}' (use --verbose for details)",
+                        name
+                    ));
                 }
                 failed_count += 1;
             }

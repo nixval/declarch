@@ -1,7 +1,7 @@
 //! Backend parser registry (DEPRECATED in v0.6+)
 //!
 //! This file is kept for backward compatibility but is NO LONGER USED.
-//! 
+//!
 //! In v0.6+, all parsing is handled by the generic parser in parser.rs.
 //! There are no backend-specific parsers.
 //!
@@ -12,7 +12,7 @@ use crate::error::Result;
 use kdl::KdlNode;
 
 /// DEPRECATED: Backend parser trait
-/// 
+///
 /// This trait is no longer used. All parsing is now generic.
 pub trait BackendParser: Send + Sync {
     fn name(&self) -> &'static str;
@@ -26,7 +26,7 @@ pub trait BackendParser: Send + Sync {
 }
 
 /// DEPRECATED: Backend parser registry
-/// 
+///
 /// This registry no longer manages individual parsers.
 /// It exists only for backward compatibility during the transition.
 pub struct BackendParserRegistry;

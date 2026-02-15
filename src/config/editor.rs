@@ -19,10 +19,12 @@ fn detect_default_backend() -> &'static str {
             .find(|line| line.starts_with("ID="))
             .and_then(|line| line.strip_prefix("ID="))
             .map(|s| s.trim_matches('"'));
-        
+
         match id {
             Some("debian") | Some("ubuntu") | Some("linuxmint") | Some("pop") => "apt",
-            Some("fedora") | Some("rhel") | Some("centos") | Some("rocky") | Some("almalinux") => "dnf",
+            Some("fedora") | Some("rhel") | Some("centos") | Some("rocky") | Some("almalinux") => {
+                "dnf"
+            }
             Some("opensuse") | Some("opensuse-tumbleweed") | Some("suse") => "zypper",
             Some("arch") | Some("manjaro") | Some("endeavouros") | Some("cachyos") => "aur",
             _ => "aur", // Default to aur for unknown distros (most likely Arch-based)
@@ -182,8 +184,9 @@ impl ConfigEditor {
 
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| DeclarchError::Other(format!("Failed to create module directory: {}", e)))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                DeclarchError::Other(format!("Failed to create module directory: {}", e))
+            })?;
         }
 
         let default_content = format!(
@@ -223,10 +226,7 @@ impl ConfigEditor {
 
         // Structure: pkg { backend { package } }
         // Step 1: Find or create 'pkg' node
-        let pkg_node_idx = doc
-            .nodes()
-            .iter()
-            .position(|n| n.name().value() == "pkg");
+        let pkg_node_idx = doc.nodes().iter().position(|n| n.name().value() == "pkg");
 
         let pkg_idx = if let Some(idx) = pkg_node_idx {
             idx
@@ -241,7 +241,10 @@ impl ConfigEditor {
         // Step 2: Find or create backend node inside pkg
         let pkg_node = &mut doc.nodes_mut()[pkg_idx];
         let backend_node_idx = if let Some(children) = pkg_node.children() {
-            children.nodes().iter().position(|n| n.name().value() == backend_name)
+            children
+                .nodes()
+                .iter()
+                .position(|n| n.name().value() == backend_name)
         } else {
             None
         };
@@ -250,20 +253,21 @@ impl ConfigEditor {
             // Backend node exists, check if package already exists
             if let Some(children) = pkg_node.children()
                 && let Some(backend_node) = children.nodes().get(backend_idx)
-                    && let Some(backend_children) = backend_node.children() {
-                        for child in backend_children.nodes() {
-                            if child.name().value() == package {
-                                // Already exists, return unchanged
-                                return Ok((content.to_string(), Vec::new()));
-                            }
-                        }
+                && let Some(backend_children) = backend_node.children()
+            {
+                for child in backend_children.nodes() {
+                    if child.name().value() == package {
+                        // Already exists, return unchanged
+                        return Ok((content.to_string(), Vec::new()));
                     }
+                }
+            }
 
             // Add package to existing backend node
             if let Some(children) = pkg_node.children_mut() {
                 let backend_node = &mut children.nodes_mut()[backend_idx];
                 let package_node = KdlNode::new(package);
-                
+
                 if let Some(backend_children) = backend_node.children_mut() {
                     backend_children.nodes_mut().push(package_node);
                 } else {
@@ -293,18 +297,21 @@ impl ConfigEditor {
 
         // Fix formatting issues from KDL library output
         // Problem 1: Add space before opening braces
-        updated_content = updated_content
-            .replace("pkg{", "pkg {");
-        
+        updated_content = updated_content.replace("pkg{", "pkg {");
+
         // Fix backend blocks - detect any word followed by newline that should be a block
         // Pattern: word\n or word\r\n followed by indented content or opening brace
         // This handles any backend name without hardcoding
         let backend_block_re = regex::Regex::new(r"(?m)^([a-zA-Z][a-zA-Z0-9_-]*)\s*\r?\n\s*\{")
-            .map_err(|e| crate::error::DeclarchError::ConfigError(format!("Invalid regex: {}", e)))?;
-        
-        updated_content = backend_block_re.replace_all(&updated_content, |caps: &regex::Captures| {
-            format!("{} {{", &caps[1])
-        }).to_string();
+            .map_err(|e| {
+                crate::error::DeclarchError::ConfigError(format!("Invalid regex: {}", e))
+            })?;
+
+        updated_content = backend_block_re
+            .replace_all(&updated_content, |caps: &regex::Captures| {
+                format!("{} {{", &caps[1])
+            })
+            .to_string();
 
         // Problem 2: Add newlines between nodes (e.g., "}pkg" should be "}\npkg")
         // This happens when KDL library outputs multiple nodes without separation
@@ -582,7 +589,7 @@ mod tests {
         assert!(is_valid_backend("npm"));
         assert!(is_valid_backend("my-custom-backend"));
         assert!(is_valid_backend("custom123"));
-        
+
         // Invalid: empty or contains invalid characters
         assert!(!is_valid_backend(""));
         assert!(!is_valid_backend("invalid backend")); // space

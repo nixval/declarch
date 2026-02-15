@@ -46,7 +46,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             if *restore_declarch {
                 return commands::init::restore_declarch(host.clone());
             }
-            
+
             commands::init::run(commands::init::InitOptions {
                 host: host.clone(),
                 path: path.clone(),
@@ -61,13 +61,21 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             match command {
                 Some(SyncCommand::Cache { backend }) => {
                     commands::cache::run(commands::cache::CacheOptions {
-                        backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+                        backends: if backend.is_empty() {
+                            None
+                        } else {
+                            Some(backend.clone())
+                        },
                         verbose: args.global.verbose,
                     })
                 }
                 Some(SyncCommand::Upgrade { backend, no_sync }) => {
                     commands::upgrade::run(commands::upgrade::UpgradeOptions {
-                        backends: if backend.is_empty() { None } else { Some(backend.clone()) },
+                        backends: if backend.is_empty() {
+                            None
+                        } else {
+                            Some(backend.clone())
+                        },
                         no_sync: *no_sync,
                         verbose: args.global.verbose,
                     })
@@ -88,7 +96,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     }
 
                     // Convert and execute
-                    let options = sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
+                    let options =
+                        sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
                     commands::sync::run(options)
                 }
             }
@@ -171,7 +180,11 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                         fix,
                     )
                 }
-                CheckCommand::Validate { benchmark, fix, modules } => {
+                CheckCommand::Validate {
+                    benchmark,
+                    fix,
+                    modules,
+                } => {
                     commands::check::run(
                         args.global.verbose,
                         false, // check_duplicates
@@ -216,7 +229,11 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     backend,
                     package,
                 }),
-                InfoCommand::List { command, orphans, synced } => {
+                InfoCommand::List {
+                    command,
+                    orphans,
+                    synced,
+                } => {
                     // Handle deprecated --orphans and --synced flags
                     let (has_deprecated_flags, deprecated_command, new_cmd_str) =
                         handle_deprecated_list_flags(orphans, synced);
@@ -233,12 +250,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
 
                     // Map ListSubcommand to list::run parameters
                     match list_cmd {
-                        ListSubcommand::All { backend } => commands::list::run(commands::list::ListOptions {
-                            backend,
-                            orphans: false,
-                            synced: false,
-                            format: args.global.format.clone(),
-                        }),
+                        ListSubcommand::All { backend } => {
+                            commands::list::run(commands::list::ListOptions {
+                                backend,
+                                orphans: false,
+                                synced: false,
+                                format: args.global.format.clone(),
+                            })
+                        }
                         ListSubcommand::Orphans { backend } => {
                             commands::list::run(commands::list::ListOptions {
                                 backend,
@@ -285,7 +304,15 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             force: args.global.force,
         }),
 
-        Some(Command::Edit { target, preview, number, create, auto_format, validate_only, backup }) => commands::edit::run(commands::edit::EditOptions {
+        Some(Command::Edit {
+            target,
+            preview,
+            number,
+            create,
+            auto_format,
+            validate_only,
+            backup,
+        }) => commands::edit::run(commands::edit::EditOptions {
             target: target.clone(),
             dry_run: args.global.dry_run,
             preview: *preview,
@@ -331,7 +358,11 @@ pub fn dispatch(args: &Cli) -> Result<()> {
 
             commands::search::run(commands::search::SearchOptions {
                 query: query.clone(),
-                backends: if backends.is_empty() { None } else { Some(backends.clone()) },
+                backends: if backends.is_empty() {
+                    None
+                } else {
+                    Some(backends.clone())
+                },
                 limit: parsed_limit,
                 installed_only: *installed_only,
                 available_only: *available_only,

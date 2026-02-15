@@ -70,7 +70,8 @@ backend "aur" {
     // If no AUR helper available, fallback to pacman
     fallback "pacman"
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Pacman backend template
@@ -110,7 +111,8 @@ backend "pacman" {
     
     needs_sudo "true"
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Flatpak backend template
@@ -160,14 +162,15 @@ backend "flatpak" {
     // Flatpak doesn't need sudo for user installations
     needs_sudo "false"
 }
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Generic backend template for custom backends
 #[allow(dead_code)]
 pub fn generate_generic_backend_template(name: &str) -> String {
     let current_date = chrono::Local::now().format("%Y-%m-%d").to_string();
-    
+
     format!(
         r#"// {name} - Custom Backend Configuration
 // 

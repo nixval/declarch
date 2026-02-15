@@ -59,7 +59,8 @@ pub fn run(
 
     // Filter packages by backend if specified
     let package_count = if let Some(backend_str) = &backend_filter {
-        let backend = Backend::from_str(backend_str).map_err(crate::error::DeclarchError::ConfigError)?;
+        let backend =
+            Backend::from_str(backend_str).map_err(crate::error::DeclarchError::ConfigError)?;
         let filtered_count = config
             .packages
             .iter()
@@ -106,7 +107,6 @@ pub fn run(
     }
 
     if !only_duplicates && check_confs {
-
         let conflicts = config.get_cross_backend_conflicts();
 
         if conflicts.is_empty() {

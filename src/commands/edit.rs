@@ -64,11 +64,14 @@ pub fn run(options: EditOptions) -> Result<()> {
     // Handle preview mode (like cat)
     if options.preview {
         output::header("Preview Configuration");
-        output::info(&format!("File: {}", file_to_edit.display().to_string().cyan()));
+        output::info(&format!(
+            "File: {}",
+            file_to_edit.display().to_string().cyan()
+        ));
         println!();
-        
+
         let content = std::fs::read_to_string(&file_to_edit)?;
-        
+
         if options.number {
             // Show with line numbers
             for (line_num, line) in content.lines().enumerate() {
@@ -82,7 +85,7 @@ pub fn run(options: EditOptions) -> Result<()> {
                 println!();
             }
         }
-        
+
         println!();
         output::success(&format!("{} lines", content.lines().count()));
         return Ok(());
@@ -98,7 +101,11 @@ pub fn run(options: EditOptions) -> Result<()> {
             "Would open: {}",
             file_to_edit.display().to_string().cyan()
         ));
-        output::info(&format!("With editor: {} (from {})", editor.green(), editor_source));
+        output::info(&format!(
+            "With editor: {} (from {})",
+            editor.green(),
+            editor_source
+        ));
         return Ok(());
     }
 
@@ -113,11 +120,15 @@ pub fn run(options: EditOptions) -> Result<()> {
         "File: {}",
         file_to_edit.display().to_string().cyan()
     ));
-    
+
     if was_fallback {
         output::info(&format!("Editor: {} (fallback)", editor.green()));
     } else {
-        output::info(&format!("Editor: {} (from {})", editor.green(), editor_source));
+        output::info(&format!(
+            "Editor: {} (from {})",
+            editor.green(),
+            editor_source
+        ));
     }
 
     // Open editor
@@ -255,7 +266,9 @@ fn editor_exists(editor: &str) -> bool {
 /// Returns: (editor, source, was_fallback)
 fn get_editor_with_fallback() -> Result<(String, &'static str, bool)> {
     // Priority 1: KDL config 'editor' field
-    if let Ok(config) = crate::config::loader::load_root_config(&crate::utils::paths::config_file()?) {
+    if let Ok(config) =
+        crate::config::loader::load_root_config(&crate::utils::paths::config_file()?)
+    {
         if let Some(ref editor) = config.editor {
             if editor_exists(editor) {
                 return Ok((editor.clone(), "config", false));
@@ -271,7 +284,7 @@ fn get_editor_with_fallback() -> Result<(String, &'static str, bool)> {
             return Ok((ed, "$VISUAL", false));
         }
     }
-    
+
     // Priority 3: $EDITOR environment variable
     if let Ok(ed) = std::env::var("EDITOR") {
         if !ed.is_empty() && editor_exists(&ed) {
@@ -285,7 +298,7 @@ fn get_editor_with_fallback() -> Result<(String, &'static str, bool)> {
         Ok(("nano".to_string(), "default", true))
     } else {
         Err(DeclarchError::Other(
-            "No editor found. Please install nano or set $EDITOR environment variable.".into()
+            "No editor found. Please install nano or set $EDITOR environment variable.".into(),
         ))
     }
 }
@@ -368,13 +381,13 @@ fn validate_file_only(file_path: &Path) -> Result<()> {
 /// Create backup of file before editing
 fn create_backup(file_path: &Path) -> Result<()> {
     use chrono::Local;
-    
+
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
     let backup_path = file_path.with_extension(format!("kdl.backup.{}", timestamp));
-    
+
     std::fs::copy(file_path, &backup_path)?;
     output::info(&format!("Backup created: {}", backup_path.display()));
-    
+
     Ok(())
 }
 
@@ -386,7 +399,7 @@ fn format_kdl_file(file_path: &Path) -> Result<()> {
     match content.parse::<KdlDocument>() {
         Ok(doc) => {
             let formatted = doc.to_string();
-            
+
             // Only write if changed
             if formatted != content {
                 std::fs::write(file_path, formatted)?;

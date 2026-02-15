@@ -11,7 +11,7 @@ pub struct PackageId {
 }
 
 /// Backend identifier - purely generic, no hardcoded variants
-/// 
+///
 /// In v0.6+, all backends are treated equally. There are no special cases
 /// for system package managers, npm, etc. Each backend is defined by its configuration in
 /// ~/.config/declarch/backends/*.kdl
@@ -66,11 +66,11 @@ impl fmt::Display for PackageId {
 }
 
 /// Parse package string with optional backend prefix
-/// 
+///
 /// Supports formats:
 /// - "package" -> uses default backend (first in config or explicit default)
 /// - "backend:package" -> specific backend
-/// 
+///
 /// Note: In v0.6+, there's no implicit default. The default backend
 /// should be specified in declarch.kdl
 impl FromStr for PackageId {
@@ -108,7 +108,7 @@ impl FromStr for PackageId {
 /// Parse with explicit default backend
 impl PackageId {
     /// Parse package string with a default backend
-    /// 
+    ///
     /// If no backend prefix is provided, uses the given default.
     pub fn parse_with_default(s: &str, default_backend: &Backend) -> Result<Self, String> {
         // Try to parse with prefix first

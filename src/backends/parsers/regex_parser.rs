@@ -13,12 +13,9 @@ pub fn parse_regex(
     output: &str,
     config: &BackendConfig,
 ) -> Result<HashMap<String, PackageMetadata>> {
-    let pattern = config
-        .list_regex
-        .as_ref()
-        .ok_or_else(|| DeclarchError::ConfigError(
-            "Missing list_regex for regex parser".to_string()
-        ))?;
+    let pattern = config.list_regex.as_ref().ok_or_else(|| {
+        DeclarchError::ConfigError("Missing list_regex for regex parser".to_string())
+    })?;
 
     let name_group = config.list_regex_name_group.unwrap_or(1);
     let version_group = config.list_regex_version_group.unwrap_or(2);
@@ -49,7 +46,7 @@ pub fn parse_regex(
 }
 
 /// Clear the regex cache
-/// 
+///
 /// This is mainly useful for testing to ensure a clean state
 #[cfg(test)]
 pub fn clear_cache() {
@@ -68,7 +65,7 @@ mod tests {
     #[test]
     fn test_parse_regex() {
         setup();
-        
+
         // Pattern matches: "package-name version" with flexible spacing
         let output = "pacman 6.0.2\nsystemd 255.1\n";
         let config = BackendConfig {
@@ -89,7 +86,7 @@ mod tests {
     #[test]
     fn test_parse_brew_list() {
         setup();
-        
+
         // brew list --versions format: "package 1.0 2.0 3.0"
         let output = "node@20 20.10.0\npython@3.12 3.12.1\n";
         let config = BackendConfig {
@@ -109,7 +106,7 @@ mod tests {
     #[test]
     fn test_parse_custom_regex() {
         setup();
-        
+
         // Extract: "Installing package-name-1.0.0"
         let output = "Installing package-abc-1.0.0\nInstalling package-xyz-2.0.0\n";
         let config = BackendConfig {
@@ -126,11 +123,11 @@ mod tests {
         assert_eq!(result["abc"].version.as_deref(), Some("1.0.0"));
         assert_eq!(result["xyz"].version.as_deref(), Some("2.0.0"));
     }
-    
+
     #[test]
     fn test_regex_caching() {
         setup();
-        
+
         let pattern = r"(\S+)\s+(\S+)";
         let config = BackendConfig {
             list_regex: Some(pattern.to_string()),
@@ -149,15 +146,15 @@ mod tests {
         let output2 = "pkg3 3.0\npkg4 4.0\n";
         let result2 = parse_regex(output2, &config).unwrap();
         assert_eq!(result2.len(), 2);
-        
+
         // Verify cache has the pattern
         assert!(regex_cache::is_cached(pattern));
     }
-    
+
     #[test]
     fn test_invalid_regex_error() {
         setup();
-        
+
         let config = BackendConfig {
             list_regex: Some(r"[invalid(".to_string()),
             list_regex_name_group: Some(1),
@@ -168,7 +165,7 @@ mod tests {
 
         let result = parse_regex("test", &config);
         assert!(result.is_err());
-        
+
         // Verify error is ConfigError (not Other)
         match result {
             Err(DeclarchError::ConfigError(_)) => (), // Expected

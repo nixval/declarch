@@ -70,21 +70,26 @@ pub fn run(options: InitOptions) -> Result<()> {
     if !normalized_backends.is_empty() {
         let force = options.force || options.yes;
         let total = normalized_backends.len();
-        
+
         // Ensure root config exists first
         let config_file = crate::utils::paths::config_file()?;
         if !config_file.exists() {
             root::init_root(options.host.clone(), force)?;
         }
-        
+
         if total > 1 {
             output::header(&format!("Initializing {} backends", total));
         }
-        
+
         for (i, backend_name) in normalized_backends.iter().enumerate() {
             if total > 1 {
                 println!();
-                output::info(&format!("[{}/{}] Initializing '{}'", i + 1, total, backend_name));
+                output::info(&format!(
+                    "[{}/{}] Initializing '{}'",
+                    i + 1,
+                    total,
+                    backend_name
+                ));
             }
             backend::init_backend(backend_name, force)?;
         }
@@ -96,11 +101,11 @@ pub fn run(options: InitOptions) -> Result<()> {
 }
 
 /// Restore backends.kdl from template
-/// 
+///
 /// Recreates backends.kdl without affecting other config files
 pub fn restore_backends() -> Result<()> {
     let backends_file = paths::backend_config()?;
-    
+
     // Check if declarch is initialized
     let config_dir = paths::config_dir()?;
     if !config_dir.exists() {
@@ -108,17 +113,17 @@ pub fn restore_backends() -> Result<()> {
             "Declarch not initialized. Run 'declarch init' first.".into(),
         ));
     }
-    
+
     output::header("Restoring Backends Configuration");
-    
+
     // Create from template
     let backends_template = backend::default_backends_kdl();
     fs::write(&backends_file, backends_template)?;
-    
+
     output::success(&format!("Restored: {}", backends_file.display()));
     output::info("Your custom backends in backends/ folder are preserved.");
     output::warning("Official backends (aur, pacman, flatpak, npm) have been reset to defaults.");
-    
+
     Ok(())
 }
 
@@ -127,7 +132,7 @@ pub fn restore_backends() -> Result<()> {
 /// Recreates declarch.kdl without affecting backends.kdl or modules/
 pub fn restore_declarch(host: Option<String>) -> Result<()> {
     let config_file = paths::config_file()?;
-    
+
     // Check if declarch is initialized
     let config_dir = paths::config_dir()?;
     if !config_dir.exists() {
@@ -135,33 +140,33 @@ pub fn restore_declarch(host: Option<String>) -> Result<()> {
             "Declarch not initialized. Run 'declarch init' first.".into(),
         ));
     }
-    
+
     output::header("Restoring Main Configuration");
-    
+
     // Preserve existing imports if possible
     let existing_imports = if config_file.exists() {
         fs::read_to_string(&config_file).ok()
     } else {
         None
     };
-    
+
     // Get hostname
     let hostname = host.unwrap_or_else(|| {
         hostname::get()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| "unknown".to_string())
     });
-    
+
     // Create from template
     let template = crate::utils::templates::default_host(&hostname);
     fs::write(&config_file, template)?;
-    
+
     output::success(&format!("Restored: {}", config_file.display()));
-    
+
     if existing_imports.is_some() {
         output::warning("Previous configuration overwritten. Check your module imports.");
     }
-    
+
     Ok(())
 }
 

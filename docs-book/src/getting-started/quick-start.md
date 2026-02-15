@@ -20,11 +20,14 @@ Expected structure:
     └── base.kdl
 ```
 
-## 2) Add packages
+## 2) Add packages (explicit backend required)
 
 ```bash
-declarch install bat fzf ripgrep
+declarch install aur:bat aur:fzf aur:ripgrep
 declarch install npm:typescript
+
+# or same backend for all
+declarch install bat fzf ripgrep --backend aur
 ```
 
 ## 3) Preview and apply

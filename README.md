@@ -1,9 +1,9 @@
 # declarch
 
-Declarch is a declarative, agnostic wrapper over many package managers.
+Declarch is a declarative, agnostic wrapper for many package managers.
 
-You define packages in config, then run `declarch sync`.
-Declarch coordinates backend commands for you.
+You write package config once, then run `declarch sync`.
+Declarch handles the backend commands for you.
 
 ## WARNING: v0.8.0 has BREAKING CHANGES
 
@@ -17,21 +17,63 @@ cp -r ~/.config/declarch ~/.config/declarch.backup
 
 Reality check:
 - declarch is still evolving,
-- backend/environment coverage is improving,
-- not every backend combination is tested equally yet.
+- backend/environment coverage keeps improving,
+- not every backend combo is tested equally yet.
 
 Use `declarch sync preview` first when unsure.
 
 ## What declarch is
 
 - **Wrapper** for existing package managers.
-- **Agnostic** architecture (not tied to one ecosystem).
+- **Agnostic** architecture (not locked to one ecosystem).
 - **Flexible backend config** that can evolve with upstream tools.
 
 ## Common backends
-Package manager, wrapper, helper, etc I called it as backends instead here. You can customize your own backends declaratively. Declarch provide 
 
-`aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`.
+I call all of these "backends" in declarch (package manager, helper, wrapper, and similar tools).
+
+You can use built-in/default ones, fetch extra backend definitions from `nixval/declarch-packages`, or create your own declaratively.
+
+Discover available backends:
+
+```bash
+declarch init --list backends
+```
+
+Adopt one:
+
+```bash
+declarch init --backend <backend-name>
+```
+
+Examples:
+`aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`, and more.
+
+Declarch started with strong Arch focus, but the same declarative pattern works for many backends.
+So you do not need to remember dozens of rarely-used commands.
+
+Common flow stays simple:
+`declarch sync`, `declarch sync prune`, `declarch sync update`, `declarch sync upgrade`, `declarch search`, `declarch info`, `declarch info list`.
+
+## Basic config example
+
+```kdl
+pkg {
+    pacman { firefox git }
+    flatpak { org.mozilla.firefox }
+    npm { typescript pnpm }
+    nix { nil }
+}
+```
+
+Then run:
+
+```bash
+declarch sync
+```
+
+Packages will be installed or adopted when backend is available.
+If backend is missing, declarch will skip it with warning.
 
 ## Installation
 
@@ -55,11 +97,22 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 declarch init
 ```
 
-### 2. Add packages
+Default config includes ready backend definitions (`aur`, `pacman`, `flatpak`, and shipped defaults).
+Add more anytime with:
 
 ```bash
-declarch install bat fzf ripgrep
+declarch init --backend <backend-name>
+```
+
+### 2. Add packages
+
+`install` now requires explicit backend, either per package or via flag.
+
+```bash
+declarch install aur:bat aur:fzf aur:ripgrep
 declarch install npm:typescript
+# or
+declarch install bat fzf ripgrep --backend aur
 ```
 
 ### 3. Apply
@@ -72,17 +125,6 @@ Use preview when needed:
 
 ```bash
 declarch sync preview
-```
-
-## Basic config example
-
-```kdl
-pkg {
-    pacman { firefox git }
-    flatpak { org.mozilla.firefox }
-    npm { typescript pnpm }
-    nix { nil }
-}
 ```
 
 ## Backend setup

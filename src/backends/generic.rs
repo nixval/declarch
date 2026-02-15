@@ -17,29 +17,34 @@ use std::time::{Duration, Instant};
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Execute a command with timeout (non-interactive)
-fn run_command_with_timeout(
-    cmd: &mut Command,
-    timeout: Duration,
-) -> Result<std::process::Output> {
+fn run_command_with_timeout(cmd: &mut Command, timeout: Duration) -> Result<std::process::Output> {
     let cmd_debug = format!("{:?}", cmd);
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let mut child = cmd.spawn().map_err(|e| DeclarchError::SystemCommandFailed {
-        command: cmd_debug.clone(),
-        reason: e.to_string(),
-    })?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| DeclarchError::SystemCommandFailed {
+            command: cmd_debug.clone(),
+            reason: e.to_string(),
+        })?;
 
-    let stdout = child.stdout.take().ok_or_else(|| DeclarchError::SystemCommandFailed {
-        command: cmd_debug.clone(),
-        reason: "Failed to capture stdout".to_string(),
-    })?;
-    let stderr = child.stderr.take().ok_or_else(|| DeclarchError::SystemCommandFailed {
-        command: cmd_debug.clone(),
-        reason: "Failed to capture stderr".to_string(),
-    })?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| DeclarchError::SystemCommandFailed {
+            command: cmd_debug.clone(),
+            reason: "Failed to capture stdout".to_string(),
+        })?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| DeclarchError::SystemCommandFailed {
+            command: cmd_debug.clone(),
+            reason: "Failed to capture stderr".to_string(),
+        })?;
 
     let stdout_thread = thread::spawn(move || {
         let mut buf = Vec::new();
@@ -100,10 +105,12 @@ fn run_interactive_command_with_timeout(
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    let mut child = cmd.spawn().map_err(|e| DeclarchError::SystemCommandFailed {
-        command: cmd_debug.clone(),
-        reason: e.to_string(),
-    })?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| DeclarchError::SystemCommandFailed {
+            command: cmd_debug.clone(),
+            reason: e.to_string(),
+        })?;
 
     let start = Instant::now();
     loop {
@@ -111,7 +118,10 @@ fn run_interactive_command_with_timeout(
             Ok(Some(status)) => return Ok(status),
             Ok(None) => {
                 if start.elapsed() > timeout {
-                    ui::warning(&format!("Command timed out after {} seconds", timeout.as_secs()));
+                    ui::warning(&format!(
+                        "Command timed out after {} seconds",
+                        timeout.as_secs()
+                    ));
                     let _ = child.kill();
                     let _ = child.wait();
                     return Err(DeclarchError::SystemCommandFailed {
@@ -173,21 +183,21 @@ impl GenericManager {
         if let Some(bin) = self.config.binary.find_available() {
             return Ok(bin);
         }
-        
+
         // If primary not available and fallback configured, try fallback
         if let Some(fallback_name) = &self.config.fallback {
             // Load fallback backend config
-            let all_backends = crate::backends::load_all_backends_unified()
-                .map_err(|e| DeclarchError::PackageManagerError(
-                    format!("Failed to load backend configs: {}", e)
-                ))?;
-            
+            let all_backends = crate::backends::load_all_backends_unified().map_err(|e| {
+                DeclarchError::PackageManagerError(format!("Failed to load backend configs: {}", e))
+            })?;
+
             if let Some(fallback_config) = all_backends.get(fallback_name)
-                && let Some(fallback_bin) = fallback_config.binary.find_available() {
-                    return Ok(fallback_bin);
-                }
+                && let Some(fallback_bin) = fallback_config.binary.find_available()
+            {
+                return Ok(fallback_bin);
+            }
         }
-        
+
         // Neither primary nor fallback available
         Err(DeclarchError::PackageManagerError(format!(
             "{} not found. Please install {} first.",
@@ -226,7 +236,7 @@ impl GenericManager {
     }
 
     /// Format package list for command
-    /// 
+    ///
     /// SECURITY: Each package name is shell-escaped to prevent injection attacks.
     /// Even though packages are validated before calling this function, we add
     /// an extra layer of protection through proper escaping.
@@ -278,12 +288,13 @@ impl PackageManager for GenericManager {
 
         let cmd_str = list_cmd.clone();
         let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
-        
-        let output = run_command_with_timeout(&mut cmd, DEFAULT_COMMAND_TIMEOUT)
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+
+        let output = run_command_with_timeout(&mut cmd, DEFAULT_COMMAND_TIMEOUT).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -320,11 +331,12 @@ impl PackageManager for GenericManager {
 
         // Use interactive timeout function (5 minute timeout for install)
         let timeout = Duration::from_secs(300);
-        let status = run_interactive_command_with_timeout(&mut cmd, timeout)
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+        let status = run_interactive_command_with_timeout(&mut cmd, timeout).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: format!("install: {}", cmd_str),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -366,11 +378,12 @@ impl PackageManager for GenericManager {
 
         // Use interactive timeout function (5 minute timeout for remove)
         let timeout = Duration::from_secs(300);
-        let status = run_interactive_command_with_timeout(&mut cmd, timeout)
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+        let status = run_interactive_command_with_timeout(&mut cmd, timeout).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: format!("remove: {}", cmd_str),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -387,14 +400,15 @@ impl PackageManager for GenericManager {
         if self.config.binary.find_available().is_some() {
             return true;
         }
-        
+
         // Check fallback if configured
         if let Some(fallback_name) = &self.config.fallback
             && let Ok(all_backends) = crate::backends::load_all_backends_unified()
-                && let Some(fallback_config) = all_backends.get(fallback_name) {
-                    return fallback_config.binary.find_available().is_some();
-                }
-        
+            && let Some(fallback_config) = all_backends.get(fallback_name)
+        {
+            return fallback_config.binary.find_available().is_some();
+        }
+
         false
     }
 
@@ -422,13 +436,14 @@ impl PackageManager for GenericManager {
         // Replace query placeholder; common placeholders are handled by build_command
         let cmd_str = search_cmd.replace("{query}", &sanitize::shell_escape(query));
         let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
-        
+
         // Use shorter timeout for search (30 seconds)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30)).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !output.status.success() {
             return Ok(Vec::new());
@@ -452,15 +467,16 @@ impl PackageManager for GenericManager {
 
         let cmd_str = update_cmd.clone();
         let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
-        
+
         ui::info(&format!("Updating {} package index...", self.config.name));
-        
+
         // Use standard timeout for update (2 minutes)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(120))
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(120)).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -487,15 +503,16 @@ impl PackageManager for GenericManager {
 
         let cmd_str = cache_clean_cmd.clone();
         let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
-        
+
         ui::info(&format!("Cleaning {} cache...", self.config.name));
-        
+
         // Use standard timeout for cache clean (5 minutes - can be slow)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(300))
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(300)).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -523,9 +540,9 @@ impl PackageManager for GenericManager {
 
         let cmd_str = upgrade_cmd.clone();
         let mut cmd = self.build_command(&cmd_str, CommandMode::Mutating)?;
-        
+
         ui::info(&format!("Upgrading {} packages...", self.config.name));
-        
+
         // Use longer timeout for upgrade (10 minutes - can be slow)
         let output = run_interactive_command_with_timeout(&mut cmd, Duration::from_secs(600))
             .map_err(|e| DeclarchError::SystemCommandFailed {
@@ -562,13 +579,14 @@ impl PackageManager for GenericManager {
         // Replace query placeholder; common placeholders are handled by build_command
         let cmd_str = search_local_cmd.replace("{query}", &sanitize::shell_escape(query));
         let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
-        
+
         // Use shorter timeout for search (30 seconds)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30))
-            .map_err(|e| DeclarchError::SystemCommandFailed {
+        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30)).map_err(|e| {
+            DeclarchError::SystemCommandFailed {
                 command: cmd_str.clone(),
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         if !output.status.success() {
             return Ok(Vec::new());
@@ -594,8 +612,12 @@ impl GenericManager {
 
         match format {
             crate::backends::config::OutputFormat::Json => self.parse_search_json(&stdout_str),
-            crate::backends::config::OutputFormat::JsonLines => self.parse_search_json_lines(&stdout_str),
-            crate::backends::config::OutputFormat::NpmJson => self.parse_search_npm_json(&stdout_str),
+            crate::backends::config::OutputFormat::JsonLines => {
+                self.parse_search_json_lines(&stdout_str)
+            }
+            crate::backends::config::OutputFormat::NpmJson => {
+                self.parse_search_npm_json(&stdout_str)
+            }
             crate::backends::config::OutputFormat::JsonObjectKeys => {
                 // JsonObjectKeys is for list operations only (object keys as package names)
                 Err(DeclarchError::PackageManagerError(
@@ -738,15 +760,15 @@ impl GenericManager {
 
         for line in stdout.lines() {
             let line = line.trim();
-            
+
             // Skip array markers and commas
             if line.is_empty() || line == "[" || line == "]" || line == "," {
                 continue;
             }
-            
+
             // Lines might end with comma, remove it
             let line = line.trim_end_matches(',');
-            
+
             // Try to parse as JSON object
             match serde_json::from_str::<serde_json::Value>(line) {
                 Ok(json) => {
@@ -871,8 +893,9 @@ impl GenericManager {
 
         let desc_group = self.config.search_regex_desc_group.unwrap_or(1);
 
-        let regex = regex_cache::get_cached_regex(regex_str)
-            .map_err(|e| DeclarchError::PackageManagerError(format!("Invalid search regex: {}", e)))?;
+        let regex = regex_cache::get_cached_regex(regex_str).map_err(|e| {
+            DeclarchError::PackageManagerError(format!("Invalid search regex: {}", e))
+        })?;
 
         let mut results = Vec::new();
 
@@ -928,9 +951,12 @@ impl GenericManager {
     /// Parse local search results using search_local format configuration
     fn parse_local_search_results(&self, stdout: &[u8]) -> Result<Vec<PackageSearchResult>> {
         let stdout_str = String::from_utf8_lossy(stdout);
-        
+
         // Use search_local format if configured, otherwise fall back to list_format
-        let format = self.config.search_local_format.as_ref()
+        let format = self
+            .config
+            .search_local_format
+            .as_ref()
             .unwrap_or(&self.config.list_format);
 
         match format {
@@ -967,22 +993,26 @@ impl GenericManager {
 
     /// Parse whitespace-separated local search results
     fn parse_local_search_whitespace(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
-        let name_col = self.config.search_local_name_col
+        let name_col = self
+            .config
+            .search_local_name_col
             .or(self.config.list_name_col)
             .unwrap_or(0);
-        let version_col = self.config.search_local_version_key.as_ref()
+        let version_col = self
+            .config
+            .search_local_version_key
+            .as_ref()
             .and_then(|_| None) // version_key is for JSON, use version_col from list for whitespace
             .or(self.config.list_version_col);
-        
+
         let mut results = Vec::new();
-        
+
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() > name_col {
                 let name = parts[name_col].to_string();
-                let version = version_col
-                    .and_then(|col| parts.get(col).map(|&v| v.to_string()));
-                
+                let version = version_col.and_then(|col| parts.get(col).map(|&v| v.to_string()));
+
                 if !name.is_empty() {
                     results.push(PackageSearchResult {
                         name,
@@ -993,18 +1023,20 @@ impl GenericManager {
                 }
             }
         }
-        
+
         Ok(results)
     }
 
     /// Parse tab-separated local search results
     fn parse_local_search_tab(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
-        let name_col = self.config.search_local_name_col
+        let name_col = self
+            .config
+            .search_local_name_col
             .or(self.config.list_name_col)
             .unwrap_or(0);
-        
+
         let mut results = Vec::new();
-        
+
         for line in stdout.lines() {
             let parts: Vec<&str> = line.split('\t').collect();
             if parts.len() > name_col {
@@ -1019,16 +1051,22 @@ impl GenericManager {
                 }
             }
         }
-        
+
         Ok(results)
     }
 
     /// Parse JSON local search results
     fn parse_local_search_json(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
-        let json_path = self.config.search_local_json_path.as_deref()
+        let json_path = self
+            .config
+            .search_local_json_path
+            .as_deref()
             .or(self.config.list_json_path.as_deref())
             .unwrap_or("");
-        let name_key = self.config.search_local_name_key.as_ref()
+        let name_key = self
+            .config
+            .search_local_name_key
+            .as_ref()
             .or(self.config.list_name_key.as_ref())
             .ok_or_else(|| {
                 DeclarchError::PackageManagerError(
@@ -1048,7 +1086,10 @@ impl GenericManager {
             DeclarchError::PackageManagerError("Local search results is not a JSON array".into())
         })?;
 
-        let version_key = self.config.search_local_version_key.as_deref()
+        let version_key = self
+            .config
+            .search_local_version_key
+            .as_deref()
             .or(self.config.list_version_key.as_deref());
 
         let mut results = Vec::new();
@@ -1079,7 +1120,10 @@ impl GenericManager {
 
     /// Parse regex-based local search results
     fn parse_local_search_regex(&self, stdout: &str) -> Result<Vec<PackageSearchResult>> {
-        let regex_str = self.config.search_local_regex.as_ref()
+        let regex_str = self
+            .config
+            .search_local_regex
+            .as_ref()
             .or(self.config.list_regex.as_ref())
             .ok_or_else(|| {
                 DeclarchError::PackageManagerError(
@@ -1087,13 +1131,16 @@ impl GenericManager {
                 )
             })?;
 
-        let name_group = self.config.search_local_regex_name_group
+        let name_group = self
+            .config
+            .search_local_regex_name_group
             .or(self.config.list_regex_name_group)
             .unwrap_or(1);
 
-        let regex = regex_cache::get_cached_regex(regex_str)
-            .map_err(|e| DeclarchError::PackageManagerError(format!("Invalid local search regex: {}", e)))?;
-        
+        let regex = regex_cache::get_cached_regex(regex_str).map_err(|e| {
+            DeclarchError::PackageManagerError(format!("Invalid local search regex: {}", e))
+        })?;
+
         let mut results = Vec::new();
 
         for line in stdout.lines() {
@@ -1118,7 +1165,6 @@ impl GenericManager {
 
         Ok(results)
     }
-
 }
 
 #[cfg(test)]

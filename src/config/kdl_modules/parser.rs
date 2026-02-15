@@ -1,16 +1,15 @@
 //! KDL content parser
 //!
 //! Main parsing logic for KDL configuration files.
-//! 
+//!
 //! In v0.6+, this uses a fully generic approach where all packages are
 //! stored in unified storage (packages_by_backend).
 
-use crate::config::kdl_modules::types::{
-    ActionType, ErrorBehavior, LifecycleAction, LifecyclePhase,
-    PackageEntry, RawConfig,
-};
 use crate::config::kdl_modules::helpers::{
     conflicts, env, hooks, meta, packages, policy, repositories,
+};
+use crate::config::kdl_modules::types::{
+    ActionType, ErrorBehavior, LifecycleAction, LifecyclePhase, PackageEntry, RawConfig,
 };
 use crate::error::Result;
 use kdl::{KdlDocument, KdlNode};
@@ -195,7 +194,8 @@ fn parse_pkg_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
         // Direct backend specification: pkg:paru { ... }
         let packages = extract_packages_from_node(node)?;
         if !packages.is_empty() {
-            config.packages_by_backend
+            config
+                .packages_by_backend
                 .entry(backend.to_string())
                 .or_default()
                 .extend(packages);
@@ -208,19 +208,23 @@ fn parse_pkg_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let child_name = child.name().value();
-            
+
             // Check if child name contains colon (inline prefix syntax)
             if let Some((backend, package)) = child_name.split_once(':') {
                 // Inline prefix: paru:hyprland
-                config.packages_by_backend
+                config
+                    .packages_by_backend
                     .entry(backend.to_string())
                     .or_default()
-                    .push(PackageEntry { name: package.to_string() });
+                    .push(PackageEntry {
+                        name: package.to_string(),
+                    });
             } else {
                 // Regular backend block: paru { hyprland waybar }
                 let packages = extract_packages_from_node(child)?;
                 if !packages.is_empty() {
-                    config.packages_by_backend
+                    config
+                        .packages_by_backend
                         .entry(child_name.to_string())
                         .or_default()
                         .extend(packages);
@@ -232,12 +236,16 @@ fn parse_pkg_node(node: &KdlNode, config: &mut RawConfig) -> Result<()> {
     // Handle inline entries: pkg { "paru:package1" "npm:package2" }
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string()
-            && let Some((backend, package)) = val.split_once(':') {
-                config.packages_by_backend
-                    .entry(backend.to_string())
-                    .or_default()
-                    .push(PackageEntry { name: package.to_string() });
-            }
+            && let Some((backend, package)) = val.split_once(':')
+        {
+            config
+                .packages_by_backend
+                .entry(backend.to_string())
+                .or_default()
+                .push(PackageEntry {
+                    name: package.to_string(),
+                });
+        }
     }
 
     Ok(())
@@ -250,14 +258,16 @@ fn extract_packages_from_node(node: &KdlNode) -> Result<Vec<PackageEntry>> {
     // Extract from children (nested package names)
     if let Some(children) = node.children() {
         for child in children.nodes() {
-            packages.push(PackageEntry { 
-                name: child.name().value().to_string() 
+            packages.push(PackageEntry {
+                name: child.name().value().to_string(),
             });
-            
+
             // Also check for string arguments
             for entry in child.entries() {
                 if let Some(val) = entry.value().as_string() {
-                    packages.push(PackageEntry { name: val.to_string() });
+                    packages.push(PackageEntry {
+                        name: val.to_string(),
+                    });
                 }
             }
         }
@@ -266,7 +276,9 @@ fn extract_packages_from_node(node: &KdlNode) -> Result<Vec<PackageEntry>> {
     // Extract from direct string arguments
     for entry in node.entries() {
         if let Some(val) = entry.value().as_string() {
-            packages.push(PackageEntry { name: val.to_string() });
+            packages.push(PackageEntry {
+                name: val.to_string(),
+            });
         }
     }
 
@@ -282,7 +294,8 @@ fn parse_packages_node_legacy(node: &KdlNode, config: &mut RawConfig) -> Result<
     if let Some((_, backend)) = node_name.split_once(':') {
         let packages = extract_packages_from_node(node)?;
         if !packages.is_empty() {
-            config.packages_by_backend
+            config
+                .packages_by_backend
                 .entry(backend.to_string())
                 .or_default()
                 .extend(packages);
@@ -294,21 +307,25 @@ fn parse_packages_node_legacy(node: &KdlNode, config: &mut RawConfig) -> Result<
     if let Some(children) = node.children() {
         for child in children.nodes() {
             let child_name = child.name().value();
-            
+
             // Check if child name contains colon (inline prefix)
             if child_name.contains(':') {
                 if let Some((backend, package)) = child_name.split_once(':') {
-                    config.packages_by_backend
+                    config
+                        .packages_by_backend
                         .entry(backend.to_string())
                         .or_default()
-                        .push(PackageEntry { name: package.to_string() });
+                        .push(PackageEntry {
+                            name: package.to_string(),
+                        });
                 }
             } else if child.children().is_some() {
                 // Child has nested structure - treat as backend block
                 // e.g., packages { paru { hyprland } }
                 let packages = extract_packages_from_node(child)?;
                 if !packages.is_empty() {
-                    config.packages_by_backend
+                    config
+                        .packages_by_backend
                         .entry(child_name.to_string())
                         .or_default()
                         .extend(packages);
@@ -316,18 +333,24 @@ fn parse_packages_node_legacy(node: &KdlNode, config: &mut RawConfig) -> Result<
             } else {
                 // Child is a simple name - treat as package in "default"
                 // e.g., packages { hyprland waybar }
-                config.packages_by_backend
+                config
+                    .packages_by_backend
                     .entry("default".to_string())
                     .or_default()
-                    .push(PackageEntry { name: child_name.to_string() });
-                
+                    .push(PackageEntry {
+                        name: child_name.to_string(),
+                    });
+
                 // Also check for string arguments in the child node
                 for entry in child.entries() {
                     if let Some(val) = entry.value().as_string() {
-                        config.packages_by_backend
+                        config
+                            .packages_by_backend
                             .entry("default".to_string())
                             .or_default()
-                            .push(PackageEntry { name: val.to_string() });
+                            .push(PackageEntry {
+                                name: val.to_string(),
+                            });
                     }
                 }
             }
@@ -339,16 +362,22 @@ fn parse_packages_node_legacy(node: &KdlNode, config: &mut RawConfig) -> Result<
         if let Some(val) = entry.value().as_string() {
             if val.contains(':') {
                 if let Some((backend, package)) = val.split_once(':') {
-                    config.packages_by_backend
+                    config
+                        .packages_by_backend
                         .entry(backend.to_string())
                         .or_default()
-                        .push(PackageEntry { name: package.to_string() });
+                        .push(PackageEntry {
+                            name: package.to_string(),
+                        });
                 }
             } else {
-                config.packages_by_backend
+                config
+                    .packages_by_backend
                     .entry("default".to_string())
                     .or_default()
-                    .push(PackageEntry { name: val.to_string() });
+                    .push(PackageEntry {
+                        name: val.to_string(),
+                    });
             }
         }
     }

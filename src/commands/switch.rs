@@ -119,14 +119,8 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     output::separator();
     output::info("Transition plan:");
-    output::indent(
-        &format!("{} {}", "Remove:".red().bold(), old_package),
-        1,
-    );
-    output::indent(
-        &format!("{} {}", "Install:".green().bold(), new_package),
-        1,
-    );
+    output::indent(&format!("{} {}", "Remove:".red().bold(), old_package), 1);
+    output::indent(&format!("{} {}", "Install:".green().bold(), new_package), 1);
     output::indent(&format!("Backend: {}", backend), 1);
     output::separator();
 
@@ -144,12 +138,7 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     let state_backup = state.clone();
     output::info("Created state backup");
 
-    match execute_transition(
-        &old_package,
-        &new_package,
-        &backend,
-        &*manager,
-    ) {
+    match execute_transition(&old_package, &new_package, &backend, &*manager) {
         Ok(()) => {
             output::info("Updating declarch state...");
 
@@ -234,7 +223,7 @@ fn determine_target(
     fn extract_backend(name: &str) -> Option<Backend> {
         name.split_once(':').map(|(b, _)| Backend::from(b))
     }
-    
+
     // Helper to strip backend prefix
     fn strip_prefix(name: &str) -> &str {
         name.split_once(':').map(|(_, n)| n).unwrap_or(name)
@@ -243,12 +232,16 @@ fn determine_target(
     if let Some(backend_str) = backend_opt {
         // --backend flag specified: use same backend for both
         let backend = Backend::from(backend_str);
-        Ok((backend, strip_prefix(old_package).to_string(), strip_prefix(new_package).to_string()))
+        Ok((
+            backend,
+            strip_prefix(old_package).to_string(),
+            strip_prefix(new_package).to_string(),
+        ))
     } else {
         // Auto-detect from prefixes
         let old_backend = extract_backend(old_package);
         let new_backend = extract_backend(new_package);
-        
+
         match (old_backend, new_backend) {
             (Some(old), Some(new)) => {
                 if old != new {
@@ -256,29 +249,42 @@ fn determine_target(
                         "Cross-backend switch is not supported. Both packages must use the same backend.".to_string()
                     ));
                 }
-                Ok((old, strip_prefix(old_package).to_string(), strip_prefix(new_package).to_string()))
+                Ok((
+                    old,
+                    strip_prefix(old_package).to_string(),
+                    strip_prefix(new_package).to_string(),
+                ))
             }
             (Some(old), None) => {
                 // Only old has prefix - assume same backend for new
-                Ok((old, strip_prefix(old_package).to_string(), strip_prefix(new_package).to_string()))
+                Ok((
+                    old,
+                    strip_prefix(old_package).to_string(),
+                    strip_prefix(new_package).to_string(),
+                ))
             }
             (None, Some(new)) => {
                 // Only new has prefix - assume same backend for old
-                Ok((new, strip_prefix(old_package).to_string(), strip_prefix(new_package).to_string()))
+                Ok((
+                    new,
+                    strip_prefix(old_package).to_string(),
+                    strip_prefix(new_package).to_string(),
+                ))
             }
             (None, None) => {
                 // Neither has prefix - show helpful error
                 let registry = crate::packages::get_registry();
-                let backends = registry.lock()
+                let backends = registry
+                    .lock()
                     .map(|r| r.available_backends())
                     .unwrap_or_default();
-                
+
                 let backend_list = if backends.is_empty() {
                     "No backends configured. Run 'declarch init' first.".to_string()
                 } else {
                     format!("Available backends: {}", backends.join(", "))
                 };
-                
+
                 Err(DeclarchError::Other(format!(
                     "Cannot determine backend.\n\n\
                      Use explicit prefix syntax:\n\
@@ -286,9 +292,12 @@ fn determine_target(
                      Or specify backend:\n\
                        declarch switch {} {} --backend <BACKEND>\n\n\
                      {}",
-                    backends.first().unwrap_or(&"BACKEND".to_string()), strip_prefix(old_package),
-                    backends.first().unwrap_or(&"BACKEND".to_string()), strip_prefix(new_package),
-                    strip_prefix(old_package), strip_prefix(new_package),
+                    backends.first().unwrap_or(&"BACKEND".to_string()),
+                    strip_prefix(old_package),
+                    backends.first().unwrap_or(&"BACKEND".to_string()),
+                    strip_prefix(new_package),
+                    strip_prefix(old_package),
+                    strip_prefix(new_package),
                     backend_list
                 )))
             }

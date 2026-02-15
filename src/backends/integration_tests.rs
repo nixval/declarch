@@ -19,10 +19,10 @@ fn test_backend_from_string() {
     // Test that Backend type works with any string
     let backend = Backend::from("any-backend");
     assert_eq!(backend.name(), "any-backend");
-    
+
     let backend2 = Backend::from("paru");
     assert_eq!(backend2.name(), "paru");
-    
+
     let backend3 = Backend::from("my-custom-pm");
     assert_eq!(backend3.name(), "my-custom-pm");
 }
@@ -33,7 +33,7 @@ fn test_backend_case_insensitive() {
     let backend1 = Backend::from("NPM");
     let backend2 = Backend::from("npm");
     let backend3 = Backend::from("Npm");
-    
+
     assert_eq!(backend1.name(), "npm");
     assert_eq!(backend2.name(), "npm");
     assert_eq!(backend3.name(), "npm");

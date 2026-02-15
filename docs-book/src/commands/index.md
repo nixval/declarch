@@ -6,7 +6,7 @@ If you only memorize a few commands, memorize these.
 
 ```bash
 declarch init
-declarch install <package...>
+declarch install <backend:package...>
 declarch sync
 ```
 
@@ -35,3 +35,4 @@ declarch sync
 ## Beginner advice
 
 Use preview often and add backends gradually.
+When using `install`, always specify backend via `backend:pkg` or `--backend`.

@@ -3,10 +3,10 @@
 //! Search for packages across configured backends with streaming results.
 //! Results from faster backends are displayed immediately without waiting for slower ones.
 
-use crate::core::types::Backend;
 use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
 };
+use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
@@ -133,7 +133,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
         thread::spawn(move || {
             let result = search_single_backend(manager, &query, local_mode, effective_limit);
-            
+
             // Send result (ignore errors if receiver dropped)
             match result {
                 Ok((results, total)) => {
@@ -144,10 +144,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
                     });
                 }
                 Err(e) => {
-                    let _ = tx.send(BackendResult::Error {
-                        backend,
-                        error: e,
-                    });
+                    let _ = tx.send(BackendResult::Error { backend, error: e });
                 }
             }
         });
@@ -174,7 +171,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     while let Ok(result) = rx.recv_timeout(timeout) {
         match result {
-            BackendResult::Success { backend, results, total_found: backend_total } => {
+            BackendResult::Success {
+                backend,
+                results,
+                total_found: backend_total,
+            } => {
                 total_found += backend_total;
 
                 // Mark installed packages
@@ -190,9 +191,14 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
                 if !marked_results.is_empty() {
                     has_results = true;
-                    
+
                     // Display this backend's results immediately
-                    display_backend_results(&backend, &marked_results, backend_total, effective_limit);
+                    display_backend_results(
+                        &backend,
+                        &marked_results,
+                        backend_total,
+                        effective_limit,
+                    );
                 }
             }
             BackendResult::Error { backend, error } => {
@@ -219,7 +225,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
             }
         }
     } else {
-        output::info(&format!("No packages found matching '{}'", actual_query.cyan()));
+        output::info(&format!(
+            "No packages found matching '{}'",
+            actual_query.cyan()
+        ));
     }
 
     Ok(())
@@ -352,11 +361,8 @@ fn get_backends_to_search(
     options: &SearchOptions,
     backend_configs: &HashMap<String, crate::backends::config::BackendConfig>,
 ) -> Result<Vec<Backend>> {
-    let (result, unknown, unsupported) = select_backends_to_search(
-        backend_configs,
-        options.backends.as_ref(),
-        options.local,
-    );
+    let (result, unknown, unsupported) =
+        select_backends_to_search(backend_configs, options.backends.as_ref(), options.local);
 
     if !unknown.is_empty() {
         output::warning(&format!("Unknown backend(s): {}", unknown.join(", ")));
@@ -406,7 +412,9 @@ fn select_backends_to_search(
     if let Some(requested) = requested_backends {
         for name in requested {
             match all_backends.get(name) {
-                Some(config) if supports_mode(config) => selected.push(Backend::from(name.as_str())),
+                Some(config) if supports_mode(config) => {
+                    selected.push(Backend::from(name.as_str()))
+                }
                 Some(_) => unsupported.push(name.clone()),
                 None => unknown.push(name.clone()),
             }
@@ -433,7 +441,7 @@ fn create_manager_from_config(
 ) -> Result<Box<dyn PackageManager>> {
     use crate::backends::GenericManager;
     use crate::core::types::Backend;
-    
+
     let backend = Backend::from(config.name.clone());
     Ok(Box::new(GenericManager::from_config(
         config.clone(),
@@ -470,14 +478,20 @@ mod tests {
         let requested = vec!["paru".to_string(), "pip".to_string(), "missing".to_string()];
         let (selected_remote, unknown_remote, unsupported_remote) =
             select_backends_to_search(&all, Some(&requested), false);
-        let names_remote: Vec<_> = selected_remote.iter().map(|b| b.name().to_string()).collect();
+        let names_remote: Vec<_> = selected_remote
+            .iter()
+            .map(|b| b.name().to_string())
+            .collect();
         assert_eq!(names_remote, vec!["paru".to_string()]);
         assert_eq!(unknown_remote, vec!["missing".to_string()]);
         assert_eq!(unsupported_remote, vec!["pip".to_string()]);
 
         let (selected_local, unknown_local, unsupported_local) =
             select_backends_to_search(&all, Some(&requested), true);
-        let names_local: Vec<_> = selected_local.iter().map(|b| b.name().to_string()).collect();
+        let names_local: Vec<_> = selected_local
+            .iter()
+            .map(|b| b.name().to_string())
+            .collect();
         assert_eq!(names_local, vec!["pip".to_string()]);
         assert_eq!(unknown_local, vec!["missing".to_string()]);
         assert_eq!(unsupported_local, vec!["paru".to_string()]);
