@@ -123,4 +123,4 @@ Use from CLI:
 
 - Keep beginner config in nested `pkg` style unless migration requires compatibility syntax.
 - Unknown keys may be ignored in some contexts for forward compatibility.
-- Use `declarch check validate` after manual edits.
+- Use `declarch lint --mode validate` after manual edits.

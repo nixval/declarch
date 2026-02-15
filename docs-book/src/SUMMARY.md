@@ -16,7 +16,6 @@
 - [sync](./commands/sync.md)
 - [search](./commands/search.md)
 - [info](./commands/info.md)
-- [explain](./commands/explain.md)
 - [lint](./commands/lint.md)
 
 ## Configuration (Beginner)
@@ -40,6 +39,5 @@
 - [Troubleshooting](./advanced/troubleshooting.md)
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
-- [check](./commands/check.md)
 
 [Cross-Distro Support](./cross-distro-support.md)

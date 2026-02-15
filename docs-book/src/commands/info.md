@@ -1,39 +1,47 @@
 # info
 
-Show status and diagnostics.
+Show status, diagnosis, and package reasoning in one place.
 
 ## Usage
 
 ```bash
-declarch info [COMMAND]
+declarch info [QUERY] [FLAGS]
 ```
 
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `status` | summary (default) |
-| `list` | package list views |
-| `doctor` | diagnostics |
-
-## Examples
+## Common examples
 
 ```bash
+# status (default)
 declarch info
-declarch info list
-declarch info list orphans
-declarch info list synced
-declarch info doctor
+
+# doctor
+declarch info --doctor
+
+# list views
+declarch info --list
+declarch info --list --orphans
+declarch info --list --synced
+
+# reasoning (replaces old explain)
+declarch info bat
+declarch info aur:bat
+declarch info system/base
+
+declarch info --plan
 ```
 
-## Filters
+## Useful flags
 
-```bash
-declarch info status --backend aur
-declarch info doctor --package firefox
-```
+- `--doctor`: run diagnostics
+- `--plan`: show sync install/remove drift reasoning
+- `--list`: list managed packages
+- `--orphans`: with `--list`, show orphan packages only
+- `--synced`: with `--list`, show synced packages only
+- `--backend <name>`: filter status/list output by backend
+- `--package <name>`: filter status output by package name
+- `--profile`, `--host`, `--modules`: apply optional context for reasoning mode
 
-## Cross-machine note
+## Notes
 
-If a backend is not meant for your current OS, doctor/status checks can skip it.
-This is normal when you use one shared config across multiple machines.
+- Use one mode per call: status, query, `--plan`, `--doctor`, or list mode.
+- If a backend is not meant for current OS, checks can skip it gracefully.

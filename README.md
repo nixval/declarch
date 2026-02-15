@@ -53,7 +53,7 @@ Declarch started with strong Arch focus, but the same declarative pattern works 
 So you do not need to remember dozens of rarely-used commands.
 
 Common flow stays simple:
-`declarch sync`, `declarch sync prune`, `declarch sync update`, `declarch sync upgrade`, `declarch search`, `declarch info`, `declarch info list`.
+`declarch sync`, `declarch sync prune`, `declarch sync update`, `declarch sync upgrade`, `declarch search`, `declarch info`, `declarch info --list`.
 
 ## Basic config example
 
@@ -146,9 +146,9 @@ declarch sync preview
 declarch sync update
 declarch sync prune
 declarch search firefox
-declarch check
+declarch lint
 declarch info
-declarch info list
+declarch info --list
 ```
 
 ## Documentation

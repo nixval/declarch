@@ -86,5 +86,5 @@ declarch init username/repo --dry-run
 
 ```bash
 declarch -v init username/repo
-declarch check validate
+declarch lint --mode validate
 ```

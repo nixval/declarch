@@ -1,62 +1,47 @@
 # lint
 
-Lint checks config quality with simple, beginner-friendly rules.
-
-## Why use it
-
-- catch mistakes before running `sync`
-- keep shared configs tidy and predictable
-- spot old syntax that still works but should be migrated
+Lint checks configuration quality before sync.
 
 ## Usage
 
 ```bash
-declarch lint
+declarch lint [FLAGS]
 ```
 
-## Examples
+## Common examples
 
 ```bash
+# full checks
 declarch lint
-declarch lint --strict
+
+# syntax/import checks only (replaces old check validate)
+declarch lint --mode validate
+
+# focused checks
+declarch lint --mode duplicates
+declarch lint --mode conflicts --backend aur
+
+# optional extras
+declarch lint --diff
 declarch lint --fix
-declarch lint --profile desktop --host vps-1
-declarch lint --modules system/base
+declarch lint --strict
+declarch lint --benchmark
 ```
-
-## Current checks
-
-- duplicate package declarations
-- cross-backend same-name conflicts
-- legacy `packages` syntax usage
-- unresolved `imports` paths
-- unresolved `backend_imports` paths
-- hooks configured without `experimental { "enable-hooks" }`
-- implicit `default` backend from legacy syntax
-- policy-aware severity (`on_duplicate`, `on_conflict`, `require_backend`)
-- recursively checks imported files, not only root file
 
 ## Flags
 
-- `--strict`: fail on warnings
-- `--fix`: apply safe fixes (currently import sorting/cleanup)
-- `--profile`, `--host`: include optional overlays
-- `--modules`: include extra modules for this lint run
+- `--mode all|validate|duplicates|conflicts`: lint scope
+- `--backend <name>`: backend filter for package-level checks
+- `--diff`: show planned install/remove drift
+- `--fix`: apply safe automatic fixes
+- `--strict`: warnings become blocking errors
+- `--benchmark`: show elapsed time
+- `--profile`, `--host`, `--modules`: include optional overlays/modules
 
 ## Recommended flow
 
 ```bash
-# 1) Check
 declarch lint
-
-# 2) Apply safe autofix
 declarch lint --fix
-
-# 3) Re-check, strict for CI
 declarch lint --strict
 ```
-
-## Exit behavior
-
-- exit `0`: no errors (and no warnings in `--strict`)
-- exit non-zero: lint found blocking issues
