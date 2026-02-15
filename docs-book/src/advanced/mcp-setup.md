@@ -60,14 +60,16 @@ Important:
   - optional/required `type` (`http`, `streamableHttp`, `sse`)
   - optional `headers` for auth
 
-`npx` is also normal, not special:
+`npx` is also a common pattern for JavaScript-based MCP servers.
+It means the client runs a package directly without manual global install.
+Use the real package name from that server's official docs:
 
 ```json
 {
   "mcpServers": {
-    "example": {
+    "someServer": {
       "command": "npx",
-      "args": ["-y", "some-mcp-server@latest"]
+      "args": ["-y", "<real-mcp-package>@latest"]
     }
   }
 }
