@@ -7,6 +7,19 @@ Status: design placeholder for external MCP adapter.
 Provide MCP tools that wrap stable `declarch` machine outputs.
 Keep adapter external first (no in-process MCP runtime in declarch core).
 
+## Reference binary (experimental)
+
+This repository now includes an experimental adapter binary:
+
+```bash
+cargo run --bin declarch-mcp
+```
+
+Notes:
+- Stdio JSON-RPC style (line-delimited JSON requests).
+- Reads `DECLARCH_BIN` env var to locate declarch binary (default: `declarch`).
+- Intended as reference baseline, not final production protocol.
+
 ## Suggested read-only tools
 
 - `declarch_info`
