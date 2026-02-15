@@ -5,7 +5,7 @@ Menutup potensi bug/security yang paling berisiko tanpa mengubah UX besar.
 
 ## TODO
 - [x] Perbaiki escaping shell agar sesuai implementasi single-quote escaping yang benar.
-- [ ] Tambah test edge-case untuk escaping/sanitization (quote, whitespace, symbol boundary).
+- [x] Tambah test edge-case untuk escaping/sanitization (quote, whitespace, symbol boundary).
 - [x] Review validation path:
   - [x] package name validation
   - [x] search query validation
@@ -21,6 +21,7 @@ Menutup potensi bug/security yang paling berisiko tanpa mengubah UX besar.
 
 - 2026-02-15
   - fixed shell escaping for single quote path + regression test.
+  - added edge-case tests for shell escaping (whitespace, symbol, passthrough safe chars).
   - changed search `--limit` parsing to fail-fast on invalid values.
   - fixed private `172.16.0.0/12` host range check (`16..=31`) + regression assert.
 
