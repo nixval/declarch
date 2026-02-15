@@ -1,6 +1,6 @@
 # check
 
-Validate configuration and consistency.
+Validate config and catch common mistakes.
 
 ## Usage
 
@@ -8,14 +8,14 @@ Validate configuration and consistency.
 declarch check [COMMAND]
 ```
 
-## Subcommands
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `all` | Run all checks (default) |
-| `duplicates` | Find duplicate declarations |
-| `conflicts` | Find cross-backend name conflicts |
-| `validate` | Syntax/import validation only |
+| `all` | full check (default) |
+| `duplicates` | duplicated declarations |
+| `conflicts` | same package name on multiple backends |
+| `validate` | syntax/import only |
 
 ## Examples
 
@@ -30,8 +30,8 @@ declarch check validate
 
 | Flag | Description |
 |------|-------------|
-| `--backend <NAME>` | Filter backend (where supported) |
-| `--diff` | Show planned diff output |
-| `--fix` | Auto-fix where possible |
-| `--benchmark` | Show perf metrics (`all`/`validate`) |
-| `--modules <NAME>...` | Temporarily include extra modules |
+| `--backend <NAME>` | scope by backend |
+| `--diff` | show planning diff |
+| `--fix` | apply supported fixes |
+| `--benchmark` | timing info |
+| `--modules <NAME>...` | temporary modules |

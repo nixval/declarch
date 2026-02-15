@@ -1,8 +1,8 @@
 # Command Overview
 
-If you only remember a few commands, remember these.
+If you only memorize a few commands, memorize these.
 
-## Core workflow
+## Core loop
 
 ```bash
 declarch init
@@ -12,28 +12,26 @@ declarch sync
 
 ## Daily commands
 
-- `declarch sync preview`: see planned changes without execution.
-- `declarch search <query>`: search package candidates.
-- `declarch info`: show managed state summary.
-- `declarch info list`: show managed package lists.
+- `declarch sync preview` - safe preview mode.
+- `declarch search <query>` - find package candidates.
+- `declarch info` - status summary.
+- `declarch info list` - list all/orphans/synced views.
 
-## Useful sync variants
+## Helpful sync variants
 
-- `declarch sync update`: refresh package indexes, then sync.
-- `declarch sync prune`: sync and remove unmanaged packages.
-- `declarch sync cache`: clean backend caches.
-- `declarch sync upgrade`: upgrade packages through configured backends.
+- `declarch sync update` - refresh indexes + sync.
+- `declarch sync prune` - remove unmanaged packages.
+- `declarch sync cache` - clean cache(s).
+- `declarch sync upgrade` - run backend upgrades.
 
 ## Global flags
 
-- `-y, --yes` skip confirmation prompts
-- `-f, --force` force supported operations
-- `-v, --verbose` detailed output
-- `-q, --quiet` minimal output
-- `--dry-run` preview mode
+- `-y, --yes`
+- `-f, --force`
+- `-v, --verbose`
+- `-q, --quiet`
+- `--dry-run`
 
-## Notes for beginners
+## Beginner advice
 
-- Start with `declarch sync preview` often.
-- Add backends only when needed (`declarch init --backend <name>`).
-- Keep configs small and modular.
+Use preview often and add backends gradually.

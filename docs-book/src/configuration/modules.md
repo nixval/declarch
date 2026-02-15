@@ -1,19 +1,19 @@
 # Modules
 
-Modules let you split your config into multiple files.
+Modules help keep config readable.
 
-## Why use modules?
+## Why modules?
 
-Instead of one giant file, split by purpose:
+Instead of one huge file, split by purpose:
 
 ```text
-base.kdl      # Essentials
-dev.kdl       # Development
-gaming.kdl    # Games
-work.kdl      # Work
+base.kdl
+dev.kdl
+work.kdl
+gaming.kdl
 ```
 
-## Create a module
+## Create one
 
 ```bash
 mkdir -p ~/.config/declarch/modules
@@ -31,9 +31,7 @@ pkg {
 EOKDL
 ```
 
-## Import modules
-
-Add to `~/.config/declarch/declarch.kdl`:
+## Import it
 
 ```kdl
 imports {
@@ -42,13 +40,12 @@ imports {
 }
 ```
 
-## Module template
+## Template
 
 ```kdl
-// modules/example.kdl
 meta {
-    title "Example Module"
-    description "What this module contains"
+    title "Dev"
+    description "Development tools"
 }
 
 pkg {
@@ -58,17 +55,8 @@ pkg {
 }
 ```
 
-## Best practices
+## Practical tips
 
-1. Keep one module for one purpose.
-2. Use clear names (`gaming.kdl`, not `misc.kdl`).
-3. Add short metadata so future-you remembers intent.
-
-## Disable module quickly
-
-```kdl
-imports {
-    "modules/base.kdl"
-    // "modules/gaming.kdl"
-}
-```
+1. One module = one context.
+2. Use obvious names.
+3. Keep each module short.

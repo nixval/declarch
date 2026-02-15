@@ -1,89 +1,112 @@
-# Troubleshooting
+# Troubleshooting (Advanced)
 
-## Common issues
+Use this page for concrete diagnosis when commands fail.
 
-### "Backend 'xxx' not found"
+## 1) Backend not found
 
-Cause: backend definition is not available locally.
+Error pattern:
 
-Fix:
+```text
+Backend 'xxx' not found
+```
+
+Actions:
 
 ```bash
 declarch init --backend xxx
+declarch check validate
 ```
 
-### "Failed to parse KDL document"
+Then confirm backend presence in `~/.config/declarch/backends.kdl` imports.
 
-Cause: syntax error in config.
+## 2) Missing backend binary
 
-Fix: follow line/column from error output.
+Error pattern:
 
-Common fixes:
-- close every `{` with `}`
-- quote string fields when required
-- for booleans, use consistent style (`true`/`false` or quoted form)
+```text
+Package manager error: yarn not found
+```
 
-### Search warnings for missing binary
+Actions:
 
-Cause: backend config exists, but binary is not installed (example: `yarn not found`).
+1. install the binary, or
+2. remove backend from active flow, or
+3. configure fallback (`yarn -> npm`).
 
-Fix options:
-- install the binary, or
-- remove that backend from active use, or
-- set backend fallback (example `yarn -> npm`).
+Verify with:
 
-### Search hangs or timeout on slow backend
+```bash
+command -v yarn
+```
 
-Cause: backend search command is slow or interactive.
+## 3) Parse errors (KDL)
 
-Fix:
-- limit target backend: `declarch search firefox -b flatpak`
-- reduce scope using `--limit`
-- verify backend search command in backend file.
+Error pattern includes line/column.
 
-### "No changes" during sync
+Actions:
 
-Cause: desired state already matches system.
+- fix unbalanced braces
+- check quoting for string values
+- verify command templates contain required placeholders
 
-This is normal. Check coverage with:
+Validate quickly:
+
+```bash
+declarch check validate
+```
+
+## 4) Search timeout/slow backend
+
+Actions:
+
+```bash
+# narrow scope
+declarch search firefox -b flatpak --limit 10
+
+# local-only mode
+declarch search firefox --local
+```
+
+Also audit backend `search`/`search_local` command for interactive behavior.
+
+## 5) Sync appears to do nothing
+
+Not always a failure. It often means desired and current state already match.
+
+Inspect drift/orphans:
 
 ```bash
 declarch info list orphans
 ```
 
-### Permission denied
+## 6) Permissions / sudo
 
-Cause: no write access to `~/.config/declarch/`.
+If backend requires root, ensure backend is configured correctly (`needs_sudo`) and your environment can prompt or run privileged commands.
 
-Fix:
+Check config path permissions:
 
 ```bash
 mkdir -p ~/.config/declarch
 chmod 755 ~/.config/declarch
 ```
 
-## Debug mode
-
-```bash
-declarch -v sync
-declarch -v check
-```
-
-## Validate config only
-
-```bash
-declarch check validate
-```
-
-## Reset state
+## 7) State reset procedure
 
 ```bash
 rm ~/.config/declarch/state.json
 declarch init
+declarch sync preview
 ```
 
-## Still stuck
+## 8) Debug bundle
 
-1. Run `declarch check`.
-2. Run with `-v`.
-3. Open issue: https://github.com/nixval/declarch/issues
+Run this sequence before opening issue:
+
+```bash
+declarch -v check validate
+declarch -v info
+declarch -v sync preview
+```
+
+Issue tracker:
+- https://github.com/nixval/declarch/issues

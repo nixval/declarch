@@ -1,49 +1,35 @@
 # Introduction
 
-Declarch is a declarative wrapper for multiple package managers.
+Declarch is a declarative wrapper for many package managers.
 
-In short:
-- you write what packages you want,
-- declarch picks the right backend,
-- then `declarch sync` applies it.
+Short version:
+- you list what you want,
+- declarch maps it to backends,
+- `declarch sync` applies it.
 
-## What makes it different
+## Why people use it
 
-Declarch is:
-- **Agnostic**: it does not lock you into one package manager.
-- **Wrapper-style**: it orchestrates existing tools (`pacman`, `aur`, `flatpak`, `npm`, `nix`, etc).
-- **Flexible**: backend configs can evolve as upstream package managers evolve.
+- One workflow for mixed ecosystems (`pacman`, `flatpak`, `npm`, `nix`, etc).
+- Config-first style that is easier to review and version.
+- Backend configs are flexible, so they can follow upstream package-manager changes.
 
-Declarch is **not**:
-- a replacement for every backend CLI feature,
-- a promise that every backend/environment combo is perfectly tested yet.
+## What it is not
 
-## Backends you can use
+- Not a replacement for every backend CLI feature.
+- Not guaranteed perfect on every backend/environment pair yet.
 
-Common backends include:
-- `aur`, `pacman`, `flatpak`
-- `npm`, `pnpm`, `yarn`, `bun`
-- `cargo`, `pip`, `gem`, `go`
-- `apt`, `nala`, `dnf`, `snap`, `brew`, `nix`, `soar`
+## v0.8 note
 
-## 60-second flow
+v0.8 introduced breaking changes.
+If you are migrating, back up config first and start with preview.
 
 ```bash
-# 1) initialize
-declarch init
-
-# 2) add packages
-declarch install bat ripgrep
-
-# 3) apply
-declarch sync
+cp -r ~/.config/declarch ~/.config/declarch.backup
+declarch sync preview
 ```
 
-## Important note for v0.8.0+
+## Start here
 
-v0.8.0 introduced breaking changes in architecture and syntax.
-If you are upgrading from older versions, back up config first and follow docs step-by-step.
-
-Next:
-- [Installation](./getting-started/installation.md)
-- [Quick Start](./getting-started/quick-start.md)
+1. [Installation](./getting-started/installation.md)
+2. [Quick Start](./getting-started/quick-start.md)
+3. [Basic Concepts](./getting-started/basic-concepts.md)

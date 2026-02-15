@@ -1,6 +1,6 @@
 # init
 
-Create initial configuration, adopt backends, or fetch remote config.
+Use this command to bootstrap config, add backends, or fetch remote config.
 
 ## Usage
 
@@ -8,15 +8,25 @@ Create initial configuration, adopt backends, or fetch remote config.
 declarch init [OPTIONS] [SOURCE]
 ```
 
-## Common examples
-
-### Basic init
+## Most common usage
 
 ```bash
+# first setup
 declarch init
+
+# add one backend
+declarch init --backend npm
+
+# add multiple
+declarch init --backend pnpm,yarn
+# or
+declarch init --backend pnpm yarn
+
+# discover remote backends
+declarch init --list backends
 ```
 
-Creates:
+## Files created by first init
 
 ```text
 ~/.config/declarch/
@@ -28,43 +38,20 @@ Creates:
     └── base.kdl
 ```
 
-### Add backend(s)
+## Useful options
 
-```bash
-declarch init --backend npm
-declarch init --backend pnpm,yarn
-# also valid
-declarch init --backend pnpm yarn
-```
+| Option | Description |
+|--------|-------------|
+| `--backend <NAME>...` | adopt backend definition(s) |
+| `--list <WHAT>` | list `backends` or `modules` |
+| `--host <NAME>` | set hostname template |
+| `--restore-backends` | recreate `backends.kdl` |
+| `--restore-declarch` | recreate `declarch.kdl` |
+| `--force` | overwrite existing files where supported |
 
-### List available remote backends
-
-```bash
-declarch init --list backends
-```
-
-### Initialize from remote source
+## Remote source example
 
 ```bash
 declarch init username/dotfiles
 declarch init username/dotfiles:minimal
 ```
-
-## Options
-
-| Option | Description |
-|--------|-------------|
-| `--backend <NAME>...` | Add one or more backend definitions |
-| `--list <WHAT>` | List available `backends` or `modules` |
-| `--local` | Create module locally (skip registry lookup) |
-| `--host <NAME>` | Set hostname for root template |
-| `--restore-backends` | Restore `backends.kdl` from template |
-| `--restore-declarch` | Restore `declarch.kdl` from template |
-
-## Official defaults and custom backends
-
-`declarch init` gives official defaults in `backends.kdl` (`aur`, `pacman`, `flatpak`, plus shipped defaults).
-
-`declarch init --backend <name>` adopts backend definitions from remote registry into your local `backends/` folder.
-
-If a backend already exists locally, use `--force` to overwrite.

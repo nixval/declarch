@@ -1,22 +1,23 @@
 # Cross-Distro Support
 
-Declarch is distro-agnostic, but support level depends on backend definitions available on your machine.
+Declarch is distro-agnostic.
+Real behavior depends on which backend binaries and backend configs are available.
 
-## Practical model
+## How to think about it
 
-- Declarch itself is just the wrapper/orchestrator.
-- Real package operations are done by backend binaries (`apt`, `dnf`, `pacman`, `flatpak`, `npm`, etc).
-- You can mix multiple backends in one config.
+- Declarch = coordinator.
+- Backends = actual package-manager commands.
+- You can mix distro/system + language backends in one file.
 
 ## Common backend groups
 
 - Arch-oriented: `aur`, `pacman`
 - Debian/Ubuntu: `apt`, `nala`
 - Fedora/RHEL: `dnf`
-- Universal Linux: `flatpak`, `snap`, `nix`, `soar`
+- Universal: `flatpak`, `snap`, `nix`, `soar`
 - Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
 
-## Recommended starter setups
+## Starter commands
 
 ### Arch-based
 
@@ -41,18 +42,15 @@ declarch init --backend dnf,flatpak,npm,cargo
 
 ## Fallback examples
 
-Backend definitions can include fallback behavior, for example:
-
 - `nala -> apt`
 - `pnpm -> npm`
 - `yarn -> npm`
 - `bun -> npm`
 - `aur -> pacman`
 
-This lets your config stay usable even when one preferred binary is missing.
+Fallback keeps workflows usable when preferred binary is missing.
 
-## Contributing backend improvements
+## Improve support
 
-If your distro/backend combo needs better defaults, contribute to:
-
+Contribute backend definitions and fixes:
 - https://github.com/nixval/declarch-packages

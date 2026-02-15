@@ -1,6 +1,6 @@
 # Quick Start
 
-A practical first run.
+Fast first run.
 
 ## 1) Initialize
 
@@ -8,7 +8,7 @@ A practical first run.
 declarch init
 ```
 
-You will get:
+Expected structure:
 
 ```text
 ~/.config/declarch/
@@ -24,38 +24,23 @@ You will get:
 
 ```bash
 declarch install bat fzf ripgrep
-```
-
-Optional: explicit backend
-
-```bash
 declarch install npm:typescript
 ```
 
-## 3) Sync
-
-```bash
-declarch sync
-```
-
-Core loop:
-- edit/add packages
-- sync
-
-## 4) Preview before applying
+## 3) Preview and apply
 
 ```bash
 declarch sync preview
+declarch sync
 ```
 
-Useful when learning or migrating.
-
-## 5) Add more backends when needed
+## 4) Add more backends only when needed
 
 ```bash
 declarch init --backend npm
-# or
 declarch init --backend pnpm,yarn
+# also valid
+declarch init --backend pnpm yarn
 ```
 
-You can mix comma and space style safely.
+That is the core workflow.

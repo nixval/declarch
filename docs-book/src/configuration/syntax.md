@@ -1,18 +1,11 @@
 # Syntax Reference (Advanced)
 
-This page is intentionally technical.
+Technical reference for KDL structures used by declarch.
 
-If you are new to declarch, read these first:
+If you are new, read:
 - [Quick Start](../getting-started/quick-start.md)
 - [KDL Basics](./kdl-syntax.md)
 - [Backends](./backends.md)
-
----
-
-## Purpose
-
-This is the detailed reference for KDL structures, advanced keys, and edge cases.
-Use it when you need precise behavior tuning.
 
 ## Core blocks
 
@@ -22,7 +15,9 @@ imports { ... }
 pkg { ... }
 ```
 
-## pkg block
+## Package declarations
+
+### Preferred (nested)
 
 ```kdl
 pkg {
@@ -32,42 +27,49 @@ pkg {
 }
 ```
 
-## Backend-specific prefixes
+### Also accepted (compatibility)
 
 ```kdl
+pkg:pacman { firefox git }
+
 pkg {
+    pacman:firefox
     npm:typescript
-    flatpak:org.mozilla.firefox
 }
 ```
 
-## Options, env, and repos overrides
+## Optional advanced blocks
+
+### Backend options override
 
 ```kdl
-options:npm {
-    noconfirm_flag "--yes"
+options:pacman {
+    noconfirm_flag "--noconfirm"
 }
+```
 
+### Env override
+
+```kdl
 env:global {
     "http_proxy=http://127.0.0.1:8080"
 }
 
+env:npm {
+    "NPM_CONFIG_REGISTRY=https://registry.npmjs.org"
+}
+```
+
+### Package source overrides (backend-specific)
+
+```kdl
 repos:pacman {
     "core"
     "extra"
 }
 ```
 
-## Policy
-
-```kdl
-policy {
-    protected "linux" "systemd"
-    orphans "ask"
-}
-```
-
-## Hooks lifecycle
+### Hooks
 
 ```kdl
 hooks {
@@ -76,7 +78,17 @@ hooks {
 }
 ```
 
-## Notes
+### Policy
 
-- Backend behavior can evolve with package-manager changes.
-- Prefer simple config first; only use advanced blocks when needed.
+```kdl
+policy {
+    protected "linux" "systemd"
+    orphans "ask"
+}
+```
+
+## Validation notes
+
+- Keep beginner config in nested `pkg` style unless migration requires compatibility syntax.
+- Unknown keys may be ignored in some contexts for forward compatibility.
+- Use `declarch check validate` after manual edits.

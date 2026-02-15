@@ -1,6 +1,6 @@
 # install
 
-Add packages to configuration.
+Add packages to config quickly.
 
 ## Usage
 
@@ -8,37 +8,30 @@ Add packages to configuration.
 declarch install [OPTIONS] <PACKAGES>...
 ```
 
-## Examples
+## Common examples
 
 ```bash
-# Single package
 declarch install neovim
+declarch install bat fzf ripgrep
 
-# Multiple packages
-declarch install bat fzf ripgrep fd
-
-# Explicit backend prefix
-declarch install aur:neovim
 declarch install npm:typescript
+declarch install aur:neovim
 
-# Force one backend for all packages
 declarch install -b flatpak org.mozilla.firefox
-
-# Target module
-declarch install firefox --module browsers
+declarch install --module browsers firefox
 ```
 
-## How it works
+## What happens
 
-1. Adds package entries into a module file (`modules/others.kdl` by default).
-2. Auto-runs `declarch sync` unless `--no-sync` is used.
+1. Package entries are written to a module (`modules/others.kdl` by default).
+2. `declarch sync` runs automatically, unless `--no-sync` is used.
 
-If backend is not specified, declarch picks distro-aware default backend (`aur`, `apt`, `dnf`, or fallback logic).
+If you do not pass backend, declarch selects distro-aware default backend.
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `-b, --backend <NAME>` | Backend for all packages |
-| `-m, --module <NAME>` | Target module |
-| `--no-sync` | Skip auto sync |
+| `-b, --backend <NAME>` | force backend for all packages |
+| `-m, --module <NAME>` | target module file |
+| `--no-sync` | edit only, skip sync |

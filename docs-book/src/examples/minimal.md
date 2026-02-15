@@ -1,10 +1,8 @@
 # Minimal Setup
 
-The simplest possible declarch configuration.
+Smallest useful setup for beginners.
 
-## Files
-
-### declarch.kdl
+## `declarch.kdl`
 
 ```kdl
 imports {
@@ -12,7 +10,7 @@ imports {
 }
 ```
 
-### modules/base.kdl
+## `modules/base.kdl`
 
 ```kdl
 pkg {
@@ -23,22 +21,15 @@ pkg {
 }
 ```
 
-## That's it
-
-Two files, a few packages:
+## Apply
 
 ```bash
+declarch sync preview
 declarch sync
 ```
 
-## Why this works
+## Why this is a good start
 
-- Root config and default backend definitions are created by `declarch init`.
-- You can add/adopt extra backends later with `declarch init --backend <name>`.
-- Keeping one small module is easiest for beginners.
-
-## Next step
-
-```bash
-declarch install bat fzf ripgrep
-```
+- only one module
+- easy to read
+- easy to expand later

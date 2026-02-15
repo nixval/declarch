@@ -2,55 +2,53 @@
 
 Backends are how declarch talks to package managers.
 
-Think of declarch as an agnostic wrapper:
-- you declare packages once,
-- backend definitions run real package-manager commands.
+Think of it like this:
+- declarch is the coordinator,
+- backends do the real package operations.
 
 ## Default + adopt model
 
 - `declarch init` creates default backend definitions.
-- `declarch init --backend <name>` adopts extra backend files from remote registry.
-- backend files stay editable locally so behavior can evolve with upstream tools.
+- `declarch init --backend <name>` adopts extra backends from registry.
+- Local backend files are editable.
 
-## Common backend set
+## Common backend groups
 
 - System: `aur`, `pacman`, `flatpak`, `apt`, `nala`, `dnf`, `snap`, `nix`, `brew`
 - Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
-- Others: `soar`
+- Other: `soar`
 
 ## Add backend definitions
 
 ```bash
 declarch init --backend npm
 declarch init --backend pnpm,yarn
-# also valid
 declarch init --backend pnpm yarn
 ```
 
-## Example package config
+## Use backends in package config
 
 ```kdl
 pkg {
     pacman { firefox }
     flatpak { org.mozilla.firefox }
-    npm { typescript prettier }
+    npm { typescript }
     nix { nil }
 }
 ```
 
-## Fallback idea
+## Fallback concept
 
-Backends can fallback when a binary is missing.
-
+A backend can fallback when binary is missing.
 Examples:
 - `nala -> apt`
-- `yarn -> npm`
 - `pnpm -> npm`
+- `yarn -> npm`
 - `bun -> npm`
 - `aur -> pacman`
 
-## Practical advice
+## Beginner tips
 
-- Start with minimal backends.
-- Add more only when needed.
-- Keep backend files in version control.
+- Start small.
+- Add one backend at a time.
+- Keep backend files versioned in git.

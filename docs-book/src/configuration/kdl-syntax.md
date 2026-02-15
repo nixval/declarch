@@ -1,7 +1,7 @@
 # KDL Basics
 
-Declarch config uses KDL.
-This page covers only beginner-level syntax.
+Declarch config is written in KDL.
+This page only covers beginner syntax.
 
 ## Minimal example
 
@@ -14,13 +14,11 @@ pkg {
 }
 ```
 
-## Rules you should remember
+## Rules to remember
 
-1. Use blocks with `{}`.
+1. Blocks use `{}`.
 2. Package names are plain entries inside backend blocks.
-3. Use quotes for string values in settings fields.
-
-Example with quoted values:
+3. Quote string values in metadata/settings fields.
 
 ```kdl
 meta {
@@ -29,7 +27,7 @@ meta {
 }
 ```
 
-## Common pattern
+## Typical layout
 
 ```kdl
 imports {
@@ -44,7 +42,4 @@ pkg {
 }
 ```
 
-## Need full syntax details?
-
-Use advanced reference:
-- [Syntax Reference (Advanced)](./syntax.md)
+Need full syntax details? Use [Syntax Reference (Advanced)](./syntax.md).

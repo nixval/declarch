@@ -1,16 +1,15 @@
 # Basic Concepts
 
-This page is for first-time users.
-No advanced internals here.
+This page is beginner-first.
 
-## 1. Declarch is a wrapper
+## 1) Declarch is a wrapper
 
-Declarch wraps multiple package managers in one workflow.
-You still use real backends under the hood (`pacman`, `flatpak`, `npm`, `nix`, etc).
+Declarch orchestrates real package managers.
+You are still using actual tools under the hood (`apt`, `pacman`, `flatpak`, `npm`, `nix`, etc).
 
-## 2. Agnostic by design
+## 2) Agnostic design
 
-You can mix backends in one config:
+You can mix ecosystems in one config:
 
 ```kdl
 pkg {
@@ -20,32 +19,32 @@ pkg {
 }
 ```
 
-## 3. Declarative workflow
+## 3) Declarative loop
 
-You declare desired state, then sync:
+1. declare packages
+2. run sync
 
 ```bash
 declarch sync
 ```
 
-Declarch compares config vs system and applies only what is needed.
-
-## 4. Backend configs can evolve
+## 4) Backend configs can evolve
 
 Package managers change over time.
-Declarch backend definitions are intentionally flexible so command templates/format parsers can be updated without redesigning your whole workflow.
+Declarch backend definitions are designed to be editable and update-friendly.
 
-## 5. Keep modules simple
+## 5) Modules keep things simple
 
-Split by context:
+Use small files by context:
 - `base.kdl`
 - `dev.kdl`
 - `work.kdl`
 - `gaming.kdl`
 
-This is easier to maintain than one giant file.
+## 6) Start safe
 
-## 6. Be realistic
+When unsure, use:
 
-Declarch works well for common flows, but not every backend + environment combo is tested equally.
-When something fails, check backend config and troubleshooting docs.
+```bash
+declarch sync preview
+```
