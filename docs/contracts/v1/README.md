@@ -40,3 +40,7 @@ All v1 outputs SHOULD follow this shape:
 - `lint.json`
 - `search.json`
 - `sync-preview.json`
+
+## Related
+
+- `extensions-protocol.md` (external plugin protocol placeholder)

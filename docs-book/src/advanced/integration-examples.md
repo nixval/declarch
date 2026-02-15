@@ -36,8 +36,11 @@ Goal: show what can be built on top of declarch without making core too complex.
 
 - Converts declarch managed state/plan into other formats:
   - CSV/JSON inventory
-  - infra report artifacts
-  - internal dashboard feed
+- infra report artifacts
+- internal dashboard feed
+
+Protocol placeholder:
+- `docs/contracts/v1/extensions-protocol.md`
 
 ## MCP examples (recommended first)
 
