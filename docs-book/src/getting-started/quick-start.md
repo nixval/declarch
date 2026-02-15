@@ -8,16 +8,28 @@ Fast first run.
 declarch init
 ```
 
-Expected structure:
+Expected structure (Linux example):
 
 ```text
 ~/.config/declarch/
 ├── declarch.kdl
 ├── backends.kdl
-├── state.json
 ├── backends/
 └── modules/
     └── base.kdl
+```
+
+State file is stored separately in the OS state directory.
+Linux example:
+
+```text
+~/.local/state/declarch/state.json
+```
+
+Use this anytime to see your real paths on your current OS:
+
+```bash
+declarch info --doctor
 ```
 
 ## 2) Add packages (explicit backend required)
