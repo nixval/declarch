@@ -33,6 +33,7 @@ All v1 outputs SHOULD follow this shape:
   - `search`
   - `sync preview`
 - Human/table output remains unchanged.
+- For now, using `--output-version v1` on unsupported commands returns a clear error.
 
 ## Examples
 

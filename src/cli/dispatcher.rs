@@ -326,9 +326,28 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
                 );
             }
         }
+
+        if !supports_v1_contract(args) {
+            return Err(DeclarchError::Other(
+                "This command does not support --output-version v1 yet. Supported now: `info`, `info --list`, `lint`.".to_string(),
+            ));
+        }
     }
 
     Ok(())
+}
+
+fn supports_v1_contract(args: &Cli) -> bool {
+    match &args.command {
+        Some(Command::Lint { .. }) => true,
+        Some(Command::Info {
+            doctor,
+            plan,
+            query,
+            ..
+        }) => !*doctor && !*plan && query.is_none(),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -353,9 +372,22 @@ mod tests {
 
     #[test]
     fn output_version_v1_allows_json_format() {
+        use crate::cli::args::{Command, LintMode};
         let mut cli = base_cli();
         cli.global.output_version = Some("v1".to_string());
         cli.global.format = Some("json".to_string());
+        cli.command = Some(Command::Lint {
+            strict: false,
+            fix: false,
+            mode: LintMode::All,
+            backend: None,
+            diff: false,
+            benchmark: false,
+            repair_state: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+        });
         assert!(validate_machine_output_contract(&cli).is_ok());
     }
 
@@ -372,6 +404,27 @@ mod tests {
         let mut cli = base_cli();
         cli.global.output_version = Some("v1".to_string());
         cli.global.format = Some("table".to_string());
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+
+    #[test]
+    fn output_version_rejects_unsupported_command() {
+        use crate::cli::args::{Command, SyncCommand};
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("json".to_string());
+        cli.command = Some(Command::Sync {
+            command: Some(SyncCommand::Preview {
+                gc: false,
+                target: None,
+                noconfirm: false,
+                hooks: false,
+                profile: None,
+                host: None,
+                modules: Vec::new(),
+            }),
+            gc: false,
+        });
         assert!(validate_machine_output_contract(&cli).is_err());
     }
 }
