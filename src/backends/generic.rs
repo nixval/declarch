@@ -215,15 +215,7 @@ impl GenericManager {
         let cmd_str = self.replace_common_placeholders(cmd_str, &binary);
 
         let use_sudo = self.config.needs_sudo && matches!(mode, CommandMode::Mutating);
-        let mut cmd = if use_sudo {
-            let mut cmd = Command::new("sudo");
-            cmd.arg("sh").arg("-c").arg(cmd_str);
-            cmd
-        } else {
-            let mut cmd = Command::new("sh");
-            cmd.arg("-c").arg(cmd_str);
-            cmd
-        };
+        let mut cmd = crate::utils::platform::build_shell_command(&cmd_str, use_sudo)?;
 
         // Apply configured environment variables to all backend commands.
         if let Some(env_vars) = &self.config.preinstall_env {

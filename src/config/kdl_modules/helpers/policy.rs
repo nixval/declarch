@@ -77,9 +77,12 @@ fn parse_first_bool(node: &KdlNode) -> Option<bool> {
         return Some(v);
     }
 
-    entry.value().as_string().and_then(|v| match v.to_lowercase().as_str() {
-        "true" | "yes" | "on" | "1" => Some(true),
-        "false" | "no" | "off" | "0" => Some(false),
-        _ => None,
-    })
+    entry
+        .value()
+        .as_string()
+        .and_then(|v| match v.to_lowercase().as_str() {
+            "true" | "yes" | "on" | "1" => Some(true),
+            "false" | "no" | "off" | "0" => Some(false),
+            _ => None,
+        })
 }
