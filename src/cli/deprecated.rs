@@ -25,6 +25,8 @@ pub fn handle_deprecated_sync_flags(
             target: None,
             noconfirm: false,
             hooks: false,
+            profile: None,
+            host: None,
             modules: vec![],
         }
     } else if update {
@@ -34,6 +36,8 @@ pub fn handle_deprecated_sync_flags(
             diff: false,
             noconfirm: false,
             hooks: false,
+            profile: None,
+            host: None,
             modules: vec![],
         }
     } else if prune {
@@ -43,6 +47,8 @@ pub fn handle_deprecated_sync_flags(
             diff: false,
             noconfirm: false,
             hooks: false,
+            profile: None,
+            host: None,
             modules: vec![],
         }
     } else {
@@ -52,6 +58,8 @@ pub fn handle_deprecated_sync_flags(
             diff: false,
             noconfirm: false,
             hooks: false,
+            profile: None,
+            host: None,
             modules: vec![],
         }
     };
@@ -190,6 +198,8 @@ pub fn sync_command_to_options(
             diff,
             noconfirm,
             hooks,
+            profile,
+            host,
             modules,
         } => sync::SyncOptions {
             dry_run: false,
@@ -201,6 +211,8 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
             modules: modules.clone(),
             diff: *diff,
         },
@@ -209,6 +221,8 @@ pub fn sync_command_to_options(
             target,
             noconfirm,
             hooks,
+            profile,
+            host,
             modules,
         } => sync::SyncOptions {
             dry_run: true,
@@ -220,6 +234,8 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
             modules: modules.clone(),
             diff: false,
         },
@@ -229,6 +245,8 @@ pub fn sync_command_to_options(
             diff,
             noconfirm,
             hooks,
+            profile,
+            host,
             modules,
         } => sync::SyncOptions {
             dry_run: false,
@@ -240,6 +258,8 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
             modules: modules.clone(),
             diff: *diff,
         },
@@ -249,6 +269,8 @@ pub fn sync_command_to_options(
             diff,
             noconfirm,
             hooks,
+            profile,
+            host,
             modules,
         } => sync::SyncOptions {
             dry_run: false,
@@ -260,6 +282,8 @@ pub fn sync_command_to_options(
             target: target.clone(),
             noconfirm: *noconfirm,
             hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
             modules: modules.clone(),
             diff: *diff,
         },

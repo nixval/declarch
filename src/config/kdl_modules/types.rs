@@ -53,6 +53,13 @@ pub struct RawConfig {
     /// Backend definition imports (paths to backend files)
     /// These define which backends are available for package operations
     pub backend_imports: Vec<String>,
+
+    /// Experimental feature flags.
+    /// Example:
+    /// experimental {
+    ///   "enable-hooks"
+    /// }
+    pub experimental: Vec<String>,
 }
 
 /// Package entry (minimal - just name for now)

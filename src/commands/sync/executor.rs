@@ -71,6 +71,7 @@ pub fn execute_transaction(
     managers: &ManagerMap,
     config: &loader::MergedConfig,
     options: &SyncOptions,
+    hooks_enabled: bool,
 ) -> Result<Vec<PackageId>> {
     // Build initial snapshot from managers in parallel
     // This significantly speeds up sync when multiple backends are configured
@@ -113,12 +114,20 @@ pub fn execute_transaction(
         managers,
         config,
         options,
+        hooks_enabled,
         &mut installed_snapshot,
     )?;
 
     // Execute pruning if enabled
     if options.prune && !transaction.to_prune.is_empty() {
-        execute_pruning(config, transaction, managers, options, &installed_snapshot)?;
+        execute_pruning(
+            config,
+            transaction,
+            managers,
+            options,
+            hooks_enabled,
+            &installed_snapshot,
+        )?;
     }
 
     Ok(successfully_installed)
@@ -130,6 +139,7 @@ fn execute_installations(
     managers: &ManagerMap,
     config: &loader::MergedConfig,
     options: &SyncOptions,
+    hooks_enabled: bool,
     installed_snapshot: &mut InstalledSnapshot,
 ) -> Result<Vec<PackageId>> {
     // Group packages by backend
@@ -152,7 +162,7 @@ fn execute_installations(
                 execute_pre_install(
                     &config.lifecycle_actions,
                     pkg_name,
-                    options.hooks,
+                    hooks_enabled,
                     options.dry_run,
                 )?;
             }
@@ -199,7 +209,7 @@ fn execute_installations(
                         execute_post_install(
                             &config.lifecycle_actions,
                             pkg_name,
-                            options.hooks,
+                            hooks_enabled,
                             options.dry_run,
                         )?;
                         successfully_installed.push(PackageId {
@@ -219,7 +229,7 @@ fn execute_installations(
                     execute_post_install(
                         &config.lifecycle_actions,
                         pkg_name,
-                        options.hooks,
+                        hooks_enabled,
                         options.dry_run,
                     )?;
                     successfully_installed.push(PackageId {
@@ -263,6 +273,7 @@ fn execute_pruning(
     tx: &resolver::Transaction,
     managers: &ManagerMap,
     options: &SyncOptions,
+    hooks_enabled: bool,
     installed_snapshot: &InstalledSnapshot,
 ) -> Result<()> {
     let orphan_strategy = config
@@ -315,7 +326,7 @@ fn execute_pruning(
         execute_pre_remove(
             &config.lifecycle_actions,
             &pkg.name,
-            options.hooks,
+            hooks_enabled,
             options.dry_run,
         )?;
 
@@ -354,7 +365,7 @@ fn execute_pruning(
                             execute_post_remove(
                                 &config.lifecycle_actions,
                                 config_name,
-                                options.hooks,
+                                hooks_enabled,
                                 options.dry_run,
                             )?;
                         }
@@ -363,7 +374,7 @@ fn execute_pruning(
                             execute_post_remove(
                                 &config.lifecycle_actions,
                                 pkg_name,
-                                options.hooks,
+                                hooks_enabled,
                                 options.dry_run,
                             )?;
                         }

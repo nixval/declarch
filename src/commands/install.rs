@@ -231,6 +231,8 @@ pub fn run(options: InstallOptions) -> Result<()> {
             force: false,
             noconfirm: false,
             hooks: false,
+            profile: None,
+            host: None,
             modules: modified_modules.clone(),
             diff: false,
         });

@@ -341,6 +341,14 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
 
+        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block from config (e.g. host "vps-1" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
@@ -365,6 +373,14 @@ pub enum SyncCommand {
         /// Enable hooks (disabled by default for security)
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
+
+        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block from config (e.g. host "vps-1" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
@@ -395,6 +411,14 @@ pub enum SyncCommand {
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
 
+        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block from config (e.g. host "vps-1" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
         modules: Vec<String>,
@@ -423,6 +447,14 @@ pub enum SyncCommand {
         /// Enable hooks (disabled by default for security)
         #[arg(long, help_heading = "Advanced")]
         hooks: bool,
+
+        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block from config (e.g. host "vps-1" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
 
         /// Load additional modules temporarily
         #[arg(long, value_name = "MODULES", help_heading = "Advanced")]

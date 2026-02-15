@@ -55,6 +55,8 @@ pub struct SyncOptions {
     pub target: Option<String>,
     pub noconfirm: bool,
     pub hooks: bool,
+    pub profile: Option<String>,
+    pub host: Option<String>,
     pub modules: Vec<String>,
     pub diff: bool,
 }
@@ -86,15 +88,21 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 1. Load Config
     let config_path = paths::config_file()?;
+    let selectors = loader::LoadSelectors {
+        profile: options.profile.clone(),
+        host: options.host.clone(),
+    };
+
     let mut config = if !options.modules.is_empty() {
         if options.modules.len() == 1 && options.target.is_none() {
-            load_single_module(&config_path, &options.modules[0])?
+            load_single_module(&config_path, &options.modules[0], &selectors)?
         } else {
-            load_config_with_modules(&config_path, &options.modules)?
+            load_config_with_modules(&config_path, &options.modules, &selectors)?
         }
     } else {
-        loader::load_root_config(&config_path)?
+        loader::load_root_config_with_selectors(&config_path, &selectors)?
     };
+    let hooks_enabled = resolve_hooks_enabled(&config, &options);
 
     // 2. Target Resolution
     let sync_target = resolve_target(&options.target, &config);
@@ -108,7 +116,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // Execute pre-sync hooks
-    execute_pre_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_pre_sync(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     // 3. Initialize Managers & Snapshot
     let (installed_snapshot, managers) =
@@ -117,7 +125,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 3.5. Run backend updates if --update flag is set
     if options.update && !options.dry_run {
         execute_backend_updates(&managers)?;
-        execute_on_update(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+        execute_on_update(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
     }
 
     // 4. Load State & Resolve
@@ -149,8 +157,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
         && transaction.to_adopt.is_empty()
     {
         output::success("Everything is up to date!");
-        execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
-        execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+        execute_post_sync(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
+        execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
         return Ok(());
     }
 
@@ -175,12 +183,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
 
         let successfully_installed =
-            match execute_transaction(&transaction, &managers, &config, &options) {
+            match execute_transaction(&transaction, &managers, &config, &options, hooks_enabled) {
                 Ok(installed) => installed,
                 Err(e) => {
                     let _ = execute_on_failure(
                         &config.lifecycle_actions,
-                        options.hooks,
+                        hooks_enabled,
                         options.dry_run,
                     );
                     return Err(e);
@@ -202,14 +210,14 @@ pub fn run(options: SyncOptions) -> Result<()> {
         if let Some(ref lock) = lock {
             if let Err(e) = state::io::save_state_locked(&new_state, lock) {
                 let _ =
-                    execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                    execute_on_failure(&config.lifecycle_actions, hooks_enabled, options.dry_run);
                 return Err(e);
             }
         } else {
             // This shouldn't happen for non-dry-run, but handle gracefully
             if let Err(e) = state::io::save_state(&new_state) {
                 let _ =
-                    execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                    execute_on_failure(&config.lifecycle_actions, hooks_enabled, options.dry_run);
                 return Err(e);
             }
         }
@@ -219,10 +227,25 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // Execute post-sync hooks
-    execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
-    execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_post_sync(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
+    execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     Ok(())
+}
+
+fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &SyncOptions) -> bool {
+    if !options.hooks {
+        return false;
+    }
+
+    if config.is_experimental_enabled("enable-hooks") {
+        return true;
+    }
+
+    output::warning(
+        "Hooks were requested but blocked by policy. Add experimental { \"enable-hooks\" } to declarch.kdl to allow hook execution.",
+    );
+    false
 }
 
 /// Show diff view of sync changes
@@ -635,7 +658,11 @@ fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
     Ok(())
 }
 
-fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::MergedConfig> {
+fn load_single_module(
+    _config_path: &Path,
+    module_name: &str,
+    selectors: &loader::LoadSelectors,
+) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
     let module_path = paths::module_file(module_name);
@@ -666,17 +693,18 @@ fn load_single_module(_config_path: &Path, module_name: &str) -> Result<loader::
         }
     };
 
-    let module_config = loader::load_root_config(&final_path)?;
+    let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
     Ok(module_config)
 }
 
 fn load_config_with_modules(
     config_path: &Path,
     extra_modules: &[String],
+    selectors: &loader::LoadSelectors,
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
-    let mut merged = loader::load_root_config(config_path)?;
+    let mut merged = loader::load_root_config_with_selectors(config_path, selectors)?;
 
     for module_name in extra_modules {
         let module_path = paths::module_file(module_name);
@@ -708,7 +736,7 @@ fn load_config_with_modules(
         };
 
         output::info(&format!("  Loading module: {}", final_path.display()));
-        let module_config = loader::load_root_config(&final_path)?;
+        let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
         merged.packages.extend(module_config.packages);
         merged.excludes.extend(module_config.excludes);
     }

@@ -96,6 +96,9 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
                 // Backend definition imports (paths to backend files)
                 packages::extract_strings(node, &mut config.backend_imports);
             }
+            "experimental" => {
+                parse_experimental_flags(node, &mut config.experimental);
+            }
 
             "description" => {
                 if let Some(entry) = node.entries().first()
@@ -184,6 +187,37 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
     }
 
     Ok(config)
+}
+
+fn parse_experimental_flags(node: &KdlNode, target: &mut Vec<String>) {
+    // experimental "flag"
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            target.push(val.to_string());
+        }
+    }
+
+    // experimental { "flag-a" "flag-b" }
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            // Handle child entries first (string literals inside block).
+            let mut pushed_from_entries = false;
+            for entry in child.entries() {
+                if let Some(val) = entry.value().as_string() {
+                    target.push(val.to_string());
+                    pushed_from_entries = true;
+                }
+            }
+
+            // Handle bare identifier child nodes if any.
+            if !pushed_from_entries {
+                let name = child.name().value();
+                if !name.is_empty() && !name.starts_with("//") {
+                    target.push(name.to_string());
+                }
+            }
+        }
+    }
 }
 
 /// Parse unified pkg node: pkg { backend { packages } }

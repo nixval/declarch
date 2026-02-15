@@ -162,6 +162,8 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             target: None,
             noconfirm: false,
             hooks: false,
+            profile: None,
+            host: None,
             modules: Vec::new(),
             diff: false,
         })?;

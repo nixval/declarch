@@ -153,6 +153,7 @@ mod tests {
             editor: None,
             backends: vec![],
             backend_sources: std::collections::HashMap::new(),
+            experimental: std::collections::HashSet::new(),
         }
     }
 

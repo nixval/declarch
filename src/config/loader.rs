@@ -4,6 +4,7 @@ use crate::config::kdl::{
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
+use kdl::KdlDocument;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -52,6 +53,33 @@ impl ImportContext {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct LoadSelectors {
+    pub profile: Option<String>,
+    pub host: Option<String>,
+}
+
+impl LoadSelectors {
+    fn normalized(&self) -> Self {
+        Self {
+            profile: normalize_selector(&self.profile),
+            host: normalize_selector(&self.host),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.profile.is_none() && self.host.is_none()
+    }
+}
+
+fn normalize_selector(selector: &Option<String>) -> Option<String> {
+    selector
+        .as_ref()
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .map(ToString::to_string)
+}
+
 #[derive(Debug, Default)]
 pub struct MergedConfig {
     /// All packages organized by PackageId (backend:name)
@@ -78,6 +106,8 @@ pub struct MergedConfig {
     pub backends: Vec<crate::backends::config::BackendConfig>,
     /// Source files for each backend definition in load order
     pub backend_sources: HashMap<String, Vec<PathBuf>>,
+    /// Experimental feature flags merged from all config files
+    pub experimental: HashSet<String>,
 }
 
 impl MergedConfig {
@@ -121,13 +151,26 @@ impl MergedConfig {
         backends.sort_by(|a, b| a.name().cmp(b.name()));
         backends
     }
+
+    /// Check whether an experimental feature flag is enabled.
+    pub fn is_experimental_enabled(&self, flag: &str) -> bool {
+        self.experimental.contains(flag)
+    }
 }
 
 pub fn load_root_config(path: &Path) -> Result<MergedConfig> {
+    load_root_config_with_selectors(path, &LoadSelectors::default())
+}
+
+pub fn load_root_config_with_selectors(
+    path: &Path,
+    selectors: &LoadSelectors,
+) -> Result<MergedConfig> {
     let mut merged = MergedConfig::default();
     let mut context = ImportContext::new();
+    let normalized = selectors.normalized();
 
-    recursive_load(path, &mut merged, &mut context)?;
+    recursive_load(path, &mut merged, &mut context, &normalized)?;
 
     Ok(merged)
 }
@@ -149,6 +192,7 @@ fn recursive_load(
     path: &Path,
     merged: &mut MergedConfig,
     context: &mut ImportContext,
+    selectors: &LoadSelectors,
 ) -> Result<()> {
     let abs_path = expand_home(path)
         .map_err(|e| DeclarchError::Other(format!("Path expansion error: {}", e)))?;
@@ -174,8 +218,9 @@ fn recursive_load(
     context.push(canonical_path.clone())?;
 
     let content = std::fs::read_to_string(&canonical_path)?;
+    let filtered_content = filter_content_by_selectors(&content, selectors)?;
     let file_path_str = canonical_path.display().to_string();
-    let raw = parse_kdl_content_with_path(&content, Some(&file_path_str))?;
+    let raw = parse_kdl_content_with_path(&filtered_content, Some(&file_path_str))?;
 
     // Process packages from unified storage (packages_by_backend)
     for (backend_name, packages) in raw.packages_by_backend {
@@ -250,6 +295,9 @@ fn recursive_load(
     {
         merged_hooks.actions.extend(raw.lifecycle_actions.actions);
     }
+
+    // Experimental flags: merge as a unique set
+    merged.experimental.extend(raw.experimental);
 
     // Process backend imports (NEW: explicit backend loading)
     let parent_dir = canonical_path.parent().ok_or_else(|| {
@@ -330,7 +378,7 @@ fn recursive_load(
             parent_dir.join(import_str)
         };
 
-        match recursive_load(&import_path, merged, context) {
+        match recursive_load(&import_path, merged, context, selectors) {
             Ok(()) => {}
             Err(DeclarchError::ConfigNotFound { .. }) => {
                 // Silently skip missing imports
@@ -346,4 +394,107 @@ fn recursive_load(
     context.pop();
 
     Ok(())
+}
+
+fn filter_content_by_selectors(content: &str, selectors: &LoadSelectors) -> Result<String> {
+    if selectors.is_empty() {
+        return Ok(content.to_string());
+    }
+
+    let doc: KdlDocument = content
+        .parse()
+        .map_err(|e: kdl::KdlError| DeclarchError::ConfigError(format!("Invalid KDL: {}", e)))?;
+
+    let mut output = String::new();
+
+    for node in doc.nodes() {
+        match node.name().value() {
+            "profile" => {
+                if selectors
+                    .profile
+                    .as_ref()
+                    .zip(selector_name(node))
+                    .is_some_and(|(selected, current)| selected == &current)
+                    && let Some(children) = node.children()
+                {
+                    for child in children.nodes() {
+                        output.push_str(&child.to_string());
+                        output.push('\n');
+                    }
+                }
+            }
+            "host" => {
+                if selectors
+                    .host
+                    .as_ref()
+                    .zip(selector_name(node))
+                    .is_some_and(|(selected, current)| selected == &current)
+                    && let Some(children) = node.children()
+                {
+                    for child in children.nodes() {
+                        output.push_str(&child.to_string());
+                        output.push('\n');
+                    }
+                }
+            }
+            _ => {
+                output.push_str(&node.to_string());
+                output.push('\n');
+            }
+        }
+    }
+
+    Ok(output)
+}
+
+fn selector_name(node: &kdl::KdlNode) -> Option<String> {
+    node.entries()
+        .first()
+        .and_then(|entry| entry.value().as_string())
+        .map(ToString::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filter_keeps_default_nodes_without_selectors() {
+        let content = r#"
+pkg { aur { git } }
+profile "desktop" {
+  pkg { aur { hyprland } }
+}
+"#;
+        let out = filter_content_by_selectors(content, &LoadSelectors::default()).unwrap();
+        assert!(out.contains("profile \"desktop\""));
+        assert!(out.contains("pkg"));
+    }
+
+    #[test]
+    fn filter_expands_selected_profile_and_host() {
+        let content = r#"
+pkg { aur { git } }
+profile "desktop" {
+  pkg { aur { hyprland } }
+}
+host "vps-1" {
+  pkg { aur { tmux } }
+}
+"#;
+        let out = filter_content_by_selectors(
+            content,
+            &LoadSelectors {
+                profile: Some("desktop".to_string()),
+                host: Some("vps-1".to_string()),
+            },
+        )
+        .unwrap();
+
+        assert!(out.contains("hyprland"));
+        assert!(out.contains("tmux"));
+        assert!(out.contains("git"));
+        assert!(!out.contains("profile \"desktop\""));
+        assert!(!out.contains("host \"vps-1\""));
+    }
 }
