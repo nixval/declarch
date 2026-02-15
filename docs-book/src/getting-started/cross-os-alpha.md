@@ -4,11 +4,11 @@ Declarch is designed to stay backend-agnostic, but cross-OS support is still in 
 
 Current status:
 - Linux: most tested path
-- macOS: experimental (alpha)
-- Windows: experimental (alpha)
+- macOS: alpha preview
+- Windows: alpha preview
 
-This is not a blocker for trying it.
-Just keep expectations realistic and start with preview/doctor first.
+This is still usable for early testing.
+Start with preview/doctor first.
 
 ## Quick safety flow
 
@@ -42,4 +42,4 @@ Use `declarch info --doctor` for exact paths on your machine.
 
 - Better Windows backend coverage (`winget`, `choco`, `scoop`) is planned.
 - More macOS validation (`brew` + mixed backends) is planned.
-- UX warnings stay beginner-friendly, not scary.
+- Warnings are designed to stay clear and beginner-friendly.

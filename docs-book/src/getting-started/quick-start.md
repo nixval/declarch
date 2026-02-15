@@ -26,7 +26,7 @@ Linux example:
 ~/.local/state/declarch/state.json
 ```
 
-Use this anytime to see your real paths on your current OS:
+Use this anytime to see actual config/state paths on your OS:
 
 ```bash
 declarch info --doctor

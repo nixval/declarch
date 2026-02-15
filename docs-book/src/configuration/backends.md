@@ -18,7 +18,7 @@ Think of it like this:
 - Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
 - Other: `soar`
 
-Planned Windows backends (experimental roadmap): `winget`, `choco`, `scoop`.
+Planned Windows backends: `winget`, `choco`, `scoop`.
 
 ## Add backend definitions
 

@@ -22,18 +22,18 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
-The installer will pick the correct macOS target (`x86_64` or `aarch64`).
-Status: **experimental (alpha)**.
-Installer runs lightweight smoke checks after copy (`--help`, `info`).
+The installer picks the correct macOS target (`x86_64` or `aarch64`).
+Current status: **alpha preview**.
+After install, it runs lightweight smoke checks (`--help`, `info`).
 
-## Windows (PowerShell, experimental alpha)
+## Windows (PowerShell, alpha preview)
 
 ```powershell
 irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
 ```
 
-Status: **experimental (alpha)**.
-Installer runs lightweight smoke checks after copy (`--help`, `info`).
+Current status: **alpha preview**.
+After install, it runs lightweight smoke checks (`--help`, `info`).
 
 ## Manual binary install
 
@@ -56,7 +56,7 @@ declarch --version
 declarch --help
 ```
 
-If you are on macOS/Windows alpha path, run:
+If you are on macOS/Windows, run:
 
 ```bash
 declarch info --doctor

@@ -50,7 +50,7 @@ Tip:
 declarch info --doctor
 ```
 
-to print actual config/state paths for your machine.
+This prints actual config/state paths for your machine.
 
 ## Useful options
 
