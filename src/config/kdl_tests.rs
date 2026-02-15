@@ -182,6 +182,33 @@ fn test_imports_parsing() {
 }
 
 #[test]
+fn test_experimental_block_flag_parsing() {
+    let kdl = r#"
+            experimental {
+                "dangerously-enable-hooks"
+            }
+        "#;
+
+    let config = parse_kdl_content(kdl).unwrap();
+    assert!(
+        config
+            .experimental
+            .contains(&"dangerously-enable-hooks".to_string())
+    );
+}
+
+#[test]
+fn test_experimental_inline_flag_parsing() {
+    let kdl = r#"
+            experimental "dangerously-enable-hooks"
+        "#;
+
+    let config = parse_kdl_content(kdl).unwrap();
+    assert_eq!(config.experimental.len(), 1);
+    assert_eq!(config.experimental[0], "dangerously-enable-hooks");
+}
+
+#[test]
 fn test_backend_options_parsing() {
     // Backend options using the options:backend syntax
     // Note: This requires proper KDL syntax support

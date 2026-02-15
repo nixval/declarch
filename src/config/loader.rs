@@ -78,6 +78,8 @@ pub struct MergedConfig {
     pub backends: Vec<crate::backends::config::BackendConfig>,
     /// Source files for each backend definition in load order
     pub backend_sources: HashMap<String, Vec<PathBuf>>,
+    /// Experimental feature flags merged from all config files
+    pub experimental: HashSet<String>,
 }
 
 impl MergedConfig {
@@ -120,6 +122,11 @@ impl MergedConfig {
             .collect();
         backends.sort_by(|a, b| a.name().cmp(b.name()));
         backends
+    }
+
+    /// Check whether an experimental feature flag is enabled.
+    pub fn is_experimental_enabled(&self, flag: &str) -> bool {
+        self.experimental.contains(flag)
     }
 }
 
@@ -250,6 +257,9 @@ fn recursive_load(
     {
         merged_hooks.actions.extend(raw.lifecycle_actions.actions);
     }
+
+    // Experimental flags: merge as a unique set
+    merged.experimental.extend(raw.experimental);
 
     // Process backend imports (NEW: explicit backend loading)
     let parent_dir = canonical_path.parent().ok_or_else(|| {

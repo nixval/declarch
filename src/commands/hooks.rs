@@ -56,7 +56,7 @@ pub fn execute_hooks(
     output::separator();
     if !hooks_enabled && !dry_run {
         output::warning(&format!(
-            "{} hooks detected but not executed (--hooks not provided)",
+            "{} hooks detected but not executed (either --hooks not provided or blocked by policy)",
             phase_name
         ));
         display_hooks(hooks, phase_name, true);

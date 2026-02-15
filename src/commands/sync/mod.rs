@@ -95,6 +95,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     } else {
         loader::load_root_config(&config_path)?
     };
+    let hooks_enabled = resolve_hooks_enabled(&config, &options);
 
     // 2. Target Resolution
     let sync_target = resolve_target(&options.target, &config);
@@ -108,7 +109,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // Execute pre-sync hooks
-    execute_pre_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_pre_sync(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     // 3. Initialize Managers & Snapshot
     let (installed_snapshot, managers) =
@@ -117,7 +118,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // 3.5. Run backend updates if --update flag is set
     if options.update && !options.dry_run {
         execute_backend_updates(&managers)?;
-        execute_on_update(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+        execute_on_update(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
     }
 
     // 4. Load State & Resolve
@@ -149,8 +150,8 @@ pub fn run(options: SyncOptions) -> Result<()> {
         && transaction.to_adopt.is_empty()
     {
         output::success("Everything is up to date!");
-        execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
-        execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+        execute_post_sync(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
+        execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
         return Ok(());
     }
 
@@ -175,12 +176,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
         }
 
         let successfully_installed =
-            match execute_transaction(&transaction, &managers, &config, &options) {
+            match execute_transaction(&transaction, &managers, &config, &options, hooks_enabled) {
                 Ok(installed) => installed,
                 Err(e) => {
                     let _ = execute_on_failure(
                         &config.lifecycle_actions,
-                        options.hooks,
+                        hooks_enabled,
                         options.dry_run,
                     );
                     return Err(e);
@@ -202,14 +203,14 @@ pub fn run(options: SyncOptions) -> Result<()> {
         if let Some(ref lock) = lock {
             if let Err(e) = state::io::save_state_locked(&new_state, lock) {
                 let _ =
-                    execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                    execute_on_failure(&config.lifecycle_actions, hooks_enabled, options.dry_run);
                 return Err(e);
             }
         } else {
             // This shouldn't happen for non-dry-run, but handle gracefully
             if let Err(e) = state::io::save_state(&new_state) {
                 let _ =
-                    execute_on_failure(&config.lifecycle_actions, options.hooks, options.dry_run);
+                    execute_on_failure(&config.lifecycle_actions, hooks_enabled, options.dry_run);
                 return Err(e);
             }
         }
@@ -219,10 +220,25 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // Execute post-sync hooks
-    execute_post_sync(&config.lifecycle_actions, options.hooks, options.dry_run)?;
-    execute_on_success(&config.lifecycle_actions, options.hooks, options.dry_run)?;
+    execute_post_sync(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
+    execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     Ok(())
+}
+
+fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &SyncOptions) -> bool {
+    if !options.hooks {
+        return false;
+    }
+
+    if config.is_experimental_enabled("dangerously-enable-hooks") {
+        return true;
+    }
+
+    output::warning(
+        "Hooks were requested but blocked by policy. Add experimental { \"dangerously-enable-hooks\" } to declarch.kdl to allow hook execution.",
+    );
+    false
 }
 
 /// Show diff view of sync changes
