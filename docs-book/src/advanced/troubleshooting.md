@@ -95,6 +95,12 @@ mkdir -p ~/.config/declarch
 chmod 755 ~/.config/declarch
 ```
 
+Linux example above. On macOS/Windows, get actual path from:
+
+```bash
+declarch info --doctor
+```
+
 ## 7) State reset procedure
 
 ```bash

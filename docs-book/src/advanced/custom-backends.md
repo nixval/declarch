@@ -1,15 +1,17 @@
 # Custom Backends (Advanced)
 
-This page documents custom backend authoring for `~/.config/declarch/backends/*.kdl`.
+This page documents custom backend authoring for `backends/*.kdl` under your declarch config directory.
 
 ## File placement and import
 
-1. Create file:
+1. Create file (Linux example):
 
 ```bash
 mkdir -p ~/.config/declarch/backends
 $EDITOR ~/.config/declarch/backends/mypm.kdl
 ```
+
+Use `declarch info --doctor` to print your exact config path on current OS.
 
 2. Import in `backends.kdl`:
 
