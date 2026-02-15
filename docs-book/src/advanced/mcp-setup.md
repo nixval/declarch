@@ -73,29 +73,6 @@ Expected binaries:
 - `target/release/declarch`
 - `target/release/declarch-mcp`
 
-## What does `/absolute/path/to/...` mean?
-
-That text is only a placeholder.
-Replace it with your real file path.
-
-Example shape:
-
-- `/home/<user>/<project>/target/release/declarch-mcp`
-
-How to get the real path quickly:
-
-```bash
-realpath target/release/declarch-mcp
-realpath target/release/declarch
-```
-
-If you installed declarch system-wide, you can usually use command names directly:
-
-```bash
-which declarch
-which declarch-mcp
-```
-
 ## Recommended standard environment
 
 Use your real declarch paths (normal user setup):
@@ -171,7 +148,7 @@ Use this as conceptual template (adapt keys to your client schema):
 That is enough for standard usage.
 `declarch` will use normal OS default paths automatically.
 
-If `declarch-mcp` is not in PATH yet, use real absolute path from `realpath`.
+If `declarch-mcp` is not in PATH yet, set `command` to the full binary path.
 
 ## Quick copy: Codex (`~/.codex/config.toml`)
 
@@ -186,7 +163,7 @@ Optional if you want to force a specific declarch binary:
 
 ```toml
 [mcp_servers.declarch.env]
-DECLARCH_BIN = "/absolute/path/to/declarch"
+DECLARCH_BIN = "/path/to/declarch"
 ```
 
 Optional guarded apply:
@@ -217,7 +194,7 @@ Optional:
     "declarch": {
       "command": "declarch-mcp",
       "env": {
-        "DECLARCH_BIN": "/absolute/path/to/declarch"
+        "DECLARCH_BIN": "/path/to/declarch"
       }
     }
   }
