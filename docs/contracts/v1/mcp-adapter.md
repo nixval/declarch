@@ -28,6 +28,13 @@ Notes:
 - `declarch_search`
 - `declarch_sync_preview`
 
+## Optional write tool (guarded)
+
+- `declarch_sync_apply`
+  - Disabled by default
+  - Requires env: `DECLARCH_MCP_ALLOW_APPLY=1`
+  - Requires tool arg: `confirm: "APPLY_SYNC"`
+
 ## Command mapping
 
 - `declarch_info`
@@ -40,9 +47,11 @@ Notes:
   - `declarch search "<query>" --format json --output-version v1`
 - `declarch_sync_preview`
   - `declarch sync preview --format json --output-version v1`
+- `declarch_sync_apply`
+  - `declarch sync --yes`
 
 ## Safety model
 
 - Start read-only only.
-- Add write/apply tools later with explicit confirmation token flow.
+- Write/apply uses explicit confirmation token + environment gate.
 - Keep stderr warnings visible in adapter logs.

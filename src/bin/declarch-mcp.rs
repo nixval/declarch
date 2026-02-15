@@ -65,6 +65,11 @@ fn tools_list_response(id: Option<Value>) -> Value {
             "description": "Run `declarch sync preview` in machine-output mode (v1).",
             "inputSchema": {"type":"object","properties":{"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }),
+        json!({
+            "name": "declarch_sync_apply",
+            "description": "Run `declarch sync` (apply). Requires DECLARCH_MCP_ALLOW_APPLY=1 and confirm=\"APPLY_SYNC\".",
+            "inputSchema": {"type":"object","required":["confirm"],"properties":{"confirm":{"type":"string"},"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
+        }),
     ];
 
     json!({
@@ -243,6 +248,36 @@ fn build_declarch_args(
                 }
             }
         }
+        "declarch_sync_apply" => {
+            enforce_apply_safety(arguments)?;
+            args.push("sync".into());
+            args.push("--yes".into());
+
+            if let Some(target) = arguments.get("target").and_then(Value::as_str) {
+                args.push("--target".into());
+                args.push(target.to_string());
+            }
+            if let Some(profile) = arguments.get("profile").and_then(Value::as_str) {
+                args.push("--profile".into());
+                args.push(profile.to_string());
+            }
+            if let Some(host) = arguments.get("host").and_then(Value::as_str) {
+                args.push("--host".into());
+                args.push(host.to_string());
+            }
+            if let Some(modules) = arguments.get("modules").and_then(Value::as_array) {
+                let list: Vec<String> = modules
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(ToString::to_string)
+                    .collect();
+                if !list.is_empty() {
+                    args.push("--modules".into());
+                    args.extend(list);
+                }
+            }
+            return Ok(args);
+        }
         _ => return Err(format!("Unknown tool name: {}", name)),
     }
 
@@ -251,6 +286,27 @@ fn build_declarch_args(
     args.push("--output-version".into());
     args.push("v1".into());
     Ok(args)
+}
+
+fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<(), String> {
+    let allow_apply = std::env::var("DECLARCH_MCP_ALLOW_APPLY").unwrap_or_default();
+    if allow_apply != "1" {
+        return Err(
+            "Apply is disabled. Set DECLARCH_MCP_ALLOW_APPLY=1 to allow declarch_sync_apply."
+                .to_string(),
+        );
+    }
+    let confirm = arguments
+        .get("confirm")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if confirm != "APPLY_SYNC" {
+        return Err(
+            "Invalid confirm token. Pass confirm=\"APPLY_SYNC\" to run declarch_sync_apply."
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 fn run_declarch_json(args: &[String]) -> Result<Value, String> {
