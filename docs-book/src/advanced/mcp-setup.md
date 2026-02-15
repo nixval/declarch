@@ -9,6 +9,16 @@ This page shows how to connect `declarch` with MCP clients while keeping core be
 - Read-only tools are available by default.
 - Write/apply action is guarded.
 
+## Important: MCP config format is client-specific
+
+MCP protocol standardizes message transport (JSON-RPC over stdio/http), not one universal
+`mcpServers` file schema for every app.
+
+So:
+- `command + args + env` pattern is common.
+- exact file path and key names depend on each client.
+- your client config may look different and still be valid.
+
 ## Build binaries
 
 From repo root:
@@ -77,7 +87,7 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"declarch_s
 
 ## Quick copy: generic MCP stdio config
 
-Use this as template for any MCP client that supports stdio server config:
+Use this as conceptual template (adapt keys to your client schema):
 
 ```json
 {

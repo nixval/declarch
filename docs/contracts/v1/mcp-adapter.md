@@ -7,6 +7,10 @@ Status: design placeholder for external MCP adapter.
 Provide MCP tools that wrap stable `declarch` machine outputs.
 Keep adapter external first (no in-process MCP runtime in declarch core).
 
+Note:
+- MCP protocol defines transport/procedure behavior.
+- Client-side config file schema (where you put `command/args/env`) is client-specific.
+
 ## Reference binary (experimental)
 
 This repository now includes an experimental adapter binary:
