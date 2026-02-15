@@ -333,7 +333,7 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
 
         if !supports_v1_contract(args) {
             return Err(DeclarchError::Other(
-                "This command does not support --output-version v1 yet. Supported now: `info`, `info --list`, `lint`.".to_string(),
+                "This command does not support --output-version v1 yet. Supported now: `info`, `info --list`, `lint`, `search`.".to_string(),
             ));
         }
     }
