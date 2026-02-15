@@ -328,3 +328,48 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::validate_machine_output_contract;
+    use crate::cli::args::{Cli, GlobalFlags};
+
+    fn base_cli() -> Cli {
+        Cli {
+            global: GlobalFlags {
+                verbose: false,
+                quiet: false,
+                yes: false,
+                force: false,
+                dry_run: false,
+                format: None,
+                output_version: None,
+            },
+            command: None,
+        }
+    }
+
+    #[test]
+    fn output_version_v1_allows_json_format() {
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("json".to_string());
+        assert!(validate_machine_output_contract(&cli).is_ok());
+    }
+
+    #[test]
+    fn output_version_rejects_unknown_version() {
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v2".to_string());
+        cli.global.format = Some("json".to_string());
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+
+    #[test]
+    fn output_version_requires_structured_format() {
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("table".to_string());
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+}
