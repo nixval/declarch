@@ -239,16 +239,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             available_only,
             local,
         }) => {
-            // Parse limit option: "all" or "0" means unlimited, otherwise parse as number
-            let parsed_limit = if let Some(limit_str) = limit {
-                if limit_str == "all" || limit_str == "0" {
-                    None // Unlimited
-                } else {
-                    Some(limit_str.parse::<usize>().unwrap_or(10))
-                }
-            } else {
-                Some(10) // Default 10
-            };
+            let parsed_limit = parse_limit_option(limit.as_deref())?;
 
             commands::search::run(commands::search::SearchOptions {
                 query: query.clone(),
@@ -307,6 +298,19 @@ pub fn dispatch(args: &Cli) -> Result<()> {
     }
 }
 
+fn parse_limit_option(limit: Option<&str>) -> Result<Option<usize>> {
+    match limit {
+        None => Ok(Some(10)),
+        Some("all") | Some("0") => Ok(None),
+        Some(raw) => raw.parse::<usize>().map(Some).map_err(|_| {
+            DeclarchError::Other(format!(
+                "Invalid --limit value '{}'. Use a non-negative integer, 0, or 'all'.",
+                raw
+            ))
+        }),
+    }
+}
+
 fn validate_machine_output_contract(args: &Cli) -> Result<()> {
     if let Some(version) = args.global.output_version.as_deref() {
         if version != "v1" {
@@ -361,7 +365,7 @@ fn supports_v1_contract(args: &Cli) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_machine_output_contract;
+    use super::{parse_limit_option, validate_machine_output_contract};
     use crate::cli::args::{Cli, GlobalFlags};
 
     fn base_cli() -> Cli {
@@ -457,5 +461,21 @@ mod tests {
             gc: false,
         });
         assert!(validate_machine_output_contract(&cli).is_ok());
+    }
+
+    #[test]
+    fn parse_limit_option_defaults_to_ten() {
+        assert_eq!(parse_limit_option(None).unwrap(), Some(10));
+    }
+
+    #[test]
+    fn parse_limit_option_supports_unlimited() {
+        assert_eq!(parse_limit_option(Some("0")).unwrap(), None);
+        assert_eq!(parse_limit_option(Some("all")).unwrap(), None);
+    }
+
+    #[test]
+    fn parse_limit_option_rejects_invalid_input() {
+        assert!(parse_limit_option(Some("abc")).is_err());
     }
 }
