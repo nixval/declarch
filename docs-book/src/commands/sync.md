@@ -61,3 +61,9 @@ experimental {
 ```
 
 Without that block, `declarch` shows hook entries but does not execute them.
+
+## Cross-machine behavior
+
+If you share one config across Linux/macOS/Windows in the future, some backends may not fit every OS.
+Declarch will skip incompatible backends and continue the sync flow.
+The same skip behavior is used by related flows like `sync cache` and `sync upgrade`.

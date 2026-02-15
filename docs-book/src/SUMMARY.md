@@ -16,6 +16,7 @@
 - [sync](./commands/sync.md)
 - [search](./commands/search.md)
 - [info](./commands/info.md)
+- [lint](./commands/lint.md)
 
 ## Configuration (Beginner)
 
@@ -36,8 +37,8 @@
 - [Custom Backends](./advanced/custom-backends.md)
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
+- [Version Pinning (Placeholder)](./advanced/version-pinning-placeholder.md)
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
-- [check](./commands/check.md)
 
 [Cross-Distro Support](./cross-distro-support.md)

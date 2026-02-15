@@ -47,6 +47,14 @@ impl BackendRegistry {
         self.configs.keys().cloned().collect()
     }
 
+    /// Get backend configuration by name
+    pub fn get_backend_config(
+        &self,
+        name: &str,
+    ) -> Option<&crate::backends::config::BackendConfig> {
+        self.configs.get(name)
+    }
+
     /// Create a package manager for the given backend
     pub fn create_manager(
         &self,

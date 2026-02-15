@@ -10,6 +10,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Maximum age of a lock file in seconds before it's considered stale
 const LOCK_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
+const CURRENT_STATE_SCHEMA_VERSION: u8 = 3;
+
+#[derive(Debug, Clone, Default)]
+pub struct StateRepairReport {
+    pub total_before: usize,
+    pub total_after: usize,
+    pub removed_empty_name: usize,
+    pub removed_duplicates: usize,
+    pub rekeyed_entries: usize,
+    pub normalized_fields: usize,
+}
 
 /// Lock file handle - keeps lock active until dropped
 pub struct StateLock {
@@ -122,6 +133,16 @@ pub fn validate_state_integrity(state: &State) -> Vec<String> {
         if pkg_state.config_name.is_empty() {
             issues.push(format!("Empty package name in key: {}", key));
         }
+        let canonical = crate::core::resolver::make_state_key(&crate::core::types::PackageId {
+            backend: pkg_state.backend.clone(),
+            name: pkg_state.config_name.clone(),
+        });
+        if key != &canonical {
+            issues.push(format!(
+                "Non-canonical state key: {} (expected {})",
+                key, canonical
+            ));
+        }
     }
 
     // Check for future timestamps
@@ -133,6 +154,70 @@ pub fn validate_state_integrity(state: &State) -> Vec<String> {
     }
 
     issues
+}
+
+/// Normalize and repair state package entries.
+/// - Removes entries with empty config_name
+/// - Removes duplicate backend+config_name signatures (keeps first)
+/// - Rewrites keys to canonical "backend:config_name"
+/// - Normalizes empty provides_name to config_name
+pub fn repair_state_packages() -> Result<StateRepairReport> {
+    let mut state = load_state()?;
+    let report = sanitize_state_in_place(&mut state);
+    if report.total_before != report.total_after
+        || report.rekeyed_entries > 0
+        || report.normalized_fields > 0
+    {
+        save_state(&state)?;
+    }
+    Ok(report)
+}
+
+fn sanitize_state_in_place(state: &mut State) -> StateRepairReport {
+    use crate::core::resolver;
+    use crate::core::types::PackageId;
+    use std::collections::{HashMap, HashSet};
+
+    let total_before = state.packages.len();
+    let mut report = StateRepairReport {
+        total_before,
+        ..Default::default()
+    };
+
+    let mut seen_signatures: HashSet<String> = HashSet::new();
+    let mut repaired: HashMap<String, crate::state::types::PackageState> = HashMap::new();
+
+    for (old_key, pkg_state) in &state.packages {
+        if pkg_state.config_name.trim().is_empty() {
+            report.removed_empty_name += 1;
+            continue;
+        }
+
+        let signature = format!("{}:{}", pkg_state.backend, pkg_state.config_name);
+        if !seen_signatures.insert(signature) {
+            report.removed_duplicates += 1;
+            continue;
+        }
+
+        let mut normalized = pkg_state.clone();
+        if normalized.provides_name.trim().is_empty() {
+            normalized.provides_name = normalized.config_name.clone();
+            report.normalized_fields += 1;
+        }
+
+        let canonical_key = resolver::make_state_key(&PackageId {
+            name: normalized.config_name.clone(),
+            backend: normalized.backend.clone(),
+        });
+        if &canonical_key != old_key {
+            report.rekeyed_entries += 1;
+        }
+        repaired.insert(canonical_key, normalized);
+    }
+
+    report.total_after = repaired.len();
+    state.packages = repaired;
+    report
 }
 
 fn pkg_state_timestamp(dt: &chrono::DateTime<chrono::Utc>) -> Result<SystemTime> {
@@ -191,11 +276,36 @@ fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
         new_packages.insert(canonical_key, pkg_state.clone());
     }
 
+    if migrate_state_schema(state) {
+        migrated = true;
+    }
+
     if migrated {
         state.packages = new_packages;
     }
 
     Ok(migrated)
+}
+
+fn migrate_state_schema(state: &mut crate::state::types::State) -> bool {
+    let mut changed = false;
+
+    if state.meta.schema_version < CURRENT_STATE_SCHEMA_VERSION {
+        state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
+        changed = true;
+    }
+
+    if state.meta.state_revision.is_none() {
+        state.meta.state_revision = Some(1);
+        changed = true;
+    }
+
+    if state.meta.generator.is_none() {
+        state.meta.generator = Some("declarch".to_string());
+        changed = true;
+    }
+
+    changed
 }
 
 pub fn load_state() -> Result<State> {
@@ -342,6 +452,13 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
 }
 
 pub fn save_state(state: &State) -> Result<()> {
+    let mut state = state.clone();
+    state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
+    state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
+    if state.meta.generator.is_none() {
+        state.meta.generator = Some("declarch".to_string());
+    }
+
     let path = get_state_path()?;
 
     // Get parent directory - state paths should always have a parent
@@ -356,7 +473,7 @@ pub fn save_state(state: &State) -> Result<()> {
     rotate_backups(dir, &path)?;
 
     // 1. Serialize to string first
-    let content = serde_json::to_string_pretty(state)
+    let content = serde_json::to_string_pretty(&state)
         .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
     // 2. Validate JSON is well-formed by parsing it back
@@ -387,6 +504,13 @@ pub fn save_state(state: &State) -> Result<()> {
 /// IMPORTANT: The lock is acquired at the START of the sync operation (not just during save)
 /// to prevent concurrent modifications. Use `acquire_lock()` at the beginning of sync.
 pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
+    let mut state = state.clone();
+    state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
+    state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
+    if state.meta.generator.is_none() {
+        state.meta.generator = Some("declarch".to_string());
+    }
+
     let path = get_state_path()?;
     let dir = path.parent().ok_or(DeclarchError::Other(
         "Could not determine state directory".into(),
@@ -396,7 +520,7 @@ pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
     rotate_backups(dir, &path)?;
 
     // Serialize to string
-    let content = serde_json::to_string_pretty(state)
+    let content = serde_json::to_string_pretty(&state)
         .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
     // Validate JSON
@@ -457,5 +581,75 @@ impl crate::traits::StateStore for FilesystemStateStore {
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_else(|_| "unknown".to_string());
         init_state(hostname)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{sanitize_state_in_place, validate_state_integrity};
+    use crate::state::types::{Backend, PackageState, State};
+    use chrono::Utc;
+
+    #[test]
+    fn sanitize_removes_empty_and_rekeys() {
+        let mut state = State::default();
+        state.packages.insert(
+            "wrong:key".to_string(),
+            PackageState {
+                backend: Backend::from("aur"),
+                config_name: "bat".to_string(),
+                provides_name: String::new(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version: Some("1.0".to_string()),
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+        state.packages.insert(
+            "aur:empty".to_string(),
+            PackageState {
+                backend: Backend::from("aur"),
+                config_name: String::new(),
+                provides_name: String::new(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version: None,
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+
+        let report = sanitize_state_in_place(&mut state);
+        assert_eq!(report.removed_empty_name, 1);
+        assert_eq!(report.rekeyed_entries, 1);
+        assert_eq!(report.normalized_fields, 1);
+        assert!(state.packages.contains_key("aur:bat"));
+    }
+
+    #[test]
+    fn validate_flags_non_canonical_keys() {
+        let mut state = State::default();
+        state.packages.insert(
+            "bad:key".to_string(),
+            PackageState {
+                backend: Backend::from("aur"),
+                config_name: "bat".to_string(),
+                provides_name: "bat".to_string(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version: None,
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+        let issues = validate_state_integrity(&state);
+        assert!(issues.iter().any(|i| i.contains("Non-canonical state key")));
     }
 }

@@ -119,6 +119,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
             ));
             continue;
         };
+        let mut backend_config = backend_config;
+        // Search is read-only; never require sudo here.
+        // This avoids password prompts/timeouts in non-interactive flows.
+        backend_config.needs_sudo = false;
 
         let manager = match create_manager_from_config(&backend_config) {
             Ok(m) => m,
@@ -361,7 +365,7 @@ fn get_backends_to_search(
     options: &SearchOptions,
     backend_configs: &HashMap<String, crate::backends::config::BackendConfig>,
 ) -> Result<Vec<Backend>> {
-    let (result, unknown, unsupported) =
+    let (result, unknown, unsupported, os_mismatch) =
         select_backends_to_search(backend_configs, options.backends.as_ref(), options.local);
 
     if !unknown.is_empty() {
@@ -378,6 +382,13 @@ fn get_backends_to_search(
             capability,
             unsupported.join(", ")
         ));
+    }
+    if !os_mismatch.is_empty() {
+        output::warning(&format!(
+            "Skipped backend(s) that are not for this OS: {}",
+            os_mismatch.join(", ")
+        ));
+        output::info("This is normal when one config is shared across different machines.");
     }
 
     if result.is_empty() {
@@ -396,7 +407,7 @@ fn select_backends_to_search(
     all_backends: &HashMap<String, crate::backends::config::BackendConfig>,
     requested_backends: Option<&Vec<String>>,
     local_mode: bool,
-) -> (Vec<Backend>, Vec<String>, Vec<String>) {
+) -> (Vec<Backend>, Vec<String>, Vec<String>, Vec<String>) {
     let supports_mode = |config: &crate::backends::config::BackendConfig| {
         if local_mode {
             config.search_local_cmd.is_some()
@@ -408,12 +419,19 @@ fn select_backends_to_search(
     let mut selected = Vec::new();
     let mut unknown = Vec::new();
     let mut unsupported = Vec::new();
+    let mut os_mismatch = Vec::new();
 
     if let Some(requested) = requested_backends {
         for name in requested {
             match all_backends.get(name) {
-                Some(config) if supports_mode(config) => {
+                Some(config)
+                    if crate::utils::platform::backend_supports_current_os(config)
+                        && supports_mode(config) =>
+                {
                     selected.push(Backend::from(name.as_str()))
+                }
+                Some(config) if !crate::utils::platform::backend_supports_current_os(config) => {
+                    os_mismatch.push(name.clone())
                 }
                 Some(_) => unsupported.push(name.clone()),
                 None => unknown.push(name.clone()),
@@ -423,7 +441,8 @@ fn select_backends_to_search(
         let mut entries: Vec<_> = all_backends.iter().collect();
         entries.sort_by(|a, b| a.0.cmp(b.0));
         for (name, config) in entries {
-            if supports_mode(config) {
+            if crate::utils::platform::backend_supports_current_os(config) && supports_mode(config)
+            {
                 selected.push(Backend::from(name.as_str()));
             }
         }
@@ -431,8 +450,9 @@ fn select_backends_to_search(
 
     unknown.sort();
     unsupported.sort();
+    os_mismatch.sort();
 
-    (selected, unknown, unsupported)
+    (selected, unknown, unsupported, os_mismatch)
 }
 
 /// Create manager from backend config directly (for import-based architecture)
@@ -476,7 +496,7 @@ mod tests {
         );
 
         let requested = vec!["paru".to_string(), "pip".to_string(), "missing".to_string()];
-        let (selected_remote, unknown_remote, unsupported_remote) =
+        let (selected_remote, unknown_remote, unsupported_remote, os_mismatch_remote) =
             select_backends_to_search(&all, Some(&requested), false);
         let names_remote: Vec<_> = selected_remote
             .iter()
@@ -485,8 +505,9 @@ mod tests {
         assert_eq!(names_remote, vec!["paru".to_string()]);
         assert_eq!(unknown_remote, vec!["missing".to_string()]);
         assert_eq!(unsupported_remote, vec!["pip".to_string()]);
+        assert!(os_mismatch_remote.is_empty());
 
-        let (selected_local, unknown_local, unsupported_local) =
+        let (selected_local, unknown_local, unsupported_local, os_mismatch_local) =
             select_backends_to_search(&all, Some(&requested), true);
         let names_local: Vec<_> = selected_local
             .iter()
@@ -495,6 +516,7 @@ mod tests {
         assert_eq!(names_local, vec!["pip".to_string()]);
         assert_eq!(unknown_local, vec!["missing".to_string()]);
         assert_eq!(unsupported_local, vec!["paru".to_string()]);
+        assert!(os_mismatch_local.is_empty());
     }
 
     #[test]
@@ -517,10 +539,12 @@ mod tests {
             },
         );
 
-        let (selected, unknown, unsupported) = select_backends_to_search(&all, None, false);
+        let (selected, unknown, unsupported, os_mismatch) =
+            select_backends_to_search(&all, None, false);
         let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
         assert_eq!(names, vec!["apt".to_string(), "zypper".to_string()]);
         assert!(unknown.is_empty());
         assert!(unsupported.is_empty());
+        assert!(os_mismatch.is_empty());
     }
 }

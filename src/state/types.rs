@@ -20,6 +20,18 @@ pub struct StateMeta {
     // #[serde(default)] ensures it loads as None for existing state.json
     #[serde(default)]
     pub last_update: Option<DateTime<Utc>>,
+
+    /// Monotonic revision for state writes (optional for backward compatibility)
+    #[serde(default)]
+    pub state_revision: Option<u64>,
+
+    /// Generator/build metadata for debugging migrations
+    #[serde(default)]
+    pub generator: Option<String>,
+
+    /// Optional feature flags written to state (non-breaking extension point)
+    #[serde(default)]
+    pub features: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +56,22 @@ pub struct PackageState {
 
     pub installed_at: DateTime<Utc>,
     pub version: Option<String>,
+
+    /// How this package entered state: declared/adopted/manual-sync
+    #[serde(default)]
+    pub install_reason: Option<String>,
+
+    /// Module path that declared this package (if known)
+    #[serde(default)]
+    pub source_module: Option<String>,
+
+    /// Last time this package was observed in installed snapshot
+    #[serde(default)]
+    pub last_seen_at: Option<DateTime<Utc>>,
+
+    /// Backend-specific extension payload for future features.
+    #[serde(default)]
+    pub backend_meta: Option<serde_json::Value>,
 }
 
 // Implement Default for PackageState to help with serde defaults
@@ -56,6 +84,10 @@ impl Default for PackageState {
             actual_package_name: None,
             installed_at: Utc::now(),
             version: None,
+            install_reason: None,
+            source_module: None,
+            last_seen_at: None,
+            backend_meta: None,
         }
     }
 }
@@ -70,6 +102,10 @@ impl PackageState {
             actual_package_name: None,
             installed_at: Utc::now(),
             version,
+            install_reason: Some("declared".to_string()),
+            source_module: None,
+            last_seen_at: Some(Utc::now()),
+            backend_meta: None,
         }
     }
 
@@ -94,10 +130,13 @@ impl Default for State {
     fn default() -> Self {
         Self {
             meta: StateMeta {
-                schema_version: 2,
+                schema_version: 3,
                 last_sync: Utc::now(),
                 hostname: "unknown".to_string(),
                 last_update: None, // Default is never updated via declarch
+                state_revision: Some(1),
+                generator: Some("declarch".to_string()),
+                features: None,
             },
             packages: HashMap::new(),
         }

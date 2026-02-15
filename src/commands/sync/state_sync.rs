@@ -70,6 +70,10 @@ pub fn update_state_with_success(
                 actual_package_name: actual_name,
                 installed_at: Utc::now(),
                 version,
+                install_reason: Some("declared".to_string()),
+                source_module: None,
+                last_seen_at: Some(Utc::now()),
+                backend_meta: None,
             },
         );
         added_count += 1;
@@ -94,6 +98,10 @@ pub fn update_state_with_success(
                 actual_package_name: actual_name,
                 installed_at: Utc::now(),
                 version,
+                install_reason: Some("adopted".to_string()),
+                source_module: None,
+                last_seen_at: Some(Utc::now()),
+                backend_meta: None,
             },
         );
         added_count += 1;

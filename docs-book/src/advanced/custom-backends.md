@@ -165,7 +165,7 @@ backend "nala" {
 
 ```bash
 # parse + config checks
-declarch check validate
+declarch lint --mode validate
 
 # backend visibility
 declarch info

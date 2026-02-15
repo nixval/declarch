@@ -14,7 +14,7 @@ Actions:
 
 ```bash
 declarch init --backend xxx
-declarch check validate
+declarch lint --mode validate
 ```
 
 Then confirm backend presence in `~/.config/declarch/backends.kdl` imports.
@@ -52,7 +52,7 @@ Actions:
 Validate quickly:
 
 ```bash
-declarch check validate
+declarch lint --mode validate
 ```
 
 ## 4) Search timeout/slow backend
@@ -76,7 +76,7 @@ Not always a failure. It often means desired and current state already match.
 Inspect drift/orphans:
 
 ```bash
-declarch info list orphans
+declarch info --list --orphans
 ```
 
 ## 6) Permissions / sudo

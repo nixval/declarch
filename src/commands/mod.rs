@@ -1,11 +1,12 @@
 pub mod cache;
-pub mod check;
 pub mod completions;
 pub mod edit;
 pub mod hooks;
 pub mod info;
+pub mod info_reason;
 pub mod init;
 pub mod install;
+pub mod lint;
 pub mod list;
 pub mod runtime_overrides;
 pub mod search;

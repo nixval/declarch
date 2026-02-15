@@ -283,7 +283,13 @@ fn recursive_load(
     }
 
     // Policy: Last one wins
-    if raw.policy.protected.iter().any(|p| !p.is_empty()) || raw.policy.orphans.is_some() {
+    if raw.policy.protected.iter().any(|p| !p.is_empty())
+        || raw.policy.orphans.is_some()
+        || raw.policy.require_backend.is_some()
+        || raw.policy.forbid_hooks.is_some()
+        || raw.policy.on_duplicate.is_some()
+        || raw.policy.on_conflict.is_some()
+    {
         merged.policy = Some(raw.policy);
     }
 

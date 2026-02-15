@@ -94,6 +94,10 @@ And run sync with `--hooks`.
 policy {
     protected "linux" "systemd"
     orphans "ask"
+    require_backend "true"
+    forbid_hooks "false"
+    on_duplicate "warn"
+    on_conflict "warn"
 }
 ```
 
@@ -119,4 +123,4 @@ Use from CLI:
 
 - Keep beginner config in nested `pkg` style unless migration requires compatibility syntax.
 - Unknown keys may be ignored in some contexts for forward compatibility.
-- Use `declarch check validate` after manual edits.
+- Use `declarch lint --mode validate` after manual edits.

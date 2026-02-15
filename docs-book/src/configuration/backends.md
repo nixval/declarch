@@ -52,3 +52,5 @@ Examples:
 - Start small.
 - Add one backend at a time.
 - Keep backend files versioned in git.
+- Sharing one config across laptop/VPS is okay.
+- If a backend is not for your current OS, declarch will skip it and continue.

@@ -20,20 +20,15 @@ const CONTINUATION_INDENT: &str = "     ";
 
 pub struct InfoOptions {
     pub doctor: bool,
-    pub debug: bool,
     pub format: Option<String>,
     pub backend: Option<String>,
     pub package: Option<String>,
+    pub verbose: bool,
 }
 
 pub fn run(options: InfoOptions) -> Result<()> {
-    if options.debug {
-        // SAFETY: This is safe because:
-        // 1. We're in single-threaded startup context before any threads are spawned
-        // 2. No other code is concurrently accessing environment variables
-        // 3. This is a debug-only code path
-        unsafe { std::env::set_var("RUST_LOG", "debug") };
-        output::info("Debug logging enabled");
+    if options.verbose {
+        output::info("Verbose mode enabled");
     }
 
     if options.doctor {
@@ -227,7 +222,7 @@ fn run_doctor() -> Result<()> {
                             "Found {} orphan packages (not in config)",
                             orphan_count
                         ));
-                        output::info("Run 'declarch list --orphans' to see them");
+                        output::info("Run 'declarch info --list --orphans' to see them");
                         output::info("Run 'declarch sync --prune' to remove orphans");
                     } else {
                         output::success("No orphan packages found");
@@ -300,6 +295,11 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
         Ok(backends) => {
             for (name, mut config) in backends {
                 apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
+
+                if !crate::utils::platform::backend_supports_current_os(&config) {
+                    output::info(&format!("{}: Skipped (not for this OS)", name));
+                    continue;
+                }
 
                 let manager = crate::backends::GenericManager::from_config(
                     config,

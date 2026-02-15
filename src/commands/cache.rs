@@ -70,6 +70,14 @@ pub fn run(options: CacheOptions) -> Result<()> {
     for (name, mut config) in backends_to_clean {
         apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
 
+        if !crate::utils::platform::backend_supports_current_os(&config) {
+            output::warning(&format!(
+                "Skipping '{}' on this device (not for current OS).",
+                name
+            ));
+            continue;
+        }
+
         if config.cache_clean_cmd.is_none() {
             skipped_no_cmd.push(name);
             continue;

@@ -6,7 +6,7 @@ use crate::ui as output;
 use crate::utils::sanitize;
 use colored::Colorize;
 use regex::Regex;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
@@ -164,21 +164,13 @@ fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
 
     let use_sudo = matches!(hook.action_type, ActionType::Root);
 
-    let mut cmd = if use_sudo {
+    if use_sudo {
         output::info(&format!("Executing hook with sudo: {}", program));
-        let mut c = Command::new("sudo");
-        // Pass program and args to sudo
-        // sudo [program] [arg1] [arg2] ...
-        c.arg(program);
-        c.args(program_args);
-        c
     } else {
         output::info(&format!("Executing hook: {}", program));
-        // Run directly without shell wrapper for security
-        let mut c = Command::new(program);
-        c.args(program_args);
-        c
-    };
+    }
+
+    let mut cmd = crate::utils::platform::build_program_command(program, program_args, use_sudo)?;
 
     cmd.stdin(Stdio::inherit())
         .stdout(Stdio::inherit())

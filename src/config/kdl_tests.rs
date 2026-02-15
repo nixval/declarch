@@ -190,11 +190,7 @@ fn test_experimental_block_flag_parsing() {
         "#;
 
     let config = parse_kdl_content(kdl).unwrap();
-    assert!(
-        config
-            .experimental
-            .contains(&"enable-hooks".to_string())
-    );
+    assert!(config.experimental.contains(&"enable-hooks".to_string()));
 }
 
 #[test]
@@ -227,6 +223,38 @@ fn test_backend_options_parsing() {
     // For now, just verify it doesn't panic
     // The actual backend options extraction may need refinement
     assert!(result.is_ok() || result.is_err());
+}
+
+#[test]
+fn test_policy_extended_keys_parsing() {
+    let kdl = r#"
+            policy {
+                require_backend "true"
+                forbid_hooks "true"
+                on_duplicate "error"
+                on_conflict "warn"
+            }
+        "#;
+
+    let config = parse_kdl_content(kdl).unwrap();
+    assert_eq!(config.policy.require_backend, Some(true));
+    assert_eq!(config.policy.forbid_hooks, Some(true));
+    assert_eq!(config.policy.on_duplicate.as_deref(), Some("error"));
+    assert_eq!(config.policy.on_conflict.as_deref(), Some("warn"));
+}
+
+#[test]
+fn test_policy_extended_keys_invalid_modes_are_ignored() {
+    let kdl = r#"
+            policy {
+                on-duplicate "panic"
+                on-conflict "block"
+            }
+        "#;
+
+    let config = parse_kdl_content(kdl).unwrap();
+    assert_eq!(config.policy.on_duplicate, None);
+    assert_eq!(config.policy.on_conflict, None);
 }
 
 #[test]

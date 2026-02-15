@@ -14,8 +14,8 @@ declarch sync
 
 - `declarch sync preview` - safe preview mode.
 - `declarch search <query>` - find package candidates.
-- `declarch info` - status summary.
-- `declarch info list` - list all/orphans/synced views.
+- `declarch info` - status, doctor, list, and package reasoning.
+- `declarch lint` - config quality checks.
 
 ## Helpful sync variants
 
@@ -39,3 +39,4 @@ declarch sync
 Use preview often and add backends gradually.
 When using `install`, always specify backend via `backend:pkg` or `--backend`.
 Keep base config portable; use `--profile`/`--host` only for extra machine-specific packages.
+If a backend is not for your current OS, declarch can skip it and continue.
