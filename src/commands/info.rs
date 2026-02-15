@@ -222,7 +222,7 @@ fn run_doctor() -> Result<()> {
                             "Found {} orphan packages (not in config)",
                             orphan_count
                         ));
-                        output::info("Run 'declarch list --orphans' to see them");
+                        output::info("Run 'declarch info --list --orphans' to see them");
                         output::info("Run 'declarch sync --prune' to remove orphans");
                     } else {
                         output::success("No orphan packages found");
