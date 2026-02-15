@@ -39,7 +39,6 @@
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
 - [Version Pinning (Planned)](./advanced/version-pinning.md)
-- [Integration Roadmap](./advanced/rfc-integration-roadmap.md)
 - [Integration Examples](./advanced/integration-examples.md)
 - [MCP Setup (Technical)](./advanced/mcp-setup.md)
 - [edit](./commands/edit.md)
