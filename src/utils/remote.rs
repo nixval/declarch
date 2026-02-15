@@ -2,6 +2,7 @@ use crate::constants::{CONFIG_EXTENSION, DEFAULT_BRANCHES, PROJECT_NAME};
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use reqwest::blocking::Client;
+use std::env;
 use std::time::Duration;
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
@@ -9,8 +10,10 @@ const BACKENDS_REGISTRY: &str =
     "https://raw.githubusercontent.com/nixval/declarch-packages/main/backends";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Allowed URL schemes for security (prevent SSRF)
-const ALLOWED_SCHEMES: &[&str] = &["http", "https"];
+/// Secure scheme allowed by default.
+const SECURE_SCHEME: &str = "https";
+/// Optional insecure scheme. Only allowed with explicit opt-in.
+const INSECURE_SCHEME: &str = "http";
 
 /// Fetch module content from remote repository
 ///
@@ -49,6 +52,7 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
     // Try different URL patterns
     let urls = build_urls(target_path);
 
+    let mut failures = Vec::new();
     for url in urls {
         match fetch_url(&client, &url) {
             Ok(content) => {
@@ -64,13 +68,16 @@ pub fn fetch_module_content(target_path: &str) -> Result<String> {
 
                 return Ok(final_content);
             }
-            Err(_) => continue,
+            Err(e) => failures.push(format_fetch_failure(&url, &e.to_string())),
         }
     }
 
     Err(DeclarchError::TargetNotFound(format!(
-        "Failed to fetch from: {}\n  Hint: Ensure the repository has a {}.{} file",
-        target_path, PROJECT_NAME, CONFIG_EXTENSION
+        "Failed to fetch from: {}\n  Hint: Ensure the repository has a {}.{} file\n{}",
+        target_path,
+        PROJECT_NAME,
+        CONFIG_EXTENSION,
+        format_failure_summary(&failures)
     )))
 }
 
@@ -87,19 +94,21 @@ pub fn fetch_backend_content(backend_name: &str) -> Result<String> {
     // Build URLs to try for backend
     let urls = build_backend_urls(backend_name);
 
+    let mut failures = Vec::new();
     for url in urls {
         match fetch_url(&client, &url) {
             Ok(content) => {
                 output::info(&format!("fetch backend: {}", url));
                 return Ok(content);
             }
-            Err(_) => continue,
+            Err(e) => failures.push(format_fetch_failure(&url, &e.to_string())),
         }
     }
 
     Err(DeclarchError::TargetNotFound(format!(
-        "Backend '{}' not found in registry",
-        backend_name
+        "Backend '{}' not found in registry.\n{}",
+        backend_name,
+        format_failure_summary(&failures)
     )))
 }
 
@@ -337,11 +346,11 @@ fn validate_url(url_str: &str) -> Result<()> {
     let parsed = reqwest::Url::parse(url_str)
         .map_err(|_| DeclarchError::RemoteFetchError(format!("Invalid URL: {}", url_str)))?;
 
-    // Check scheme is allowed
+    // Check scheme policy (HTTPS by default, HTTP opt-in only).
     let scheme = parsed.scheme();
-    if !ALLOWED_SCHEMES.contains(&scheme) {
+    if !is_allowed_scheme(scheme) {
         return Err(DeclarchError::RemoteFetchError(format!(
-            "URL scheme '{}' not allowed. Only HTTP and HTTPS are permitted.",
+            "URL scheme '{}' is blocked. Allowed by default: https. To allow http explicitly set DECLARCH_ALLOW_INSECURE_HTTP=1.",
             scheme
         )));
     }
@@ -361,6 +370,39 @@ fn validate_url(url_str: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn is_allowed_scheme(scheme: &str) -> bool {
+    if scheme == SECURE_SCHEME {
+        return true;
+    }
+
+    if scheme == INSECURE_SCHEME {
+        return env::var("DECLARCH_ALLOW_INSECURE_HTTP").unwrap_or_default() == "1";
+    }
+
+    false
+}
+
+fn format_fetch_failure(url: &str, reason: &str) -> String {
+    format!("- {} => {}", url, reason)
+}
+
+fn format_failure_summary(failures: &[String]) -> String {
+    if failures.is_empty() {
+        return "No URL candidates were generated.".to_string();
+    }
+
+    let mut out = String::from("Fetch attempts:");
+    for line in failures.iter().take(3) {
+        out.push('\n');
+        out.push_str("  ");
+        out.push_str(line);
+    }
+    if failures.len() > 3 {
+        out.push_str(&format!("\n  ... and {} more", failures.len() - 3));
+    }
+    out
 }
 
 /// Check if hostname is a private/local address
@@ -559,5 +601,24 @@ mod tests {
     #[test]
     fn test_validate_url_rejects_malformed_host() {
         assert!(validate_url("https://").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_rejects_http_by_default() {
+        assert!(validate_url("http://example.com/config.kdl").is_err());
+    }
+
+    #[test]
+    fn test_failure_summary_formats_attempts() {
+        let summary = format_failure_summary(&[
+            "- u1 => e1".to_string(),
+            "- u2 => e2".to_string(),
+            "- u3 => e3".to_string(),
+            "- u4 => e4".to_string(),
+        ]);
+
+        assert!(summary.contains("Fetch attempts:"));
+        assert!(summary.contains("u1"));
+        assert!(summary.contains("... and 1 more"));
     }
 }
