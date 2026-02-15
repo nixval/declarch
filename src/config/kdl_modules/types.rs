@@ -60,6 +60,14 @@ pub struct RawConfig {
     ///   "enable-hooks"
     /// }
     pub experimental: Vec<String>,
+
+    /// MCP access policy.
+    /// Example:
+    /// mcp {
+    ///   mode "read-only"
+    ///   allow_tools "declarch_sync_apply"
+    /// }
+    pub mcp: McpConfig,
 }
 
 /// Package entry (minimal - just name for now)
@@ -168,4 +176,13 @@ pub enum ErrorBehavior {
     Warn,
     Required,
     Ignore,
+}
+
+/// MCP policy configuration.
+#[derive(Debug, Clone, Default)]
+pub struct McpConfig {
+    /// "read-only" (default) or "write-enabled"
+    pub mode: Option<String>,
+    /// Explicitly allowed tool names for write operations.
+    pub allow_tools: Vec<String>,
 }

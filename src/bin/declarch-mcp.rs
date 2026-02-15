@@ -1,7 +1,11 @@
+use declarch::config::loader;
+use declarch::utils::paths;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
 use std::process::Command;
+use std::sync::OnceLock;
 
 #[derive(Debug, Deserialize)]
 struct RpcRequest {
@@ -9,6 +13,75 @@ struct RpcRequest {
     method: String,
     #[serde(default)]
     params: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum McpMode {
+    ReadOnly,
+    WriteEnabled,
+}
+
+#[derive(Debug, Clone)]
+struct McpRuntimePolicy {
+    mode: McpMode,
+    allow_tools: HashSet<String>,
+}
+
+impl Default for McpRuntimePolicy {
+    fn default() -> Self {
+        Self {
+            mode: McpMode::ReadOnly,
+            allow_tools: HashSet::new(),
+        }
+    }
+}
+
+impl McpRuntimePolicy {
+    fn load() -> Self {
+        let Ok(config_path) = paths::config_file() else {
+            return Self::default();
+        };
+        if !config_path.exists() {
+            return Self::default();
+        }
+
+        let Ok(cfg) = loader::load_root_config(&config_path) else {
+            return Self::default();
+        };
+
+        let mode = match cfg.mcp_mode().to_lowercase().as_str() {
+            "write-enabled" => McpMode::WriteEnabled,
+            _ => McpMode::ReadOnly,
+        };
+
+        let allow_tools = cfg
+            .mcp
+            .as_ref()
+            .map(|m| m.allow_tools.iter().cloned().collect())
+            .unwrap_or_default();
+
+        Self { mode, allow_tools }
+    }
+
+    fn allows_write_tool(&self, tool_name: &str) -> Result<(), String> {
+        if self.mode != McpMode::WriteEnabled {
+            return Err(
+                "MCP write actions are disabled by config (mcp.mode is read-only).".to_string(),
+            );
+        }
+        if !self.allow_tools.contains(tool_name) {
+            return Err(format!(
+                "MCP write action '{}' is not allowed. Add it to mcp.allow_tools.",
+                tool_name
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn policy() -> &'static McpRuntimePolicy {
+    static POLICY: OnceLock<McpRuntimePolicy> = OnceLock::new();
+    POLICY.get_or_init(McpRuntimePolicy::load)
 }
 
 fn main() {
@@ -39,7 +112,7 @@ fn handle_request(req: RpcRequest) -> Value {
 }
 
 fn tools_list_response(id: Option<Value>) -> Value {
-    let tools = vec![
+    let mut tools = vec![
         json!({
             "name": "declarch_info",
             "description": "Run `declarch info` in machine-output mode (v1).",
@@ -65,12 +138,15 @@ fn tools_list_response(id: Option<Value>) -> Value {
             "description": "Run `declarch sync preview` in machine-output mode (v1).",
             "inputSchema": {"type":"object","properties":{"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }),
-        json!({
-            "name": "declarch_sync_apply",
-            "description": "Run `declarch sync` (apply). Requires DECLARCH_MCP_ALLOW_APPLY=1 and confirm=\"APPLY_SYNC\".",
-            "inputSchema": {"type":"object","required":["confirm"],"properties":{"confirm":{"type":"string"},"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
-        }),
     ];
+
+    if policy().allows_write_tool("declarch_sync_apply").is_ok() {
+        tools.push(json!({
+            "name": "declarch_sync_apply",
+            "description": "Run `declarch sync` (apply). Requires mcp config allow + DECLARCH_MCP_ALLOW_APPLY=1 + confirm=\"APPLY_SYNC\".",
+            "inputSchema": {"type":"object","required":["confirm"],"properties":{"confirm":{"type":"string"},"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
+        }));
+    }
 
     json!({
         "jsonrpc": "2.0",
@@ -249,6 +325,7 @@ fn build_declarch_args(
             }
         }
         "declarch_sync_apply" => {
+            policy().allows_write_tool("declarch_sync_apply")?;
             enforce_apply_safety(arguments)?;
             args.push("sync".into());
             args.push("--yes".into());

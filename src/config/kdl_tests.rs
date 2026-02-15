@@ -205,6 +205,31 @@ fn test_experimental_inline_flag_parsing() {
 }
 
 #[test]
+fn test_mcp_policy_parsing() {
+    let kdl = r#"
+            mcp {
+                mode "read-only"
+                allow_tools "declarch_sync_apply" "declarch_install"
+            }
+        "#;
+
+    let config = parse_kdl_content(kdl).unwrap();
+    assert_eq!(config.mcp.mode.as_deref(), Some("read-only"));
+    assert!(
+        config
+            .mcp
+            .allow_tools
+            .contains(&"declarch_sync_apply".to_string())
+    );
+    assert!(
+        config
+            .mcp
+            .allow_tools
+            .contains(&"declarch_install".to_string())
+    );
+}
+
+#[test]
 fn test_backend_options_parsing() {
     // Backend options using the options:backend syntax
     // Note: This requires proper KDL syntax support
