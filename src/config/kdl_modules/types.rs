@@ -93,6 +93,24 @@ pub struct PolicyConfig {
     pub protected: HashSet<String>,
     /// Strategy for handling orphans: "keep", "remove", "ask"
     pub orphans: Option<String>,
+    /// Require explicit backend declarations (no implicit/legacy default backend)
+    pub require_backend: Option<bool>,
+    /// Disallow hook execution even when CLI uses --hooks
+    pub forbid_hooks: Option<bool>,
+    /// Duplicate declaration policy: "warn" | "error"
+    pub on_duplicate: Option<String>,
+    /// Cross-backend conflict policy: "warn" | "error"
+    pub on_conflict: Option<String>,
+}
+
+impl PolicyConfig {
+    pub fn duplicate_is_error(&self) -> bool {
+        matches!(self.on_duplicate.as_deref(), Some("error"))
+    }
+
+    pub fn conflict_is_error(&self) -> bool {
+        matches!(self.on_conflict.as_deref(), Some("error"))
+    }
 }
 
 /// Lifecycle action configuration

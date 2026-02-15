@@ -107,22 +107,27 @@ pub fn run(options: LintOptions) -> Result<()> {
 }
 
 fn collect_merged_issues(merged: &MergedConfig, issues: &mut Vec<LintIssue>) {
+    let policy = merged.policy.as_ref();
     let duplicates = merged.get_duplicates();
     if !duplicates.is_empty() {
+        let duplicate_as_error = policy.is_some_and(|p| p.duplicate_is_error());
         for (pkg, sources) in duplicates {
-            issues.push(LintIssue::warning(
-                None,
-                format!(
-                    "Duplicate declaration: {} appears in {} source file(s)",
-                    pkg,
-                    sources.len()
-                ),
-            ));
+            let msg = format!(
+                "Duplicate declaration: {} appears in {} source file(s)",
+                pkg,
+                sources.len()
+            );
+            if duplicate_as_error {
+                issues.push(LintIssue::error(None, msg));
+            } else {
+                issues.push(LintIssue::warning(None, msg));
+            }
         }
     }
 
     let conflicts = merged.get_cross_backend_conflicts();
     if !conflicts.is_empty() {
+        let conflict_as_error = policy.is_some_and(|p| p.conflict_is_error());
         for (pkg_name, backends) in conflicts {
             let backend_list = backends
                 .into_iter()
@@ -130,13 +135,15 @@ fn collect_merged_issues(merged: &MergedConfig, issues: &mut Vec<LintIssue>) {
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            issues.push(LintIssue::warning(
-                None,
-                format!(
-                    "Cross-backend conflict candidate: '{}' exists in [{}]",
-                    pkg_name, backend_list
-                ),
-            ));
+            let msg = format!(
+                "Cross-backend conflict candidate: '{}' exists in [{}]",
+                pkg_name, backend_list
+            );
+            if conflict_as_error {
+                issues.push(LintIssue::error(None, msg));
+            } else {
+                issues.push(LintIssue::warning(None, msg));
+            }
         }
     }
 
@@ -149,13 +156,15 @@ fn collect_merged_issues(merged: &MergedConfig, issues: &mut Vec<LintIssue>) {
 
     for pkg in merged.packages.keys() {
         if pkg.backend.to_string() == "default" {
-            issues.push(LintIssue::warning(
-                None,
-                format!(
-                    "Package '{}' uses implicit 'default' backend (legacy syntax). Prefer explicit pkg{{ backend {{ ... }} }}",
-                    pkg.name
-                ),
-            ));
+            let msg = format!(
+                "Package '{}' uses implicit 'default' backend (legacy syntax). Prefer explicit pkg{{ backend {{ ... }} }}",
+                pkg.name
+            );
+            if policy.and_then(|p| p.require_backend).unwrap_or(false) {
+                issues.push(LintIssue::error(None, msg));
+            } else {
+                issues.push(LintIssue::warning(None, msg));
+            }
         }
     }
 }

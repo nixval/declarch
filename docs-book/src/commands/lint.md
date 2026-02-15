@@ -25,6 +25,7 @@ declarch lint --profile desktop --host vps-1
 - unresolved `imports` paths
 - hooks configured without `experimental { "enable-hooks" }`
 - implicit `default` backend from legacy syntax
+- policy-aware severity (`on_duplicate`, `on_conflict`, `require_backend`)
 
 ## Flags
 

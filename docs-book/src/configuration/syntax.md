@@ -94,6 +94,10 @@ And run sync with `--hooks`.
 policy {
     protected "linux" "systemd"
     orphans "ask"
+    require_backend "true"
+    forbid_hooks "false"
+    on_duplicate "warn"
+    on_conflict "warn"
 }
 ```
 

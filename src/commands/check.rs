@@ -125,6 +125,50 @@ pub fn run(
         apply_fixes(&config_path, &config)?;
     }
 
+    enforce_policy_in_check(&config)?;
+
+    Ok(())
+}
+
+fn enforce_policy_in_check(config: &loader::MergedConfig) -> Result<()> {
+    let Some(policy) = config.policy.as_ref() else {
+        return Ok(());
+    };
+
+    if policy.require_backend.unwrap_or(false) {
+        let legacy_default_count = config
+            .packages
+            .keys()
+            .filter(|pkg| pkg.backend.to_string() == "default")
+            .count();
+        if legacy_default_count > 0 {
+            return Err(crate::error::DeclarchError::ConfigError(format!(
+                "Policy violation: require-backend=true but {} package(s) still use legacy default backend",
+                legacy_default_count
+            )));
+        }
+    }
+
+    if policy.duplicate_is_error() {
+        let duplicates = config.get_duplicates();
+        if !duplicates.is_empty() {
+            return Err(crate::error::DeclarchError::ConfigError(format!(
+                "Policy violation: on-duplicate=error and {} duplicate declaration(s) were found",
+                duplicates.len()
+            )));
+        }
+    }
+
+    if policy.conflict_is_error() {
+        let conflicts = config.get_cross_backend_conflicts();
+        if !conflicts.is_empty() {
+            return Err(crate::error::DeclarchError::ConfigError(format!(
+                "Policy violation: on-conflict=error and {} cross-backend conflict(s) were found",
+                conflicts.len()
+            )));
+        }
+    }
+
     Ok(())
 }
 
