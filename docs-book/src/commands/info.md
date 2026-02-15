@@ -32,3 +32,8 @@ declarch info doctor
 declarch info status --backend aur
 declarch info doctor --package firefox
 ```
+
+## Cross-machine note
+
+If a backend is not meant for your current OS, doctor/status checks can skip it.
+This is normal when you use one shared config across multiple machines.

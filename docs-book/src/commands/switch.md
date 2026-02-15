@@ -30,3 +30,8 @@ declarch switch firefox firefox-nightly --dry-run
 |--------|-------------|
 | `-b, --backend <NAME>` | backend scope |
 | `--dry-run` | preview only |
+
+## Cross-machine note
+
+If the selected backend is not for your current OS, declarch skips switch safely.
+You can keep that backend in the same shared config for your other machines.
