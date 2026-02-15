@@ -2,7 +2,7 @@
 
 This folder defines machine-readable output contracts for integrations.
 
-Status: placeholder contract for future API/MCP/plugin ecosystem.
+Status: staged rollout for future API/MCP/plugin ecosystem.
 
 ## Envelope
 
@@ -22,15 +22,17 @@ All v1 outputs SHOULD follow this shape:
 }
 ```
 
-## Notes
+## Rollout status
 
-- Human/table output remains unchanged.
-- v1 envelope is for machine consumers.
-- Initial surfaces:
-  - `info`
+- Implemented now:
+  - `declarch info --format json --output-version v1`
+  - `declarch info --list --format json --output-version v1`
+  - YAML also supported by replacing `json` with `yaml`.
+- Planned next:
   - `lint`
-  - `search` (planned output mode)
-  - `sync preview` (planned output mode)
+  - `search`
+  - `sync preview`
+- Human/table output remains unchanged.
 
 ## Examples
 

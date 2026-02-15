@@ -52,3 +52,11 @@ Goal: keep `declarch` simple, but make integrations possible.
 
 See:
 - `docs/contracts/v1/README.md`
+
+## Current implementation snapshot
+
+- Added global placeholder flag: `--output-version v1`
+- Added hidden placeholder command: `declarch ext`
+- `v1` envelope implemented for:
+  - `info` JSON/YAML
+  - `info --list` JSON/YAML

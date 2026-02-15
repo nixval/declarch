@@ -170,6 +170,13 @@ declarch info
 declarch info --list
 ```
 
+Machine-readable placeholder contract (v1, staged rollout):
+
+```bash
+declarch info --format json --output-version v1
+declarch info --list --format yaml --output-version v1
+```
+
 ## Documentation
 
 Hosted docs:
@@ -184,6 +191,7 @@ mdDocs source pages (`docs-book/src`):
 - [Backends](docs-book/src/configuration/backends.md)
 - [KDL Basics](docs-book/src/configuration/kdl-syntax.md)
 - [Syntax Reference (Advanced)](docs-book/src/configuration/syntax.md)
+- [Integration Roadmap RFC](docs-book/src/advanced/rfc-integration-roadmap.md)
 - [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
 - [Full sidebar](docs-book/src/SUMMARY.md)
 
