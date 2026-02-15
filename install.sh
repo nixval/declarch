@@ -26,6 +26,8 @@ case "${OS}" in
     esac
     ;;
   Darwin)
+    echo "WARNING: macOS installer path is experimental (alpha)."
+    echo "Use on non-production machines first and validate with 'declarch info' + 'declarch lint'."
     case "${ARCH}" in
       x86_64) TARGET="x86_64-apple-darwin" ;;
       arm64|aarch64) TARGET="aarch64-apple-darwin" ;;

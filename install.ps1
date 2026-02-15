@@ -5,6 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+Write-Warning "Windows installer path is experimental (alpha)."
+Write-Warning "Use on non-production machines first and validate with 'declarch info' and 'declarch lint'."
+
 $arch = $env:PROCESSOR_ARCHITECTURE
 switch ($arch.ToLower()) {
     "amd64" { $target = "x86_64-pc-windows-msvc" }

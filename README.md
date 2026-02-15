@@ -91,7 +91,9 @@ paru -S declarch
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
-### Windows (PowerShell, experimental)
+macOS support via script is currently **experimental (alpha)**.
+
+### Windows (PowerShell, experimental alpha)
 
 ```powershell
 irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
