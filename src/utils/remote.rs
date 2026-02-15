@@ -375,7 +375,7 @@ fn is_private_address(host: &str) -> bool {
         let parts: Vec<&str> = host.split('.').collect();
         if parts.len() >= 2
             && let Ok(second_octet) = parts[1].parse::<u8>()
-            && (16..=32).contains(&second_octet)
+            && (16..=31).contains(&second_octet)
         {
             return true;
         }
@@ -539,10 +539,12 @@ mod tests {
         assert!(is_private_address("192.168.1.1"));
         assert!(is_private_address("10.0.0.5"));
         assert!(is_private_address("172.16.0.1"));
+        assert!(is_private_address("172.31.255.255"));
         assert!(is_private_address("169.254.169.254")); // Cloud metadata
         assert!(is_private_address("fe80::1")); // IPv6 Link-local
         assert!(is_private_address("fc00::")); // IPv6 ULA
 
+        assert!(!is_private_address("172.32.0.1"));
         assert!(!is_private_address("8.8.8.8"));
         assert!(!is_private_address("1.1.1.1"));
         assert!(!is_private_address("github.com"));
