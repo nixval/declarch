@@ -22,7 +22,25 @@ Expected binaries:
 - `target/release/declarch`
 - `target/release/declarch-mcp`
 
-## Recommended isolated environment
+## Recommended standard environment
+
+Use your real declarch paths (normal user setup):
+
+```bash
+declarch init
+```
+
+Linux defaults are typically:
+- config: `~/.config/declarch`
+- state: `~/.local/state/declarch`
+
+Use this to confirm your actual paths:
+
+```bash
+declarch info --doctor
+```
+
+## Optional isolated environment (dev/testing only)
 
 ```bash
 mkdir -p .dev/config .dev/state .dev/cache
@@ -68,9 +86,9 @@ Use this as template for any MCP client that supports stdio server config:
       "command": "/absolute/path/to/target/release/declarch-mcp",
       "env": {
         "DECLARCH_BIN": "/absolute/path/to/target/release/declarch",
-        "XDG_CONFIG_HOME": "/absolute/path/to/repo/.dev/config",
-        "XDG_STATE_HOME": "/absolute/path/to/repo/.dev/state",
-        "XDG_CACHE_HOME": "/absolute/path/to/repo/.dev/cache"
+        "XDG_CONFIG_HOME": "/home/username/.config",
+        "XDG_STATE_HOME": "/home/username/.local/state",
+        "XDG_CACHE_HOME": "/home/username/.cache"
       }
     }
   }
@@ -86,9 +104,9 @@ args = []
 
 [mcp_servers.declarch.env]
 DECLARCH_BIN = "/absolute/path/to/target/release/declarch"
-XDG_CONFIG_HOME = "/absolute/path/to/repo/.dev/config"
-XDG_STATE_HOME = "/absolute/path/to/repo/.dev/state"
-XDG_CACHE_HOME = "/absolute/path/to/repo/.dev/cache"
+XDG_CONFIG_HOME = "/home/username/.config"
+XDG_STATE_HOME = "/home/username/.local/state"
+XDG_CACHE_HOME = "/home/username/.cache"
 ```
 
 Optional guarded apply:
@@ -108,9 +126,9 @@ DECLARCH_MCP_ALLOW_APPLY = "1"
       "args": [],
       "env": {
         "DECLARCH_BIN": "/absolute/path/to/target/release/declarch",
-        "XDG_CONFIG_HOME": "/absolute/path/to/repo/.dev/config",
-        "XDG_STATE_HOME": "/absolute/path/to/repo/.dev/state",
-        "XDG_CACHE_HOME": "/absolute/path/to/repo/.dev/cache"
+        "XDG_CONFIG_HOME": "/home/username/.config",
+        "XDG_STATE_HOME": "/home/username/.local/state",
+        "XDG_CACHE_HOME": "/home/username/.cache"
       }
     }
   }
@@ -129,7 +147,7 @@ If env fields are not supported by your current version, wrap with shell export:
       "command": "bash",
       "args": [
         "-lc",
-        "DECLARCH_BIN=/absolute/path/to/target/release/declarch XDG_CONFIG_HOME=/absolute/path/to/repo/.dev/config XDG_STATE_HOME=/absolute/path/to/repo/.dev/state XDG_CACHE_HOME=/absolute/path/to/repo/.dev/cache /absolute/path/to/target/release/declarch-mcp"
+        "DECLARCH_BIN=/absolute/path/to/target/release/declarch XDG_CONFIG_HOME=/home/username/.config XDG_STATE_HOME=/home/username/.local/state XDG_CACHE_HOME=/home/username/.cache /absolute/path/to/target/release/declarch-mcp"
       ]
     }
   }
