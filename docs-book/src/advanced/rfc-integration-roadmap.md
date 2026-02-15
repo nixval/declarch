@@ -1,9 +1,8 @@
-# RFC: Integration Roadmap (API, MCP, Plugins)
+# Integration Roadmap (API, MCP, Plugins)
 
-Status: draft placeholder (implementation in phases).
+Status: evolving roadmap.
 
-This roadmap is here to avoid large refactors later.
-Goal: keep `declarch` simple, but make integrations possible.
+Goal: keep `declarch` simple, while making integrations possible without rewriting core behavior.
 
 ## Principles
 
@@ -14,19 +13,19 @@ Goal: keep `declarch` simple, but make integrations possible.
 
 ## Phase plan
 
-## Phase 1: Contracts first
+## Phase 1: Contracts first (done)
 
 - Define stable machine-output envelope (`v1`).
 - Add examples for `info`, `lint`, `search`, and `sync preview`.
-- Add CLI placeholder flag: `--output-version v1`.
+- Add CLI contract flag: `--output-version v1`.
 
-## Phase 2: Plugin protocol placeholder
+## Phase 2: Extension protocol foundation
 
 - Reserve extension model with executable discovery:
   - `declarch-ext-*`
-- Add placeholder command:
+- Add extension command surface:
   - `declarch ext`
-- Keep it non-functional initially, just contract visibility.
+- Keep this safe and incremental.
 
 ## Phase 3: MCP adapter (external)
 
@@ -56,8 +55,8 @@ See:
 
 ## Current implementation snapshot
 
-- Added global placeholder flag: `--output-version v1`
-- Added hidden placeholder command: `declarch ext`
+- Added global contract flag: `--output-version v1`
+- Added hidden extension command: `declarch ext`
 - `declarch ext` now discovers `declarch-ext-*` binaries from `PATH`
 - `v1` envelope implemented for:
   - `info` JSON/YAML

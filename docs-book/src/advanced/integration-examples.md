@@ -39,7 +39,7 @@ Goal: show what can be built on top of declarch without making core too complex.
 - infra report artifacts
 - internal dashboard feed
 
-Protocol placeholder:
+Protocol reference:
 - `docs/contracts/v1/extensions-protocol.md`
 
 ## MCP examples (recommended first)
