@@ -45,6 +45,18 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     // 3. Get package manager
     let global_config = GlobalConfig::default();
 
+    if let Ok(backends) = crate::backends::load_all_backends_unified()
+        && let Some(cfg) = backends.get(backend.name())
+        && !crate::utils::platform::backend_supports_current_os(cfg)
+    {
+        output::warning(&format!(
+            "Backend '{}' is not for this OS, so switch is skipped.",
+            backend
+        ));
+        output::info("Keep this backend in shared config for other machines.");
+        return Ok(());
+    }
+
     let manager: Box<dyn PackageManager> = create_manager(&backend, &global_config, false)
         .map_err(|e| DeclarchError::Other(format!("Failed to create package manager: {}", e)))?;
 

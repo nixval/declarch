@@ -301,6 +301,11 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
             for (name, mut config) in backends {
                 apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
 
+                if !crate::utils::platform::backend_supports_current_os(&config) {
+                    output::info(&format!("{}: Skipped (not for this OS)", name));
+                    continue;
+                }
+
                 let manager = crate::backends::GenericManager::from_config(
                     config,
                     crate::core::types::Backend::from(name.as_str()),

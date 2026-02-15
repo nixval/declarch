@@ -77,6 +77,14 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
     for (name, mut config) in backends_to_upgrade {
         apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
 
+        if !crate::utils::platform::backend_supports_current_os(&config) {
+            output::warning(&format!(
+                "Skipping '{}' on this device (not for current OS).",
+                name
+            ));
+            continue;
+        }
+
         if config.upgrade_cmd.is_none() {
             skipped_no_cmd.push(name);
             continue;
