@@ -60,19 +60,6 @@ Important:
   - optional/required `type` (`http`, `streamableHttp`, `sse`)
   - optional `headers` for auth
 
-## Build binaries
-
-From repo root:
-
-```bash
-cargo build --release
-```
-
-Expected binaries:
-
-- `target/release/declarch`
-- `target/release/declarch-mcp`
-
 ## Recommended standard environment
 
 Use your real declarch paths (normal user setup):
@@ -91,36 +78,14 @@ Use this to confirm your actual paths:
 declarch info --doctor
 ```
 
-## Optional isolated environment (dev/testing only)
+## Binary requirement
 
-```bash
-mkdir -p .dev/config .dev/state .dev/cache
-XDG_CONFIG_HOME="$PWD/.dev/config" \
-XDG_STATE_HOME="$PWD/.dev/state" \
-XDG_CACHE_HOME="$PWD/.dev/cache" \
-./target/release/declarch init
-```
+Your MCP client must be able to run `declarch-mcp`.
 
-This is optional and only for isolated local testing.
+- If installed in PATH: use `command = "declarch-mcp"` (or JSON equivalent).
+- If not in PATH: set `command` to the full binary path.
 
-## MCP adapter quick test (raw stdio)
-
-List tools:
-
-```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-| ./target/release/declarch-mcp
-```
-
-Preview sync:
-
-```bash
-echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"declarch_sync_preview","arguments":{}}}' \
-| ./target/release/declarch-mcp
-```
-
-`DECLARCH_BIN` is optional.
-Use it only when you want MCP adapter to call a specific declarch binary path.
+`DECLARCH_BIN` is optional and only needed when you want to force a specific `declarch` binary.
 
 ## Tools exposed
 
@@ -279,13 +244,4 @@ Without both guards, apply is rejected.
 
 ## Optional: custom XDG (advanced)
 
-Custom XDG is optional and mainly useful for isolated test environments.
-
-Example:
-
-```bash
-XDG_CONFIG_HOME="$PWD/.dev/config" \
-XDG_STATE_HOME="$PWD/.dev/state" \
-XDG_CACHE_HOME="$PWD/.dev/cache" \
-declarch-mcp
-```
+Custom XDG is optional and usually only needed for isolated test setups.
