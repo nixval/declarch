@@ -25,86 +25,18 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             local,
             restore_backends,
             restore_declarch,
-        }) => {
-            // Handle --list flag first
-            if let Some(what) = list {
-                if what == "backends" {
-                    return commands::init::list_available_backends();
-                } else if what == "modules" {
-                    return commands::init::list_available_modules();
-                } else {
-                    return Err(DeclarchError::Other(format!(
-                        "Unknown list target: '{}'. Available: backends, modules",
-                        what
-                    )));
-                }
-            }
+        }) => handle_init_command(
+            args,
+            host,
+            path,
+            backend,
+            list,
+            *local,
+            *restore_backends,
+            *restore_declarch,
+        ),
 
-            // Handle restore flags
-            if *restore_backends {
-                return commands::init::restore_backends();
-            }
-            if *restore_declarch {
-                return commands::init::restore_declarch(host.clone());
-            }
-
-            commands::init::run(commands::init::InitOptions {
-                host: host.clone(),
-                path: path.clone(),
-                backends: backend.clone(),
-                force: args.global.force,
-                yes: args.global.yes,
-                local: *local,
-            })
-        }
-
-        Some(Command::Sync { command, gc }) => {
-            match command {
-                Some(SyncCommand::Cache { backend }) => {
-                    commands::cache::run(commands::cache::CacheOptions {
-                        backends: if backend.is_empty() {
-                            None
-                        } else {
-                            Some(backend.clone())
-                        },
-                        verbose: args.global.verbose,
-                    })
-                }
-                Some(SyncCommand::Upgrade { backend, no_sync }) => {
-                    commands::upgrade::run(commands::upgrade::UpgradeOptions {
-                        backends: if backend.is_empty() {
-                            None
-                        } else {
-                            Some(backend.clone())
-                        },
-                        no_sync: *no_sync,
-                        verbose: args.global.verbose,
-                    })
-                }
-                _ => {
-                    // Handle other sync subcommands (Sync, Preview, Update, Prune)
-                    let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                        handle_deprecated_sync_flags(false, false, false, *gc);
-
-                    // Use the command from subcommand if provided, otherwise use deprecated flags
-                    let sync_cmd = command
-                        .clone()
-                        .unwrap_or_else(|| deprecated_command.clone());
-
-                    // Show deprecation warning if old flags were used
-                    if has_deprecated_flags {
-                        show_deprecation_warning(new_cmd_str);
-                    }
-
-                    // Convert and execute
-                    let mut options =
-                        sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
-                    options.format = args.global.format.clone();
-                    options.output_version = args.global.output_version.clone();
-                    commands::sync::run(options)
-                }
-            }
-        }
+        Some(Command::Sync { command, gc }) => handle_sync_command(args, command, *gc),
 
         Some(Command::Info {
             query,
@@ -118,71 +50,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             profile,
             host,
             modules,
-        }) => {
-            let mut mode_count = 0u8;
-            if *doctor {
-                mode_count += 1;
-            }
-            if *plan {
-                mode_count += 1;
-            }
-            if query.is_some() {
-                mode_count += 1;
-            }
-            if *list || *orphans || *synced {
-                mode_count += 1;
-            }
-            if mode_count > 1 {
-                return Err(DeclarchError::Other(
-                    "Use only one info mode at a time: status, query, --plan, --doctor, or --list/--orphans/--synced".to_string(),
-                ));
-            }
-
-            if *doctor {
-                return commands::info::run(commands::info::InfoOptions {
-                    doctor: true,
-                    format: args.global.format.clone(),
-                    output_version: args.global.output_version.clone(),
-                    backend: backend.clone(),
-                    package: package.clone(),
-                    verbose: args.global.verbose,
-                });
-            }
-
-            if *list || *orphans || *synced {
-                return commands::list::run(commands::list::ListOptions {
-                    backend: backend.clone(),
-                    orphans: *orphans,
-                    synced: *synced,
-                    format: args.global.format.clone(),
-                    output_version: args.global.output_version.clone(),
-                });
-            }
-
-            if *plan || query.is_some() {
-                return commands::info_reason::run(commands::info_reason::InfoReasonOptions {
-                    query: if *plan { None } else { query.clone() },
-                    target: if *plan {
-                        Some("sync-plan".to_string())
-                    } else {
-                        None
-                    },
-                    profile: profile.clone(),
-                    host: host.clone(),
-                    modules: modules.clone(),
-                    verbose: args.global.verbose,
-                });
-            }
-
-            commands::info::run(commands::info::InfoOptions {
-                doctor: false,
-                format: args.global.format.clone(),
-                output_version: args.global.output_version.clone(),
-                backend: backend.clone(),
-                package: package.clone(),
-                verbose: args.global.verbose,
-            })
-        }
+        }) => handle_info_command(
+            args, query, *doctor, *plan, *list, *orphans, *synced, backend, package, profile,
+            host, modules,
+        ),
 
         Some(Command::Switch {
             old_package,
@@ -238,24 +109,15 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             installed_only,
             available_only,
             local,
-        }) => {
-            let parsed_limit = parse_limit_option(limit.as_deref())?;
-
-            commands::search::run(commands::search::SearchOptions {
-                query: query.clone(),
-                backends: if backends.is_empty() {
-                    None
-                } else {
-                    Some(backends.clone())
-                },
-                limit: parsed_limit,
-                installed_only: *installed_only,
-                available_only: *available_only,
-                local: *local,
-                format: args.global.format.clone(),
-                output_version: args.global.output_version.clone(),
-            })
-        }
+        }) => handle_search_command(
+            args,
+            query,
+            backends,
+            limit.as_deref(),
+            *installed_only,
+            *available_only,
+            *local,
+        ),
         Some(Command::Lint {
             strict,
             fix,
@@ -267,26 +129,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             profile,
             host,
             modules,
-        }) => commands::lint::run(commands::lint::LintOptions {
-            strict: *strict,
-            fix: *fix,
-            mode: match mode {
-                LintMode::All => commands::lint::LintMode::All,
-                LintMode::Validate => commands::lint::LintMode::Validate,
-                LintMode::Duplicates => commands::lint::LintMode::Duplicates,
-                LintMode::Conflicts => commands::lint::LintMode::Conflicts,
-            },
-            backend: backend.clone(),
-            diff: *diff,
-            benchmark: *benchmark,
-            repair_state: *repair_state,
-            format: args.global.format.clone(),
-            output_version: args.global.output_version.clone(),
-            verbose: args.global.verbose,
-            profile: profile.clone(),
-            host: host.clone(),
-            modules: modules.clone(),
-        }),
+        }) => handle_lint_command(
+            args, *strict, *fix, mode, backend, *diff, *benchmark, *repair_state, profile, host,
+            modules,
+        ),
 
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
         Some(Command::Ext) => commands::ext::run(),
@@ -295,6 +141,230 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             output::info("No command provided. Use --help.");
             Ok(())
         }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_init_command(
+    args: &Cli,
+    host: &Option<String>,
+    path: &Option<String>,
+    backend: &[String],
+    list: &Option<String>,
+    local: bool,
+    restore_backends: bool,
+    restore_declarch: bool,
+) -> Result<()> {
+    if let Some(what) = list {
+        return match what.as_str() {
+            "backends" => commands::init::list_available_backends(),
+            "modules" => commands::init::list_available_modules(),
+            _ => Err(DeclarchError::Other(format!(
+                "Unknown list target: '{}'. Available: backends, modules",
+                what
+            ))),
+        };
+    }
+
+    if restore_backends {
+        return commands::init::restore_backends();
+    }
+    if restore_declarch {
+        return commands::init::restore_declarch(host.clone());
+    }
+
+    commands::init::run(commands::init::InitOptions {
+        host: host.clone(),
+        path: path.clone(),
+        backends: backend.to_vec(),
+        force: args.global.force,
+        yes: args.global.yes,
+        local,
+    })
+}
+
+fn handle_sync_command(args: &Cli, command: &Option<SyncCommand>, gc: bool) -> Result<()> {
+    match command {
+        Some(SyncCommand::Cache { backend }) => commands::cache::run(commands::cache::CacheOptions {
+            backends: list_to_optional_vec(backend),
+            verbose: args.global.verbose,
+        }),
+        Some(SyncCommand::Upgrade { backend, no_sync }) => {
+            commands::upgrade::run(commands::upgrade::UpgradeOptions {
+                backends: list_to_optional_vec(backend),
+                no_sync: *no_sync,
+                verbose: args.global.verbose,
+            })
+        }
+        _ => {
+            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
+                handle_deprecated_sync_flags(false, false, false, gc);
+
+            let sync_cmd = command
+                .clone()
+                .unwrap_or_else(|| deprecated_command.clone());
+
+            if has_deprecated_flags {
+                show_deprecation_warning(new_cmd_str);
+            }
+
+            let mut options = sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
+            options.format = args.global.format.clone();
+            options.output_version = args.global.output_version.clone();
+            commands::sync::run(options)
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_info_command(
+    args: &Cli,
+    query: &Option<String>,
+    doctor: bool,
+    plan: bool,
+    list: bool,
+    orphans: bool,
+    synced: bool,
+    backend: &Option<String>,
+    package: &Option<String>,
+    profile: &Option<String>,
+    host: &Option<String>,
+    modules: &[String],
+) -> Result<()> {
+    let mut mode_count = 0u8;
+    if doctor {
+        mode_count += 1;
+    }
+    if plan {
+        mode_count += 1;
+    }
+    if query.is_some() {
+        mode_count += 1;
+    }
+    if list || orphans || synced {
+        mode_count += 1;
+    }
+    if mode_count > 1 {
+        return Err(DeclarchError::Other(
+            "Use only one info mode at a time: status, query, --plan, --doctor, or --list/--orphans/--synced".to_string(),
+        ));
+    }
+
+    if doctor {
+        return commands::info::run(commands::info::InfoOptions {
+            doctor: true,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+            backend: backend.clone(),
+            package: package.clone(),
+            verbose: args.global.verbose,
+        });
+    }
+
+    if list || orphans || synced {
+        return commands::list::run(commands::list::ListOptions {
+            backend: backend.clone(),
+            orphans,
+            synced,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        });
+    }
+
+    if plan || query.is_some() {
+        return commands::info_reason::run(commands::info_reason::InfoReasonOptions {
+            query: if plan { None } else { query.clone() },
+            target: if plan {
+                Some("sync-plan".to_string())
+            } else {
+                None
+            },
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.to_vec(),
+            verbose: args.global.verbose,
+        });
+    }
+
+    commands::info::run(commands::info::InfoOptions {
+        doctor: false,
+        format: args.global.format.clone(),
+        output_version: args.global.output_version.clone(),
+        backend: backend.clone(),
+        package: package.clone(),
+        verbose: args.global.verbose,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_search_command(
+    args: &Cli,
+    query: &str,
+    backends: &[String],
+    limit: Option<&str>,
+    installed_only: bool,
+    available_only: bool,
+    local: bool,
+) -> Result<()> {
+    let parsed_limit = parse_limit_option(limit)?;
+
+    commands::search::run(commands::search::SearchOptions {
+        query: query.to_string(),
+        backends: list_to_optional_vec(backends),
+        limit: parsed_limit,
+        installed_only,
+        available_only,
+        local,
+        format: args.global.format.clone(),
+        output_version: args.global.output_version.clone(),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_lint_command(
+    args: &Cli,
+    strict: bool,
+    fix: bool,
+    mode: &LintMode,
+    backend: &Option<String>,
+    diff: bool,
+    benchmark: bool,
+    repair_state: bool,
+    profile: &Option<String>,
+    host: &Option<String>,
+    modules: &[String],
+) -> Result<()> {
+    commands::lint::run(commands::lint::LintOptions {
+        strict,
+        fix,
+        mode: map_lint_mode(mode),
+        backend: backend.clone(),
+        diff,
+        benchmark,
+        repair_state,
+        format: args.global.format.clone(),
+        output_version: args.global.output_version.clone(),
+        verbose: args.global.verbose,
+        profile: profile.clone(),
+        host: host.clone(),
+        modules: modules.to_vec(),
+    })
+}
+
+fn map_lint_mode(mode: &LintMode) -> commands::lint::LintMode {
+    match mode {
+        LintMode::All => commands::lint::LintMode::All,
+        LintMode::Validate => commands::lint::LintMode::Validate,
+        LintMode::Duplicates => commands::lint::LintMode::Duplicates,
+        LintMode::Conflicts => commands::lint::LintMode::Conflicts,
+    }
+}
+
+fn list_to_optional_vec(values: &[String]) -> Option<Vec<String>> {
+    if values.is_empty() {
+        None
+    } else {
+        Some(values.to_vec())
     }
 }
 
