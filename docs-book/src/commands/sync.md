@@ -56,7 +56,7 @@ Even with `--hooks`, hooks are blocked unless you explicitly opt in from config:
 
 ```kdl
 experimental {
-    "dangerously-enable-hooks"
+    "enable-hooks"
 }
 ```
 

@@ -82,7 +82,7 @@ To execute hooks, users must opt in:
 
 ```kdl
 experimental {
-    "dangerously-enable-hooks"
+    "enable-hooks"
 }
 ```
 

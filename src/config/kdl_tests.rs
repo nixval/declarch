@@ -185,7 +185,7 @@ fn test_imports_parsing() {
 fn test_experimental_block_flag_parsing() {
     let kdl = r#"
             experimental {
-                "dangerously-enable-hooks"
+                "enable-hooks"
             }
         "#;
 
@@ -193,19 +193,19 @@ fn test_experimental_block_flag_parsing() {
     assert!(
         config
             .experimental
-            .contains(&"dangerously-enable-hooks".to_string())
+            .contains(&"enable-hooks".to_string())
     );
 }
 
 #[test]
 fn test_experimental_inline_flag_parsing() {
     let kdl = r#"
-            experimental "dangerously-enable-hooks"
+            experimental "enable-hooks"
         "#;
 
     let config = parse_kdl_content(kdl).unwrap();
     assert_eq!(config.experimental.len(), 1);
-    assert_eq!(config.experimental[0], "dangerously-enable-hooks");
+    assert_eq!(config.experimental[0], "enable-hooks");
 }
 
 #[test]

@@ -238,12 +238,12 @@ fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &SyncOptions) -
         return false;
     }
 
-    if config.is_experimental_enabled("dangerously-enable-hooks") {
+    if config.is_experimental_enabled("enable-hooks") {
         return true;
     }
 
     output::warning(
-        "Hooks were requested but blocked by policy. Add experimental { \"dangerously-enable-hooks\" } to declarch.kdl to allow hook execution.",
+        "Hooks were requested but blocked by policy. Add experimental { \"enable-hooks\" } to declarch.kdl to allow hook execution.",
     );
     false
 }

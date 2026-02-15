@@ -57,7 +57,7 @@ pub struct RawConfig {
     /// Experimental feature flags.
     /// Example:
     /// experimental {
-    ///   "dangerously-enable-hooks"
+    ///   "enable-hooks"
     /// }
     pub experimental: Vec<String>,
 }
