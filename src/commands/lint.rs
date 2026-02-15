@@ -4,7 +4,7 @@ use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use crate::utils::paths;
 use kdl::KdlDocument;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -60,6 +60,7 @@ impl LintIssue {
 }
 
 pub fn run(options: LintOptions) -> Result<()> {
+    let start_time = std::time::Instant::now();
     let config_path = paths::config_file()?;
     if !config_path.exists() {
         return Err(DeclarchError::ConfigNotFound { path: config_path });
@@ -82,11 +83,32 @@ pub fn run(options: LintOptions) -> Result<()> {
         apply_safe_fixes(&lint_files)?;
     }
 
+    if options.diff {
+        show_diff(&merged)?;
+    }
+
     let mut issues = Vec::new();
 
-    collect_merged_issues(&merged, &mut issues);
-    for file in &lint_files {
-        collect_file_issues(file, &mut issues)?;
+    match options.mode {
+        LintMode::All => {
+            collect_duplicate_issues(&merged, options.backend.as_deref(), &mut issues);
+            collect_conflict_issues(&merged, options.backend.as_deref(), &mut issues);
+            collect_misc_merged_issues(&merged, &mut issues);
+            for file in &lint_files {
+                collect_file_issues(file, &mut issues)?;
+            }
+        }
+        LintMode::Validate => {
+            for file in &lint_files {
+                collect_file_issues(file, &mut issues)?;
+            }
+        }
+        LintMode::Duplicates => {
+            collect_duplicate_issues(&merged, options.backend.as_deref(), &mut issues);
+        }
+        LintMode::Conflicts => {
+            collect_conflict_issues(&merged, options.backend.as_deref(), &mut issues);
+        }
     }
 
     output::header("Lint Report");
@@ -120,50 +142,74 @@ pub fn run(options: LintOptions) -> Result<()> {
         output::success("Lint completed");
     }
 
+    if options.benchmark {
+        output::keyval("Elapsed", &format!("{:?}", start_time.elapsed()));
+    }
+
     Ok(())
 }
 
-fn collect_merged_issues(merged: &MergedConfig, issues: &mut Vec<LintIssue>) {
+fn collect_duplicate_issues(
+    merged: &MergedConfig,
+    backend_filter: Option<&str>,
+    issues: &mut Vec<LintIssue>,
+) {
     let policy = merged.policy.as_ref();
     let duplicates = merged.get_duplicates();
-    if !duplicates.is_empty() {
-        let duplicate_as_error = policy.is_some_and(|p| p.duplicate_is_error());
-        for (pkg, sources) in duplicates {
-            let msg = format!(
-                "Duplicate declaration: {} appears in {} source file(s)",
-                pkg,
-                sources.len()
-            );
-            if duplicate_as_error {
-                issues.push(LintIssue::error(None, msg));
-            } else {
-                issues.push(LintIssue::warning(None, msg));
-            }
+    let duplicate_as_error = policy.is_some_and(|p| p.duplicate_is_error());
+    for (pkg, sources) in duplicates {
+        if let Some(filter) = backend_filter
+            && pkg.backend.name() != filter
+        {
+            continue;
+        }
+        let msg = format!(
+            "Duplicate declaration: {} appears in {} source file(s)",
+            pkg,
+            sources.len()
+        );
+        if duplicate_as_error {
+            issues.push(LintIssue::error(None, msg));
+        } else {
+            issues.push(LintIssue::warning(None, msg));
         }
     }
+}
 
+fn collect_conflict_issues(
+    merged: &MergedConfig,
+    backend_filter: Option<&str>,
+    issues: &mut Vec<LintIssue>,
+) {
+    let policy = merged.policy.as_ref();
     let conflicts = merged.get_cross_backend_conflicts();
-    if !conflicts.is_empty() {
-        let conflict_as_error = policy.is_some_and(|p| p.conflict_is_error());
-        for (pkg_name, backends) in conflicts {
-            let backend_list = backends
-                .into_iter()
-                .map(|b| b.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
+    let conflict_as_error = policy.is_some_and(|p| p.conflict_is_error());
+    for (pkg_name, backends) in conflicts {
+        if let Some(filter) = backend_filter
+            && !backends.iter().any(|b| b.name() == filter)
+        {
+            continue;
+        }
+        let backend_list = backends
+            .into_iter()
+            .map(|b| b.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
 
-            let msg = format!(
-                "Cross-backend conflict candidate: '{}' exists in [{}]",
-                pkg_name, backend_list
-            );
-            if conflict_as_error {
-                issues.push(LintIssue::error(None, msg));
-            } else {
-                issues.push(LintIssue::warning(None, msg));
-            }
+        let msg = format!(
+            "Cross-backend conflict candidate: '{}' exists in [{}]",
+            pkg_name, backend_list
+        );
+        if conflict_as_error {
+            issues.push(LintIssue::error(None, msg));
+        } else {
+            issues.push(LintIssue::warning(None, msg));
         }
     }
+}
 
+fn collect_misc_merged_issues(merged: &MergedConfig, issues: &mut Vec<LintIssue>) {
+    let policy = merged.policy.as_ref();
     if merged.lifecycle_actions.is_some() && !merged.is_experimental_enabled("enable-hooks") {
         issues.push(LintIssue::warning(
             None,
@@ -439,6 +485,54 @@ fn apply_safe_fixes(files: &[PathBuf]) -> Result<()> {
         if fixed != content {
             fs::write(file, fixed)?;
             output::success(&format!("Fixed {}", file.display()));
+        }
+    }
+
+    Ok(())
+}
+
+fn show_diff(config: &MergedConfig) -> Result<()> {
+    use crate::core::types::PackageId;
+
+    let state_path = crate::state::io::get_state_path()?;
+    if !state_path.exists() {
+        output::info("Packages to install:");
+        for pkg_id in config.packages.keys() {
+            println!("  + {} {}", pkg_id.backend, pkg_id.name);
+        }
+        return Ok(());
+    }
+
+    let state = crate::state::io::load_state()?;
+    let config_set: HashSet<PackageId> = config.packages.keys().cloned().collect();
+    let mut state_set: HashSet<PackageId> = HashSet::new();
+
+    for pkg_state in state.packages.values() {
+        state_set.insert(PackageId {
+            backend: pkg_state.backend.clone(),
+            name: pkg_state.config_name.clone(),
+        });
+    }
+
+    let to_install: Vec<_> = config_set.difference(&state_set).cloned().collect();
+    let to_remove: Vec<_> = state_set.difference(&config_set).cloned().collect();
+
+    if to_install.is_empty() && to_remove.is_empty() {
+        output::info("No changes planned");
+        return Ok(());
+    }
+
+    if !to_install.is_empty() {
+        output::info("To install:");
+        for pkg_id in &to_install {
+            println!("  + {} {}", pkg_id.backend, pkg_id.name);
+        }
+    }
+
+    if !to_remove.is_empty() {
+        output::info("To remove:");
+        for pkg_id in &to_remove {
+            println!("  - {} {}", pkg_id.backend, pkg_id.name);
         }
     }
 
