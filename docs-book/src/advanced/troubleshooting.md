@@ -18,6 +18,11 @@ declarch lint --mode validate
 ```
 
 Then confirm backend presence in `~/.config/declarch/backends.kdl` imports.
+Or run:
+
+```bash
+declarch info --doctor
+```
 
 ## 2) Missing backend binary
 
@@ -93,9 +98,15 @@ chmod 755 ~/.config/declarch
 ## 7) State reset procedure
 
 ```bash
-rm ~/.config/declarch/state.json
+rm ~/.local/state/declarch/state.json
 declarch init
 declarch sync preview
+```
+
+For non-Linux paths, use:
+
+```bash
+declarch info --doctor
 ```
 
 ## 8) Debug bundle
@@ -103,8 +114,8 @@ declarch sync preview
 Run this sequence before opening issue:
 
 ```bash
-declarch -v check validate
-declarch -v info
+declarch -v lint --mode validate
+declarch -v info --doctor
 declarch -v sync preview
 ```
 

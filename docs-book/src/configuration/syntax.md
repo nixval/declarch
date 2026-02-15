@@ -116,8 +116,8 @@ host "vps-1" {
 ```
 
 Use from CLI:
-- `declarch sync sync --profile desktop`
-- `declarch sync sync --host vps-1`
+- `declarch sync --profile desktop`
+- `declarch sync --host vps-1`
 
 ## Validation notes
 

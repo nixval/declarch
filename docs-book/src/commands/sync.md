@@ -31,10 +31,10 @@ declarch sync
 ```bash
 declarch sync update
 declarch sync prune
-declarch sync sync --target firefox
-declarch sync sync --hooks
-declarch sync sync --profile desktop
-declarch sync sync --host vps-1
+declarch sync --target firefox
+declarch sync --hooks
+declarch sync --profile desktop
+declarch sync --host vps-1
 ```
 
 ## Common options

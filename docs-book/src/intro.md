@@ -28,6 +28,12 @@ cp -r ~/.config/declarch ~/.config/declarch.backup
 declarch sync preview
 ```
 
+Path above is Linux-style. Use this to print real paths on your OS:
+
+```bash
+declarch info --doctor
+```
+
 ## One important behavior
 
 `declarch install` expects explicit backend now.

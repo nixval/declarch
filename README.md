@@ -15,6 +15,12 @@ Before upgrading:
 cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
+Linux example shown above. For your exact paths on macOS/Windows, run:
+
+```bash
+declarch info --doctor
+```
+
 Reality check:
 - declarch is still evolving,
 - backend/environment coverage keeps improving,
