@@ -93,17 +93,14 @@ Use this as conceptual template (adapt keys to your client schema):
 {
   "mcpServers": {
     "declarch": {
-      "command": "/absolute/path/to/target/release/declarch-mcp",
-      "env": {
-        "DECLARCH_BIN": "/absolute/path/to/target/release/declarch",
-        "XDG_CONFIG_HOME": "/home/username/.config",
-        "XDG_STATE_HOME": "/home/username/.local/state",
-        "XDG_CACHE_HOME": "/home/username/.cache"
-      }
+      "command": "/absolute/path/to/target/release/declarch-mcp"
     }
   }
 }
 ```
+
+That is enough for standard usage.
+`declarch` will use normal OS default paths automatically.
 
 ## Quick copy: Codex (`~/.codex/config.toml`)
 
@@ -114,9 +111,6 @@ args = []
 
 [mcp_servers.declarch.env]
 DECLARCH_BIN = "/absolute/path/to/target/release/declarch"
-XDG_CONFIG_HOME = "/home/username/.config"
-XDG_STATE_HOME = "/home/username/.local/state"
-XDG_CACHE_HOME = "/home/username/.cache"
 ```
 
 Optional guarded apply:
@@ -135,10 +129,7 @@ DECLARCH_MCP_ALLOW_APPLY = "1"
       "command": "/absolute/path/to/target/release/declarch-mcp",
       "args": [],
       "env": {
-        "DECLARCH_BIN": "/absolute/path/to/target/release/declarch",
-        "XDG_CONFIG_HOME": "/home/username/.config",
-        "XDG_STATE_HOME": "/home/username/.local/state",
-        "XDG_CACHE_HOME": "/home/username/.cache"
+        "DECLARCH_BIN": "/absolute/path/to/target/release/declarch"
       }
     }
   }
@@ -148,7 +139,7 @@ DECLARCH_MCP_ALLOW_APPLY = "1"
 ## Quick copy: Qwen (`~/.qwen/settings.json`)
 
 Based on your current schema, `mcpServers` entries support `command` + `args`.
-If env fields are not supported by your current version, wrap with shell export:
+If env fields are not supported by your current version, minimal wrapper:
 
 ```json
 {
@@ -157,7 +148,7 @@ If env fields are not supported by your current version, wrap with shell export:
       "command": "bash",
       "args": [
         "-lc",
-        "DECLARCH_BIN=/absolute/path/to/target/release/declarch XDG_CONFIG_HOME=/home/username/.config XDG_STATE_HOME=/home/username/.local/state XDG_CACHE_HOME=/home/username/.cache /absolute/path/to/target/release/declarch-mcp"
+        "DECLARCH_BIN=/absolute/path/to/target/release/declarch /absolute/path/to/target/release/declarch-mcp"
       ]
     }
   }
@@ -219,3 +210,16 @@ Without both guards, apply is rejected.
 - Keep the same command/env payload, then adapt to each client’s schema.
 - Start with read-only tools first, then enable apply only when needed.
 - Do not commit real API keys/tokens from client config files.
+
+## Optional: custom XDG (advanced)
+
+Custom XDG is optional and mainly useful for isolated test environments.
+
+Example:
+
+```bash
+XDG_CONFIG_HOME="$PWD/.dev/config" \
+XDG_STATE_HOME="$PWD/.dev/state" \
+XDG_CACHE_HOME="$PWD/.dev/cache" \
+declarch-mcp
+```
