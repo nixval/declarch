@@ -347,7 +347,12 @@ fn validate_url(url_str: &str) -> Result<()> {
     }
 
     // Prevent access to localhost/private networks (basic check)
-    let host = parsed.host_str().unwrap_or("");
+    let host = parsed.host_str().ok_or_else(|| {
+        DeclarchError::RemoteFetchError(format!(
+            "URL must include a valid host: {}",
+            url_str
+        ))
+    })?;
     if is_private_address(host) {
         return Err(DeclarchError::RemoteFetchError(format!(
             "Access to private addresses is not allowed: {}",
@@ -549,5 +554,10 @@ mod tests {
         assert!(!is_private_address("1.1.1.1"));
         assert!(!is_private_address("github.com"));
         assert!(!is_private_address("gitlab.com"));
+    }
+
+    #[test]
+    fn test_validate_url_rejects_malformed_host() {
+        assert!(validate_url("https://").is_err());
     }
 }
