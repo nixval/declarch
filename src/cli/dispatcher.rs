@@ -3,13 +3,12 @@
 //! Routes CLI commands to their appropriate handlers and manages
 //! deprecated flag handling.
 
-use crate::cli::args::{CheckCommand, Cli, Command, InfoCommand, ListSubcommand, SyncCommand};
+use crate::cli::args::{Cli, Command, LintMode, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 
 use super::deprecated::{
-    handle_deprecated_check_flags, handle_deprecated_info_flags, handle_deprecated_list_flags,
     handle_deprecated_sync_flags, show_deprecation_warning, sync_command_to_options,
 };
 
@@ -103,191 +102,78 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             }
         }
 
-        Some(Command::Check {
-            command,
-            duplicates,
-            conflicts,
-            only_duplicates,
-            only_conflicts,
-            validate,
+        Some(Command::Info {
+            query,
+            doctor,
+            plan,
+            list,
+            orphans,
+            synced,
+            backend,
+            package,
+            profile,
+            host,
+            modules,
         }) => {
-            // Handle deprecated flags
-            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_check_flags(
-                    *duplicates || *only_duplicates,
-                    *conflicts || *only_conflicts,
-                    *validate,
-                );
-
-            // Use the command from subcommand if provided, otherwise use deprecated flags
-            let check_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
-
-            // Show deprecation warning if old flags were used
-            if has_deprecated_flags {
-                show_deprecation_warning(new_cmd_str);
+            let mut mode_count = 0u8;
+            if *doctor {
+                mode_count += 1;
+            }
+            if *plan {
+                mode_count += 1;
+            }
+            if query.is_some() {
+                mode_count += 1;
+            }
+            if *list || *orphans || *synced {
+                mode_count += 1;
+            }
+            if mode_count > 1 {
+                return Err(DeclarchError::Other(
+                    "Use only one info mode at a time: status, query, --plan, --doctor, or --list/--orphans/--synced".to_string(),
+                ));
             }
 
-            // Map CheckCommand to check::run parameters
-            match check_cmd {
-                CheckCommand::All {
-                    backend,
-                    diff,
-                    fix,
-                    benchmark,
-                    modules,
-                } => commands::check::run(
-                    args.global.verbose,
-                    true,  // check_duplicates
-                    true,  // check_conflicts
-                    false, // only_duplicates
-                    false, // only_conflicts
-                    backend,
-                    diff,
-                    false, // validate_only
-                    benchmark,
-                    modules,
-                    fix,
-                ),
-                CheckCommand::Duplicates { backend, diff, fix } => {
-                    commands::check::run(
-                        args.global.verbose,
-                        true,  // check_duplicates
-                        false, // check_conflicts
-                        true,  // only_duplicates
-                        false, // only_conflicts
-                        backend,
-                        diff,
-                        false, // validate_only
-                        false, // benchmark
-                        vec![],
-                        fix,
-                    )
-                }
-                CheckCommand::Conflicts { backend, diff, fix } => {
-                    commands::check::run(
-                        args.global.verbose,
-                        false, // check_duplicates
-                        true,  // check_conflicts
-                        false, // only_duplicates
-                        true,  // only_conflicts
-                        backend,
-                        diff,
-                        false, // validate_only
-                        false, // benchmark
-                        vec![],
-                        fix,
-                    )
-                }
-                CheckCommand::Validate {
-                    benchmark,
-                    fix,
-                    modules,
-                } => {
-                    commands::check::run(
-                        args.global.verbose,
-                        false, // check_duplicates
-                        false, // check_conflicts
-                        false, // only_duplicates
-                        false, // only_conflicts
-                        None,  // backend
-                        false, // diff
-                        true,  // validate_only
-                        benchmark,
-                        modules,
-                        fix,
-                    )
-                }
-            }
-        }
-
-        Some(Command::Info { command, doctor }) => {
-            // Handle deprecated --doctor flag
-            let (has_deprecated_flag, deprecated_command) = handle_deprecated_info_flags(*doctor);
-
-            // Use the command from subcommand if provided, otherwise use deprecated flag
-            let info_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
-
-            // Show deprecation warning if old flag was used
-            if has_deprecated_flag {
-                show_deprecation_warning("declarch info doctor");
-            }
-
-            // Map InfoCommand to appropriate handler
-            match info_cmd {
-                InfoCommand::Status {
-                    debug,
-                    backend,
-                    package,
-                } => commands::info::run(commands::info::InfoOptions {
-                    doctor: false,
-                    debug,
-                    format: args.global.format.clone(),
-                    backend,
-                    package,
-                }),
-                InfoCommand::List {
-                    command,
-                    orphans,
-                    synced,
-                } => {
-                    // Handle deprecated --orphans and --synced flags
-                    let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                        handle_deprecated_list_flags(orphans, synced);
-
-                    // Use the command from subcommand if provided, otherwise use deprecated flags
-                    let list_cmd = command
-                        .clone()
-                        .unwrap_or_else(|| deprecated_command.clone());
-
-                    // Show deprecation warning if old flags were used
-                    if has_deprecated_flags {
-                        show_deprecation_warning(&new_cmd_str);
-                    }
-
-                    // Map ListSubcommand to list::run parameters
-                    match list_cmd {
-                        ListSubcommand::All { backend } => {
-                            commands::list::run(commands::list::ListOptions {
-                                backend,
-                                orphans: false,
-                                synced: false,
-                                format: args.global.format.clone(),
-                            })
-                        }
-                        ListSubcommand::Orphans { backend } => {
-                            commands::list::run(commands::list::ListOptions {
-                                backend,
-                                orphans: true,
-                                synced: false,
-                                format: args.global.format.clone(),
-                            })
-                        }
-                        ListSubcommand::Synced { backend } => {
-                            commands::list::run(commands::list::ListOptions {
-                                backend,
-                                orphans: false,
-                                synced: true,
-                                format: args.global.format.clone(),
-                            })
-                        }
-                    }
-                }
-                InfoCommand::Doctor {
-                    debug,
-                    backend,
-                    package,
-                } => commands::info::run(commands::info::InfoOptions {
+            if *doctor {
+                return commands::info::run(commands::info::InfoOptions {
                     doctor: true,
-                    debug,
                     format: args.global.format.clone(),
-                    backend,
-                    package,
-                }),
+                    backend: backend.clone(),
+                    package: package.clone(),
+                    verbose: args.global.verbose,
+                });
             }
+
+            if *list || *orphans || *synced {
+                return commands::list::run(commands::list::ListOptions {
+                    backend: backend.clone(),
+                    orphans: *orphans,
+                    synced: *synced,
+                    format: args.global.format.clone(),
+                });
+            }
+
+            if *plan || query.is_some() {
+                return commands::explain::run(commands::explain::ExplainOptions {
+                    query: if *plan { None } else { query.clone() },
+                    target: if *plan {
+                        Some("sync-plan".to_string())
+                    } else {
+                        None
+                    },
+                    profile: profile.clone(),
+                    host: host.clone(),
+                    modules: modules.clone(),
+                });
+            }
+
+            commands::info::run(commands::info::InfoOptions {
+                doctor: false,
+                format: args.global.format.clone(),
+                backend: backend.clone(),
+                package: package.clone(),
+                verbose: args.global.verbose,
+            })
         }
 
         Some(Command::Switch {
@@ -369,28 +255,28 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 local: *local,
             })
         }
-        Some(Command::Explain {
-            query,
-            target,
-            profile,
-            host,
-            modules,
-        }) => commands::explain::run(commands::explain::ExplainOptions {
-            query: query.clone(),
-            target: target.clone(),
-            profile: profile.clone(),
-            host: host.clone(),
-            modules: modules.clone(),
-        }),
         Some(Command::Lint {
             strict,
             fix,
+            mode,
+            backend,
+            diff,
+            benchmark,
             profile,
             host,
             modules,
         }) => commands::lint::run(commands::lint::LintOptions {
             strict: *strict,
             fix: *fix,
+            mode: match mode {
+                LintMode::All => commands::lint::LintMode::All,
+                LintMode::Validate => commands::lint::LintMode::Validate,
+                LintMode::Duplicates => commands::lint::LintMode::Duplicates,
+                LintMode::Conflicts => commands::lint::LintMode::Conflicts,
+            },
+            backend: backend.clone(),
+            diff: *diff,
+            benchmark: *benchmark,
             profile: profile.clone(),
             host: host.clone(),
             modules: modules.clone(),

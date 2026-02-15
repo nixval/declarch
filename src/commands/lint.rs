@@ -11,9 +11,21 @@ use std::path::{Path, PathBuf};
 pub struct LintOptions {
     pub strict: bool,
     pub fix: bool,
+    pub mode: LintMode,
+    pub backend: Option<String>,
+    pub diff: bool,
+    pub benchmark: bool,
     pub profile: Option<String>,
     pub host: Option<String>,
     pub modules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LintMode {
+    All,
+    Validate,
+    Duplicates,
+    Conflicts,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

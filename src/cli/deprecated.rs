@@ -3,7 +3,7 @@
 //! Handles conversion from deprecated CLI flags to new command structure
 //! and shows appropriate warnings to users.
 
-use crate::cli::args::{CheckCommand, InfoCommand, ListSubcommand, SyncCommand};
+use crate::cli::args::SyncCommand;
 use crate::ui as output;
 use colored::Colorize;
 
@@ -74,104 +74,6 @@ pub fn handle_deprecated_sync_flags(
     };
 
     (has_deprecated_flags, deprecated_command, new_cmd)
-}
-
-/// Convert deprecated check flags to CheckCommand
-pub fn handle_deprecated_check_flags(
-    duplicates: bool,
-    conflicts: bool,
-    validate: bool,
-) -> (bool, CheckCommand, &'static str) {
-    let (has_deprecated, deprecated_command) = if duplicates {
-        (
-            true,
-            CheckCommand::Duplicates {
-                backend: None,
-                diff: false,
-                fix: false,
-            },
-        )
-    } else if conflicts {
-        (
-            true,
-            CheckCommand::Conflicts {
-                backend: None,
-                diff: false,
-                fix: false,
-            },
-        )
-    } else if validate {
-        (
-            true,
-            CheckCommand::Validate {
-                benchmark: false,
-                fix: false,
-                modules: vec![],
-            },
-        )
-    } else {
-        (
-            false,
-            CheckCommand::All {
-                backend: None,
-                diff: false,
-                fix: false,
-                benchmark: false,
-                modules: vec![],
-            },
-        )
-    };
-
-    let new_cmd = match deprecated_command {
-        CheckCommand::Duplicates { .. } => "declarch check duplicates",
-        CheckCommand::Conflicts { .. } => "declarch check conflicts",
-        CheckCommand::Validate { .. } => "declarch check validate",
-        CheckCommand::All { .. } => "declarch check",
-    };
-
-    (has_deprecated, deprecated_command, new_cmd)
-}
-
-/// Convert deprecated info flags to InfoCommand
-pub fn handle_deprecated_info_flags(doctor: bool) -> (bool, InfoCommand) {
-    if doctor {
-        (
-            true,
-            InfoCommand::Doctor {
-                debug: false,
-                backend: None,
-                package: None,
-            },
-        )
-    } else {
-        (
-            false,
-            InfoCommand::Status {
-                debug: false,
-                backend: None,
-                package: None,
-            },
-        )
-    }
-}
-
-/// Convert deprecated list flags to ListSubcommand
-pub fn handle_deprecated_list_flags(orphans: bool, synced: bool) -> (bool, ListSubcommand, String) {
-    let (has_deprecated, deprecated_command) = if orphans {
-        (true, ListSubcommand::Orphans { backend: None })
-    } else if synced {
-        (true, ListSubcommand::Synced { backend: None })
-    } else {
-        (false, ListSubcommand::All { backend: None })
-    };
-
-    let new_cmd = match deprecated_command {
-        ListSubcommand::Orphans { .. } => "declarch info list orphans".to_string(),
-        ListSubcommand::Synced { .. } => "declarch info list synced".to_string(),
-        ListSubcommand::All { .. } => "declarch info list".to_string(),
-    };
-
-    (has_deprecated, deprecated_command, new_cmd)
 }
 
 /// Show deprecation warning for deprecated flag usage

@@ -20,20 +20,15 @@ const CONTINUATION_INDENT: &str = "     ";
 
 pub struct InfoOptions {
     pub doctor: bool,
-    pub debug: bool,
     pub format: Option<String>,
     pub backend: Option<String>,
     pub package: Option<String>,
+    pub verbose: bool,
 }
 
 pub fn run(options: InfoOptions) -> Result<()> {
-    if options.debug {
-        // SAFETY: This is safe because:
-        // 1. We're in single-threaded startup context before any threads are spawned
-        // 2. No other code is concurrently accessing environment variables
-        // 3. This is a debug-only code path
-        unsafe { std::env::set_var("RUST_LOG", "debug") };
-        output::info("Debug logging enabled");
+    if options.verbose {
+        output::info("Verbose mode enabled");
     }
 
     if options.doctor {

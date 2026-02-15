@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 #[derive(Parser, Debug)]
@@ -138,40 +138,51 @@ pub enum Command {
         gc: bool,
     },
 
-    /// Verify configuration syntax and imports
-    Check {
-        #[command(subcommand)]
-        command: Option<CheckCommand>,
-
-        /// [DEPRECATED] Use subcommand instead (e.g., `declarch check duplicates`)
-        #[arg(long, hide = true)]
-        duplicates: bool,
-
-        /// [DEPRECATED] Use subcommand instead (e.g., `declarch check conflicts`)
-        #[arg(long, hide = true)]
-        conflicts: bool,
-
-        /// [DEPRECATED] Use `declarch check duplicates` instead
-        #[arg(long, hide = true)]
-        only_duplicates: bool,
-
-        /// [DEPRECATED] Use `declarch check conflicts` instead
-        #[arg(long, hide = true)]
-        only_conflicts: bool,
-
-        /// [DEPRECATED] Use `declarch check validate` instead
-        #[arg(long, hide = true)]
-        validate: bool,
-    },
-
-    /// Show system status and managed packages
+    /// Show status, diagnosis, and package reasoning
     Info {
-        #[command(subcommand)]
-        command: Option<InfoCommand>,
+        /// Query a package/backend/module ("why is this here?")
+        #[arg(value_name = "QUERY")]
+        query: Option<String>,
 
-        /// [DEPRECATED] Use `declarch info doctor` instead
-        #[arg(long, hide = true)]
+        /// Run diagnostics
+        #[arg(long)]
         doctor: bool,
+
+        /// Show sync plan reasoning (install/remove drift)
+        #[arg(long)]
+        plan: bool,
+
+        /// List managed packages (same as old `info list`)
+        #[arg(long)]
+        list: bool,
+
+        /// With --list: show orphan packages only
+        #[arg(long)]
+        orphans: bool,
+
+        /// With --list: show synced packages only
+        #[arg(long)]
+        synced: bool,
+
+        /// Filter by backend name
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Filter by package name (status mode)
+        #[arg(long, value_name = "PACKAGE")]
+        package: Option<String>,
+
+        /// Activate optional profile block (profile "NAME" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block (host "NAME" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
     },
 
     /// Switch package variant (e.g., hyprland -> hyprland-git)
@@ -305,31 +316,6 @@ pub enum Command {
         local: bool,
     },
 
-    /// Explain why a package/target is in your current plan
-    ///
-    /// Shows source modules, backend selection, and installed-state hints.
-    Explain {
-        /// Package query (name or backend:name)
-        #[arg(value_name = "QUERY")]
-        query: Option<String>,
-
-        /// Explain a higher-level target (sync-plan, backend:<name>, module:<name>, help)
-        #[arg(long, value_name = "TARGET")]
-        target: Option<String>,
-
-        /// Activate optional profile block (profile \"NAME\" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        profile: Option<String>,
-
-        /// Activate optional host block (host \"NAME\" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        host: Option<String>,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
-    },
-
     /// Lint configuration quality with beginner-friendly checks
     Lint {
         /// Treat warnings as errors (exit non-zero)
@@ -339,6 +325,22 @@ pub enum Command {
         /// Apply safe automatic fixes (currently import sorting/format cleanup)
         #[arg(long)]
         fix: bool,
+
+        /// Lint scope: all, validate, duplicates, conflicts
+        #[arg(long, value_enum, default_value_t = LintMode::All)]
+        mode: LintMode,
+
+        /// Filter by backend for package-level checks
+        #[arg(long, value_name = "BACKEND")]
+        backend: Option<String>,
+
+        /// Show planned install/remove drift (like old check --diff)
+        #[arg(long)]
+        diff: bool,
+
+        /// Show timing information
+        #[arg(long)]
+        benchmark: bool,
 
         /// Activate optional profile block (profile \"NAME\" { ... })
         #[arg(long, value_name = "NAME", help_heading = "Targeting")]
@@ -360,6 +362,14 @@ pub enum Command {
         #[arg(value_enum)]
         shell: Shell,
     },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum LintMode {
+    All,
+    Validate,
+    Duplicates,
+    Conflicts,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -541,176 +551,5 @@ pub enum SyncCommand {
         /// Skip automatic sync after upgrade
         #[arg(long)]
         no_sync: bool,
-    },
-}
-
-#[derive(Subcommand, Debug, Clone)]
-pub enum InfoCommand {
-    /// Show system status (default)
-    ///
-    /// Displays information about managed packages and system state.
-    /// This is the default behavior when no subcommand is specified.
-    Status {
-        /// Enable verbose logging
-        #[arg(long)]
-        debug: bool,
-
-        /// Filter by backend name
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Filter by package name
-        #[arg(long, value_name = "PACKAGE")]
-        package: Option<String>,
-    },
-
-    /// List installed packages
-    ///
-    /// Lists packages managed by declarch with filtering options.
-    List {
-        #[command(subcommand)]
-        command: Option<ListSubcommand>,
-
-        /// [DEPRECATED] Use `declarch info list orphans` instead
-        #[arg(long, hide = true)]
-        orphans: bool,
-
-        /// [DEPRECATED] Use `declarch info list synced` instead
-        #[arg(long, hide = true)]
-        synced: bool,
-    },
-
-    /// Diagnose system issues
-    ///
-    /// Runs diagnostic checks to identify configuration issues,
-    /// missing dependencies, and other system problems.
-    Doctor {
-        /// Enable verbose logging
-        #[arg(long)]
-        debug: bool,
-
-        /// Filter by backend name
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Filter by package name
-        #[arg(long, value_name = "PACKAGE")]
-        package: Option<String>,
-    },
-}
-
-/// Subcommands for list (now under info)
-#[derive(Subcommand, Debug, Clone)]
-pub enum ListSubcommand {
-    /// List all packages (default)
-    ///
-    /// Lists all installed packages managed by declarch.
-    /// This is the default behavior when no subcommand is specified.
-    All {
-        /// Filter by backend name
-        #[arg(short, long, value_name = "BACKEND")]
-        backend: Option<String>,
-    },
-
-    /// List orphan packages
-    ///
-    /// Lists packages that are installed on the system but not
-    /// defined in your declarch configuration.
-    Orphans {
-        /// Filter by backend name
-        #[arg(short, long, value_name = "BACKEND")]
-        backend: Option<String>,
-    },
-
-    /// List synced packages
-    ///
-    /// Lists packages that are both defined in your configuration
-    /// and currently installed on the system.
-    Synced {
-        /// Filter by backend name
-        #[arg(short, long, value_name = "BACKEND")]
-        backend: Option<String>,
-    },
-}
-
-#[derive(Subcommand, Debug, Clone)]
-pub enum CheckCommand {
-    /// Run all checks (default)
-    ///
-    /// Checks configuration syntax, imports, duplicates, and conflicts.
-    /// This is the default behavior when no subcommand is specified.
-    All {
-        /// Filter by backend name
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Show planned changes without executing
-        #[arg(long)]
-        diff: bool,
-
-        /// Auto-fix issues where possible
-        #[arg(long)]
-        fix: bool,
-
-        /// Show performance metrics
-        #[arg(long)]
-        benchmark: bool,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES")]
-        modules: Vec<String>,
-    },
-
-    /// Check for duplicate package declarations
-    ///
-    /// Finds packages that are declared multiple times across your configuration.
-    /// Duplicates are automatically deduplicated during sync.
-    Duplicates {
-        /// Filter by backend name
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Show planned changes without executing
-        #[arg(long)]
-        diff: bool,
-
-        /// Auto-fix issues where possible
-        #[arg(long)]
-        fix: bool,
-    },
-
-    /// Check for cross-backend package name conflicts
-    ///
-    /// Finds packages with the same name in different backends.
-    /// This can cause PATH conflicts when multiple backends install binaries with the same name.
-    Conflicts {
-        /// Filter by backend name
-        #[arg(long, value_name = "BACKEND")]
-        backend: Option<String>,
-
-        /// Show planned changes without executing
-        #[arg(long)]
-        diff: bool,
-
-        /// Auto-fix issues where possible
-        #[arg(long)]
-        fix: bool,
-    },
-
-    /// Validate syntax only
-    ///
-    /// Checks configuration file syntax and imports without checking for duplicates or conflicts.
-    Validate {
-        /// Show performance metrics
-        #[arg(long)]
-        benchmark: bool,
-
-        /// Auto-fix issues where possible (formats and sorts)
-        #[arg(long)]
-        fix: bool,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES")]
-        modules: Vec<String>,
     },
 }

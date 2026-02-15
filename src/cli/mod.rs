@@ -3,4 +3,4 @@ pub mod commands;
 pub mod deprecated;
 pub mod dispatcher;
 
-pub use args::{CheckCommand, Cli, Command, GlobalFlags, InfoCommand, ListSubcommand, SyncCommand};
+pub use args::{Cli, Command, GlobalFlags, LintMode, SyncCommand};
