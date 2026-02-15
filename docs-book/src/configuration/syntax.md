@@ -78,6 +78,16 @@ hooks {
 }
 ```
 
+To execute hooks, users must opt in:
+
+```kdl
+experimental {
+    "dangerously-enable-hooks"
+}
+```
+
+And run sync with `--hooks`.
+
 ### Policy
 
 ```kdl
@@ -86,6 +96,24 @@ policy {
     orphans "ask"
 }
 ```
+
+### Profile and host blocks
+
+These are optional overlays and are inactive by default.
+
+```kdl
+profile "desktop" {
+    pkg { aur { hyprland waybar } }
+}
+
+host "vps-1" {
+    pkg { aur { fail2ban } }
+}
+```
+
+Use from CLI:
+- `declarch sync sync --profile desktop`
+- `declarch sync sync --host vps-1`
 
 ## Validation notes
 

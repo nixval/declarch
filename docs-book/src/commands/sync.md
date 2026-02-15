@@ -33,6 +33,8 @@ declarch sync update
 declarch sync prune
 declarch sync sync --target firefox
 declarch sync sync --hooks
+declarch sync sync --profile desktop
+declarch sync sync --host vps-1
 ```
 
 ## Common options
@@ -41,7 +43,21 @@ declarch sync sync --hooks
 |--------|-------------|
 | `--gc` | garbage-collect orphans after sync |
 | `--target <NAME>` | sync one package/scope |
+| `--profile <NAME>` | activate `profile "NAME" { ... }` block |
+| `--host <NAME>` | activate `host "NAME" { ... }` block |
 | `--noconfirm` | skip backend prompt flags |
 | `--hooks` | enable lifecycle hooks |
 | `--modules <NAME>...` | temporary extra modules |
 | `--diff` | show plan diff |
+
+## Hook safety gate
+
+Even with `--hooks`, hooks are blocked unless you explicitly opt in from config:
+
+```kdl
+experimental {
+    "dangerously-enable-hooks"
+}
+```
+
+Without that block, `declarch` shows hook entries but does not execute them.
