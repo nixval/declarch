@@ -15,6 +15,7 @@ pub struct LintOptions {
     pub backend: Option<String>,
     pub diff: bool,
     pub benchmark: bool,
+    pub repair_state: bool,
     pub verbose: bool,
     pub profile: Option<String>,
     pub host: Option<String>,
@@ -84,6 +85,23 @@ pub fn run(options: LintOptions) -> Result<()> {
         apply_safe_fixes(&lint_files)?;
     }
 
+    if options.repair_state {
+        let report = crate::state::io::repair_state_packages()?;
+        output::header("State Repair");
+        output::keyval("Entries before", &report.total_before.to_string());
+        output::keyval("Entries after", &report.total_after.to_string());
+        output::keyval(
+            "Removed (empty name)",
+            &report.removed_empty_name.to_string(),
+        );
+        output::keyval(
+            "Removed (duplicates)",
+            &report.removed_duplicates.to_string(),
+        );
+        output::keyval("Rekeyed entries", &report.rekeyed_entries.to_string());
+        output::keyval("Normalized fields", &report.normalized_fields.to_string());
+    }
+
     if options.diff {
         show_diff(&merged)?;
     }
@@ -98,6 +116,7 @@ pub fn run(options: LintOptions) -> Result<()> {
             for file in &lint_files {
                 collect_file_issues(file, &mut issues)?;
             }
+            collect_state_issues(&mut issues)?;
         }
         LintMode::Validate => {
             for file in &lint_files {
@@ -544,6 +563,14 @@ fn show_diff(config: &MergedConfig) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn collect_state_issues(issues: &mut Vec<LintIssue>) -> Result<()> {
+    let state = crate::state::io::load_state()?;
+    for issue in crate::state::io::validate_state_integrity(&state) {
+        issues.push(LintIssue::warning(None, format!("State issue: {}", issue)));
+    }
     Ok(())
 }
 

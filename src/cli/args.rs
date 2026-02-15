@@ -342,6 +342,10 @@ pub enum Command {
         #[arg(long)]
         benchmark: bool,
 
+        /// Repair malformed/corrupt package entries in state.json
+        #[arg(long, help_heading = "Advanced")]
+        repair_state: bool,
+
         /// Activate optional profile block (profile \"NAME\" { ... })
         #[arg(long, value_name = "NAME", help_heading = "Targeting")]
         profile: Option<String>,

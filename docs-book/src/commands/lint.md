@@ -26,6 +26,7 @@ declarch lint --diff
 declarch lint --fix
 declarch lint --strict
 declarch lint --benchmark
+declarch lint --repair-state
 ```
 
 ## Flags
@@ -36,6 +37,7 @@ declarch lint --benchmark
 - `--fix`: apply safe automatic fixes
 - `--strict`: warnings become blocking errors
 - `--benchmark`: show elapsed time
+- `--repair-state`: sanitize broken state entries (no manual JSON edits)
 - `--profile`, `--host`, `--modules`: include optional overlays/modules
 
 ## Recommended flow
