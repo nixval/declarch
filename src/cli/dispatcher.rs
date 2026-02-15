@@ -285,6 +285,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             diff: *diff,
             benchmark: *benchmark,
             repair_state: *repair_state,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
             verbose: args.global.verbose,
             profile: profile.clone(),
             host: host.clone(),

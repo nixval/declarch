@@ -27,9 +27,9 @@ All v1 outputs SHOULD follow this shape:
 - Implemented now:
   - `declarch info --format json --output-version v1`
   - `declarch info --list --format json --output-version v1`
+  - `declarch lint --format json --output-version v1`
   - YAML also supported by replacing `json` with `yaml`.
 - Planned next:
-  - `lint`
   - `search`
   - `sync preview`
 - Human/table output remains unchanged.

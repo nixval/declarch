@@ -2,8 +2,10 @@ use crate::config::kdl::parse_kdl_content_with_path;
 use crate::config::loader::{self, LoadSelectors, MergedConfig};
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
+use crate::utils::machine_output;
 use crate::utils::paths;
 use kdl::KdlDocument;
+use serde::Serialize;
 use std::collections::{BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -16,6 +18,8 @@ pub struct LintOptions {
     pub diff: bool,
     pub benchmark: bool,
     pub repair_state: bool,
+    pub format: Option<String>,
+    pub output_version: Option<String>,
     pub verbose: bool,
     pub profile: Option<String>,
     pub host: Option<String>,
@@ -61,6 +65,23 @@ impl LintIssue {
     }
 }
 
+#[derive(Debug, Serialize)]
+struct LintIssueOut {
+    severity: String,
+    file: Option<String>,
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+struct LintReportOut {
+    mode: String,
+    files_checked: usize,
+    total_issues: usize,
+    warnings_count: usize,
+    errors_count: usize,
+    issues: Vec<LintIssueOut>,
+}
+
 pub fn run(options: LintOptions) -> Result<()> {
     let start_time = std::time::Instant::now();
     let config_path = paths::config_file()?;
@@ -81,28 +102,33 @@ pub fn run(options: LintOptions) -> Result<()> {
 
     let lint_files = collect_lint_files(&config_path, &options.modules)?;
 
+    let machine_mode = matches!(options.output_version.as_deref(), Some("v1"))
+        && matches!(options.format.as_deref(), Some("json" | "yaml"));
+
     if options.fix {
         apply_safe_fixes(&lint_files)?;
     }
 
     if options.repair_state {
         let report = crate::state::io::repair_state_packages()?;
-        output::header("State Repair");
-        output::keyval("Entries before", &report.total_before.to_string());
-        output::keyval("Entries after", &report.total_after.to_string());
-        output::keyval(
-            "Removed (empty name)",
-            &report.removed_empty_name.to_string(),
-        );
-        output::keyval(
-            "Removed (duplicates)",
-            &report.removed_duplicates.to_string(),
-        );
-        output::keyval("Rekeyed entries", &report.rekeyed_entries.to_string());
-        output::keyval("Normalized fields", &report.normalized_fields.to_string());
+        if !machine_mode {
+            output::header("State Repair");
+            output::keyval("Entries before", &report.total_before.to_string());
+            output::keyval("Entries after", &report.total_after.to_string());
+            output::keyval(
+                "Removed (empty name)",
+                &report.removed_empty_name.to_string(),
+            );
+            output::keyval(
+                "Removed (duplicates)",
+                &report.removed_duplicates.to_string(),
+            );
+            output::keyval("Rekeyed entries", &report.rekeyed_entries.to_string());
+            output::keyval("Normalized fields", &report.normalized_fields.to_string());
+        }
     }
 
-    if options.diff {
+    if options.diff && !machine_mode {
         show_diff(&merged)?;
     }
 
@@ -131,23 +157,60 @@ pub fn run(options: LintOptions) -> Result<()> {
         }
     }
 
-    output::header("Lint Report");
-    output::keyval("Files checked", &lint_files.len().to_string());
-    output::keyval("Total issues", &issues.len().to_string());
+    let (warn_count, err_count) = if machine_mode {
+        count_issues(&issues)
+    } else {
+        output::header("Lint Report");
+        output::keyval("Files checked", &lint_files.len().to_string());
+        output::keyval("Total issues", &issues.len().to_string());
 
-    let (warn_count, err_count) = display_issues(&issues);
-    output::keyval("Warnings", &warn_count.to_string());
-    output::keyval("Errors", &err_count.to_string());
-    if options.verbose {
-        output::keyval("Mode", &format!("{:?}", options.mode));
-        output::keyval(
-            "Backend filter",
-            options.backend.as_deref().unwrap_or("(none)"),
-        );
+        let (warn_count, err_count) = display_issues(&issues);
+        output::keyval("Warnings", &warn_count.to_string());
+        output::keyval("Errors", &err_count.to_string());
+        if options.verbose {
+            output::keyval("Mode", &format!("{:?}", options.mode));
+            output::keyval(
+                "Backend filter",
+                options.backend.as_deref().unwrap_or("(none)"),
+            );
+        }
+        (warn_count, err_count)
+    };
+
+    if machine_mode {
+        let issues_out = issues
+            .iter()
+            .map(|issue| LintIssueOut {
+                severity: match issue.severity {
+                    Severity::Warning => "warning".to_string(),
+                    Severity::Error => "error".to_string(),
+                },
+                file: issue.file.as_ref().map(|p| p.display().to_string()),
+                message: issue.message.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        let report = LintReportOut {
+            mode: format!("{:?}", options.mode).to_lowercase(),
+            files_checked: lint_files.len(),
+            total_issues: issues.len(),
+            warnings_count: warn_count,
+            errors_count: err_count,
+            issues: issues_out,
+        };
+        machine_output::emit_v1(
+            "lint",
+            report,
+            Vec::new(),
+            Vec::new(),
+            options.format.as_deref().unwrap_or("json"),
+        )?;
     }
 
     if err_count > 0 {
-        output::info("Tip: run `declarch lint --fix` for safe autofixes first.");
+        if !machine_mode {
+            output::info("Tip: run `declarch lint --fix` for safe autofixes first.");
+        }
         return Err(DeclarchError::ConfigError(format!(
             "Lint failed with {} error(s)",
             err_count
@@ -155,25 +218,41 @@ pub fn run(options: LintOptions) -> Result<()> {
     }
 
     if options.strict && warn_count > 0 {
-        output::info("Strict mode treats warnings as blocking.");
+        if !machine_mode {
+            output::info("Strict mode treats warnings as blocking.");
+        }
         return Err(DeclarchError::ConfigError(format!(
             "Lint strict mode failed with {} warning(s)",
             warn_count
         )));
     }
 
-    if issues.is_empty() {
-        output::success("No lint issues found");
-    } else {
-        output::info("Use `declarch lint --fix` to apply safe fixes where available.");
-        output::success("Lint completed");
+    if !machine_mode {
+        if issues.is_empty() {
+            output::success("No lint issues found");
+        } else {
+            output::info("Use `declarch lint --fix` to apply safe fixes where available.");
+            output::success("Lint completed");
+        }
     }
 
-    if options.benchmark {
+    if options.benchmark && !machine_mode {
         output::keyval("Elapsed", &format!("{:?}", start_time.elapsed()));
     }
 
     Ok(())
+}
+
+fn count_issues(issues: &[LintIssue]) -> (usize, usize) {
+    let mut warn_count = 0;
+    let mut err_count = 0;
+    for issue in issues {
+        match issue.severity {
+            Severity::Warning => warn_count += 1,
+            Severity::Error => err_count += 1,
+        }
+    }
+    (warn_count, err_count)
 }
 
 fn collect_duplicate_issues(
