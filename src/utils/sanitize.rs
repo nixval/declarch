@@ -101,7 +101,7 @@ pub fn shell_escape(input: &str) -> String {
     }
 
     // Use single quote escaping: ' -> '\''
-    format!("'{}'", input.replace('"', "'\"'\"'"))
+    format!("'{}'", input.replace('\'', "'\"'\"'"))
 }
 
 /// Validate a search query is safe
@@ -170,5 +170,10 @@ mod tests {
         assert!(validate_package_name("").is_err());
         let long_name = "a".repeat(300);
         assert!(validate_package_name(&long_name).is_err());
+    }
+
+    #[test]
+    fn test_shell_escape_single_quote() {
+        assert_eq!(shell_escape("hello'world"), "'hello'\"'\"'world'");
     }
 }
