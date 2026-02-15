@@ -29,6 +29,7 @@ Use `declarch sync preview` first when unsure.
 - **Flexible backend config** that can evolve with upstream tools.
 
 ## Common backends
+Package manager, wrapper, helper, etc I called it as backends instead here. You can customize your own backends declaratively. Declarch provide 
 
 `aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`.
 
