@@ -6,6 +6,7 @@ use crate::error::Result;
 use crate::packages::traits::PackageManager;
 use crate::state;
 use crate::ui as output;
+use crate::utils::machine_output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
@@ -21,6 +22,7 @@ const CONTINUATION_INDENT: &str = "     ";
 pub struct InfoOptions {
     pub doctor: bool,
     pub format: Option<String>,
+    pub output_version: Option<String>,
     pub backend: Option<String>,
     pub package: Option<String>,
     pub verbose: bool,
@@ -72,8 +74,8 @@ fn run_info(options: &InfoOptions) -> Result<()> {
     let format_str = options.format.as_deref().unwrap_or("table");
 
     match format_str {
-        "json" => output_json_filtered(&filtered_packages),
-        "yaml" => output_yaml_filtered(&filtered_packages),
+        "json" => output_json_filtered(&filtered_packages, options.output_version.as_deref()),
+        "yaml" => output_yaml_filtered(&filtered_packages, options.output_version.as_deref()),
         _ => output_table_filtered(&state, &filtered_packages),
     }
 }
@@ -121,9 +123,14 @@ fn output_table_filtered(
 
 fn output_json_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
+    output_version: Option<&str>,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
+
+    if output_version == Some("v1") {
+        return machine_output::emit_v1("info", &packages, Vec::new(), Vec::new(), "json");
+    }
 
     let json = serde_json::to_string_pretty(&packages)?;
     println!("{}", json);
@@ -132,9 +139,14 @@ fn output_json_filtered(
 
 fn output_yaml_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
+    output_version: Option<&str>,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
+
+    if output_version == Some("v1") {
+        return machine_output::emit_v1("info", &packages, Vec::new(), Vec::new(), "yaml");
+    }
 
     let json_value = serde_json::to_value(&packages)?;
     let yaml = serde_yml::to_string(&json_value)?;

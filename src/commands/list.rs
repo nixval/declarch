@@ -3,6 +3,7 @@ use crate::core::types::Backend;
 use crate::error::Result;
 use crate::state;
 use crate::ui as output;
+use crate::utils::machine_output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
@@ -14,6 +15,7 @@ pub struct ListOptions {
     pub orphans: bool,
     pub synced: bool,
     pub format: Option<String>,
+    pub output_version: Option<String>,
 }
 
 pub fn run(options: ListOptions) -> Result<()> {
@@ -64,8 +66,8 @@ pub fn run(options: ListOptions) -> Result<()> {
     let format_str = options.format.as_deref().unwrap_or("table");
 
     match format_str {
-        "json" => output_json(&packages),
-        "yaml" => output_yaml(&packages),
+        "json" => output_json(&packages, options.output_version.as_deref()),
+        "yaml" => output_yaml(&packages, options.output_version.as_deref()),
         "table" => {
             let total = packages.len();
             display_packages(&packages, options.orphans, total);
@@ -167,14 +169,28 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
 }
 
 /// Output packages as JSON
-fn output_json(packages: &[&state::types::PackageState]) -> Result<()> {
+fn output_json(
+    packages: &[&state::types::PackageState],
+    output_version: Option<&str>,
+) -> Result<()> {
+    if output_version == Some("v1") {
+        return machine_output::emit_v1("info --list", packages, Vec::new(), Vec::new(), "json");
+    }
+
     let json = serde_json::to_string_pretty(packages)?;
     println!("{}", json);
     Ok(())
 }
 
 /// Output packages as YAML
-fn output_yaml(packages: &[&state::types::PackageState]) -> Result<()> {
+fn output_yaml(
+    packages: &[&state::types::PackageState],
+    output_version: Option<&str>,
+) -> Result<()> {
+    if output_version == Some("v1") {
+        return machine_output::emit_v1("info --list", packages, Vec::new(), Vec::new(), "yaml");
+    }
+
     let json_value = serde_json::to_value(packages)?;
     let yaml = serde_yml::to_string(&json_value)?;
     println!("{}", yaml);

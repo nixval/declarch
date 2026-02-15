@@ -140,6 +140,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                 return commands::info::run(commands::info::InfoOptions {
                     doctor: true,
                     format: args.global.format.clone(),
+                    output_version: args.global.output_version.clone(),
                     backend: backend.clone(),
                     package: package.clone(),
                     verbose: args.global.verbose,
@@ -152,6 +153,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
                     orphans: *orphans,
                     synced: *synced,
                     format: args.global.format.clone(),
+                    output_version: args.global.output_version.clone(),
                 });
             }
 
@@ -173,6 +175,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             commands::info::run(commands::info::InfoOptions {
                 doctor: false,
                 format: args.global.format.clone(),
+                output_version: args.global.output_version.clone(),
                 backend: backend.clone(),
                 package: package.clone(),
                 verbose: args.global.verbose,
