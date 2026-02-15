@@ -24,6 +24,7 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 
 The installer will pick the correct macOS target (`x86_64` or `aarch64`).
 Status: **experimental (alpha)**.
+Installer runs lightweight smoke checks after copy (`--help`, `info`).
 
 ## Windows (PowerShell, experimental alpha)
 
@@ -32,6 +33,7 @@ irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
 ```
 
 Status: **experimental (alpha)**.
+Installer runs lightweight smoke checks after copy (`--help`, `info`).
 
 ## Manual binary install
 

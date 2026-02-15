@@ -53,3 +53,13 @@ if ($userPath -notlike "*$installRoot*") {
 
 Write-Host "Installed declarch to $installRoot"
 & (Join-Path $installRoot "declarch.exe") --version
+
+# Lightweight smoke checks (safe on fresh machines, no config required)
+Write-Host "Running smoke checks..."
+& (Join-Path $installRoot "declarch.exe") --help | Out-Null
+try {
+    & (Join-Path $installRoot "declarch.exe") info | Out-Null
+} catch {
+    # Keep installer non-blocking for first-run state/config scenarios
+}
+Write-Host "Smoke checks complete."

@@ -86,4 +86,10 @@ if ! command -v declarch >/dev/null 2>&1; then
   fi
 fi
 
+# Lightweight smoke checks (safe on fresh machines, no config required).
+echo "Running smoke checks..."
+"${INSTALL_DIR}/declarch" --help >/dev/null
+"${INSTALL_DIR}/declarch" info >/dev/null || true
+echo "Smoke checks complete."
+
 echo "Install complete."

@@ -92,12 +92,15 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
 macOS support via script is currently **experimental (alpha)**.
+Installer includes lightweight smoke checks after install (`--help`, `info`).
 
 ### Windows (PowerShell, experimental alpha)
 
 ```powershell
 irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
 ```
+
+Installer includes lightweight smoke checks after install (`--help`, `info`).
 
 ## First-time setup
 
