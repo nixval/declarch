@@ -44,3 +44,4 @@ All v1 outputs SHOULD follow this shape:
 ## Related
 
 - `extensions-protocol.md` (external plugin protocol placeholder)
+- `mcp-adapter.md` (external MCP adapter mapping placeholder)

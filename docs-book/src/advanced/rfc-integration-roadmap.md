@@ -52,6 +52,7 @@ Goal: keep `declarch` simple, but make integrations possible.
 
 See:
 - `docs/contracts/v1/README.md`
+- `docs/contracts/v1/mcp-adapter.md`
 
 ## Current implementation snapshot
 
