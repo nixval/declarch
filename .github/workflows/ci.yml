@@ -44,6 +44,18 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      - name: Smoke check (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          target/debug/declarch --help
+          target/debug/declarch info --doctor
+
+      - name: Smoke check (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .\target\debug\declarch.exe --help
+          .\target\debug\declarch.exe info --doctor
+
       - name: Run Tests
         run: cargo test --verbose
 

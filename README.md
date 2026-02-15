@@ -173,6 +173,7 @@ mdDocs source pages (`docs-book/src`):
 - [Introduction](docs-book/src/intro.md)
 - [Installation](docs-book/src/getting-started/installation.md)
 - [Quick Start](docs-book/src/getting-started/quick-start.md)
+- [Cross-OS (Alpha)](docs-book/src/getting-started/cross-os-alpha.md)
 - [Command Overview](docs-book/src/commands/index.md)
 - [Backends](docs-book/src/configuration/backends.md)
 - [KDL Basics](docs-book/src/configuration/kdl-syntax.md)

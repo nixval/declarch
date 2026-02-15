@@ -7,6 +7,7 @@
 - [Installation](./getting-started/installation.md)
 - [Quick Start](./getting-started/quick-start.md)
 - [Basic Concepts](./getting-started/basic-concepts.md)
+- [Cross-OS (Alpha)](./getting-started/cross-os-alpha.md)
 
 ## Daily Commands
 

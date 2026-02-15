@@ -56,4 +56,11 @@ declarch --version
 declarch --help
 ```
 
+If you are on macOS/Windows alpha path, run:
+
+```bash
+declarch info --doctor
+declarch sync preview
+```
+
 Next: [Quick Start](./quick-start.md)
