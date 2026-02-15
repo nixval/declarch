@@ -7,6 +7,8 @@ Explain why a package/target is part of your current declarch setup.
 ```bash
 declarch explain <query>
 declarch explain --target sync-plan
+declarch explain --target backend:pnpm
+declarch explain --target module:system/base
 ```
 
 ## Examples

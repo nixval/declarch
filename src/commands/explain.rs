@@ -50,10 +50,31 @@ pub fn run(options: ExplainOptions) -> Result<()> {
 }
 
 fn explain_target(target: &str, config: &MergedConfig) -> Result<()> {
+    let known_backends = load_known_backends(config);
+
     match target {
         "sync-plan" => explain_sync_plan(config),
+        t if t.starts_with("backend:") => {
+            let backend_name = t.trim_start_matches("backend:").trim();
+            if backend_name.is_empty() {
+                return Err(DeclarchError::Other(
+                    "Backend target is empty. Use --target backend:<name>".to_string(),
+                ));
+            }
+            explain_backend(backend_name, config, &known_backends)
+        }
+        t if t.starts_with("module:") => {
+            let module_name = t.trim_start_matches("module:").trim();
+            if module_name.is_empty() {
+                return Err(DeclarchError::Other(
+                    "Module target is empty. Use --target module:<name>".to_string(),
+                ));
+            }
+            let module_path = resolve_module_path(module_name)?;
+            explain_module(module_name, &module_path, config)
+        }
         other => Err(DeclarchError::Other(format!(
-            "Unsupported explain target '{}'. Supported: sync-plan",
+            "Unsupported explain target '{}'. Supported: sync-plan, backend:<name>, module:<name>",
             other
         ))),
     }
