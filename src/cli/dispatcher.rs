@@ -333,7 +333,7 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
 
         if !supports_v1_contract(args) {
             return Err(DeclarchError::Other(
-                "This command does not support --output-version v1 yet. Supported now: `info`, `info --list`, `lint`, `search`.".to_string(),
+                "This command does not support --output-version v1 yet. Supported now: `info`, `info --list`, `lint`, `search`, `sync preview`.".to_string(),
             ));
         }
     }
@@ -345,6 +345,10 @@ fn supports_v1_contract(args: &Cli) -> bool {
     match &args.command {
         Some(Command::Lint { .. }) => true,
         Some(Command::Search { .. }) => true,
+        Some(Command::Sync {
+            command: Some(SyncCommand::Preview { .. }),
+            ..
+        }) => true,
         Some(Command::Info {
             doctor,
             plan,
@@ -419,6 +423,28 @@ mod tests {
         cli.global.output_version = Some("v1".to_string());
         cli.global.format = Some("json".to_string());
         cli.command = Some(Command::Sync {
+            command: Some(SyncCommand::Update {
+                gc: false,
+                target: None,
+                diff: false,
+                noconfirm: false,
+                hooks: false,
+                profile: None,
+                host: None,
+                modules: Vec::new(),
+            }),
+            gc: false,
+        });
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+
+    #[test]
+    fn output_version_allows_sync_preview() {
+        use crate::cli::args::{Command, SyncCommand};
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("json".to_string());
+        cli.command = Some(Command::Sync {
             command: Some(SyncCommand::Preview {
                 gc: false,
                 target: None,
@@ -430,6 +456,6 @@ mod tests {
             }),
             gc: false,
         });
-        assert!(validate_machine_output_contract(&cli).is_err());
+        assert!(validate_machine_output_contract(&cli).is_ok());
     }
 }

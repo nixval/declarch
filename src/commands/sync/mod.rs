@@ -28,7 +28,9 @@ use crate::config::loader;
 use crate::core::types::SyncTarget;
 use crate::error::Result;
 use crate::ui as output;
+use crate::utils::machine_output;
 use crate::utils::paths;
+use serde::Serialize;
 use std::path::Path;
 
 use crate::core::types::{PackageId, PackageMetadata};
@@ -43,6 +45,20 @@ pub use planner::display_dry_run_details;
 // Type aliases to reduce complexity
 pub type InstalledSnapshot = HashMap<PackageId, PackageMetadata>;
 pub type ManagerMap = HashMap<Backend, Box<dyn PackageManager>>;
+
+#[derive(Debug, Serialize)]
+struct SyncPreviewReport {
+    dry_run: bool,
+    prune: bool,
+    update: bool,
+    target: String,
+    install_count: usize,
+    remove_count: usize,
+    adopt_count: usize,
+    to_install: Vec<String>,
+    to_remove: Vec<String>,
+    to_adopt: Vec<String>,
+}
 
 #[derive(Debug)]
 pub struct SyncOptions {
@@ -64,6 +80,10 @@ pub struct SyncOptions {
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
+    let machine_preview_mode = options.dry_run
+        && matches!(options.output_version.as_deref(), Some("v1"))
+        && matches!(options.format.as_deref(), Some("json" | "yaml"));
+
     // Acquire exclusive lock at the very beginning to prevent concurrent sync
     // Lock is held until this function returns (RAII pattern)
     let lock = if options.dry_run {
@@ -152,7 +172,45 @@ pub fn run(options: SyncOptions) -> Result<()> {
         &sync_target,
         &options,
     )?;
-    warn_partial_upgrade(&state, &transaction, &options);
+    if !machine_preview_mode {
+        warn_partial_upgrade(&state, &transaction, &options);
+    }
+
+    if machine_preview_mode {
+        let report = SyncPreviewReport {
+            dry_run: true,
+            prune: options.prune,
+            update: options.update,
+            target: sync_target_to_string(&sync_target),
+            install_count: transaction.to_install.len(),
+            remove_count: transaction.to_prune.len(),
+            adopt_count: transaction.to_adopt.len(),
+            to_install: transaction
+                .to_install
+                .iter()
+                .map(package_id_to_string)
+                .collect(),
+            to_remove: transaction
+                .to_prune
+                .iter()
+                .map(package_id_to_string)
+                .collect(),
+            to_adopt: transaction
+                .to_adopt
+                .iter()
+                .map(package_id_to_string)
+                .collect(),
+        };
+
+        machine_output::emit_v1(
+            "sync preview",
+            report,
+            Vec::new(),
+            Vec::new(),
+            options.format.as_deref().unwrap_or("json"),
+        )?;
+        return Ok(());
+    }
 
     // 6. Display Plan
     if transaction.to_install.is_empty()
@@ -234,6 +292,18 @@ pub fn run(options: SyncOptions) -> Result<()> {
     execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     Ok(())
+}
+
+fn package_id_to_string(pkg: &PackageId) -> String {
+    format!("{}:{}", pkg.backend, pkg.name)
+}
+
+fn sync_target_to_string(target: &SyncTarget) -> String {
+    match target {
+        SyncTarget::All => "all".to_string(),
+        SyncTarget::Backend(b) => format!("backend:{}", b),
+        SyncTarget::Named(name) => format!("named:{}", name),
+    }
 }
 
 fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &SyncOptions) -> bool {

@@ -50,6 +50,15 @@ declarch sync --host vps-1
 | `--modules <NAME>...` | temporary extra modules |
 | `--diff` | show plan diff |
 
+## Machine output (v1 placeholder)
+
+```bash
+declarch sync preview --format json --output-version v1
+declarch sync preview --format yaml --output-version v1
+```
+
+This emits one machine envelope summary for integrations.
+
 ## Hook safety gate
 
 Even with `--hooks`, hooks are blocked unless you explicitly opt in from config:

@@ -29,9 +29,8 @@ All v1 outputs SHOULD follow this shape:
   - `declarch info --list --format json --output-version v1`
   - `declarch lint --format json --output-version v1`
   - `declarch search <query> --format json --output-version v1`
+  - `declarch sync preview --format json --output-version v1`
   - YAML also supported by replacing `json` with `yaml`.
-- Planned next:
-  - `sync preview`
 - Human/table output remains unchanged.
 - For now, using `--output-version v1` on unsupported commands returns a clear error.
 
