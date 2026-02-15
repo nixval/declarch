@@ -8,6 +8,8 @@ This page shows how to connect `declarch` with MCP clients while keeping core be
 - Core `declarch` logic is unchanged.
 - Read-only tools are available by default.
 - Write/apply action is guarded.
+- `declarch-mcp` is a local stdio adapter.
+- declarch does not ship a built-in public HTTP MCP server in this guide.
 
 ## Important: MCP config format is client-specific
 
@@ -42,6 +44,10 @@ Add other fields only when needed:
 - `args`: if your server needs startup arguments
 - `env`: if you need custom environment variables
 - `type`, `url`, `headers`: for remote HTTP/SSE servers
+
+Important:
+- If you only use local stdio, `command` (and optional `args`/`env`) is enough.
+- `url`/`headers` are only for clients that connect to remote HTTP MCP servers.
 
 ## Common fields across clients (quick map)
 
@@ -85,9 +91,9 @@ Expected binaries:
 That text is only a placeholder.
 Replace it with your real file path.
 
-Example from this repo:
+Example shape:
 
-- `/home/nixval/github/repo/nixval/tools/declarch/target/release/declarch-mcp`
+- `/home/<user>/<project>/target/release/declarch-mcp`
 
 How to get the real path quickly:
 
@@ -130,6 +136,8 @@ XDG_STATE_HOME="$PWD/.dev/state" \
 XDG_CACHE_HOME="$PWD/.dev/cache" \
 ./target/release/declarch init
 ```
+
+This is optional and only for isolated local testing.
 
 ## MCP adapter quick test (raw stdio)
 
@@ -231,8 +239,8 @@ Optional:
 
 ## Quick copy: Qwen (`~/.qwen/settings.json`)
 
-Based on your current schema, `mcpServers` entries support `command` + `args`.
-If env fields are not supported by your current version, minimal wrapper:
+Some Qwen setups accept `command` + `args` directly.
+If env fields are not supported in your version, use a shell wrapper:
 
 ```json
 {
@@ -258,8 +266,9 @@ inside the same `bash -lc` command string.
 
 ## Quick copy: Claude Code
 
-Your current `~/.claude/settings.json` is focused on env + permissions and does not show a direct
-`mcpServers` block in this file.
+Claude setup can vary by app version and integration mode.
+If your config file does not expose a direct `mcpServers` block, use Claude's MCP config location
+for your version and map the same payload below.
 
 Use your Claude MCP server config location/schema, then map it to the same payload:
 - command: `.../declarch-mcp`
@@ -302,6 +311,7 @@ Without both guards, apply is rejected.
 - Keep the same command/env payload, then adapt to each client’s schema.
 - Start with read-only tools first, then enable apply only when needed.
 - Do not commit real API keys/tokens from client config files.
+- When a client supports both local and remote MCP, start with local stdio first.
 
 ## Optional: custom XDG (advanced)
 
