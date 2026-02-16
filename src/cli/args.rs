@@ -334,6 +334,9 @@ Other useful commands:
         limit: Option<String>,
 
         /// Show only installed packages
+        ///
+        /// Uses declarch state tracking (managed/adopted entries),
+        /// not raw OS-wide installed package inventory.
         #[arg(long, help_heading = "Filtering")]
         installed_only: bool,
 
@@ -341,7 +344,10 @@ Other useful commands:
         #[arg(long, help_heading = "Filtering")]
         available_only: bool,
 
-        /// Search only in locally installed packages (uses search_local_cmd)
+        /// Search only in locally installed packages (OS/backend installed set)
+        ///
+        /// Uses backend local-search command when available, otherwise falls back
+        /// to installed-list filtering for compatible backends.
         #[arg(long, help_heading = "Filtering")]
         local: bool,
     },
@@ -415,6 +421,7 @@ pub enum InfoListScope {
     All,
     Orphans,
     Synced,
+    Unmanaged,
 }
 
 #[cfg(test)]
@@ -468,6 +475,7 @@ mod tests {
             .expect("can render info help");
         let help = String::from_utf8(out).expect("help is valid utf8");
         assert!(help.contains("--scope"));
+        assert!(help.contains("unmanaged"));
         assert!(!help.contains("--orphans"));
         assert!(!help.contains("--synced"));
     }

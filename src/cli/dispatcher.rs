@@ -340,15 +340,17 @@ fn handle_info_command(
     }
 
     if list || scope.is_some() {
-        let (orphans, synced) = match scope {
-            Some(InfoListScope::Orphans) => (true, false),
-            Some(InfoListScope::Synced) => (false, true),
-            _ => (false, false),
+        let (orphans, synced, unmanaged) = match scope {
+            Some(InfoListScope::Orphans) => (true, false, false),
+            Some(InfoListScope::Synced) => (false, true, false),
+            Some(InfoListScope::Unmanaged) => (false, false, true),
+            _ => (false, false, false),
         };
         return commands::list::run(commands::list::ListOptions {
             backend: backend.clone(),
             orphans,
             synced,
+            unmanaged,
             format: args.global.format.clone(),
             output_version: args.global.output_version.clone(),
         });

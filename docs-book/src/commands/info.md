@@ -21,6 +21,7 @@ declarch info --doctor
 declarch info --list
 declarch info --list --scope orphans
 declarch info --list --scope synced
+declarch info --list --scope unmanaged
 
 # reasoning (replaces old explain)
 declarch info bat
@@ -37,6 +38,7 @@ declarch info --plan
 - `--list`: list managed packages
 - `--scope orphans`: with `--list`, show orphan packages only
 - `--scope synced`: with `--list`, show synced packages only
+- `--scope unmanaged`: with `--list`, show installed packages outside declarch config adoption
 - `--backend <name>`: filter status/list output by backend
 - `--package <name>`: filter status output by package name
 - `--profile`, `--host`, `--modules`: apply optional context for reasoning mode

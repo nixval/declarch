@@ -14,11 +14,23 @@ pub struct ListOptions {
     pub backend: Option<String>,
     pub orphans: bool,
     pub synced: bool,
+    pub unmanaged: bool,
     pub format: Option<String>,
     pub output_version: Option<String>,
 }
 
+#[derive(serde::Serialize)]
+struct UnmanagedPackageOut {
+    backend: String,
+    name: String,
+    version: Option<String>,
+}
+
 pub fn run(options: ListOptions) -> Result<()> {
+    if options.unmanaged {
+        return run_unmanaged_list(options);
+    }
+
     let state = state::io::load_state()?;
 
     // Load config for orphan/synced detection
@@ -76,6 +88,115 @@ pub fn run(options: ListOptions) -> Result<()> {
         _ => {
             let total = packages.len();
             display_packages(&packages, options.orphans, total);
+            Ok(())
+        }
+    }
+}
+
+fn run_unmanaged_list(options: ListOptions) -> Result<()> {
+    let config_path = paths::config_file()?;
+    if !config_path.exists() {
+        return Err(crate::error::DeclarchError::ConfigNotFound { path: config_path });
+    }
+    let config = loader::load_root_config(&config_path)?;
+    let declared = config.packages;
+
+    let mut backend_configs = crate::backends::load_all_backends_unified()?;
+    if let Some(backend_filter) = &options.backend {
+        backend_configs.retain(|name, _| name == backend_filter);
+    }
+
+    let mut out: Vec<UnmanagedPackageOut> = Vec::new();
+    for (name, cfg) in backend_configs {
+        if !crate::utils::platform::backend_supports_current_os(&cfg) {
+            continue;
+        }
+        if cfg.list_cmd.is_none() {
+            continue;
+        }
+        let manager: Box<dyn crate::packages::traits::PackageManager> = Box::new(
+            crate::backends::GenericManager::from_config(cfg, Backend::from(name.as_str()), false),
+        );
+        if !manager.is_available() {
+            continue;
+        }
+
+        let installed = match manager.list_installed() {
+            Ok(pkgs) => pkgs,
+            Err(e) => {
+                output::warning(&format!("{}: {}", name, e));
+                continue;
+            }
+        };
+
+        for (pkg_name, meta) in installed {
+            let pkg_id = crate::core::types::PackageId {
+                backend: Backend::from(name.as_str()),
+                name: pkg_name.clone(),
+            };
+            if !declared.contains_key(&pkg_id) {
+                out.push(UnmanagedPackageOut {
+                    backend: name.clone(),
+                    name: pkg_name,
+                    version: meta.version,
+                });
+            }
+        }
+    }
+
+    out.sort_by(|a, b| a.backend.cmp(&b.backend).then(a.name.cmp(&b.name)));
+    out.dedup_by(|a, b| a.backend == b.backend && a.name == b.name);
+
+    let format_str = options.format.as_deref().unwrap_or("table");
+    match format_str {
+        "json" => {
+            if options.output_version.as_deref() == Some("v1") {
+                machine_output::emit_v1("info --list", &out, Vec::new(), Vec::new(), "json")?;
+            } else {
+                println!("{}", serde_json::to_string_pretty(&out)?);
+            }
+            Ok(())
+        }
+        "yaml" => {
+            if options.output_version.as_deref() == Some("v1") {
+                machine_output::emit_v1("info --list", &out, Vec::new(), Vec::new(), "yaml")?;
+            } else {
+                let yaml = serde_yml::to_string(&serde_json::to_value(&out)?)?;
+                println!("{}", yaml);
+            }
+            Ok(())
+        }
+        _ => {
+            if out.is_empty() {
+                output::info("No unmanaged installed packages found");
+                return Ok(());
+            }
+            output::header(&format!("Unmanaged Installed Packages ({})", out.len()));
+            let mut by_backend: HashMap<String, Vec<&UnmanagedPackageOut>> = HashMap::new();
+            for item in &out {
+                by_backend
+                    .entry(item.backend.clone())
+                    .or_default()
+                    .push(item);
+            }
+            let mut keys: Vec<_> = by_backend.keys().cloned().collect();
+            keys.sort();
+            for backend in keys {
+                println!();
+                println!("{}", format!("Backend: {}", backend).bold().cyan());
+                if let Some(pkgs) = by_backend.get(&backend) {
+                    for pkg in pkgs {
+                        println!(
+                            "  {} {:<30} {:>10}",
+                            "•".yellow(),
+                            pkg.name,
+                            pkg.version.as_deref().unwrap_or("-").dimmed()
+                        );
+                    }
+                }
+            }
+            println!();
+            output::info("Tip: add needed packages into your config to adopt them.");
             Ok(())
         }
     }
@@ -164,7 +285,7 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
     if is_orphans {
         println!();
         output::info("Orphan packages are not managed by declarch");
-        output::info("Add them to your config or use 'declarch sync --prune' to remove");
+        output::info("Add them to your config or use 'declarch sync prune' to remove");
     }
 }
 

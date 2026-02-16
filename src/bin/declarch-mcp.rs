@@ -121,7 +121,7 @@ fn tools_list_response(id: Option<Value>) -> Value {
         json!({
             "name": "declarch_list",
             "description": "Run `declarch info --list` in machine-output mode (v1).",
-            "inputSchema": {"type":"object","properties":{"scope":{"type":"string","enum":["all","orphans","synced"]},"backend":{"type":"string"}}}
+            "inputSchema": {"type":"object","properties":{"scope":{"type":"string","enum":["all","orphans","synced","unmanaged"]},"backend":{"type":"string"}}}
         }),
         json!({
             "name": "declarch_lint",

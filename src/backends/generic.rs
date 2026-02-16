@@ -767,40 +767,44 @@ impl GenericManager {
         })?;
 
         let mut results = Vec::new();
-
-        // Try matching against entire stdout first (for multiline patterns)
-        for captures in regex.captures_iter(stdout) {
-            let name = captures
+        let capture_name = |captures: &regex::Captures<'_>| {
+            captures
                 .get(name_group)
+                .or_else(|| {
+                    // Fallback: some regex patterns use alternatives where
+                    // only one branch captures. Pick first non-empty group.
+                    (1..captures.len()).find_map(|idx| captures.get(idx))
+                })
                 .map(|m| m.as_str().to_string())
-                .ok_or_else(|| {
+        };
+
+        // Multiline regex is evaluated against full stdout.
+        // Non-multiline regex is evaluated line-by-line to avoid partial captures.
+        if regex_str.contains("(?m)") {
+            for captures in regex.captures_iter(stdout) {
+                let name = capture_name(&captures).ok_or_else(|| {
                     DeclarchError::PackageManagerError(
                         "Regex name group didn't capture anything".into(),
                     )
                 })?;
 
-            let description = captures.get(desc_group).map(|m| m.as_str().to_string());
+                let description = captures.get(desc_group).map(|m| m.as_str().to_string());
 
-            results.push(PackageSearchResult {
-                name,
-                version: None,
-                description,
-                backend: self.backend_type.clone(),
-            });
-        }
-
-        // If no matches and pattern doesn't have multiline flag, try line-by-line
-        if results.is_empty() && !regex_str.contains("(?m)") {
+                results.push(PackageSearchResult {
+                    name,
+                    version: None,
+                    description,
+                    backend: self.backend_type.clone(),
+                });
+            }
+        } else {
             for line in stdout.lines() {
                 if let Some(captures) = regex.captures(line) {
-                    let name = captures
-                        .get(name_group)
-                        .map(|m| m.as_str().to_string())
-                        .ok_or_else(|| {
-                            DeclarchError::PackageManagerError(
-                                "Regex name group didn't capture anything".into(),
-                            )
-                        })?;
+                    let name = capture_name(&captures).ok_or_else(|| {
+                        DeclarchError::PackageManagerError(
+                            "Regex name group didn't capture anything".into(),
+                        )
+                    })?;
 
                     let description = captures.get(desc_group).map(|m| m.as_str().to_string());
 
@@ -1055,6 +1059,23 @@ mod tests {
         let packages = vec!["pkg1".to_string(), "pkg2".to_string()];
 
         assert_eq!(manager.format_packages(&packages), "pkg1 pkg2");
+    }
+
+    #[test]
+    fn test_parse_search_regex_handles_alternative_capture_groups() {
+        let config = BackendConfig {
+            name: "test".to_string(),
+            binary: BinarySpecifier::Single("echo".to_string()),
+            search_regex: Some("^aur/([^\\s]+)|^community/([^\\s]+)|^extra/([^\\s]+)".to_string()),
+            search_regex_name_group: Some(1),
+            ..Default::default()
+        };
+
+        let manager = GenericManager::from_config(config, Backend::from("aur"), false);
+        let stdout = "community/firefox 1.0\nextra/bat 2.0\naur/fd 3.0\n";
+        let results = manager.parse_search_regex(stdout).unwrap();
+        let names: Vec<_> = results.into_iter().map(|r| r.name).collect();
+        assert_eq!(names, vec!["firefox", "bat", "fd"]);
     }
 
     #[test]

@@ -367,23 +367,36 @@ fn search_single_backend(
     limit: Option<usize>,
 ) -> std::result::Result<(Vec<PackageSearchResult>, usize), String> {
     if local_mode {
-        if !manager.supports_search_local() {
-            return Err("Does not support local search".to_string());
-        }
+        let mut results = if manager.supports_search_local() {
+            manager
+                .search_local(query)
+                .map_err(|e| format!("Local search failed: {}", e))?
+        } else {
+            // Fallback for backends without dedicated search_local:
+            // list installed packages and filter by query.
+            let installed = manager
+                .list_installed()
+                .map_err(|e| format!("Local list fallback failed: {}", e))?;
+            let query_lower = query.to_lowercase();
+            installed
+                .into_iter()
+                .filter(|(name, _)| name.to_lowercase().contains(&query_lower))
+                .map(|(name, meta)| PackageSearchResult {
+                    name,
+                    version: meta.version,
+                    description: None,
+                    backend: manager.backend_type(),
+                })
+                .collect()
+        };
 
-        match manager.search_local(query) {
-            Ok(mut results) => {
-                let total = results.len();
-                // Apply limit
-                if let Some(limit_value) = limit
-                    && results.len() > limit_value
-                {
-                    results.truncate(limit_value);
-                }
-                Ok((results, total))
-            }
-            Err(e) => Err(format!("Local search failed: {}", e)),
+        let total = results.len();
+        if let Some(limit_value) = limit
+            && results.len() > limit_value
+        {
+            results.truncate(limit_value);
         }
+        Ok((results, total))
     } else {
         if !manager.supports_search() {
             return Err("Does not support search".to_string());
@@ -516,7 +529,7 @@ fn get_backends_to_search(
     }
     if !unsupported.is_empty() {
         let capability = if options.local {
-            "local search support"
+            "local search/list support"
         } else {
             "search support"
         };
@@ -549,7 +562,7 @@ fn get_backends_to_search(
 
     if result.is_empty() {
         let msg = if options.local {
-            "No backends with local search support configured".to_string()
+            "No backends with local search/list support configured".to_string()
         } else {
             "No backends with search support configured".to_string()
         };
@@ -557,7 +570,7 @@ fn get_backends_to_search(
             if machine_mode {
                 warnings.push(msg);
             } else {
-                output::warning("No backends with local search support configured");
+                output::warning("No backends with local search/list support configured");
             }
         } else if machine_mode {
             warnings.push(msg);
@@ -581,7 +594,7 @@ fn select_backends_to_search(
 ) -> (Vec<Backend>, Vec<String>, Vec<String>, Vec<String>) {
     let supports_mode = |config: &crate::backends::config::BackendConfig| {
         if local_mode {
-            config.search_local_cmd.is_some()
+            config.search_local_cmd.is_some() || config.list_cmd.is_some()
         } else {
             config.search_cmd.is_some()
         }
@@ -714,6 +727,27 @@ mod tests {
             select_backends_to_search(&all, None, false);
         let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
         assert_eq!(names, vec!["apt".to_string(), "zypper".to_string()]);
+        assert!(unknown.is_empty());
+        assert!(unsupported.is_empty());
+        assert!(os_mismatch.is_empty());
+    }
+
+    #[test]
+    fn select_backends_local_mode_accepts_list_fallback() {
+        let mut all = HashMap::new();
+        all.insert(
+            "flatpak".to_string(),
+            BackendConfig {
+                name: "flatpak".to_string(),
+                list_cmd: Some("flatpak list".to_string()),
+                ..Default::default()
+            },
+        );
+
+        let (selected, unknown, unsupported, os_mismatch) =
+            select_backends_to_search(&all, None, true);
+        let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
+        assert_eq!(names, vec!["flatpak".to_string()]);
         assert!(unknown.is_empty());
         assert!(unsupported.is_empty());
         assert!(os_mismatch.is_empty());
