@@ -3,7 +3,7 @@ use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
 use kdl::KdlDocument;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use which;
 
@@ -170,6 +170,7 @@ pub fn run(options: EditOptions) -> Result<()> {
 /// - "declarch" → declarch.kdl
 /// - "modules/hyprland/niri-nico.kdl" → modules/hyprland/niri-nico.kdl
 fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
+    validate_edit_target(target)?;
     let target_path = PathBuf::from(target);
 
     // If target is just a filename (no slashes), check in modules/
@@ -246,6 +247,29 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
     }
 
     Ok(full_path)
+}
+
+fn validate_edit_target(target: &str) -> Result<()> {
+    if target.trim().is_empty() {
+        return Err(DeclarchError::Other("Invalid module name".into()));
+    }
+
+    let path = Path::new(target);
+    if path.is_absolute() {
+        return Err(DeclarchError::Other(
+            "Invalid module name: absolute paths are not allowed".into(),
+        ));
+    }
+
+    for component in path.components() {
+        if matches!(component, Component::ParentDir | Component::RootDir) {
+            return Err(DeclarchError::Other(
+                "Invalid module name: path traversal is not allowed".into(),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 /// Check if editor binary exists in PATH
@@ -412,5 +436,25 @@ fn format_kdl_file(file_path: &Path) -> Result<()> {
             output::warning(&format!("Cannot format invalid KDL: {}", e));
             Ok(()) // Don't fail, just warn
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_target_path;
+    use tempfile::tempdir;
+
+    #[test]
+    fn resolve_target_rejects_parent_dir_traversal() {
+        let dir = tempdir().expect("tempdir");
+        let err = resolve_target_path(dir.path(), "../evil").expect_err("must reject traversal");
+        assert!(err.to_string().contains("traversal"));
+    }
+
+    #[test]
+    fn resolve_target_accepts_nested_module_path() {
+        let dir = tempdir().expect("tempdir");
+        let path = resolve_target_path(dir.path(), "hyprland/niri").expect("valid path");
+        assert!(path.ends_with("modules/hyprland/niri.kdl"));
     }
 }

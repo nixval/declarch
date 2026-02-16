@@ -13,6 +13,7 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::state;
 use crate::ui as output;
 use crate::utils::machine_output;
+use crate::utils::sanitize::validate_search_query;
 use colored::Colorize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -95,6 +96,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     // Parse "backend:query" syntax
     let (backend_from_query, actual_query) = parse_backend_query(&options.query);
+    validate_search_query(&actual_query)?;
 
     // Merge backend_from_query with options.backends
     let final_backends = if let Some(backend) = backend_from_query {

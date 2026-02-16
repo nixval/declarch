@@ -9,6 +9,7 @@ use crate::error::{DeclarchError, Result};
 use crate::packages::get_registry;
 use crate::ui as output;
 use crate::utils::paths;
+use crate::utils::sanitize::validate_package_name;
 use regex::Regex;
 use std::fs;
 
@@ -26,6 +27,7 @@ fn plan_installs(
 
     for raw in raw_packages {
         let (backend_override, pkg_name) = editor::parse_package_string(raw)?;
+        validate_package_name(&pkg_name)?;
         let backend = backend_override
             .or_else(|| backend_flag.cloned())
             .ok_or_else(|| {
@@ -396,6 +398,13 @@ mod tests {
         let raw = vec!["bat".to_string()];
         let err = plan_installs(&raw, None).expect_err("planning should fail without backend");
         assert!(err.to_string().contains("has no backend"));
+    }
+
+    #[test]
+    fn plan_installs_rejects_unsafe_package_name() {
+        let raw = vec!["aur:bat;rm".to_string()];
+        let err = plan_installs(&raw, None).expect_err("unsafe package should fail");
+        assert!(err.to_string().to_lowercase().contains("unsafe"));
     }
 
     #[test]
