@@ -16,7 +16,7 @@ use crate::utils::machine_output;
 use crate::utils::sanitize::validate_search_query;
 use colored::Colorize;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -119,6 +119,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
     };
     let machine_mode = matches!(options.output_version.as_deref(), Some("v1"))
         && matches!(options.format.as_deref(), Some("json" | "yaml"));
+
+    if updated_options.installed_only && !updated_options.local {
+        return run_managed_installed_search(&actual_query, &state, &updated_options, machine_mode);
+    }
 
     let runtime_config = load_runtime_config_for_command("search command");
 
@@ -306,7 +310,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
                 }
                 if machine_mode {
                     machine_warnings.push(format!("{}: {}", backend, error));
-                } else {
+                } else if should_show_backend_error(&error, options.verbose, options.local) {
                     output::warning(&format!("{}: {}", backend, error));
                 }
             }
@@ -432,14 +436,9 @@ fn mark_installed(
             }
         }
     } else {
-        // Check against state
+        // Check against state with normalization/alias support.
         for result in &mut results {
-            let pkg_id = crate::core::types::PackageId {
-                name: result.name.clone(),
-                backend: result.backend.clone(),
-            };
-            let state_key = crate::core::resolver::make_state_key(&pkg_id);
-            if state.packages.contains_key(&state_key) {
+            if is_installed_result(result, state, local_mode) {
                 result.name = format!("{} ✓", result.name);
             }
         }
@@ -455,12 +454,173 @@ fn is_installed_result(
     if local_mode {
         return true;
     }
-    let pkg_id = crate::core::types::PackageId {
+
+    let exact_pkg = crate::core::types::PackageId {
         name: result.name.clone(),
         backend: result.backend.clone(),
     };
-    let state_key = crate::core::resolver::make_state_key(&pkg_id);
-    state.packages.contains_key(&state_key)
+    let exact_key = crate::core::resolver::make_state_key(&exact_pkg);
+    if state.packages.contains_key(&exact_key) {
+        return true;
+    }
+
+    let normalized_name = normalize_package_name(&result.name);
+    let result_backend_group = canonical_backend_group(result.backend.name());
+
+    state.packages.values().any(|pkg| {
+        normalize_package_name(&pkg.config_name) == normalized_name
+            && canonical_backend_group(pkg.backend.name()) == result_backend_group
+    })
+}
+
+fn normalize_package_name(name: &str) -> &str {
+    name.rsplit('/').next().unwrap_or(name)
+}
+
+fn canonical_backend_group(backend: &str) -> &str {
+    match backend {
+        "aur" | "yay" | "paru" | "pacman" => "arch",
+        _ => backend,
+    }
+}
+
+fn should_show_backend_error(error: &str, verbose: bool, local_mode: bool) -> bool {
+    if verbose {
+        return true;
+    }
+    if local_mode {
+        return false;
+    }
+    !error.starts_with("Local list fallback failed:")
+}
+
+fn run_managed_installed_search(
+    query: &str,
+    state: &state::types::State,
+    options: &SearchOptions,
+    machine_mode: bool,
+) -> Result<()> {
+    let query_lower = query.to_lowercase();
+    let requested_backends: Option<HashSet<String>> = options
+        .backends
+        .as_ref()
+        .map(|v| v.iter().map(|b| b.to_lowercase()).collect());
+    let mut grouped: HashMap<String, Vec<PackageSearchResult>> = HashMap::new();
+
+    for pkg in state.packages.values() {
+        if let Some(requested) = &requested_backends
+            && !requested.contains(pkg.backend.name())
+        {
+            continue;
+        }
+        let search_name = if pkg.config_name.is_empty() {
+            pkg.provides_name.as_str()
+        } else {
+            pkg.config_name.as_str()
+        };
+        if !search_name.to_lowercase().contains(&query_lower) {
+            continue;
+        }
+
+        grouped
+            .entry(pkg.backend.to_string())
+            .or_default()
+            .push(PackageSearchResult {
+                name: search_name.to_string(),
+                version: pkg.version.clone(),
+                description: None,
+                backend: pkg.backend.clone(),
+            });
+    }
+
+    for results in grouped.values_mut() {
+        results.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+
+    let mut backends: Vec<_> = grouped.keys().cloned().collect();
+    backends.sort();
+
+    if machine_mode {
+        let mut out_results = Vec::new();
+        for backend in backends {
+            if let Some(results) = grouped.get(&backend) {
+                for result in results {
+                    out_results.push(SearchResultOut {
+                        backend: backend.clone(),
+                        name: result.name.clone(),
+                        version: result.version.clone(),
+                        description: None,
+                        installed: true,
+                    });
+                }
+            }
+        }
+        let report = SearchReportOut {
+            query: query.to_string(),
+            local: true,
+            requested_backends: options.backends.clone(),
+            total_matches: out_results.len(),
+            shown_results: out_results.len(),
+            results: out_results,
+        };
+        machine_output::emit_v1(
+            "search",
+            report,
+            Vec::new(),
+            Vec::new(),
+            options.format.as_deref().unwrap_or("json"),
+        )?;
+        return Ok(());
+    }
+
+    println!();
+    output::info(&format!(
+        "Searching managed installed packages for '{}'",
+        query.cyan()
+    ));
+    println!();
+
+    let mut total_found = 0usize;
+    let limit = options.limit.or(Some(10));
+    let mut has_results = false;
+
+    for backend_name in backends {
+        let mut results = grouped.remove(&backend_name).unwrap_or_default();
+        total_found += results.len();
+        let backend = Backend::from(backend_name.clone());
+        let backend_total = results.len();
+
+        if let Some(limit_value) = limit
+            && results.len() > limit_value
+        {
+            results.truncate(limit_value);
+        }
+
+        let marked_results = mark_installed(results, state, true);
+        if !marked_results.is_empty() {
+            has_results = true;
+            display_backend_results(&backend, &marked_results, backend_total, limit);
+        }
+    }
+
+    println!();
+    if has_results {
+        if let Some(limit_value) = limit
+            && total_found > limit_value
+        {
+            output::info(&format!(
+                "Showing limited results. Use --limit 0 for all {} matches.",
+                total_found
+            ));
+        }
+    } else {
+        output::info(&format!(
+            "No managed installed packages found matching '{}'",
+            query.cyan()
+        ));
+    }
+
+    Ok(())
 }
 
 /// Display results for a single backend immediately
@@ -624,9 +784,17 @@ fn select_backends_to_search(
     } else {
         let mut entries: Vec<_> = all_backends.iter().collect();
         entries.sort_by(|a, b| a.0.cmp(b.0));
+        let mut selected_local_groups: HashSet<String> = HashSet::new();
         for (name, config) in entries {
             if crate::utils::platform::backend_supports_current_os(config) && supports_mode(config)
             {
+                if local_mode {
+                    let group = canonical_backend_group(name).to_string();
+                    if selected_local_groups.contains(&group) {
+                        continue;
+                    }
+                    selected_local_groups.insert(group);
+                }
                 selected.push(Backend::from(name.as_str()));
             }
         }
@@ -658,6 +826,8 @@ fn create_manager_from_config(
 mod tests {
     use super::*;
     use crate::backends::config::BackendConfig;
+    use crate::state::types::{PackageState, State};
+    use chrono::Utc;
 
     #[test]
     fn select_backends_filters_unknown_and_unsupported() {
@@ -751,5 +921,110 @@ mod tests {
         assert!(unknown.is_empty());
         assert!(unsupported.is_empty());
         assert!(os_mismatch.is_empty());
+    }
+
+    #[test]
+    fn select_backends_local_mode_deduplicates_arch_family() {
+        let mut all = HashMap::new();
+        all.insert(
+            "aur".to_string(),
+            BackendConfig {
+                name: "aur".to_string(),
+                search_local_cmd: Some("aur-local {query}".to_string()),
+                ..Default::default()
+            },
+        );
+        all.insert(
+            "yay".to_string(),
+            BackendConfig {
+                name: "yay".to_string(),
+                search_local_cmd: Some("yay-local {query}".to_string()),
+                ..Default::default()
+            },
+        );
+        all.insert(
+            "flatpak".to_string(),
+            BackendConfig {
+                name: "flatpak".to_string(),
+                search_local_cmd: Some("flatpak search --columns=application {query}".to_string()),
+                ..Default::default()
+            },
+        );
+
+        let (selected, unknown, unsupported, os_mismatch) =
+            select_backends_to_search(&all, None, true);
+        let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
+        assert_eq!(names, vec!["aur".to_string(), "flatpak".to_string()]);
+        assert!(unknown.is_empty());
+        assert!(unsupported.is_empty());
+        assert!(os_mismatch.is_empty());
+    }
+
+    #[test]
+    fn normalize_package_name_strips_repo_prefix() {
+        assert_eq!(normalize_package_name("bat"), "bat");
+        assert_eq!(normalize_package_name("extra/bat"), "bat");
+    }
+
+    #[test]
+    fn canonical_backend_group_maps_arch_family() {
+        assert_eq!(canonical_backend_group("aur"), "arch");
+        assert_eq!(canonical_backend_group("paru"), "arch");
+        assert_eq!(canonical_backend_group("yay"), "arch");
+        assert_eq!(canonical_backend_group("pacman"), "arch");
+        assert_eq!(canonical_backend_group("flatpak"), "flatpak");
+    }
+
+    #[test]
+    fn fallback_local_errors_are_suppressed_without_verbose() {
+        assert!(!should_show_backend_error(
+            "Local list fallback failed: Package manager error: xyz",
+            false,
+            true
+        ));
+        assert!(!should_show_backend_error(
+            "Local search failed: xyz",
+            false,
+            true
+        ));
+        assert!(should_show_backend_error(
+            "Search failed: xyz",
+            false,
+            false
+        ));
+        assert!(should_show_backend_error(
+            "Local list fallback failed: Package manager error: xyz",
+            true,
+            true
+        ));
+    }
+
+    #[test]
+    fn installed_match_handles_repo_prefix_and_backend_alias() {
+        let mut state = State::default();
+        state.packages.insert(
+            "aur:bat".to_string(),
+            PackageState {
+                backend: Backend::from("aur"),
+                config_name: "bat".to_string(),
+                provides_name: "bat".to_string(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version: Some("0.25.0".to_string()),
+                install_reason: Some("declared".to_string()),
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+
+        let result = PackageSearchResult {
+            name: "extra/bat".to_string(),
+            version: Some("0.25.0".to_string()),
+            description: None,
+            backend: Backend::from("pacman"),
+        };
+
+        assert!(is_installed_result(&result, &state, false));
     }
 }
