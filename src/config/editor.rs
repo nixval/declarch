@@ -668,6 +668,7 @@ mod tests {
     fn test_add_multiple_backends() {
         let editor = ConfigEditor::new();
         let mut content = "";
+        let expected_default_backend = detect_default_backend();
 
         // Add AUR package (no specific backend = uses aur as default)
         let result = editor.add_package_to_content(content, "bat", None);
@@ -682,7 +683,7 @@ mod tests {
 
         // Verify nested structure: pkg { aur { bat } soar { fd } }
         assert!(updated.contains("pkg"));
-        assert!(updated.contains("aur"));
+        assert!(updated.contains(expected_default_backend));
         assert!(updated.contains("soar"));
         assert!(updated.contains("bat"));
         assert!(updated.contains("fd"));

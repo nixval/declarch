@@ -2,24 +2,12 @@
 # This configuration is used to check for security vulnerabilities,
 # license compliance, and crate duplication.
 
-# Targets to check for security vulnerabilities
-targets = [
-    { triple = "x86_64-unknown-linux-gnu" },
-    { triple = "aarch64-unknown-linux-gnu" },
-]
-
 # Advisory Database Configuration
 [advisories]
 # The URL of the advisory database
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # The path where the advisory database is cloned/fetched to
 db-path = "~/.cargo/advisory-db"
-
-# Vulnerability severity threshold
-# - "low": Allow all severities (default)
-# - "medium": Deny medium and high severity advisories
-# - "high": Deny only high severity advisories
-severity-threshold = "medium"
 
 # Ignore specific advisories
 # ignore = [
@@ -40,16 +28,6 @@ allow = [
     "MPL-2.0",
     "CC0-1.0",
     "Unlicense",
-]
-
-# Deny specific licenses
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-3.0",
-    "LGPL-2.0",
-    "LGPL-2.1",
-    "LGPL-3.0",
 ]
 
 # Allow unused licenses for now (can be strict later)
