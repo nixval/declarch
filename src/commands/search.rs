@@ -30,6 +30,7 @@ pub struct SearchOptions {
     pub installed_only: bool,
     pub available_only: bool,
     pub local: bool,
+    pub verbose: bool,
     pub format: Option<String>,
     pub output_version: Option<String>,
 }
@@ -79,10 +80,12 @@ enum BackendResult {
         backend: Backend,
         results: Vec<PackageSearchResult>,
         total_found: usize,
+        duration_ms: u128,
     },
     Error {
         backend: Backend,
         error: String,
+        duration_ms: u128,
     },
 }
 
@@ -108,6 +111,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
         installed_only: options.installed_only,
         available_only: options.available_only,
         local: options.local,
+        verbose: options.verbose,
         format: options.format.clone(),
         output_version: options.output_version.clone(),
     };
@@ -183,7 +187,9 @@ pub fn run(options: SearchOptions) -> Result<()> {
         let query = query_clone.clone();
 
         thread::spawn(move || {
+            let started_at = std::time::Instant::now();
             let result = search_single_backend(manager, &query, local_mode, effective_limit);
+            let duration_ms = started_at.elapsed().as_millis();
 
             // Send result (ignore errors if receiver dropped)
             match result {
@@ -192,10 +198,15 @@ pub fn run(options: SearchOptions) -> Result<()> {
                         backend,
                         results,
                         total_found: total,
+                        duration_ms,
                     });
                 }
                 Err(e) => {
-                    let _ = tx.send(BackendResult::Error { backend, error: e });
+                    let _ = tx.send(BackendResult::Error {
+                        backend,
+                        error: e,
+                        duration_ms,
+                    });
                 }
             }
         });
@@ -230,7 +241,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
                 backend,
                 results,
                 total_found: backend_total,
+                duration_ms,
             } => {
+                if options.verbose && !machine_mode {
+                    output::info(&format!("{} completed in {} ms", backend, duration_ms));
+                }
                 total_found += backend_total;
                 if machine_mode {
                     let mut shown_for_backend = 0usize;
@@ -279,7 +294,14 @@ pub fn run(options: SearchOptions) -> Result<()> {
                     }
                 }
             }
-            BackendResult::Error { backend, error } => {
+            BackendResult::Error {
+                backend,
+                error,
+                duration_ms,
+            } => {
+                if options.verbose && !machine_mode {
+                    output::warning(&format!("{} failed after {} ms", backend, duration_ms));
+                }
                 if machine_mode {
                     machine_warnings.push(format!("{}: {}", backend, error));
                 } else {

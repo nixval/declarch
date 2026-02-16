@@ -327,6 +327,7 @@ fn handle_search_command(
         installed_only,
         available_only,
         local,
+        verbose: args.global.verbose,
         format: args.global.format.clone(),
         output_version: args.global.output_version.clone(),
     })

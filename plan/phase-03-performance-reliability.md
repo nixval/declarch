@@ -10,7 +10,7 @@ Meningkatkan konsistensi performa dan reliability pada operasi kritikal.
   - [x] list installed snapshot
 - [x] Standardisasi timeout/retry policy lintas module.
 - [ ] Review penggunaan thread/rayon untuk menghindari overhead tidak perlu.
-- [ ] Tingkatkan observability ringan (durasi operation-level di mode verbose).
+- [x] Tingkatkan observability ringan (durasi operation-level di mode verbose).
 - [ ] Evaluasi bottleneck I/O state read/write dan lock contention.
 
 ## Baseline Snapshot
@@ -30,6 +30,7 @@ Meningkatkan konsistensi performa dan reliability pada operasi kritikal.
   - captured initial timing snapshot for hot-path proxy scenarios.
   - centralized runtime timeout/retry constants in `constants/common.rs`.
   - wired standardized constants into `generic`, `search`, `hooks`, and `sync/executor`.
+  - added backend-level elapsed-time telemetry in `search` when `--verbose` is enabled.
 
 ## Exit Criteria
 - Ada metrik before/after yang menunjukkan perbaikan.
