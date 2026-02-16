@@ -1,221 +1,180 @@
 # RFC: Flag & Subcommand Surface Simplification
 
-- Status: Draft
+- Status: Draft (Hard-Cut Policy)
 - Author: Codex
 - Date: 2026-02-16
-- Scope: CLI UX and command-surface consistency (`src/cli/*`, selected command option contracts)
+- Scope: CLI UX and command-surface consistency (`src/cli/*`, selected command contracts)
 - Non-goal: no behavior-changing implementation in this RFC stage
 
 ## 1. Background
 
-Current CLI has matured feature-wise, but command surface has grown with overlapping semantics across global flags, command-local flags, and subcommands. This creates a higher cognitive load, especially for new users, and increases maintenance/testing burden.
+CLI surface has grown and now contains overlapping entrypoints for similar behavior. This increases onboarding cost, causes expectation mismatch, and expands test/maintenance matrix.
 
-This RFC documents the observed problems and defines a phased simplification plan before implementation.
+This RFC locks a minimal and consistent command pattern, with beginner-first default output and explicit diagnostic depth only on `--verbose`.
 
-## 2. Problem Statement
+## 2. Key Problems (Observed)
 
-### 2.1 Redundant or overlapping semantics
+1. No-op semantics are split between multiple shapes:
+- `sync preview` vs global `--dry-run`.
+- `switch --dry-run` (local) vs global `--dry-run`.
 
-1. `sync preview` vs global `--dry-run`
-- Both communicate no-op planning behavior.
-- Today they are related but not perceived as a single canonical workflow.
+2. Redundant subcommand shape exists:
+- `sync sync` duplicates parent default `sync` behavior.
 
-2. `edit --preview` vs global `--dry-run`
-- `edit --preview` is preview-oriented, while global `--dry-run` also signals no-apply behavior.
-- Dual vocabulary (`preview` and `dry-run`) risks confusion.
+3. `--verbose` value is inconsistent:
+- Some commands provide meaningful extra data.
+- Others only print minimal extra signal (or almost none), so users perceive no difference.
 
-3. `switch --dry-run` local flag vs global `--dry-run`
-- `switch` defines a local `--dry-run`, while other commands rely on the global flag.
-- Inconsistent placement weakens predictability.
-
-### 2.2 Discoverability and expectation mismatch
-
-1. `--verbose` appears uneven
-- Several commands accept and propagate verbose option, but user-perceived differences are inconsistent.
-- Without a minimum verbose contract, users cannot reliably expect “what extra appears”.
-
-2. `sync` surface area remains wide
-- `sync` parent mode + multiple subcommands + deprecated bridge logic adds conceptual overhead.
-- This is manageable for advanced users but not beginner-friendly by default.
-
-### 2.3 Maintenance and test complexity
-
-- Larger command surface multiplies matrix size for help text, parser validity, behavior compatibility, and machine-output contracts.
-- Overlap increases risk of regressions where one path gets fixed while another equivalent path diverges.
+4. Default output still exposes details that many beginners do not need.
 
 ## 3. Design Goals
 
-1. One concept, one canonical entrypoint whenever possible.
-2. Keep migration low-risk by using deprecation windows instead of sudden removal.
-3. Preserve advanced capabilities while reducing beginner decision points.
-4. Define explicit UX contracts for high-impact global flags (`--dry-run`, `--verbose`).
-5. Keep machine-output support boundaries explicit and testable.
+1. One concept, one canonical entrypoint.
+2. Hard-cut redundant forms when identified as unnecessary.
+3. Beginner-first default output: short, actionable, remediation-focused.
+4. Diagnostic depth only behind `--verbose`.
+5. Reduce parser/help/test surface area.
 
 ## 4. Non-Goals
 
-1. No rewrite of backend orchestration.
-2. No immediate removal of legacy pathways in this RFC stage.
-3. No expansion of machine-output support in this effort unless needed by consistency contract.
+1. No backend orchestration rewrite.
+2. No expansion of machine contract scope during this simplification pass.
 
-## 5. Findings Matrix
+## 5. Canonical Contracts
 
-| Area | Current State | Risk | Proposed Direction |
-|---|---|---|---|
-| Dry-run semantics | Mixed across global and local flags | Medium | Unify under global `--dry-run` contract |
-| Preview semantics | Exists as subcommand and command-local flag | Medium | Keep `preview` only where output mode is materially different; otherwise alias/deprecate |
-| Verbose behavior | Inconsistent perceived deltas | Medium | Define minimum verbose signal per command |
-| Sync command surface | Rich but dense | Medium | Reduce overlap; document canonical paths |
-| Help examples | Can drift from canonical UX | Low/Med | Align help with single recommended path per workflow |
+### 5.1 No-apply contract
 
-## 6. Proposed Contract (Target State)
+- Canonical no-op behavior is global `--dry-run`.
+- Any mutating command must honor global `--dry-run` consistently.
+- Command-local `--dry-run` variants should be removed.
 
-### 6.1 Canonical no-apply behavior
+### 5.2 Subcommand minimalism contract
 
-- Canonical keyword: `--dry-run` (global).
-- Rule: any command that can mutate state MUST honor global `--dry-run` consistently.
-- If command-local dry-run exists, convert to compatibility alias with deprecation warning.
+- Keep only subcommands with distinct behavior intent.
+- Remove alias-like subcommands that duplicate parent/default flow.
 
-### 6.2 Preview terminology policy
+### 5.3 Output-tier contract
 
-- `preview` keyword remains only when the command is fundamentally “render/report focused” and not equivalent to just no-apply execution.
-- If behavior is equivalent to `--dry-run` execution path, avoid separate user-facing concept long-term.
-
-### 6.3 Output tier policy (Beginner-first default)
-
-- Default output (non-verbose) must be concise and action-oriented:
-  - success/fail status,
+- Non-verbose output must contain:
+  - status (success/fail),
   - short reason,
-  - immediate next fix step.
-- Default output should avoid noisy internals (full path dumps, backend trace details, fetch source internals) unless required to resolve error.
+  - immediate fix step when failed.
+- Non-verbose output should avoid unnecessary internals:
+  - full path dumps,
+  - backend trace internals,
+  - source/fetch trace chains.
+- `--verbose` must include diagnostics:
+  - path/location details,
+  - backend/source resolution details,
+  - deeper failure chain,
+  - optional timing data.
 
-- Verbose output (`--verbose`) is diagnostic mode:
-  - include path/location details,
-  - include backend/source resolution trace,
-  - include deeper failure chain and timing.
+## 6. Hard Decisions (Final)
 
-- Rule: information that is useful only for debugging should be moved from default output into verbose output.
+1. `declarch sync preview`
+- Remove from canonical surface.
+- Canonical path: `declarch --dry-run sync`.
 
-### 6.4 Verbose minimum contract
+2. `declarch sync sync`
+- Remove (redundant with parent default `declarch sync`).
 
-Each command that accepts `--verbose` should expose at least one of:
-- execution timing summary,
-- decision trace (why action skipped/selected),
-- backend resolution detail.
+3. `declarch switch --dry-run` (local)
+- Remove local flag.
+- Use global `declarch --dry-run switch ...`.
 
-If no meaningful extra signal exists, command should not advertise verbose (or should be documented as no-op and then fixed).
+4. `declarch edit --preview`
+- Keep as first-class, because it is output mode (file rendering), not only execution guard.
 
-## 7. Migration Plan (Phase-by-Phase)
+5. Deprecation warnings
+- Do not add deprecation warning layer for removed redundant shapes.
+- Prefer direct hard-cut for consistency and reduced UX noise.
+
+## 7. Additional Redundancy / Inconsistency Findings
+
+1. `sync` has duplicate `--gc` at parent and subcommand level.
+- Current shape increases ambiguity about where advanced flags should live.
+
+2. `info` modes are multiplexed by flags (`--doctor`, `--plan`, `--list`, `--orphans`, `--synced`) instead of clearer intent groups.
+- Functional, but cognitively dense for beginners.
+
+3. `install --dry-run` currently prints raw package list and exits early.
+- This can skip richer validation/planning context and feels less informative than other dry-run flows.
+
+4. Verbose quality varies by command:
+- `search`, `cache`, `upgrade`, `lint` have clearer verbose deltas.
+- `info` and `info_reason` currently can be too shallow in verbose mode (e.g. only "Verbose mode enabled").
+
+## 8. Migration Plan (Phase-by-Phase)
 
 ## Phase A: Spec Lock
 
 Deliverables:
-- Write command-by-command contract table:
-  - supports mutation?
-  - supports `--dry-run`?
-  - supports `preview`?
-  - supports `--verbose` with guaranteed extra output?
-- Mark target canonical usage per command.
+- Command-by-command matrix:
+  - canonical invocation,
+  - removed forms,
+  - allowed flags,
+  - default output contract,
+  - verbose output contract.
 
 Exit criteria:
-- Maintainer-approved contract table.
+- Maintainer-approved matrix.
 
-## Phase B: Compatibility Layer
+## Phase B: Parser Surface Simplification
 
 Deliverables:
-- Keep old inputs operational but route to canonical path.
-- Add precise deprecation warnings for redundant forms.
-- Warnings must include replacement command example.
+- Remove redundant parser branches/subcommands/flags directly.
+- Keep only canonical forms.
 
 Exit criteria:
-- Legacy syntax still works; warning appears once per invocation.
+- CLI parser no longer accepts removed forms.
 
-## Phase C: Help/Docs Normalization
+## Phase C: Dispatcher & Behavior Alignment
 
 Deliverables:
-- `--help` examples show only canonical forms.
-- README/docs quick-start references canonical path.
-- Remove contradictory examples.
+- Route all mutating commands through global `--dry-run` behavior.
+- Standardize output tiers (default concise, verbose diagnostic).
 
 Exit criteria:
-- No help/docs path promotes deprecated form as primary.
+- Consistent dry-run and verbose behavior across target commands.
 
-## Phase D: Test Matrix Hardening
+## Phase D: Help & Docs Normalization
 
 Deliverables:
-- Parser tests for canonical and compatibility forms.
-- Behavioral parity tests for aliased/redundant inputs.
-- Snapshot tests for help text and deprecation warnings.
+- Help examples use only canonical forms.
+- Remove old patterns from README/docs.
 
 Exit criteria:
-- CI catches divergence between alias path and canonical path.
+- Help/docs fully match implemented parser surface.
 
-## Phase E: Removal Window
+## Phase E: Test Matrix Hardening
 
 Deliverables:
-- Remove deprecated forms after agreed grace period.
-- Update changelog and migration note.
+- Parser tests for allowed/removed forms.
+- Behavior tests for default vs verbose contract.
+- Snapshot tests for help text and high-signal errors.
 
 Exit criteria:
-- Zero deprecated parser branches for removed items.
-
-## 8. Candidate Redundancy Actions (Draft)
-
-1. `switch --dry-run` (local)
-- Action: keep temporarily as alias; internally map to global dry-run semantics; deprecate local form later.
-
-2. `edit --preview` vs `--dry-run`
-- Action: evaluate output distinction.
-- If distinction is only naming, converge to one model; if distinction is meaningful (e.g., line-annotated patch preview), document strict role boundaries.
-
-3. `sync preview` vs `--dry-run sync`
-- Action: canonicalize to global dry-run model for minimal surface.
-- Canonical command becomes `declarch --dry-run sync`.
-- Keep `declarch sync preview` as compatibility alias during migration, then remove after deprecation window.
-
-4. `--verbose`
-- Action: audit each command for guaranteed extra output; add missing signal or remove claim from help.
+- CI fails on contract drift.
 
 ## 9. Risk Assessment
 
-1. Breaking scripts
-- Mitigation: deprecation period + compatibility alias + explicit warnings.
+1. Script breakage due to hard-cut
+- Mitigation: publish clear migration note and examples in release notes.
 
-2. User confusion during transition
-- Mitigation: one-line replacement guidance on every warning.
+2. Hidden behavior drift during simplification
+- Mitigation: parity tests for canonical paths and golden output tests.
 
-3. Help/doc drift
-- Mitigation: snapshot tests for key help surfaces.
+3. Beginner confusion from changing examples
+- Mitigation: keep quick-start short and canonical only.
 
-4. Hidden behavior divergence
-- Mitigation: parity tests between old/new invocation shapes.
-
-## 10. Decision Record (Resolved)
-
-1. Canonical sync no-apply path:
-- Decision: `declarch --dry-run sync` (single global no-op concept, fewer subcommands).
-- Migration: `declarch sync preview` remains alias with deprecation warning for compatibility window.
-
-2. `edit --preview` policy:
-- Decision: keep `edit --preview` as first-class output mode (human diff/preview UX).
-- `--dry-run` remains execution guard; not a replacement for preview rendering mode.
-- Rationale: avoids removing a useful beginner-friendly flow while still clarifying semantics.
-
-3. Deprecation window:
-- Decision: two minor releases.
-- Rationale: safer for scripts/automation and gives enough time for docs and user migration.
-
-4. Default vs verbose output:
-- Decision: default output is beginner-first and remediation-first; diagnostic depth is behind `--verbose`.
-- Rationale: reduce overwhelm for users who only need “works / fails / how to fix”.
-
-## 11. Acceptance Criteria
+## 10. Acceptance Criteria
 
 This RFC is accepted when:
-1. Canonical and compatibility invocation sets are approved.
-2. Deprecation timeline is approved.
-3. Test expectations for parser/help/parity are approved.
-4. Output-tier contract (default vs verbose) is approved and mapped per command.
+1. Hard-cut removal set is approved.
+2. Canonical command matrix is approved.
+3. Output-tier contract is approved per command.
+4. Test expectations for removed/kept forms are approved.
 
-## 12. Implementation Note
+## 11. Implementation Note
 
-No code behavior changes are made by this RFC document. Implementation will follow in separate, reviewable commits after approval.
+No code behavior changes are made by this RFC document. Implementation follows in separate commits after approval.

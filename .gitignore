@@ -50,6 +50,7 @@ plan/*
 !plan/risk-register.md
 !plan/rollback-map.md
 !plan/rfc-flag-subcommand-surface-simplification.md
+!plan/cli-surface-spec-lock.md
 
 # Keep AUR templates tracked
 !.aur/templates/
