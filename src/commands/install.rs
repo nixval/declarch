@@ -61,15 +61,45 @@ pub struct InstallOptions {
     pub yes: bool,
     /// Preview changes without executing
     pub dry_run: bool,
+    /// Verbose output
+    pub verbose: bool,
 }
 
 /// Run the install command
 pub fn run(options: InstallOptions) -> Result<()> {
+    let planned_installs = plan_installs(&options.packages, options.backend.as_ref())?;
+
     if options.dry_run {
-        println!("Would add packages:");
-        for pkg in &options.packages {
-            println!("  {}", pkg);
+        output::header("Dry Run: Install");
+        output::keyval("Packages", &planned_installs.len().to_string());
+        output::keyval(
+            "Target module",
+            options
+                .module
+                .as_deref()
+                .unwrap_or("modules/others.kdl (default)"),
+        );
+        output::keyval(
+            "Auto sync",
+            if options.no_sync {
+                "disabled"
+            } else {
+                "enabled"
+            },
+        );
+
+        for planned in &planned_installs {
+            output::indent(&format!("+ {}:{}", planned.backend, planned.package), 1);
         }
+
+        if options.verbose {
+            output::separator();
+            output::info("Resolution details:");
+            for raw in &options.packages {
+                output::indent(&format!("input: {}", raw), 1);
+            }
+        }
+
         return Ok(());
     }
 
@@ -81,7 +111,12 @@ pub fn run(options: InstallOptions) -> Result<()> {
     } else {
         None
     };
-    let planned_installs = plan_installs(&options.packages, options.backend.as_ref())?;
+    if options.verbose {
+        output::info(&format!(
+            "Install planning resolved {} package(s)",
+            planned_installs.len()
+        ));
+    }
 
     // Step 2: Initialize config editor
     let editor = ConfigEditor::new();

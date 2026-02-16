@@ -106,6 +106,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             no_sync: *no_sync,
             yes: args.global.yes,
             dry_run: args.global.dry_run,
+            verbose: args.global.verbose,
         }),
 
         Some(Command::Search {
