@@ -382,6 +382,23 @@ Other useful commands:
         #[arg(long, help_heading = "Advanced")]
         repair_state: bool,
 
+        /// Remove tracked state entries by package id (backend:name) or plain name
+        #[arg(
+            long,
+            value_name = "IDS",
+            value_delimiter = ',',
+            help_heading = "Advanced"
+        )]
+        state_rm: Vec<String>,
+
+        /// Backend filter for --state-rm plain names, or for backend-wide cleanup with --state-rm-all
+        #[arg(long, value_name = "BACKEND", help_heading = "Advanced")]
+        state_rm_backend: Option<String>,
+
+        /// Remove all state entries for --state-rm-backend (state only, no uninstall)
+        #[arg(long, requires = "state_rm_backend", help_heading = "Advanced")]
+        state_rm_all: bool,
+
         /// Activate optional profile block (profile \"NAME\" { ... })
         #[arg(long, value_name = "NAME", help_heading = "Targeting")]
         profile: Option<String>,
