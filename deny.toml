@@ -8,7 +8,6 @@
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # The path where the advisory database is cloned/fetched to
 db-path = "~/.cargo/advisory-db"
-unmaintained = "warn"
 
 # Ignore specific advisories
 # ignore = [
