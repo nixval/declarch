@@ -26,6 +26,7 @@ This changelog is intentionally compact and focuses on what users need to migrat
   - `cargo clippy --all-targets -- -D warnings`
   - `cargo test --all-targets`
 - Release script checks now enforce changelog discipline for `[Unreleased]`.
+- `sync prune` (non-dry-run) now uses strict state loading and fails fast if state recovery fails, instead of silently continuing with default state.
 
 ### Security
 - Remote init/fetch defaults were hardened to prefer HTTPS and require explicit opt-in for insecure HTTP (`DECLARCH_ALLOW_INSECURE_HTTP=1`).

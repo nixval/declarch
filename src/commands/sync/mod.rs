@@ -150,7 +150,13 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // 4. Load State & Resolve
-    let state = state::io::load_state()?;
+    // Use strict state recovery for mutating prune flows to avoid accidental
+    // destructive actions when state is unreadable/corrupted and unrecoverable.
+    let state = if !options.dry_run && options.prune {
+        state::io::load_state_strict()?
+    } else {
+        state::io::load_state()?
+    };
 
     // 5. Create Transaction
     let transaction = create_transaction(

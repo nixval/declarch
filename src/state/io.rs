@@ -305,7 +305,7 @@ fn migrate_state_schema(state: &mut crate::state::types::State) -> bool {
     changed
 }
 
-pub fn load_state() -> Result<State> {
+fn load_state_internal(strict_recovery: bool) -> Result<State> {
     let path = get_state_path()?;
 
     if !path.exists() {
@@ -346,6 +346,14 @@ pub fn load_state() -> Result<State> {
                         }
                         Err(restore_err) => {
                             ui::warning(&format!("Failed to restore from backup: {}", restore_err));
+                            if strict_recovery {
+                                return Err(DeclarchError::Other(format!(
+                                    "State file is corrupted and backup restore failed (strict mode).\n\
+                                     File: {}\n\
+                                     Hint: run `declarch info --doctor`, inspect state backups, then retry.",
+                                    path.display()
+                                )));
+                            }
                             ui::info("Using default state");
                             State::default()
                         }
@@ -364,6 +372,14 @@ pub fn load_state() -> Result<State> {
                 }
                 Err(restore_err) => {
                     ui::warning(&format!("Failed to restore from backup: {}", restore_err));
+                    if strict_recovery {
+                        return Err(DeclarchError::Other(format!(
+                            "State file cannot be read and backup restore failed (strict mode).\n\
+                             File: {}\n\
+                             Hint: run `declarch info --doctor`, inspect file permissions/state path, then retry.",
+                            path.display()
+                        )));
+                    }
                     ui::info("Using default state");
                     State::default()
                 }
@@ -372,6 +388,18 @@ pub fn load_state() -> Result<State> {
     };
 
     Ok(state)
+}
+
+pub fn load_state() -> Result<State> {
+    load_state_internal(false)
+}
+
+/// Load state in strict mode.
+///
+/// In strict mode, fallback-to-default is disabled when the state file is unreadable/corrupted
+/// and backup restore also fails. This is intended for high-risk mutating flows.
+pub fn load_state_strict() -> Result<State> {
+    load_state_internal(true)
 }
 
 /// Attempt to restore state from the most recent backup
