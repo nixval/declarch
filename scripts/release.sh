@@ -2,6 +2,16 @@
 # Automated release script for declarch
 set -e
 
+sed_in_place() {
+    local expr="$1"
+    local file="$2"
+    if sed --version >/dev/null 2>&1; then
+        sed -i "$expr" "$file"
+    else
+        sed -i '' "$expr" "$file"
+    fi
+}
+
 VERSION=$1
 if [ -z "$VERSION" ]; then
     echo "Usage: $0 X.Y.Z"
@@ -32,12 +42,12 @@ fi
 
 # Update Cargo.toml
 echo "📝 Updating Cargo.toml..."
-sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+sed_in_place "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
 
 # Update installer scripts
 echo "📝 Updating installers..."
-sed -i "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" install.sh
-sed -i "s/\\[string\\]\\$Version = \".*\"/[string]\$Version = \"$VERSION\"/" install.ps1
+sed_in_place "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" install.sh
+sed_in_place "s/\\[string\\]\\$Version = \".*\"/[string]\$Version = \"$VERSION\"/" install.ps1
 
 # Run checks
 echo "🔍 Running tests..."
