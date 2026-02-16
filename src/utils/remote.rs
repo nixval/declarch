@@ -3,6 +3,7 @@ use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use reqwest::blocking::Client;
 use std::env;
+use std::net::{IpAddr, ToSocketAddrs};
 use std::time::Duration;
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
@@ -366,6 +367,25 @@ fn validate_url(url_str: &str) -> Result<()> {
         )));
     }
 
+    // Resolve hostname to prevent DNS-based SSRF bypasses where a public-looking
+    // hostname resolves to private/local addresses.
+    let port = parsed.port_or_known_default().unwrap_or(443);
+    let resolved = resolve_host_addresses(host, port).map_err(|e| {
+        DeclarchError::RemoteFetchError(format!("Failed to resolve host '{}': {}", host, e))
+    })?;
+    if resolved.is_empty() {
+        return Err(DeclarchError::RemoteFetchError(format!(
+            "Failed to resolve host '{}': no addresses returned",
+            host
+        )));
+    }
+    if let Some(private_ip) = first_private_ip(&resolved) {
+        return Err(DeclarchError::RemoteFetchError(format!(
+            "Access to private addresses is not allowed: {} -> {}",
+            host, private_ip
+        )));
+    }
+
     Ok(())
 }
 
@@ -402,36 +422,38 @@ fn format_failure_summary(failures: &[String]) -> String {
     out
 }
 
-/// Check if hostname is a private/local address
-fn is_private_address(host: &str) -> bool {
-    // Check for localhost variants
-    if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" {
-        return true;
-    }
+fn resolve_host_addresses(host: &str, port: u16) -> std::io::Result<Vec<IpAddr>> {
+    (host, port)
+        .to_socket_addrs()
+        .map(|iter| iter.map(|sa| sa.ip()).collect())
+}
 
-    // Check for private IP ranges (basic check for common patterns)
-    if host.starts_with("127.") || host.starts_with("10.") || host.starts_with("192.168.") {
-        return true;
-    }
+fn first_private_ip(addrs: &[IpAddr]) -> Option<IpAddr> {
+    addrs.iter().copied().find(|ip| is_private_ip(*ip))
+}
 
-    // Check for 172.16.0.0/12 (172.16.x.x to 172.31.x.x)
-    if host.starts_with("172.") {
-        let parts: Vec<&str> = host.split('.').collect();
-        if parts.len() >= 2
-            && let Ok(second_octet) = parts[1].parse::<u8>()
-            && (16..=31).contains(&second_octet)
-        {
-            return true;
+fn is_private_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ipv4) => {
+            ipv4.is_private() || ipv4.is_loopback() || ipv4.is_link_local() || ipv4.is_unspecified()
+        }
+        IpAddr::V6(ipv6) => {
+            ipv6.is_loopback()
+                || ipv6.is_unique_local()
+                || ipv6.is_unicast_link_local()
+                || ipv6.is_unspecified()
         }
     }
+}
 
-    // Check for Link-local (169.254.x.x)
-    if host.starts_with("169.254.") {
-        return true;
+/// Check if hostname is a private/local address
+fn is_private_address(host: &str) -> bool {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return is_private_ip(ip);
     }
 
-    // Check for IPv6 Unique Local Address (fc00::/7) and Link-local (fe80::/10)
-    if host.starts_with("fc") || host.starts_with("fd") || host.starts_with("fe80:") {
+    // Check for localhost variants
+    if host.eq_ignore_ascii_case("localhost") {
         return true;
     }
 
@@ -593,6 +615,7 @@ mod tests {
         assert!(!is_private_address("1.1.1.1"));
         assert!(!is_private_address("github.com"));
         assert!(!is_private_address("gitlab.com"));
+        assert!(!is_private_address("fcdn.example.com"));
     }
 
     #[test]
@@ -603,6 +626,18 @@ mod tests {
     #[test]
     fn test_validate_url_rejects_http_by_default() {
         assert!(validate_url("http://example.com/config.kdl").is_err());
+    }
+
+    #[test]
+    fn test_first_private_ip_detects_private_from_resolved_set() {
+        let addrs = vec![
+            "8.8.8.8".parse::<IpAddr>().expect("parse public ip"),
+            "10.0.0.1".parse::<IpAddr>().expect("parse private ip"),
+        ];
+        assert_eq!(
+            first_private_ip(&addrs).expect("private ip expected"),
+            "10.0.0.1".parse::<IpAddr>().expect("parse private ip")
+        );
     }
 
     #[test]
