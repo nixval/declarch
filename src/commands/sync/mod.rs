@@ -89,16 +89,12 @@ pub fn run(options: SyncOptions) -> Result<()> {
     // Acquire exclusive lock at the very beginning to prevent concurrent sync
     // Lock is held until this function returns (RAII pattern)
     let lock = if options.dry_run {
-        // Dry-run doesn't need exclusive lock, but we check if another process is running
-        match state::io::acquire_lock() {
-            Ok(lock) => Some(lock),
-            Err(_) => {
-                output::warning(
-                    "Another declarch process is running. Dry-run may show stale state.",
-                );
-                None
-            }
+        // Dry-run doesn't need to hold the lock for the whole command.
+        // We only probe lock availability to warn about potentially stale state.
+        if state::io::acquire_lock().is_err() {
+            output::warning("Another declarch process is running. Dry-run may show stale state.");
         }
+        None
     } else {
         // Real sync requires exclusive lock
         Some(state::io::acquire_lock().map_err(|e| {
