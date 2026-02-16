@@ -26,7 +26,7 @@ Reality check:
 - backend/environment coverage keeps improving,
 - not every backend combo is tested equally yet.
 
-Use `declarch sync preview` first when unsure.
+Use `declarch --dry-run sync` first when unsure.
 
 ## What declarch is
 
@@ -143,7 +143,7 @@ declarch sync
 Use preview when needed:
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 ```
 
 ## Backend setup
@@ -161,7 +161,7 @@ Use `--force` to overwrite an existing backend file.
 
 ```bash
 declarch sync
-declarch sync preview
+declarch --dry-run sync
 declarch sync update
 declarch sync prune
 declarch search firefox
@@ -177,7 +177,7 @@ declarch info --format json --output-version v1
 declarch info --list --format yaml --output-version v1
 declarch lint --format json --output-version v1
 declarch search firefox --format json --output-version v1
-declarch sync preview --format json --output-version v1
+declarch --dry-run sync --format json --output-version v1
 ```
 
 ## Documentation

@@ -121,7 +121,7 @@ fn tools_list_response(id: Option<Value>) -> Value {
         json!({
             "name": "declarch_list",
             "description": "Run `declarch info --list` in machine-output mode (v1).",
-            "inputSchema": {"type":"object","properties":{"orphans":{"type":"boolean"},"synced":{"type":"boolean"},"backend":{"type":"string"}}}
+            "inputSchema": {"type":"object","properties":{"scope":{"type":"string","enum":["all","orphans","synced"]},"backend":{"type":"string"}}}
         }),
         json!({
             "name": "declarch_lint",
@@ -213,19 +213,9 @@ fn build_declarch_args(
         "declarch_list" => {
             args.push("info".into());
             args.push("--list".into());
-            if arguments
-                .get("orphans")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-            {
-                args.push("--orphans".into());
-            }
-            if arguments
-                .get("synced")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-            {
-                args.push("--synced".into());
+            if let Some(scope) = arguments.get("scope").and_then(Value::as_str) {
+                args.push("--scope".into());
+                args.push(scope.to_string());
             }
             if let Some(backend) = arguments.get("backend").and_then(Value::as_str) {
                 args.push("--backend".into());
