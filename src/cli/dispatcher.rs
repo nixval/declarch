@@ -149,10 +149,10 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         None => {
             output::info("No command provided.");
             output::info("Quick start:");
-            output::indent("1) declarch init", 2);
-            output::indent("2) declarch install aur:bat", 2);
-            output::indent("3) declarch sync preview", 2);
-            output::indent("4) declarch sync", 2);
+            output::indent("- declarch init", 2);
+            output::indent("- declarch edit  // write package you want OR directly", 2);
+            output::indent("- declarch install flatpak:anypackage", 2);
+            output::indent("- declarch sync", 2);
             output::info("Use `declarch --help` for full command list.");
             Ok(())
         }
