@@ -49,6 +49,7 @@ plan/*
 !plan/commit-strategy.md
 !plan/risk-register.md
 !plan/rollback-map.md
+!plan/rfc-flag-subcommand-surface-simplification.md
 
 # Keep AUR templates tracked
 !.aur/templates/

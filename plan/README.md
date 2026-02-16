@@ -13,6 +13,7 @@ Dokumen ini adalah index TODO eksekusi roadmap quality.
 ## Supporting Docs
 - `plan/commit-strategy.md`
 - `plan/risk-register.md`
+- `plan/rfc-flag-subcommand-surface-simplification.md`
 
 ## Execution Rules
 - Setiap TODO yang selesai harus diikuti commit kecil.
