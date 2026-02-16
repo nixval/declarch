@@ -125,6 +125,14 @@ pub fn run(options: SearchOptions) -> Result<()> {
     if updated_options.installed_only && !updated_options.local {
         return run_managed_installed_search(&actual_query, &state, &updated_options, machine_mode);
     }
+    let include_managed_hits = !updated_options.local
+        && !updated_options.installed_only
+        && !updated_options.available_only;
+    let mut managed_hits = if include_managed_hits {
+        collect_managed_hits(&actual_query, &state, &updated_options)
+    } else {
+        HashMap::new()
+    };
 
     let runtime_config = load_runtime_config_for_command("search command");
 
@@ -235,6 +243,25 @@ pub fn run(options: SearchOptions) -> Result<()> {
     let mut has_results = false;
     let mut machine_results: Vec<SearchResultOut> = Vec::new();
     let mut machine_warnings = selection_warnings;
+    if include_managed_hits {
+        for backend in sorted_backend_keys(&managed_hits) {
+            if let Some(results) = managed_hits.get(&backend) {
+                total_found += results.len();
+                if machine_mode {
+                    for result in results {
+                        machine_results.push(SearchResultOut {
+                            backend: backend.clone(),
+                            name: result.name.clone(),
+                            version: result.version.clone(),
+                            description: None,
+                            installed: true,
+                        });
+                    }
+                    has_results = has_results || !results.is_empty();
+                }
+            }
+        }
+    }
 
     // Print initial message
     if !machine_mode {
@@ -244,6 +271,23 @@ pub fn run(options: SearchOptions) -> Result<()> {
             actual_query.cyan()
         ));
         println!();
+        if include_managed_hits {
+            for backend in sorted_backend_keys(&managed_hits) {
+                if let Some(results) = managed_hits.remove(&backend)
+                    && !results.is_empty()
+                {
+                    has_results = true;
+                    let backend_display = Backend::from(format!("managed/{}", backend));
+                    let marked_results = mark_installed(results, &state, true);
+                    display_backend_results(
+                        &backend_display,
+                        &marked_results,
+                        marked_results.len(),
+                        None,
+                    );
+                }
+            }
+        }
     }
 
     // Receive results with timeout
@@ -523,45 +567,8 @@ fn run_managed_installed_search(
     options: &SearchOptions,
     machine_mode: bool,
 ) -> Result<()> {
-    let query_lower = query.to_lowercase();
-    let requested_backends: Option<HashSet<String>> = options
-        .backends
-        .as_ref()
-        .map(|v| v.iter().map(|b| b.to_lowercase()).collect());
-    let mut grouped: HashMap<String, Vec<PackageSearchResult>> = HashMap::new();
-
-    for pkg in state.packages.values() {
-        if let Some(requested) = &requested_backends
-            && !requested.contains(pkg.backend.name())
-        {
-            continue;
-        }
-        let search_name = if pkg.config_name.is_empty() {
-            pkg.provides_name.as_str()
-        } else {
-            pkg.config_name.as_str()
-        };
-        if !search_name.to_lowercase().contains(&query_lower) {
-            continue;
-        }
-
-        grouped
-            .entry(pkg.backend.to_string())
-            .or_default()
-            .push(PackageSearchResult {
-                name: search_name.to_string(),
-                version: pkg.version.clone(),
-                description: None,
-                backend: pkg.backend.clone(),
-            });
-    }
-
-    for results in grouped.values_mut() {
-        results.sort_by(|a, b| a.name.cmp(&b.name));
-    }
-
-    let mut backends: Vec<_> = grouped.keys().cloned().collect();
-    backends.sort();
+    let mut grouped = collect_managed_hits(query, state, options);
+    let backends = sorted_backend_keys(&grouped);
 
     if machine_mode {
         let mut out_results = Vec::new();
@@ -644,6 +651,57 @@ fn run_managed_installed_search(
     }
 
     Ok(())
+}
+
+fn collect_managed_hits(
+    query: &str,
+    state: &state::types::State,
+    options: &SearchOptions,
+) -> HashMap<String, Vec<PackageSearchResult>> {
+    let query_lower = query.to_lowercase();
+    let requested_backends: Option<HashSet<String>> = options
+        .backends
+        .as_ref()
+        .map(|v| v.iter().map(|b| b.to_lowercase()).collect());
+    let mut grouped: HashMap<String, Vec<PackageSearchResult>> = HashMap::new();
+
+    for pkg in state.packages.values() {
+        if let Some(requested) = &requested_backends
+            && !requested.contains(pkg.backend.name())
+        {
+            continue;
+        }
+        let search_name = if pkg.config_name.is_empty() {
+            pkg.provides_name.as_str()
+        } else {
+            pkg.config_name.as_str()
+        };
+        if !search_name.to_lowercase().contains(&query_lower) {
+            continue;
+        }
+
+        grouped
+            .entry(pkg.backend.to_string())
+            .or_default()
+            .push(PackageSearchResult {
+                name: search_name.to_string(),
+                version: pkg.version.clone(),
+                description: None,
+                backend: pkg.backend.clone(),
+            });
+    }
+
+    for results in grouped.values_mut() {
+        results.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+
+    grouped
+}
+
+fn sorted_backend_keys(grouped: &HashMap<String, Vec<PackageSearchResult>>) -> Vec<String> {
+    let mut backends: Vec<_> = grouped.keys().cloned().collect();
+    backends.sort();
+    backends
 }
 
 /// Display results for a single backend immediately
@@ -1049,5 +1107,56 @@ mod tests {
         };
 
         assert!(is_installed_result(&result, &state, false));
+    }
+
+    #[test]
+    fn collect_managed_hits_respects_backend_filter() {
+        let mut state = State::default();
+        state.packages.insert(
+            "aur:bat".to_string(),
+            PackageState {
+                backend: Backend::from("aur"),
+                config_name: "bat".to_string(),
+                provides_name: "bat".to_string(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version: Some("0.25.0".to_string()),
+                install_reason: Some("declared".to_string()),
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+        state.packages.insert(
+            "brew:hello".to_string(),
+            PackageState {
+                backend: Backend::from("brew"),
+                config_name: "hello".to_string(),
+                provides_name: "hello".to_string(),
+                actual_package_name: None,
+                installed_at: Utc::now(),
+                version: Some("2.12.2".to_string()),
+                install_reason: Some("declared".to_string()),
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+
+        let options = SearchOptions {
+            query: "hello".to_string(),
+            backends: Some(vec!["brew".to_string()]),
+            limit: None,
+            installed_only: false,
+            available_only: false,
+            local: false,
+            verbose: false,
+            format: None,
+            output_version: None,
+        };
+
+        let grouped = collect_managed_hits("hello", &state, &options);
+        assert_eq!(grouped.len(), 1);
+        assert!(grouped.contains_key("brew"));
     }
 }
