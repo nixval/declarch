@@ -1,16 +1,11 @@
 //! Command dispatcher
 //!
-//! Routes CLI commands to their appropriate handlers and manages
-//! deprecated flag handling.
+//! Routes CLI commands to their appropriate handlers.
 
 use crate::cli::args::{Cli, Command, LintMode, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
-
-use super::deprecated::{
-    handle_deprecated_sync_flags, show_deprecation_warning, sync_command_to_options,
-};
 
 /// Dispatch the parsed CLI command to the appropriate handler
 pub fn dispatch(args: &Cli) -> Result<()> {
@@ -36,7 +31,19 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             *restore_declarch,
         ),
 
-        Some(Command::Sync { command, gc }) => handle_sync_command(args, command, *gc),
+        Some(Command::Sync {
+            target,
+            diff,
+            noconfirm,
+            hooks,
+            profile,
+            host,
+            modules,
+            command,
+            gc,
+        }) => handle_sync_command(
+            args, target, *diff, *noconfirm, *hooks, profile, host, modules, command, *gc,
+        ),
 
         Some(Command::Info {
             query,
@@ -59,12 +66,11 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             old_package,
             new_package,
             backend,
-            dry_run,
         }) => commands::switch::run(commands::switch::SwitchOptions {
             old_package: old_package.clone(),
             new_package: new_package.clone(),
             backend: backend.clone(),
-            dry_run: *dry_run,
+            dry_run: args.global.dry_run,
             yes: args.global.yes,
             force: args.global.force,
         }),
@@ -198,7 +204,19 @@ fn handle_init_command(
     })
 }
 
-fn handle_sync_command(args: &Cli, command: &Option<SyncCommand>, gc: bool) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+fn handle_sync_command(
+    args: &Cli,
+    target: &Option<String>,
+    diff: bool,
+    noconfirm: bool,
+    hooks: bool,
+    profile: &Option<String>,
+    host: &Option<String>,
+    modules: &[String],
+    command: &Option<SyncCommand>,
+    gc: bool,
+) -> Result<()> {
     match command {
         Some(SyncCommand::Cache { backend }) => {
             commands::cache::run(commands::cache::CacheOptions {
@@ -213,27 +231,75 @@ fn handle_sync_command(args: &Cli, command: &Option<SyncCommand>, gc: bool) -> R
                 verbose: args.global.verbose,
             })
         }
-        _ => {
-            let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                handle_deprecated_sync_flags(false, false, false, gc);
-
-            let sync_cmd = command
-                .clone()
-                .unwrap_or_else(|| deprecated_command.clone());
-
-            if has_deprecated_flags {
-                show_deprecation_warning(new_cmd_str);
-            }
-
-            let mut options =
-                sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
-            if args.global.dry_run {
-                options.dry_run = true;
-            }
-            options.format = args.global.format.clone();
-            options.output_version = args.global.output_version.clone();
-            commands::sync::run(options)
-        }
+        Some(SyncCommand::Update {
+            gc,
+            target,
+            diff,
+            noconfirm,
+            hooks,
+            profile,
+            host,
+            modules,
+        }) => commands::sync::run(commands::sync::SyncOptions {
+            dry_run: args.global.dry_run,
+            prune: false,
+            gc: *gc,
+            update: true,
+            yes: args.global.yes,
+            force: args.global.force,
+            target: target.clone(),
+            noconfirm: *noconfirm,
+            hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.clone(),
+            diff: *diff,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        }),
+        Some(SyncCommand::Prune {
+            gc,
+            target,
+            diff,
+            noconfirm,
+            hooks,
+            profile,
+            host,
+            modules,
+        }) => commands::sync::run(commands::sync::SyncOptions {
+            dry_run: args.global.dry_run,
+            prune: true,
+            gc: *gc,
+            update: false,
+            yes: args.global.yes,
+            force: args.global.force,
+            target: target.clone(),
+            noconfirm: *noconfirm,
+            hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.clone(),
+            diff: *diff,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        }),
+        _ => commands::sync::run(commands::sync::SyncOptions {
+            dry_run: args.global.dry_run,
+            prune: false,
+            gc,
+            update: false,
+            yes: args.global.yes,
+            force: args.global.force,
+            target: target.clone(),
+            noconfirm,
+            hooks,
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.to_vec(),
+            diff,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        }),
     }
 }
 
@@ -429,7 +495,7 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
 
         if !supports_v1_contract(args) {
             return Err(DeclarchError::Other(
-                "This command does not support --output-version v1 yet.\nSupported now: `declarch info`, `declarch info --list`, `declarch lint`, `declarch search`, `declarch sync preview`.".to_string(),
+                "This command does not support --output-version v1 yet.\nSupported now: `declarch info`, `declarch info --list`, `declarch lint`, `declarch search`, `declarch --dry-run sync`.".to_string(),
             ));
         }
     }
@@ -441,10 +507,7 @@ fn supports_v1_contract(args: &Cli) -> bool {
     match &args.command {
         Some(Command::Lint { .. }) => true,
         Some(Command::Search { .. }) => true,
-        Some(Command::Sync {
-            command: Some(SyncCommand::Preview { .. }),
-            ..
-        }) => true,
+        Some(Command::Sync { command: None, .. }) => args.global.dry_run,
         Some(Command::Info {
             doctor,
             plan,
@@ -519,6 +582,13 @@ mod tests {
         cli.global.output_version = Some("v1".to_string());
         cli.global.format = Some("json".to_string());
         cli.command = Some(Command::Sync {
+            target: None,
+            diff: false,
+            noconfirm: false,
+            hooks: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
             command: Some(SyncCommand::Update {
                 gc: false,
                 target: None,
@@ -535,21 +605,21 @@ mod tests {
     }
 
     #[test]
-    fn output_version_allows_sync_preview() {
-        use crate::cli::args::{Command, SyncCommand};
+    fn output_version_allows_dry_run_sync() {
+        use crate::cli::args::Command;
         let mut cli = base_cli();
         cli.global.output_version = Some("v1".to_string());
         cli.global.format = Some("json".to_string());
+        cli.global.dry_run = true;
         cli.command = Some(Command::Sync {
-            command: Some(SyncCommand::Preview {
-                gc: false,
-                target: None,
-                noconfirm: false,
-                hooks: false,
-                profile: None,
-                host: None,
-                modules: Vec::new(),
-            }),
+            target: None,
+            diff: false,
+            noconfirm: false,
+            hooks: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+            command: None,
             gc: false,
         });
         assert!(validate_machine_output_contract(&cli).is_ok());

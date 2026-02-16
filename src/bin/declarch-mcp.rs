@@ -135,7 +135,7 @@ fn tools_list_response(id: Option<Value>) -> Value {
         }),
         json!({
             "name": "declarch_sync_preview",
-            "description": "Run `declarch sync preview` in machine-output mode (v1).",
+            "description": "Run `declarch --dry-run sync` in machine-output mode (v1).",
             "inputSchema": {"type":"object","properties":{"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }),
     ];
@@ -298,8 +298,8 @@ fn build_declarch_args(
             }
         }
         "declarch_sync_preview" => {
+            args.push("--dry-run".into());
             args.push("sync".into());
-            args.push("preview".into());
             if let Some(target) = arguments.get("target").and_then(Value::as_str) {
                 args.push("--target".into());
                 args.push(target.to_string());

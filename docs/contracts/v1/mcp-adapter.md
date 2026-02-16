@@ -50,7 +50,7 @@ Notes:
 - `declarch_search`
   - `declarch search "<query>" --format json --output-version v1`
 - `declarch_sync_preview`
-  - `declarch sync preview --format json --output-version v1`
+  - `declarch --dry-run sync --format json --output-version v1`
 - `declarch_sync_apply`
   - `declarch sync --yes`
 

@@ -184,7 +184,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
         let report = build_sync_preview_report(&options, &sync_target, &transaction);
 
         machine_output::emit_v1(
-            "sync preview",
+            "sync",
             report,
             Vec::new(),
             Vec::new(),

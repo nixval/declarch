@@ -1,6 +1,6 @@
 {
   "version": "v1",
-  "command": "sync preview",
+  "command": "sync",
   "ok": true,
   "data": {
     "to_install": [

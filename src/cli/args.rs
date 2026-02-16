@@ -131,17 +131,45 @@ pub enum Command {
 
     /// Synchronize system state with configuration
     ///
-    /// Main command for managing packages. Subcommands provide additional
-    /// functionality like previewing changes, updating package indices,
+    /// Main command for managing packages. Use global `--dry-run` for preview mode.
+    /// Subcommands provide additional functionality like updating package indices,
     /// upgrading packages, and cleaning caches.
     #[command(after_help = "Most common flow:
-  declarch sync preview
+  declarch --dry-run sync
   declarch sync
 
 Other useful commands:
   declarch sync update
   declarch sync prune")]
     Sync {
+        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
+        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
+        target: Option<String>,
+
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
+
+        /// Skip package manager confirmation prompts (CI/CD)
+        #[arg(long, help_heading = "Advanced")]
+        noconfirm: bool,
+
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
+        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block from config (e.g. host "vps-1" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+
         #[command(subcommand)]
         command: Option<SyncCommand>,
 
@@ -210,10 +238,6 @@ Other useful commands:
         /// Backend (e.g., system package manager, container runtime, language tool)
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
-
-        /// Dry run - show what would happen
-        #[arg(long)]
-        dry_run: bool,
     },
 
     /// Edit configuration files
@@ -396,77 +420,6 @@ pub enum LintMode {
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum SyncCommand {
-    /// Full sync (default)
-    ///
-    /// Synchronizes packages without updating the system or removing packages.
-    /// Use `update` to run system updates, or `prune` to remove undefined packages.
-    Sync {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
-        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
-        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
-        target: Option<String>,
-
-        /// Show diff before syncing (like git diff)
-        #[arg(long, help_heading = "Advanced")]
-        diff: bool,
-
-        /// Skip package manager confirmation prompts (CI/CD)
-        #[arg(long, help_heading = "Advanced")]
-        noconfirm: bool,
-
-        /// Enable hooks (disabled by default for security)
-        #[arg(long, help_heading = "Advanced")]
-        hooks: bool,
-
-        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        profile: Option<String>,
-
-        /// Activate optional host block from config (e.g. host "vps-1" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        host: Option<String>,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
-    },
-
-    /// Preview changes without executing
-    ///
-    /// Shows what would be installed, updated, or removed without making changes.
-    Preview {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
-        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
-        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
-        target: Option<String>,
-
-        /// Skip package manager confirmation prompts (CI/CD)
-        #[arg(long, help_heading = "Advanced")]
-        noconfirm: bool,
-
-        /// Enable hooks (disabled by default for security)
-        #[arg(long, help_heading = "Advanced")]
-        hooks: bool,
-
-        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        profile: Option<String>,
-
-        /// Activate optional host block from config (e.g. host "vps-1" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        host: Option<String>,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
-    },
-
     /// Sync with system update
     ///
     /// Runs system package manager update before syncing packages.
