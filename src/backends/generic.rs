@@ -1,3 +1,5 @@
+mod command_exec;
+
 use crate::backends::config::BackendConfig;
 use crate::backends::parsers;
 use crate::core::types::{Backend as CoreBackend, PackageMetadata};
@@ -6,140 +8,14 @@ use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::ui;
 use crate::utils::regex_cache;
 use crate::utils::sanitize;
+use command_exec::{run_command_with_timeout, run_interactive_command_with_timeout};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::Read;
-use std::process::{Command, Stdio};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 /// Default timeout for backend commands (5 minutes)
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(300);
-
-/// Execute a command with timeout (non-interactive)
-fn run_command_with_timeout(cmd: &mut Command, timeout: Duration) -> Result<std::process::Output> {
-    let cmd_debug = format!("{:?}", cmd);
-
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: e.to_string(),
-        })?;
-
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: "Failed to capture stdout".to_string(),
-        })?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: "Failed to capture stderr".to_string(),
-        })?;
-
-    let stdout_thread = thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = std::io::BufReader::new(stdout).read_to_end(&mut buf);
-        buf
-    });
-    let stderr_thread = thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = std::io::BufReader::new(stderr).read_to_end(&mut buf);
-        buf
-    });
-
-    let start = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = stdout_thread.join();
-                    let _ = stderr_thread.join();
-                    return Err(DeclarchError::SystemCommandFailed {
-                        command: cmd_debug,
-                        reason: format!("Command timed out after {} seconds", timeout.as_secs()),
-                    });
-                }
-                thread::sleep(Duration::from_millis(50));
-            }
-            Err(e) => {
-                return Err(DeclarchError::SystemCommandFailed {
-                    command: cmd_debug,
-                    reason: e.to_string(),
-                });
-            }
-        }
-    };
-
-    let stdout = stdout_thread.join().unwrap_or_default();
-    let stderr = stderr_thread.join().unwrap_or_default();
-
-    Ok(std::process::Output {
-        status,
-        stdout,
-        stderr,
-    })
-}
-
-/// Execute an interactive command with timeout (shows real-time output)
-fn run_interactive_command_with_timeout(
-    cmd: &mut Command,
-    timeout: Duration,
-) -> Result<std::process::ExitStatus> {
-    let cmd_debug = format!("{:?}", cmd);
-
-    // Set up interactive stdio
-    cmd.stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: e.to_string(),
-        })?;
-
-    let start = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => return Ok(status),
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    ui::warning(&format!(
-                        "Command timed out after {} seconds",
-                        timeout.as_secs()
-                    ));
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(DeclarchError::SystemCommandFailed {
-                        command: cmd_debug,
-                        reason: format!("Command timed out after {} seconds", timeout.as_secs()),
-                    });
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            Err(e) => {
-                return Err(DeclarchError::SystemCommandFailed {
-                    command: cmd_debug,
-                    reason: e.to_string(),
-                });
-            }
-        }
-    }
-}
 
 /// Generic package manager that works with any backend configuration
 pub struct GenericManager {
