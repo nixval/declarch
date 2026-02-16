@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Quick install declarch (Linux + macOS)
-set -euo pipefail
+set -eu
+# Keep compatibility when invoked via `... | sh` (dash doesn't support pipefail).
+if (set -o pipefail) >/dev/null 2>&1; then
+  set -o pipefail
+fi
 
 VERSION="0.8.0"
 REPO="nixval/declarch"
