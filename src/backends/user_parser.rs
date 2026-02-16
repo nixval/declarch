@@ -12,17 +12,17 @@ use kdl::{KdlDocument, KdlNode};
 use std::path::Path;
 use validation::validate_backend_config;
 
-/// Load user-defined backends from backends.kdl (aggregator file)
+/// Load user-defined backends from a KDL backend config file.
 pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
 
     let kdl_source = std::fs::read_to_string(path)
-        .map_err(|e| DeclarchError::Other(format!("Failed to read backends.kdl: {}", e)))?;
+        .map_err(|e| DeclarchError::Other(format!("Failed to read backend config: {}", e)))?;
 
     let doc = KdlDocument::parse(&kdl_source)
-        .map_err(|e| DeclarchError::Other(format!("Failed to parse backends.kdl: {}", e)))?;
+        .map_err(|e| DeclarchError::Other(format!("Failed to parse backend config: {}", e)))?;
 
     let mut backends = Vec::new();
 

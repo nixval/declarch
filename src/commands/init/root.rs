@@ -15,7 +15,6 @@ use std::fs;
 /// - ~/.config/declarch/ (config directory)
 /// - ~/.config/declarch/backends/ (backend definitions)
 /// - ~/.config/declarch/modules/ (module files)
-/// - ~/.config/declarch/backends.kdl (default backends)
 /// - ~/.config/declarch/declarch.kdl (main config)
 /// - ~/.config/declarch/modules/base.kdl (default module)
 pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
@@ -38,7 +37,6 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     let template = utils::templates::default_host(&hostname);
     let base_template = utils::templates::get_template_by_name("base")
         .unwrap_or_else(|| utils::templates::default_module("base"));
-    let backends_kdl = super::backend::default_backends_kdl();
 
     // STEP 2: Initialize state first (may fail)
     let _state = state::io::init_state(hostname.clone())?;
@@ -52,9 +50,6 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     fs::create_dir_all(&modules_dir)?;
 
     // STEP 4: Write all files (atomic - all succeed or all fail)
-    let backends_kdl_path = config_dir.join("backends.kdl");
-    fs::write(&backends_kdl_path, backends_kdl)?;
-
     fs::write(&config_file, template)?;
 
     let base_module_path = modules_dir.join(format!("base.{}", CONFIG_EXTENSION));
@@ -94,7 +89,6 @@ pub fn ensure_environment() -> Result<bool> {
     let template = utils::templates::default_host(&hostname);
     let base_template = utils::templates::get_template_by_name("base")
         .unwrap_or_else(|| utils::templates::default_module("base"));
-    let backends_kdl = super::backend::default_backends_kdl();
 
     // Initialize state
     let _state = state::io::init_state(hostname)?;
@@ -108,8 +102,6 @@ pub fn ensure_environment() -> Result<bool> {
     fs::create_dir_all(&modules_dir)?;
 
     // Write files
-    let backends_kdl_path = config_dir.join("backends.kdl");
-    fs::write(&backends_kdl_path, backends_kdl)?;
     fs::write(&config_file, template)?;
 
     let base_module_path = modules_dir.join(format!("base.{}", CONFIG_EXTENSION));
@@ -117,10 +109,6 @@ pub fn ensure_environment() -> Result<bool> {
 
     // Show minimal output for behind-the-scenes operation
     crate::ui::success(&format!("Created config file: {}", config_file.display()));
-    crate::ui::success(&format!(
-        "Created backends file: {}",
-        backends_kdl_path.display()
-    ));
 
     Ok(true)
 }

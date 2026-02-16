@@ -6,12 +6,10 @@
 //! - `declarch init <path>` - Add a module
 //! - `declarch init --list backends` - List available backends
 //! - `declarch init --list modules` - List available modules
-//! - `declarch init --restore-backends` - Restore backends.kdl
 //! - `declarch init --restore-declarch` - Restore declarch.kdl
 
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
-use crate::utils::paths;
 use std::fs;
 
 /// Validate KDL content
@@ -100,41 +98,14 @@ pub fn run(options: InitOptions) -> Result<()> {
     root::init_root(options.host, options.force)
 }
 
-/// Restore backends.kdl from template
-///
-/// Recreates backends.kdl without affecting other config files
-pub fn restore_backends() -> Result<()> {
-    let backends_file = paths::backend_config()?;
-
-    // Check if declarch is initialized
-    let config_dir = paths::config_dir()?;
-    if !config_dir.exists() {
-        return Err(DeclarchError::Other(
-            "Declarch not initialized. Run 'declarch init' first.".into(),
-        ));
-    }
-
-    output::header("Restoring Backends Configuration");
-
-    // Create from template
-    let backends_template = backend::default_backends_kdl();
-    fs::write(&backends_file, backends_template)?;
-
-    output::success(&format!("Restored: {}", backends_file.display()));
-    output::info("Your custom backends in backends/ folder are preserved.");
-    output::warning("Official backends (aur, pacman, flatpak, npm) have been reset to defaults.");
-
-    Ok(())
-}
-
 /// Restore declarch.kdl from template
 ///
-/// Recreates declarch.kdl without affecting backends.kdl or modules/
+/// Recreates declarch.kdl without affecting modules/ or backends/
 pub fn restore_declarch(host: Option<String>) -> Result<()> {
-    let config_file = paths::config_file()?;
+    let config_file = crate::utils::paths::config_file()?;
 
     // Check if declarch is initialized
-    let config_dir = paths::config_dir()?;
+    let config_dir = crate::utils::paths::config_dir()?;
     if !config_dir.exists() {
         return Err(DeclarchError::Other(
             "Declarch not initialized. Run 'declarch init' first.".into(),

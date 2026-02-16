@@ -183,7 +183,7 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
                 parse_packages_node_legacy(node, &mut config)?;
             }
             // Backend definitions - these are parsed separately by the backend registry
-            // Ignore them here since backends.kdl may be imported as a module
+            // Ignore backend declarations here; they are parsed separately
             "backend" => {}
             _ => {}
         }

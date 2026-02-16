@@ -120,10 +120,6 @@ pub enum Command {
         #[arg(long, group = "init_target")]
         local: bool,
 
-        /// Restore backends.kdl from template (overwrite existing)
-        #[arg(long, group = "restore")]
-        restore_backends: bool,
-
         /// Restore declarch.kdl from template (overwrite existing)  
         #[arg(long, group = "restore")]
         restore_declarch: bool,

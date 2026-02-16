@@ -28,9 +28,6 @@ pub const MODULES_DIR_NAME: &str = "modules";
 /// State file name
 pub const STATE_FILE_NAME: &str = "state.json";
 
-/// Backends configuration file name
-pub const BACKENDS_FILE_NAME: &str = "backends.kdl";
-
 /// Default timeout (seconds) for backend command execution.
 pub const BACKEND_COMMAND_TIMEOUT_SECS: u64 = 300;
 

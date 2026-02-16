@@ -1,6 +1,6 @@
 use crate::constants::{
-    BACKENDS_FILE_NAME, CONFIG_EXTENSION, CONFIG_FILE_NAME, DECLARCH_DIR_NAME, MODULES_DIR_NAME,
-    PROJECT_ORG, PROJECT_QUALIFIER, STATE_FILE_NAME,
+    CONFIG_EXTENSION, CONFIG_FILE_NAME, DECLARCH_DIR_NAME, MODULES_DIR_NAME, PROJECT_ORG,
+    PROJECT_QUALIFIER, STATE_FILE_NAME,
 };
 use crate::error::{DeclarchError, Result};
 use directories::{ProjectDirs, UserDirs};
@@ -67,10 +67,6 @@ pub fn module_file(name: &str) -> Result<PathBuf> {
     Ok(modules_dir()?.join(format!("{}.{}", name, CONFIG_EXTENSION)))
 }
 
-pub fn backend_config() -> Result<PathBuf> {
-    Ok(config_dir()?.join(BACKENDS_FILE_NAME))
-}
-
 fn project_dirs() -> Result<ProjectDirs> {
     ProjectDirs::from(PROJECT_QUALIFIER, PROJECT_ORG, DECLARCH_DIR_NAME).ok_or_else(|| {
         DeclarchError::PathError("Could not determine project directories".to_string())
@@ -80,7 +76,7 @@ fn project_dirs() -> Result<ProjectDirs> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::{BACKENDS_FILE_NAME, CONFIG_FILE_NAME, STATE_FILE_NAME};
+    use crate::constants::{CONFIG_FILE_NAME, STATE_FILE_NAME};
 
     #[test]
     fn config_file_uses_expected_filename() {
@@ -88,15 +84,6 @@ mod tests {
         assert_eq!(
             path.file_name().and_then(|f| f.to_str()),
             Some(CONFIG_FILE_NAME)
-        );
-    }
-
-    #[test]
-    fn backend_config_uses_expected_filename() {
-        let path = backend_config().expect("backend_config should resolve");
-        assert_eq!(
-            path.file_name().and_then(|f| f.to_str()),
-            Some(BACKENDS_FILE_NAME)
         );
     }
 

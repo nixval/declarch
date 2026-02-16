@@ -18,18 +18,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             backend,
             list,
             local,
-            restore_backends,
             restore_declarch,
-        }) => handle_init_command(
-            args,
-            host,
-            path,
-            backend,
-            list,
-            *local,
-            *restore_backends,
-            *restore_declarch,
-        ),
+        }) => handle_init_command(args, host, path, backend, list, *local, *restore_declarch),
 
         Some(Command::Sync {
             target,
@@ -177,7 +167,6 @@ fn handle_init_command(
     backend: &[String],
     list: &Option<String>,
     local: bool,
-    restore_backends: bool,
     restore_declarch: bool,
 ) -> Result<()> {
     if let Some(what) = list {
@@ -191,9 +180,6 @@ fn handle_init_command(
         };
     }
 
-    if restore_backends {
-        return commands::init::restore_backends();
-    }
     if restore_declarch {
         return commands::init::restore_declarch(host.clone());
     }

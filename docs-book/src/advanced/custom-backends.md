@@ -13,10 +13,10 @@ $EDITOR ~/.config/declarch/backends/mypm.kdl
 
 Use `declarch info --doctor` to print your exact config path on current OS.
 
-2. Import in `backends.kdl`:
+2. Import in `declarch.kdl`:
 
 ```kdl
-imports {
+backends {
     "backends/mypm.kdl"
 }
 ```

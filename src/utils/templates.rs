@@ -9,54 +9,35 @@ pub fn default_config() -> String {
 /// Default host configuration template
 pub fn default_host(hostname: &str) -> String {
     format!(
-        r#"// Host configuration for {hostname}
-// Declarch v0.8.0
+        r#"// declarch configuration for {hostname}
 
 meta {{
     title "{hostname} Setup"
-    description "My {hostname} setup"
-    author "nixval"
-    version "1.0.0"
+    description "Base configuration"
 }}
 
-// Editor for 'declarch edit' command
-// Priority: this field → $VISUAL → $EDITOR → "nano"
-// To use env var instead: delete this line, then export EDITOR=nvim
 editor "nano"
-
-backends {{
-    "backends.kdl"
-}}
 
 imports {{
     "modules/base.kdl"
-    // Add more modules here
-    // "modules/desktop.kdl"
-    // "modules/development.kdl"
 }}
 
 pkg {{
-    // Define your packages here
+    // Add packages here
     // Example:
-    // aur {{
-    //     hyprland
-    //     waybar
-    // }}
-    
-    // pacman {{
-    //     bat
-    //     eza
-    //     fd
-    //     ripgrep
-    // }}
-    
-    // flatpak {{
-    //     com.spotify.Client
-    // }}
+    // aur {{ bat ripgrep }}
+    // flatpak {{ org.gimp.GIMP }}
 }}
 
 excludes {{
-    // Add packages to exclude from sync
+    // Optional excluded packages
+}}
+
+backends {{
+    // Initialize backends first, then import them here.
+    // Example:
+    // "backends/aur.kdl"
+    // "backends/flatpak.kdl"
 }}
 "#,
         hostname = hostname

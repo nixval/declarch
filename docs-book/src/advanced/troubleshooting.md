@@ -26,7 +26,7 @@ declarch init --backend xxx
 declarch lint --mode validate
 ```
 
-Then confirm backend import in `backends.kdl`.
+Then confirm backend import in `declarch.kdl` under `backends { ... }`.
 If you are not sure where your config lives on this OS, run:
 
 ```bash

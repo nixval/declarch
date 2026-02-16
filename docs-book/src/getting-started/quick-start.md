@@ -17,7 +17,6 @@ Expected structure (Linux example):
 ```text
 ~/.config/declarch/
 ├── declarch.kdl
-├── backends.kdl
 ├── backends/
 └── modules/
     └── base.kdl
@@ -36,24 +35,29 @@ Use this anytime to see actual config/state paths on your OS:
 declarch info --doctor
 ```
 
-## 2) Add packages (explicit backend required)
+## 2) Adopt backend(s) first
+
+```bash
+declarch init --backend aur
+declarch init --backend npm
+```
+
+## 3) Add packages (explicit backend required)
 
 ```bash
 declarch install aur:bat aur:fzf aur:ripgrep
 declarch install npm:typescript
-
-# or same backend for all
 declarch install bat fzf ripgrep --backend aur
 ```
 
-## 3) Preview and apply
+## 4) Preview and apply
 
 ```bash
 declarch --dry-run sync
 declarch sync
 ```
 
-## 4) Add more backends only when needed
+## 5) Add more backends when needed
 
 ```bash
 declarch init --backend npm

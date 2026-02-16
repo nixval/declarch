@@ -31,7 +31,6 @@ declarch init --list backends
 ```text
 ~/.config/declarch/
 ├── declarch.kdl
-├── backends.kdl
 ├── backends/
 └── modules/
     └── base.kdl
@@ -59,7 +58,6 @@ This prints actual config/state paths for your machine.
 | `--backend <NAME>...` | adopt backend definition(s) |
 | `--list <WHAT>` | list `backends` or `modules` |
 | `--host <NAME>` | set hostname template |
-| `--restore-backends` | recreate `backends.kdl` |
 | `--restore-declarch` | recreate `declarch.kdl` |
 | `--force` | overwrite existing files where supported |
 

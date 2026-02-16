@@ -35,17 +35,13 @@
 //! - **TSV parser**: Tab-separated values
 //! - **Whitespace parser**: Split by whitespace
 //!
-//! ### [`registry`] - Built-in Backend Configurations
+//! ### [`registry`] - Backend Registry
 //!
-//! Contains pre-configured `BackendConfig` for all supported generic backends:
-//! - Node.js: npm, yarn, pnpm, bun
-//! - Python: pip
-//! - Rust: cargo
-//! - macOS/Linux: brew
+//! Loads backend definitions from `declarch.kdl` `backends { ... }` imports.
 //!
 //! ### [`user_parser`] - User-Defined Backends
 //!
-//! Loads custom backend definitions from `~/.config/declarch/backends.kdl`,
+//! Loads custom backend definitions from imported backend KDL files,
 //! allowing users to add support for additional package managers without
 //! modifying the codebase.
 //!
@@ -113,12 +109,14 @@
 //!     update_cmd: None,
 //!     cache_clean_cmd: None,
 //!     upgrade_cmd: None,
+//!     prefer_list_for_local_search: false,
 //! };
 //! ```
 //!
 //! ## User-Defined Backends
 //!
-//! Users can define custom backends in `~/.config/declarch/backends.kdl`:
+//! Users can define custom backends in `~/.config/declarch/backends/*.kdl` and
+//! import them via `backends { "backends/name.kdl" }` in `declarch.kdl`:
 //!
 //! ```kdl
 //! backend "mybackend" {
