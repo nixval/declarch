@@ -24,7 +24,7 @@ pkg {
 ## Apply
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```
 

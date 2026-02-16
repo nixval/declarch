@@ -39,7 +39,7 @@ All v1 outputs SHOULD follow this shape:
 - `info.json`
 - `lint.json`
 - `search.json`
-- `sync-preview.json`
+- `sync-dry-run.json`
 
 ## Related
 

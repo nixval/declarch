@@ -41,7 +41,7 @@ declarch install bat fzf ripgrep --backend aur
 ## 4) Preview changes
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 ```
 
 Review what will be installed/adopted/removed.
@@ -59,7 +59,7 @@ If a command fails, run this sequence:
 ```bash
 declarch lint --mode validate
 declarch info --doctor
-declarch sync preview
+declarch --dry-run sync
 ```
 
 Then check [Troubleshooting](../advanced/troubleshooting.md) for targeted fixes.

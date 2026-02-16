@@ -30,7 +30,7 @@ Notes:
 - `declarch_list`
 - `declarch_lint`
 - `declarch_search`
-- `declarch_sync_preview`
+- `declarch_sync_dry_run`
 
 ## Optional write tool (guarded)
 
@@ -49,7 +49,7 @@ Notes:
   - `declarch lint --format json --output-version v1`
 - `declarch_search`
   - `declarch search "<query>" --format json --output-version v1`
-- `declarch_sync_preview`
+- `declarch_sync_dry_run`
   - `declarch --dry-run sync --format json --output-version v1`
 - `declarch_sync_apply`
   - `declarch sync --yes`

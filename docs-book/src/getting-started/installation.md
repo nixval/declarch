@@ -60,7 +60,7 @@ If you are on macOS/Windows, run:
 
 ```bash
 declarch info --doctor
-declarch sync preview
+declarch --dry-run sync
 ```
 
 Next: [Quick Start](./quick-start.md)

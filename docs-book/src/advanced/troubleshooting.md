@@ -8,7 +8,7 @@ Start with simple checks first, then move to deeper checks.
 ```bash
 declarch lint --mode validate
 declarch info --doctor
-declarch sync preview
+declarch --dry-run sync
 ```
 
 ## 1) Backend not found
@@ -90,7 +90,7 @@ This is often normal: desired state already matches installed state.
 Inspect drift/orphans:
 
 ```bash
-declarch info --list --orphans
+declarch info --list --scope orphans
 ```
 
 ## 6) Permissions / sudo
@@ -117,7 +117,7 @@ If state is corrupted or stale, reset and re-check:
 ```bash
 rm ~/.local/state/declarch/state.json
 declarch init
-declarch sync preview
+declarch --dry-run sync
 ```
 
 For non-Linux paths, first find your real state path with:
@@ -133,7 +133,7 @@ Before opening an issue, collect this output:
 ```bash
 declarch -v lint --mode validate
 declarch -v info --doctor
-declarch -v sync preview
+declarch -v --dry-run sync
 ```
 
 Issue tracker:

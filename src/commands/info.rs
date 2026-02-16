@@ -285,7 +285,7 @@ fn run_doctor(verbose: bool) -> Result<()> {
                             orphan_count
                         ));
                         output::info("Run 'declarch info --list --scope orphans' to see them");
-                        output::info("Run 'declarch sync --prune' to remove orphans");
+                        output::info("Run 'declarch sync prune' to remove orphans");
                     } else {
                         output::success("No orphan packages found");
                     }

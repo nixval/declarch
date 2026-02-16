@@ -26,7 +26,7 @@ pkg {
 Use this stage to validate your first workflow:
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```
 
@@ -96,7 +96,7 @@ host "laptop-1" {
 Activate with:
 
 ```bash
-declarch sync sync --profile work --host laptop-1
+declarch sync --profile work --host laptop-1
 ```
 
 ## Rule of thumb

@@ -50,7 +50,7 @@ Candidate MCP tools:
 - `declarch_info`
 - `declarch_lint`
 - `declarch_search`
-- `declarch_sync_preview`
+- `declarch_sync_dry_run`
 
 These can call `declarch` and parse machine output (`v1` envelope).
 
@@ -61,7 +61,7 @@ If needed later, an API can mirror existing command surfaces:
 - `GET /info`
 - `GET /lint`
 - `GET /search?q=...`
-- `POST /sync/preview`
+- `POST /sync/dry-run`
 
 Keep API responses aligned with the same `v1` envelope contract.
 
@@ -69,7 +69,7 @@ Keep API responses aligned with the same `v1` envelope contract.
 
 - PR validation:
   - `declarch lint --strict`
-  - `declarch sync preview`
+  - `declarch --dry-run sync`
 - Artifact export:
   - store `info/list` machine output as CI artifacts.
 - Team notifications:

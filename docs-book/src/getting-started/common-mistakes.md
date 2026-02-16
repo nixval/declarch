@@ -24,7 +24,7 @@ Symptom:
 Fix: always preview first.
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```
 
@@ -76,5 +76,5 @@ Symptom:
 
 Fix:
 
-- start with plain `declarch sync preview`
+- start with plain `declarch --dry-run sync`
 - add one flag at a time (`--profile`, then `--host`, then modules)

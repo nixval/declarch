@@ -176,10 +176,10 @@ declarch info
 declarch search mypm:foo --limit 5
 ```
 
-Then run a limited sync preview:
+Then run a limited dry-run sync:
 
 ```bash
-declarch sync preview --target mypm
+declarch --dry-run sync --target mypm
 ```
 
 ## Publishing

@@ -67,5 +67,5 @@ If you do not pass those flags, declarch uses your normal default config only.
 When unsure, use:
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 ```

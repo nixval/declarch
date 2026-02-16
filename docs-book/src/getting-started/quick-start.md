@@ -49,7 +49,7 @@ declarch install bat fzf ripgrep --backend aur
 ## 3) Preview and apply
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```
 

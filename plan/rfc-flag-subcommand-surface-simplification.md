@@ -91,18 +91,18 @@ This RFC locks a minimal and consistent command pattern, with beginner-first def
 
 ## 7. Additional Redundancy / Inconsistency Findings
 
-1. `sync` has duplicate `--gc` at parent and subcommand level.
-- Current shape increases ambiguity about where advanced flags should live.
+1. `info` modes are multiplexed by flags (`--doctor`, `--plan`, `--list`) and still need clear mode contracts.
+- `--scope` has replaced old `--orphans/--synced` flags and reduced ambiguity.
 
-2. `info` modes are multiplexed by flags (`--doctor`, `--plan`, `--list`, `--orphans`, `--synced`) instead of clearer intent groups.
-- Functional, but cognitively dense for beginners.
+2. `install --dry-run` required richer planning output.
+- This is now aligned to show resolved plan details (backend/module intent) without writing files.
 
-3. `install --dry-run` currently prints raw package list and exits early.
-- This can skip richer validation/planning context and feels less informative than other dry-run flows.
-
-4. Verbose quality varies by command:
+3. Verbose quality varies by command:
 - `search`, `cache`, `upgrade`, `lint` have clearer verbose deltas.
-- `info` and `info_reason` currently can be too shallow in verbose mode (e.g. only "Verbose mode enabled").
+- `info` and `info_reason` now expose baseline context in verbose mode, but cross-command depth still needs standardized contract tests.
+
+4. `sync --gc` was removed.
+- Reason: runtime no-op and overlapped conceptually with `sync cache`.
 
 ## 8. Migration Plan (Phase-by-Phase)
 

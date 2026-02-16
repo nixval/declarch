@@ -14,7 +14,7 @@ Start with preview/doctor first.
 
 ```bash
 declarch info --doctor
-declarch sync preview
+declarch --dry-run sync
 ```
 
 `info --doctor` prints the actual config/state paths for your current OS.

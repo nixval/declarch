@@ -108,7 +108,7 @@ Your MCP client must be able to run `declarch-mcp`.
 - `declarch_list`
 - `declarch_lint`
 - `declarch_search`
-- `declarch_sync_preview`
+- `declarch_sync_dry_run`
 - `declarch_sync_apply` (only listed when config allows it)
 
 ## Quick copy: generic local MCP config

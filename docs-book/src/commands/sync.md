@@ -12,8 +12,7 @@ declarch sync [COMMAND] [OPTIONS]
 
 | Command | Description |
 |---------|-------------|
-| `sync` | normal sync |
-| `preview` | show plan only |
+| `(default)` | normal sync |
 | `update` | refresh indexes then sync |
 | `prune` | remove unmanaged packages |
 | `cache` | clean backend cache |
@@ -22,7 +21,7 @@ declarch sync [COMMAND] [OPTIONS]
 ## Typical flow
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```
 
@@ -41,7 +40,6 @@ declarch sync --host vps-1
 
 | Option | Description |
 |--------|-------------|
-| `--gc` | garbage-collect orphans after sync |
 | `--target <NAME>` | sync one package/scope |
 | `--profile <NAME>` | activate `profile "NAME" { ... }` block |
 | `--host <NAME>` | activate `host "NAME" { ... }` block |
@@ -53,8 +51,8 @@ declarch sync --host vps-1
 ## Machine output (v1)
 
 ```bash
-declarch sync preview --format json --output-version v1
-declarch sync preview --format yaml --output-version v1
+declarch --dry-run sync --format json --output-version v1
+declarch --dry-run sync --format yaml --output-version v1
 ```
 
 This emits one machine envelope summary for integrations.

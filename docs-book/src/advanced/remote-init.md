@@ -63,7 +63,7 @@ declarch init hyprland/niri-nico
 declarch init username/dotfiles --dry-run
 declarch init username/dotfiles
 declarch lint --mode validate
-declarch sync preview
+declarch --dry-run sync
 ```
 
 ## Operational flow

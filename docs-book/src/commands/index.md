@@ -12,7 +12,7 @@ declarch sync
 
 ## Daily commands
 
-- `declarch sync preview` - safe preview mode.
+- `declarch --dry-run sync` - safe preview mode.
 - `declarch search <query>` - find package candidates.
 - `declarch info` - status, doctor, list, and package reasoning.
 - `declarch lint` - config quality checks.

@@ -11,8 +11,8 @@
 | `sync` | `sync`, `sync sync`, `sync preview`, `sync update`, `sync prune`, `sync cache`, `sync upgrade` | `sync sync` redundant, `sync preview` overlaps with global dry-run | Remove `sync sync` and `sync preview`; keep `sync`, `update`, `prune`, `cache`, `upgrade` |
 | `switch` | local `--dry-run` | Inconsistent with global dry-run contract | Remove local flag, use global `--dry-run` |
 | `edit` | `--preview` + global `--dry-run` | Similar terms but different intent | Keep both, but define strict semantics |
-| `sync` | `--gc` on parent + subcommands | Duplicate flag placement | Keep one canonical placement (subcommand-level for mutating sync flows) |
-| `info` | mode multiplexing via many flags | Discoverability density | Keep for now, but tighten help and examples for beginner path |
+| `sync` | `--gc` (legacy no-op) | Misleading semantics, overlaps cache intent | Remove `--gc`, keep `sync cache` as explicit cache-clean flow |
+| `info` | mode multiplexing via many flags | Discoverability density | Keep for now, with `--scope` replacing old list mode flags |
 
 ## Chapter 2: Canonical Invocation Set
 
@@ -32,6 +32,9 @@
 - `declarch sync sync`
 - `declarch sync preview`
 - `declarch switch --dry-run ...`
+- `declarch sync --gc`
+- `declarch info --list --orphans`
+- `declarch info --list --synced`
 
 ## Chapter 3: Flag Semantics Contract
 
@@ -76,8 +79,8 @@
 3. `info` and `info_reason` verbose depth is currently weak.
 - Proposed: add meaningful diagnostic payload (selector context, matched source paths, fallback decisions).
 
-4. `sync --gc` duplication (parent + subcommand) should be collapsed.
-- Proposed: one placement only to reduce ambiguity and parser clutter.
+4. `sync --gc` should be removed.
+- Proposed: no-op flag removed; cache cleanup remains at `sync cache`.
 
 ## Chapter 6: Implementation Phases
 

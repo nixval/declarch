@@ -25,7 +25,7 @@ If you are migrating, back up config first and start with preview.
 
 ```bash
 cp -r ~/.config/declarch ~/.config/declarch.backup
-declarch sync preview
+declarch --dry-run sync
 ```
 
 Path above is Linux-style. Use this to print real paths on your OS:
