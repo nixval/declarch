@@ -59,6 +59,23 @@ jobs:
       - name: Run Tests
         run: cargo test --all-targets --verbose
 
+      - name: Benchmark Profile (lightweight)
+        run: |
+          FORMAT=both \
+          ITERATIONS=3 \
+          WARMUP=1 \
+          OUT=plan/test/benchmark-profile.md \
+          OUT_JSON=plan/test/benchmark-profile.json \
+          scripts/benchmark_profile.sh
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-profile
+          path: |
+            plan/test/benchmark-profile.md
+            plan/test/benchmark-profile.json
+
   cross-platform-build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
