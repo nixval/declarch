@@ -27,6 +27,12 @@ declarch lint --fix
 declarch lint --strict
 declarch lint --benchmark
 declarch lint --repair-state
+
+# state cleanup (state only, no uninstall)
+declarch lint --state-rm soar:firefox --dry-run
+declarch lint --state-rm soar:firefox
+declarch lint --state-rm package --state-rm-backend soar
+declarch lint --state-rm-backend soar --state-rm-all
 ```
 
 ## Flags
@@ -38,7 +44,20 @@ declarch lint --repair-state
 - `--strict`: warnings become blocking errors
 - `--benchmark`: show elapsed time
 - `--repair-state`: sanitize broken state entries (no manual JSON edits)
+- `--state-rm <ids>`: remove state entries by `backend:package` or plain package name
+- `--state-rm-backend <name>`: backend scope for plain names, or for backend-wide cleanup
+- `--state-rm-all`: remove all tracked entries for `--state-rm-backend`
 - `--profile`, `--host`, `--modules`: include optional overlays/modules
+
+## Minimal playbook (recommended)
+
+```bash
+declarch lint --state-rm backend:package --dry-run
+declarch lint --state-rm backend:package
+declarch --dry-run sync
+```
+
+For more debugging flows: [Advanced Debugging](../advanced/debugging.md).
 
 ## Machine output (v1)
 

@@ -39,6 +39,7 @@
 
 - [Syntax Reference (Advanced)](./configuration/syntax.md)
 - [Custom Backends](./advanced/custom-backends.md)
+- [Debugging](./advanced/debugging.md)
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
 - [Version Pinning (Planned)](./advanced/version-pinning.md)
