@@ -5,14 +5,6 @@ use clap_complete::Shell;
 #[command(
     name = "declarch",
     about = "Universal declarative package manager - unify aur, flatpak, npm, nix, cargo, pip, and custom backends under one declarative config(s).",
-    after_help = "Quick start:
-  declarch init
-  declarch install aur:bat aur:fd aur:ripgrep
-  declarch sync preview
-  declarch sync
-
-Need command-specific help?
-  declarch <command> --help",
     version,
     help_template = "{about-with-newline}
 {usage-heading} {usage}
