@@ -24,6 +24,8 @@ Menurunkan kompleksitas file inti dan meningkatkan keterbacaan perubahan.
   - moved sync policy/hook-gating logic into `sync/policy.rs` to reduce orchestration file density.
   - extracted generic backend command execution + timeout functions into `backends/generic/command_exec.rs`.
   - extracted user backend parser validation logic into `backends/user_parser/validation.rs`.
+  - applied low-risk clippy cleanups (`generic`, `cache`, `info_reason`, `platform`, `state/io`).
+  - clippy `-D warnings` error count reduced from 21 to 15 in current phase checkpoint.
 
 ## Exit Criteria
 - File hotspot utama turun kompleksitasnya.
