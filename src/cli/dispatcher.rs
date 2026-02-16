@@ -227,6 +227,9 @@ fn handle_sync_command(args: &Cli, command: &Option<SyncCommand>, gc: bool) -> R
 
             let mut options =
                 sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
+            if args.global.dry_run {
+                options.dry_run = true;
+            }
             options.format = args.global.format.clone();
             options.output_version = args.global.output_version.clone();
             commands::sync::run(options)
