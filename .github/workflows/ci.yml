@@ -3,14 +3,28 @@ name: Open Source CI
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - "docs-book/**"
+      - "plan/**"
+      - "examples/**"
+      - "docs/contracts/**"
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - "docs-book/**"
+      - "plan/**"
+      - "examples/**"
+      - "docs/contracts/**"
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -81,7 +95,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 

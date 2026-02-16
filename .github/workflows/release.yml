@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-linux:
     name: Build Linux (${{ matrix.target }})
@@ -58,14 +62,10 @@ jobs:
 
   build-macos:
     name: Build macOS (${{ matrix.target }})
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-latest
     strategy:
       matrix:
-        include:
-          - target: x86_64-apple-darwin
-            runner: macos-13
-          - target: aarch64-apple-darwin
-            runner: macos-14
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
 
     steps:
       - uses: actions/checkout@v4
