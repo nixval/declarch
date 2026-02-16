@@ -1,4 +1,3 @@
-pub mod install;
 pub mod machine_output;
 pub mod paths;
 pub mod platform;
