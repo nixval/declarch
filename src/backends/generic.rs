@@ -870,7 +870,7 @@ impl GenericManager {
             .config
             .search_local_version_key
             .as_ref()
-            .and_then(|_| None) // version_key is for JSON, use version_col from list for whitespace
+            .and(None) // version_key is for JSON, use version_col from list for whitespace
             .or(self.config.list_version_col);
 
         let mut results = Vec::new();

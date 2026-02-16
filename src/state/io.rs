@@ -147,10 +147,10 @@ pub fn validate_state_integrity(state: &State) -> Vec<String> {
 
     // Check for future timestamps
     let now = SystemTime::now();
-    if let Ok(last_sync) = pkg_state_timestamp(&state.meta.last_sync) {
-        if last_sync > now {
-            issues.push("Last sync timestamp is in the future".to_string());
-        }
+    if let Ok(last_sync) = pkg_state_timestamp(&state.meta.last_sync)
+        && last_sync > now
+    {
+        issues.push("Last sync timestamp is in the future".to_string());
     }
 
     issues
@@ -542,10 +542,10 @@ pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
     })?;
 
     // Sync directory to ensure rename is persisted
-    if let Ok(dir_file) = fs::File::open(dir) {
-        if let Err(e) = dir_file.sync_all() {
-            ui::warning(&format!("Failed to sync state directory: {}", e));
-        }
+    if let Ok(dir_file) = fs::File::open(dir)
+        && let Err(e) = dir_file.sync_all()
+    {
+        ui::warning(&format!("Failed to sync state directory: {}", e));
     }
 
     // Lock is released when StateLock is dropped (RAII)

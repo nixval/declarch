@@ -18,7 +18,7 @@ pub fn build_shell_command(command: &str, elevated: bool) -> Result<Command> {
             c
         };
 
-        return Ok(cmd);
+        Ok(cmd)
     }
 
     #[cfg(windows)]
@@ -31,7 +31,7 @@ pub fn build_shell_command(command: &str, elevated: bool) -> Result<Command> {
 
         let mut cmd = Command::new("cmd");
         cmd.arg("/C").arg(command);
-        return Ok(cmd);
+        Ok(cmd)
     }
 
     #[cfg(not(any(unix, windows)))]

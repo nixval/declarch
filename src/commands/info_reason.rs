@@ -363,7 +363,7 @@ fn find_matches(
         .cloned()
         .collect();
 
-    matches.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+    matches.sort_by_key(|a| a.to_string());
     matches
 }
 
