@@ -99,6 +99,9 @@ pub fn parse_kdl_content_with_path(content: &str, file_path: Option<&str>) -> Re
             "experimental" => {
                 parse_experimental_flags(node, &mut config.experimental);
             }
+            "mcp" => {
+                parse_mcp_policy(node, &mut config.mcp);
+            }
 
             "description" => {
                 if let Some(entry) = node.entries().first()
@@ -218,6 +221,60 @@ fn parse_experimental_flags(node: &KdlNode, target: &mut Vec<String>) {
             }
         }
     }
+}
+
+fn parse_mcp_policy(node: &KdlNode, target: &mut crate::config::kdl_modules::types::McpConfig) {
+    // Inline entries:
+    // mcp "read-only"
+    // mcp mode="read-only"
+    for entry in node.entries() {
+        if let Some(val) = entry.value().as_string() {
+            let lowered = val.trim().to_lowercase();
+            if lowered == "read-only" || lowered == "write-enabled" {
+                target.mode = Some(lowered);
+            }
+        }
+    }
+
+    if let Some(children) = node.children() {
+        for child in children.nodes() {
+            let name = child.name().value();
+            match name {
+                "mode" => {
+                    if let Some(val) = child.entries().first().and_then(|e| e.value().as_string()) {
+                        target.mode = Some(val.trim().to_lowercase());
+                    }
+                }
+                "allow-tools" | "allow_tools" => {
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            target.allow_tools.push(val.to_string());
+                        }
+                    }
+                    // Also support:
+                    // allow_tools { "tool-a" "tool-b" }
+                    if let Some(grand_children) = child.children() {
+                        for grand_child in grand_children.nodes() {
+                            for entry in grand_child.entries() {
+                                if let Some(val) = entry.value().as_string() {
+                                    target.allow_tools.push(val.to_string());
+                                }
+                            }
+                            let child_name = grand_child.name().value();
+                            if !child_name.is_empty() && !child_name.starts_with("//") {
+                                target.allow_tools.push(child_name.to_string());
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Deduplicate while preserving order
+    let mut seen = std::collections::HashSet::new();
+    target.allow_tools.retain(|t| seen.insert(t.clone()));
 }
 
 /// Parse unified pkg node: pkg { backend { packages } }

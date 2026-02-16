@@ -1,145 +1,22 @@
+mod command_exec;
+
 use crate::backends::config::BackendConfig;
 use crate::backends::parsers;
+use crate::constants::BACKEND_COMMAND_TIMEOUT_SECS;
 use crate::core::types::{Backend as CoreBackend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::ui;
 use crate::utils::regex_cache;
 use crate::utils::sanitize;
+use command_exec::{run_command_with_timeout, run_interactive_command_with_timeout};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::Read;
-use std::process::{Command, Stdio};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 /// Default timeout for backend commands (5 minutes)
-const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(300);
-
-/// Execute a command with timeout (non-interactive)
-fn run_command_with_timeout(cmd: &mut Command, timeout: Duration) -> Result<std::process::Output> {
-    let cmd_debug = format!("{:?}", cmd);
-
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: e.to_string(),
-        })?;
-
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: "Failed to capture stdout".to_string(),
-        })?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: "Failed to capture stderr".to_string(),
-        })?;
-
-    let stdout_thread = thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = std::io::BufReader::new(stdout).read_to_end(&mut buf);
-        buf
-    });
-    let stderr_thread = thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = std::io::BufReader::new(stderr).read_to_end(&mut buf);
-        buf
-    });
-
-    let start = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = stdout_thread.join();
-                    let _ = stderr_thread.join();
-                    return Err(DeclarchError::SystemCommandFailed {
-                        command: cmd_debug,
-                        reason: format!("Command timed out after {} seconds", timeout.as_secs()),
-                    });
-                }
-                thread::sleep(Duration::from_millis(50));
-            }
-            Err(e) => {
-                return Err(DeclarchError::SystemCommandFailed {
-                    command: cmd_debug,
-                    reason: e.to_string(),
-                });
-            }
-        }
-    };
-
-    let stdout = stdout_thread.join().unwrap_or_default();
-    let stderr = stderr_thread.join().unwrap_or_default();
-
-    Ok(std::process::Output {
-        status,
-        stdout,
-        stderr,
-    })
-}
-
-/// Execute an interactive command with timeout (shows real-time output)
-fn run_interactive_command_with_timeout(
-    cmd: &mut Command,
-    timeout: Duration,
-) -> Result<std::process::ExitStatus> {
-    let cmd_debug = format!("{:?}", cmd);
-
-    // Set up interactive stdio
-    cmd.stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| DeclarchError::SystemCommandFailed {
-            command: cmd_debug.clone(),
-            reason: e.to_string(),
-        })?;
-
-    let start = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => return Ok(status),
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    ui::warning(&format!(
-                        "Command timed out after {} seconds",
-                        timeout.as_secs()
-                    ));
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(DeclarchError::SystemCommandFailed {
-                        command: cmd_debug,
-                        reason: format!("Command timed out after {} seconds", timeout.as_secs()),
-                    });
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-            Err(e) => {
-                return Err(DeclarchError::SystemCommandFailed {
-                    command: cmd_debug,
-                    reason: e.to_string(),
-                });
-            }
-        }
-    }
-}
+const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(BACKEND_COMMAND_TIMEOUT_SECS);
 
 /// Generic package manager that works with any backend configuration
 pub struct GenericManager {
@@ -890,40 +767,44 @@ impl GenericManager {
         })?;
 
         let mut results = Vec::new();
-
-        // Try matching against entire stdout first (for multiline patterns)
-        for captures in regex.captures_iter(stdout) {
-            let name = captures
+        let capture_name = |captures: &regex::Captures<'_>| {
+            captures
                 .get(name_group)
+                .or_else(|| {
+                    // Fallback: some regex patterns use alternatives where
+                    // only one branch captures. Pick first non-empty group.
+                    (1..captures.len()).find_map(|idx| captures.get(idx))
+                })
                 .map(|m| m.as_str().to_string())
-                .ok_or_else(|| {
+        };
+
+        // Multiline regex is evaluated against full stdout.
+        // Non-multiline regex is evaluated line-by-line to avoid partial captures.
+        if regex_str.contains("(?m)") {
+            for captures in regex.captures_iter(stdout) {
+                let name = capture_name(&captures).ok_or_else(|| {
                     DeclarchError::PackageManagerError(
                         "Regex name group didn't capture anything".into(),
                     )
                 })?;
 
-            let description = captures.get(desc_group).map(|m| m.as_str().to_string());
+                let description = captures.get(desc_group).map(|m| m.as_str().to_string());
 
-            results.push(PackageSearchResult {
-                name,
-                version: None,
-                description,
-                backend: self.backend_type.clone(),
-            });
-        }
-
-        // If no matches and pattern doesn't have multiline flag, try line-by-line
-        if results.is_empty() && !regex_str.contains("(?m)") {
+                results.push(PackageSearchResult {
+                    name,
+                    version: None,
+                    description,
+                    backend: self.backend_type.clone(),
+                });
+            }
+        } else {
             for line in stdout.lines() {
                 if let Some(captures) = regex.captures(line) {
-                    let name = captures
-                        .get(name_group)
-                        .map(|m| m.as_str().to_string())
-                        .ok_or_else(|| {
-                            DeclarchError::PackageManagerError(
-                                "Regex name group didn't capture anything".into(),
-                            )
-                        })?;
+                    let name = capture_name(&captures).ok_or_else(|| {
+                        DeclarchError::PackageManagerError(
+                            "Regex name group didn't capture anything".into(),
+                        )
+                    })?;
 
                     let description = captures.get(desc_group).map(|m| m.as_str().to_string());
 
@@ -994,7 +875,7 @@ impl GenericManager {
             .config
             .search_local_version_key
             .as_ref()
-            .and_then(|_| None) // version_key is for JSON, use version_col from list for whitespace
+            .and(None) // version_key is for JSON, use version_col from list for whitespace
             .or(self.config.list_version_col);
 
         let mut results = Vec::new();
@@ -1178,6 +1059,23 @@ mod tests {
         let packages = vec!["pkg1".to_string(), "pkg2".to_string()];
 
         assert_eq!(manager.format_packages(&packages), "pkg1 pkg2");
+    }
+
+    #[test]
+    fn test_parse_search_regex_handles_alternative_capture_groups() {
+        let config = BackendConfig {
+            name: "test".to_string(),
+            binary: BinarySpecifier::Single("echo".to_string()),
+            search_regex: Some("^aur/([^\\s]+)|^community/([^\\s]+)|^extra/([^\\s]+)".to_string()),
+            search_regex_name_group: Some(1),
+            ..Default::default()
+        };
+
+        let manager = GenericManager::from_config(config, Backend::from("aur"), false);
+        let stdout = "community/firefox 1.0\nextra/bat 2.0\naur/fd 3.0\n";
+        let results = manager.parse_search_regex(stdout).unwrap();
+        let names: Vec<_> = results.into_iter().map(|r| r.name).collect();
+        assert_eq!(names, vec!["firefox", "bat", "fd"]);
     }
 
     #[test]

@@ -83,20 +83,15 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     // STEP 3b: Validate KDL (warning only, can bypass with --force)
     if let Err(e) = super::validate_kdl(&backend_content, &format!("backend '{}'", sanitized_name))
+        && !force
     {
-        if !force {
-            output::warning(&format!("{}", e));
-            output::info(
-                "The backend may be malformed or incompatible with your declarch version.",
-            );
-            output::info("You can still adopt it with --force, then edit the file manually.");
+        output::warning(&format!("{}", e));
+        output::info("The backend may be malformed or incompatible with your declarch version.");
+        output::info("You can still adopt it with --force, then edit the file manually.");
 
-            if !output::prompt_yes_no("Continue with potentially invalid backend") {
-                output::info(
-                    "Cancelled. You can try a different backend or use --force to override.",
-                );
-                return Ok(());
-            }
+        if !output::prompt_yes_no("Continue with potentially invalid backend") {
+            output::info("Cancelled. You can try a different backend or use --force to override.");
+            return Ok(());
         }
     }
 
@@ -439,6 +434,7 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use std::io::Write;

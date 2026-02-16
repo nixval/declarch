@@ -37,5 +37,5 @@ declarch edit backends
 After editing, run:
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 ```

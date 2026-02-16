@@ -8,12 +8,13 @@ use crate::commands::sync::hooks::{
     execute_post_install, execute_post_remove, execute_pre_install, execute_pre_remove,
 };
 use crate::config::loader;
-use crate::constants::CRITICAL_PACKAGES;
+use crate::constants::{BACKEND_OPERATION_MAX_RETRIES, BACKEND_RETRY_DELAY_MS, CRITICAL_PACKAGES};
 use crate::core::{
     resolver,
-    types::{Backend, PackageId},
+    types::{Backend, PackageId, PackageMetadata},
 };
 use crate::error::{DeclarchError, Result};
+use crate::packages::PackageManager;
 use crate::ui as output;
 use colored::Colorize;
 use rayon::prelude::*;
@@ -22,9 +23,37 @@ use std::thread;
 use std::time::Duration;
 
 /// Maximum retry attempts for failed backend operations
-const MAX_RETRIES: u32 = 3;
+const MAX_RETRIES: u32 = BACKEND_OPERATION_MAX_RETRIES;
 /// Delay between retries (in milliseconds)
-const RETRY_DELAY_MS: u64 = 1000;
+const RETRY_DELAY_MS: u64 = BACKEND_RETRY_DELAY_MS;
+
+fn list_installed_for_backend(
+    backend: &Backend,
+    mgr: &dyn PackageManager,
+) -> Option<Result<Vec<(PackageId, PackageMetadata)>>> {
+    if !mgr.is_available() {
+        return None;
+    }
+    match mgr.list_installed() {
+        Ok(packages) => {
+            let packages_with_backend: Vec<_> = packages
+                .into_iter()
+                .map(|(name, meta)| {
+                    let id = PackageId {
+                        name,
+                        backend: backend.clone(),
+                    };
+                    (id, meta)
+                })
+                .collect();
+            Some(Ok(packages_with_backend))
+        }
+        Err(e) => {
+            output::warning(&format!("Failed to list packages for {}: {}", backend, e));
+            Some(Err(e))
+        }
+    }
+}
 
 /// Execute a function with retry logic
 fn execute_with_retry<F>(
@@ -73,38 +102,20 @@ pub fn execute_transaction(
     options: &SyncOptions,
     hooks_enabled: bool,
 ) -> Result<Vec<PackageId>> {
-    // Build initial snapshot from managers in parallel
-    // This significantly speeds up sync when multiple backends are configured
-    let installed_snapshot: InstalledSnapshot = managers
-        .par_iter()
-        .filter_map(|(backend, mgr)| {
-            if !mgr.is_available() {
-                return None;
-            }
-            match mgr.list_installed() {
-                Ok(packages) => {
-                    let packages_with_backend: Vec<_> = packages
-                        .into_iter()
-                        .map(|(name, meta)| {
-                            let id = PackageId {
-                                name,
-                                backend: backend.clone(),
-                            };
-                            (id, meta)
-                        })
-                        .collect();
-                    Some(Ok(packages_with_backend))
-                }
-                Err(e) => {
-                    output::warning(&format!("Failed to list packages for {}: {}", backend, e));
-                    Some(Err(e))
-                }
-            }
-        })
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect();
+    // Build initial snapshot from managers.
+    // Use parallel listing only when multiple backends exist to avoid Rayon overhead for small N.
+    let backend_results: Vec<Vec<(PackageId, PackageMetadata)>> = if managers.len() <= 1 {
+        managers
+            .iter()
+            .filter_map(|(backend, mgr)| list_installed_for_backend(backend, mgr.as_ref()))
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        managers
+            .par_iter()
+            .filter_map(|(backend, mgr)| list_installed_for_backend(backend, mgr.as_ref()))
+            .collect::<Result<Vec<_>>>()?
+    };
+    let installed_snapshot: InstalledSnapshot = backend_results.into_iter().flatten().collect();
 
     let mut installed_snapshot = installed_snapshot;
 
@@ -288,11 +299,12 @@ fn execute_pruning(
         return Ok(());
     }
 
-    if orphan_strategy == "ask" && !options.yes {
-        if !output::prompt_yes_no("Policy requests confirmation for orphan removal. Continue?") {
-            output::info("Skipping orphan removal");
-            return Ok(());
-        }
+    if orphan_strategy == "ask"
+        && !options.yes
+        && !output::prompt_yes_no("Policy requests confirmation for orphan removal. Continue?")
+    {
+        output::info("Skipping orphan removal");
+        return Ok(());
     }
 
     // Build protected list - collect all actual installed package names from config

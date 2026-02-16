@@ -1,9 +1,10 @@
 use crate::core::types::{Backend, PackageMetadata}; // PackageId dihapus
 use crate::error::Result;
+use serde::Serialize;
 use std::collections::HashMap;
 
 /// Search result from package repository
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PackageSearchResult {
     pub name: String,
     pub version: Option<String>,

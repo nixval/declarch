@@ -132,9 +132,9 @@ pub fn run(options: CacheOptions) -> Result<()> {
             Err(e) => {
                 if options.verbose {
                     output::warning(&format!("Failed to clean '{}': {}", name, e));
-                    output::info(&format!(
-                        "  Recommendation: Check backend configuration or run with --force to ignore errors"
-                    ));
+                    output::info(
+                        "  Recommendation: Check backend configuration or run with --force to ignore errors",
+                    );
                 } else {
                     output::warning(&format!(
                         "Failed to clean '{}' (use --verbose for details)",

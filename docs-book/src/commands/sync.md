@@ -12,8 +12,7 @@ declarch sync [COMMAND] [OPTIONS]
 
 | Command | Description |
 |---------|-------------|
-| `sync` | normal sync |
-| `preview` | show plan only |
+| `(default)` | normal sync |
 | `update` | refresh indexes then sync |
 | `prune` | remove unmanaged packages |
 | `cache` | clean backend cache |
@@ -22,7 +21,7 @@ declarch sync [COMMAND] [OPTIONS]
 ## Typical flow
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```
 
@@ -31,17 +30,16 @@ declarch sync
 ```bash
 declarch sync update
 declarch sync prune
-declarch sync sync --target firefox
-declarch sync sync --hooks
-declarch sync sync --profile desktop
-declarch sync sync --host vps-1
+declarch sync --target firefox
+declarch sync --hooks
+declarch sync --profile desktop
+declarch sync --host vps-1
 ```
 
 ## Common options
 
 | Option | Description |
 |--------|-------------|
-| `--gc` | garbage-collect orphans after sync |
 | `--target <NAME>` | sync one package/scope |
 | `--profile <NAME>` | activate `profile "NAME" { ... }` block |
 | `--host <NAME>` | activate `host "NAME" { ... }` block |
@@ -49,6 +47,15 @@ declarch sync sync --host vps-1
 | `--hooks` | enable lifecycle hooks |
 | `--modules <NAME>...` | temporary extra modules |
 | `--diff` | show plan diff |
+
+## Machine output (v1)
+
+```bash
+declarch --dry-run sync --format json --output-version v1
+declarch --dry-run sync --format yaml --output-version v1
+```
+
+This emits one machine envelope summary for integrations.
 
 ## Hook safety gate
 

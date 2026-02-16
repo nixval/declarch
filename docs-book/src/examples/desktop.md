@@ -78,6 +78,6 @@ imports {
 ## Apply safely
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 declarch sync
 ```

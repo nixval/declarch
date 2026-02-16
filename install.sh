@@ -1,72 +1,95 @@
-#!/bin/bash
-# Quick install declarch
-set -e
+#!/usr/bin/env bash
+# Quick install declarch (Linux + macOS)
+set -euo pipefail
 
 VERSION="0.8.0"
 REPO="nixval/declarch"
-ARCH=$(uname -m)
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+TMP_DIR="$(mktemp -d)"
+ARCHIVE="${TMP_DIR}/declarch.tar.gz"
 
-# Map architecture
-case "$ARCH" in
-    x86_64)  BINARY="declarch-x86_64-unknown-linux-gnu" ;;
-    aarch64) BINARY="declarch-aarch64-unknown-linux-gnu" ;;
-    *)
-        echo "Error: Unsupported architecture: $ARCH"
+cleanup() {
+  rm -rf "${TMP_DIR}"
+}
+trap cleanup EXIT
+
+case "${OS}" in
+  Linux)
+    case "${ARCH}" in
+      x86_64) TARGET="x86_64-unknown-linux-gnu" ;;
+      aarch64|arm64) TARGET="aarch64-unknown-linux-gnu" ;;
+      *)
+        echo "Error: unsupported Linux architecture '${ARCH}'"
         exit 1
         ;;
+    esac
+    ;;
+  Darwin)
+    echo "WARNING: macOS installer path is experimental (alpha)."
+    echo "Use on non-production machines first and validate with 'declarch info' + 'declarch lint'."
+    case "${ARCH}" in
+      x86_64) TARGET="x86_64-apple-darwin" ;;
+      arm64|aarch64) TARGET="aarch64-apple-darwin" ;;
+      *)
+        echo "Error: unsupported macOS architecture '${ARCH}'"
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Error: unsupported OS '${OS}'. Use install.ps1 on Windows."
+    exit 1
+    ;;
 esac
 
-URL="https://github.com/${REPO}/releases/download/v${VERSION}/${BINARY}.tar.gz"
+URL="https://github.com/${REPO}/releases/download/v${VERSION}/declarch-${TARGET}.tar.gz"
+echo "Downloading declarch ${VERSION} for ${TARGET}..."
+curl -fsSL "${URL}" -o "${ARCHIVE}"
+tar xzf "${ARCHIVE}" -C "${TMP_DIR}"
 
-echo "Downloading declarch ${VERSION} (${ARCH})..."
-curl -fSL "$URL" -o /tmp/declarch.tar.gz
-tar xzf /tmp/declarch.tar.gz
-
-if [ ! -f "declarch" ]; then
-    echo "Error: Failed to extract declarch binary"
-    exit 1
+if [ ! -f "${TMP_DIR}/declarch" ]; then
+  echo "Error: failed to extract declarch binary from release archive"
+  exit 1
 fi
 
-# Check for existing declarch installations
-EXISTING_DECLARCH=$(which -a declarch 2>/dev/null || true)
-if [ -n "$EXISTING_DECLARCH" ]; then
-    echo "⚠️  Found existing declarch installations:"
-    echo "$EXISTING_DECLARCH" | while read -r path; do
-        if [ -n "$path" ]; then
-            echo "  - $path"
-        fi
-    done
-    echo ""
-    echo "This may cause conflicts. The new version will be installed to /usr/local/bin/declarch"
-    echo "After installation, you may want to remove old versions:"
-    echo "  sudo rm -f /usr/bin/declarch /usr/sbin/declarch /bin/declarch /sbin/declarch"
-    echo "  rm -f ~/.local/bin/declarch"
-    echo ""
+# Prefer /usr/local/bin when writable (or with sudo), otherwise fallback to user bin.
+INSTALL_DIR="/usr/local/bin"
+USE_SUDO=""
+if [ ! -w "${INSTALL_DIR}" ]; then
+  if command -v sudo >/dev/null 2>&1; then
+    USE_SUDO="sudo"
+  else
+    INSTALL_DIR="${HOME}/.local/bin"
+    mkdir -p "${INSTALL_DIR}"
+  fi
 fi
 
-echo "Installing to /usr/local/bin/..."
-sudo install -m 755 declarch /usr/local/bin/
+echo "Installing to ${INSTALL_DIR}..."
+${USE_SUDO} install -m 755 "${TMP_DIR}/declarch" "${INSTALL_DIR}/declarch"
 
-# Create short alias command (decl -> declarch) if possible.
-# Keep existing user-managed decl binary untouched.
-if [ -e /usr/local/bin/decl ] && [ ! -L /usr/local/bin/decl ]; then
-    echo "⚠️  Skipping alias creation: /usr/local/bin/decl already exists and is not a symlink."
+# Create short alias (decl -> declarch) if safe.
+if [ -e "${INSTALL_DIR}/decl" ] && [ ! -L "${INSTALL_DIR}/decl" ]; then
+  echo "Skipping alias: ${INSTALL_DIR}/decl exists and is not a symlink."
 else
-    sudo ln -sfn /usr/local/bin/declarch /usr/local/bin/decl
+  ${USE_SUDO} ln -sfn "${INSTALL_DIR}/declarch" "${INSTALL_DIR}/decl"
 fi
 
-INSTALLED_VERSION=$(/usr/local/bin/declarch --version)
-echo "✓ Installed $INSTALLED_VERSION to /usr/local/bin/declarch"
-if [ -x /usr/local/bin/decl ]; then
-    echo "✓ Alias installed: /usr/local/bin/decl -> /usr/local/bin/declarch"
+INSTALLED_VERSION="$("${INSTALL_DIR}/declarch" --version)"
+echo "Installed ${INSTALLED_VERSION} to ${INSTALL_DIR}/declarch"
+
+if ! command -v declarch >/dev/null 2>&1; then
+  echo "Note: '${INSTALL_DIR}' is not in PATH for this shell."
+  if [ "${INSTALL_DIR}" = "${HOME}/.local/bin" ]; then
+    echo "Add this line to your shell profile:"
+    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+  fi
 fi
 
-# Verify it's in PATH and accessible
-if ! command -v declarch &>/dev/null; then
-    echo "⚠️  Warning: /usr/local/bin is not in your PATH"
-    echo "Add it to your PATH or use: /usr/local/bin/declarch"
-fi
+# Lightweight smoke checks (safe on fresh machines, no config required).
+echo "Running smoke checks..."
+"${INSTALL_DIR}/declarch" --help >/dev/null
+"${INSTALL_DIR}/declarch" info >/dev/null || true
+echo "Smoke checks complete."
 
-# Cleanup downloaded files
-rm -f declarch decl dcl /tmp/declarch.tar.gz
-echo "✓ Cleanup complete"
+echo "Install complete."

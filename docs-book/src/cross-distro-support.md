@@ -43,9 +43,9 @@ declarch init --backend dnf,flatpak,npm,cargo
 ## Fallback examples
 
 - `nala -> apt`
-- `pnpm -> npm`
-- `yarn -> npm`
-- `bun -> npm`
+- `nala -> apt`
+- `paru -> pacman`
+- `yay -> pacman`
 - `aur -> pacman`
 
 Fallback keeps workflows usable when preferred binary is missing.

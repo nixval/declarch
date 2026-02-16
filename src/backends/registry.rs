@@ -28,6 +28,8 @@ use std::path::Path;
 
 /// Backend configuration type re-export
 pub use crate::backends::config::BackendConfig;
+type BackendSourceMap = HashMap<String, Vec<String>>;
+type BackendsWithSources = (Vec<BackendConfig>, BackendSourceMap);
 
 /// Tracks where each backend was loaded from for duplicate detection
 #[derive(Debug, Clone)]
@@ -167,8 +169,7 @@ pub fn load_backends_from_config() -> crate::error::Result<Vec<BackendConfig>> {
 }
 
 /// Load backends and source paths from declarch.kdl config (import-based architecture).
-pub fn load_backends_from_config_with_sources()
--> crate::error::Result<(Vec<BackendConfig>, HashMap<String, Vec<String>>)> {
+pub fn load_backends_from_config_with_sources() -> crate::error::Result<BackendsWithSources> {
     use crate::utils::paths;
 
     let config_path = paths::config_file()?;
@@ -178,8 +179,14 @@ pub fn load_backends_from_config_with_sources()
     }
 
     let config = crate::config::loader::load_root_config(&config_path)?;
-    let backend_sources = config
-        .backend_sources
+    let backend_sources = build_backend_source_map(config.backend_sources);
+    Ok((config.backends, backend_sources))
+}
+
+fn build_backend_source_map(
+    backend_sources: HashMap<String, Vec<std::path::PathBuf>>,
+) -> BackendSourceMap {
+    backend_sources
         .into_iter()
         .map(|(name, paths)| {
             (
@@ -190,8 +197,7 @@ pub fn load_backends_from_config_with_sources()
                     .collect::<Vec<_>>(),
             )
         })
-        .collect();
-    Ok((config.backends, backend_sources))
+        .collect()
 }
 
 /// Load all backends using the best available method

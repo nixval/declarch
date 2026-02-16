@@ -1,5 +1,6 @@
 use crate::config::kdl::{
-    ConflictEntry, LifecycleConfig, PolicyConfig, ProjectMetadata, parse_kdl_content_with_path,
+    ConflictEntry, LifecycleConfig, McpConfig, PolicyConfig, ProjectMetadata,
+    parse_kdl_content_with_path,
 };
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
@@ -108,6 +109,8 @@ pub struct MergedConfig {
     pub backend_sources: HashMap<String, Vec<PathBuf>>,
     /// Experimental feature flags merged from all config files
     pub experimental: HashSet<String>,
+    /// MCP policy merged from configs
+    pub mcp: Option<McpConfig>,
 }
 
 impl MergedConfig {
@@ -155,6 +158,22 @@ impl MergedConfig {
     /// Check whether an experimental feature flag is enabled.
     pub fn is_experimental_enabled(&self, flag: &str) -> bool {
         self.experimental.contains(flag)
+    }
+
+    /// Get MCP mode, defaulting to read-only when unset.
+    pub fn mcp_mode(&self) -> &str {
+        self.mcp
+            .as_ref()
+            .and_then(|m| m.mode.as_deref())
+            .unwrap_or("read-only")
+    }
+
+    /// Returns whether a write-capable MCP tool is explicitly allowed by config.
+    pub fn is_mcp_tool_allowed(&self, tool_name: &str) -> bool {
+        self.mcp
+            .as_ref()
+            .map(|m| m.allow_tools.iter().any(|t| t == tool_name))
+            .unwrap_or(false)
     }
 }
 
@@ -304,6 +323,19 @@ fn recursive_load(
 
     // Experimental flags: merge as a unique set
     merged.experimental.extend(raw.experimental);
+
+    // MCP policy: mode is last one wins, allow_tools is merged unique.
+    if raw.mcp.mode.is_some() || !raw.mcp.allow_tools.is_empty() {
+        let mcp = merged.mcp.get_or_insert_with(McpConfig::default);
+        if let Some(mode) = raw.mcp.mode {
+            mcp.mode = Some(mode);
+        }
+        for tool in raw.mcp.allow_tools {
+            if !mcp.allow_tools.iter().any(|t| t == &tool) {
+                mcp.allow_tools.push(tool);
+            }
+        }
+    }
 
     // Process backend imports (NEW: explicit backend loading)
     let parent_dir = canonical_path.parent().ok_or_else(|| {

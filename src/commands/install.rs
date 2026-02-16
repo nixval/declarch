@@ -9,6 +9,7 @@ use crate::error::{DeclarchError, Result};
 use crate::packages::get_registry;
 use crate::ui as output;
 use crate::utils::paths;
+use crate::utils::sanitize::validate_package_name;
 use regex::Regex;
 use std::fs;
 
@@ -26,6 +27,7 @@ fn plan_installs(
 
     for raw in raw_packages {
         let (backend_override, pkg_name) = editor::parse_package_string(raw)?;
+        validate_package_name(&pkg_name)?;
         let backend = backend_override
             .or_else(|| backend_flag.cloned())
             .ok_or_else(|| {
@@ -59,15 +61,45 @@ pub struct InstallOptions {
     pub yes: bool,
     /// Preview changes without executing
     pub dry_run: bool,
+    /// Verbose output
+    pub verbose: bool,
 }
 
 /// Run the install command
 pub fn run(options: InstallOptions) -> Result<()> {
+    let planned_installs = plan_installs(&options.packages, options.backend.as_ref())?;
+
     if options.dry_run {
-        println!("Would add packages:");
-        for pkg in &options.packages {
-            println!("  {}", pkg);
+        output::header("Dry Run: Install");
+        output::keyval("Packages", &planned_installs.len().to_string());
+        output::keyval(
+            "Target module",
+            options
+                .module
+                .as_deref()
+                .unwrap_or("modules/others.kdl (default)"),
+        );
+        output::keyval(
+            "Auto sync",
+            if options.no_sync {
+                "disabled"
+            } else {
+                "enabled"
+            },
+        );
+
+        for planned in &planned_installs {
+            output::indent(&format!("+ {}:{}", planned.backend, planned.package), 1);
         }
+
+        if options.verbose {
+            output::separator();
+            output::info("Resolution details:");
+            for raw in &options.packages {
+                output::indent(&format!("input: {}", raw), 1);
+            }
+        }
+
         return Ok(());
     }
 
@@ -79,7 +111,12 @@ pub fn run(options: InstallOptions) -> Result<()> {
     } else {
         None
     };
-    let planned_installs = plan_installs(&options.packages, options.backend.as_ref())?;
+    if options.verbose {
+        output::info(&format!(
+            "Install planning resolved {} package(s)",
+            planned_installs.len()
+        ));
+    }
 
     // Step 2: Initialize config editor
     let editor = ConfigEditor::new();
@@ -243,7 +280,6 @@ pub fn run(options: InstallOptions) -> Result<()> {
         let sync_result = sync::run(SyncOptions {
             update: false,
             prune: false,
-            gc: false,
             dry_run: false,
             target: None,
             yes: options.yes,
@@ -254,6 +290,8 @@ pub fn run(options: InstallOptions) -> Result<()> {
             host: None,
             modules: modified_modules.clone(),
             diff: false,
+            format: None,
+            output_version: None,
         });
 
         match sync_result {
@@ -394,6 +432,13 @@ mod tests {
         let raw = vec!["bat".to_string()];
         let err = plan_installs(&raw, None).expect_err("planning should fail without backend");
         assert!(err.to_string().contains("has no backend"));
+    }
+
+    #[test]
+    fn plan_installs_rejects_unsafe_package_name() {
+        let raw = vec!["aur:bat;rm".to_string()];
+        let err = plan_installs(&raw, None).expect_err("unsafe package should fail");
+        assert!(err.to_string().to_lowercase().contains("unsafe"));
     }
 
     #[test]

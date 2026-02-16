@@ -6,7 +6,7 @@
 // Re-export types from kdl_modules for backward compatibility
 pub use crate::config::kdl_modules::types::{
     ActionCondition, ActionType, ConflictEntry, ErrorBehavior, LifecycleAction, LifecycleConfig,
-    LifecyclePhase, PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
+    LifecyclePhase, McpConfig, PackageEntry, PolicyConfig, ProjectMetadata, RawConfig,
 };
 
 // Re-export BackendParser trait (now in registry for backward compatibility)

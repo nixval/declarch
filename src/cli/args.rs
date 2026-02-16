@@ -14,6 +14,7 @@ Commands:
 
 Options:
 {options}
+{after-help}
 ",
     term_width = 100,
     max_term_width = 120
@@ -51,6 +52,10 @@ pub struct GlobalFlags {
     /// Output format (table, json, yaml)
     #[arg(long, value_name = "FORMAT", global = true)]
     pub format: Option<String>,
+
+    /// Machine output contract version (placeholder, e.g. v1)
+    #[arg(long, value_name = "VERSION", global = true)]
+    pub output_version: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -126,16 +131,47 @@ pub enum Command {
 
     /// Synchronize system state with configuration
     ///
-    /// Main command for managing packages. Subcommands provide additional
-    /// functionality like previewing changes, updating package indices,
+    /// Main command for managing packages. Use global `--dry-run` for preview mode.
+    /// Subcommands provide additional functionality like updating package indices,
     /// upgrading packages, and cleaning caches.
+    #[command(after_help = "Most common flow:
+  declarch --dry-run sync
+  declarch sync
+
+Other useful commands:
+  declarch sync update
+  declarch sync prune")]
     Sync {
+        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
+        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
+        target: Option<String>,
+
+        /// Show diff before syncing (like git diff)
+        #[arg(long, help_heading = "Advanced")]
+        diff: bool,
+
+        /// Skip package manager confirmation prompts (CI/CD)
+        #[arg(long, help_heading = "Advanced")]
+        noconfirm: bool,
+
+        /// Enable hooks (disabled by default for security)
+        #[arg(long, help_heading = "Advanced")]
+        hooks: bool,
+
+        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        profile: Option<String>,
+
+        /// Activate optional host block from config (e.g. host "vps-1" { ... })
+        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
+        host: Option<String>,
+
+        /// Load additional modules temporarily
+        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
+        modules: Vec<String>,
+
         #[command(subcommand)]
         command: Option<SyncCommand>,
-
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
     },
 
     /// Show status, diagnosis, and package reasoning
@@ -156,13 +192,9 @@ pub enum Command {
         #[arg(long)]
         list: bool,
 
-        /// With --list: show orphan packages only
-        #[arg(long)]
-        orphans: bool,
-
-        /// With --list: show synced packages only
-        #[arg(long)]
-        synced: bool,
+        /// With --list: select list scope (all, orphans, synced)
+        #[arg(long, value_enum, requires = "list")]
+        scope: Option<InfoListScope>,
 
         /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
@@ -198,10 +230,6 @@ pub enum Command {
         /// Backend (e.g., system package manager, container runtime, language tool)
         #[arg(long, value_name = "BACKEND")]
         backend: Option<String>,
-
-        /// Dry run - show what would happen
-        #[arg(long)]
-        dry_run: bool,
     },
 
     /// Edit configuration files
@@ -241,18 +269,20 @@ pub enum Command {
     ///
     /// Adds packages to KDL configuration files and automatically syncs the system.
     ///
-    /// Examples:
-    ///   declarch install hyprland              Add to modules/others.kdl
-    ///   declarch install vim nano emacs        Add multiple packages
-    ///   declarch install soar:bat              Add to backend-specific block
-    ///   declarch install package --modules base    Add to specific module
+    /// Common examples:
+    /// - declarch install aur:hyprland
+    /// - declarch install aur:vim aur:nano aur:emacs
+    /// - declarch install soar:bat
+    /// - declarch install bat fzf ripgrep --backend aur
+    /// - declarch install npm:typescript --module development
+    #[command(verbatim_doc_comment)]
     Install {
         /// Package(s) to install (format: [backend:]package)
         ///
         /// Examples:
-        ///   hyprland                     Package without backend (uses default)
-        ///   backend:package              Package with backend override
-        ///   backend:name                 Package with specific backend
+        /// - hyprland
+        /// - backend:package
+        /// - backend:name
         #[arg(required = true, num_args = 1.., value_name = "PACKAGES")]
         packages: Vec<String>,
 
@@ -304,6 +334,9 @@ pub enum Command {
         limit: Option<String>,
 
         /// Show only installed packages
+        ///
+        /// Uses declarch state tracking (managed/adopted entries),
+        /// not raw OS-wide installed package inventory.
         #[arg(long, help_heading = "Filtering")]
         installed_only: bool,
 
@@ -311,7 +344,10 @@ pub enum Command {
         #[arg(long, help_heading = "Filtering")]
         available_only: bool,
 
-        /// Search only in locally installed packages (uses search_local_cmd)
+        /// Search only in locally installed packages (OS/backend installed set)
+        ///
+        /// Uses backend local-search command when available, otherwise falls back
+        /// to installed-list filtering for compatible backends.
         #[arg(long, help_heading = "Filtering")]
         local: bool,
     },
@@ -346,6 +382,23 @@ pub enum Command {
         #[arg(long, help_heading = "Advanced")]
         repair_state: bool,
 
+        /// Remove tracked state entries by package id (backend:name) or plain name
+        #[arg(
+            long,
+            value_name = "IDS",
+            value_delimiter = ',',
+            help_heading = "Advanced"
+        )]
+        state_rm: Vec<String>,
+
+        /// Backend filter for --state-rm plain names, or for backend-wide cleanup with --state-rm-all
+        #[arg(long, value_name = "BACKEND", help_heading = "Advanced")]
+        state_rm_backend: Option<String>,
+
+        /// Remove all state entries for --state-rm-backend (state only, no uninstall)
+        #[arg(long, requires = "state_rm_backend", help_heading = "Advanced")]
+        state_rm_all: bool,
+
         /// Activate optional profile block (profile \"NAME\" { ... })
         #[arg(long, value_name = "NAME", help_heading = "Targeting")]
         profile: Option<String>,
@@ -366,6 +419,10 @@ pub enum Command {
         #[arg(value_enum)]
         shell: Shell,
     },
+
+    /// Extension protocol placeholder (hidden)
+    #[command(hide = true)]
+    Ext,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -376,87 +433,77 @@ pub enum LintMode {
     Conflicts,
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum InfoListScope {
+    All,
+    Orphans,
+    Synced,
+    Unmanaged,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::{CommandFactory, Parser};
+
+    #[test]
+    fn parser_rejects_removed_sync_preview_subcommand() {
+        let parsed = Cli::try_parse_from(["declarch", "sync", "preview"]);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn parser_rejects_removed_sync_sync_subcommand() {
+        let parsed = Cli::try_parse_from(["declarch", "sync", "sync"]);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn parser_allows_switch_with_global_dry_run() {
+        let parsed = Cli::try_parse_from(["declarch", "switch", "old", "new", "--dry-run"])
+            .expect("switch with global --dry-run should parse");
+        assert!(parsed.global.dry_run);
+    }
+
+    #[test]
+    fn help_sync_no_longer_shows_removed_preview_or_gc() {
+        let mut cmd = Cli::command();
+        let sync = cmd
+            .find_subcommand_mut("sync")
+            .expect("sync subcommand exists");
+        let mut out = Vec::new();
+        sync.write_long_help(&mut out)
+            .expect("can render sync help");
+        let help = String::from_utf8(out).expect("help is valid utf8");
+        assert!(!help.contains("sync preview"));
+        assert!(!help.contains("--gc"));
+        assert!(help.contains("update"));
+        assert!(help.contains("prune"));
+    }
+
+    #[test]
+    fn help_info_uses_scope_not_legacy_list_flags() {
+        let mut cmd = Cli::command();
+        let info = cmd
+            .find_subcommand_mut("info")
+            .expect("info subcommand exists");
+        let mut out = Vec::new();
+        info.write_long_help(&mut out)
+            .expect("can render info help");
+        let help = String::from_utf8(out).expect("help is valid utf8");
+        assert!(help.contains("--scope"));
+        assert!(help.contains("unmanaged"));
+        assert!(!help.contains("--orphans"));
+        assert!(!help.contains("--synced"));
+    }
+}
+
 #[derive(Subcommand, Debug, Clone)]
 pub enum SyncCommand {
-    /// Full sync (default)
-    ///
-    /// Synchronizes packages without updating the system or removing packages.
-    /// Use `update` to run system updates, or `prune` to remove undefined packages.
-    Sync {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
-        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
-        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
-        target: Option<String>,
-
-        /// Show diff before syncing (like git diff)
-        #[arg(long, help_heading = "Advanced")]
-        diff: bool,
-
-        /// Skip package manager confirmation prompts (CI/CD)
-        #[arg(long, help_heading = "Advanced")]
-        noconfirm: bool,
-
-        /// Enable hooks (disabled by default for security)
-        #[arg(long, help_heading = "Advanced")]
-        hooks: bool,
-
-        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        profile: Option<String>,
-
-        /// Activate optional host block from config (e.g. host "vps-1" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        host: Option<String>,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
-    },
-
-    /// Preview changes without executing
-    ///
-    /// Shows what would be installed, updated, or removed without making changes.
-    Preview {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
-        /// Sync only specific package or scope (e.g. "firefox", "backend-name")
-        #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
-        target: Option<String>,
-
-        /// Skip package manager confirmation prompts (CI/CD)
-        #[arg(long, help_heading = "Advanced")]
-        noconfirm: bool,
-
-        /// Enable hooks (disabled by default for security)
-        #[arg(long, help_heading = "Advanced")]
-        hooks: bool,
-
-        /// Activate optional profile block from config (e.g. profile "desktop" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        profile: Option<String>,
-
-        /// Activate optional host block from config (e.g. host "vps-1" { ... })
-        #[arg(long, value_name = "NAME", help_heading = "Targeting")]
-        host: Option<String>,
-
-        /// Load additional modules temporarily
-        #[arg(long, value_name = "MODULES", help_heading = "Advanced")]
-        modules: Vec<String>,
-    },
-
     /// Sync with system update
     ///
     /// Runs system package manager update before syncing packages.
     Update {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
@@ -490,10 +537,6 @@ pub enum SyncCommand {
     ///
     /// Removes packages that are not defined in your configuration (Strict Mode).
     Prune {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,

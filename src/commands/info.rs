@@ -6,6 +6,7 @@ use crate::error::Result;
 use crate::packages::traits::PackageManager;
 use crate::state;
 use crate::ui as output;
+use crate::utils::machine_output;
 use crate::utils::paths;
 use colored::Colorize;
 use std::collections::HashMap;
@@ -21,18 +22,15 @@ const CONTINUATION_INDENT: &str = "     ";
 pub struct InfoOptions {
     pub doctor: bool,
     pub format: Option<String>,
+    pub output_version: Option<String>,
     pub backend: Option<String>,
     pub package: Option<String>,
     pub verbose: bool,
 }
 
 pub fn run(options: InfoOptions) -> Result<()> {
-    if options.verbose {
-        output::info("Verbose mode enabled");
-    }
-
     if options.doctor {
-        return run_doctor();
+        return run_doctor(options.verbose);
     }
 
     run_info(&options)
@@ -70,10 +68,25 @@ fn run_info(options: &InfoOptions) -> Result<()> {
         };
 
     let format_str = options.format.as_deref().unwrap_or("table");
+    if options.verbose && !matches!(format_str, "json" | "yaml") {
+        output::header("Info Context");
+        output::keyval(
+            "Backend filter",
+            options.backend.as_deref().unwrap_or("(none)"),
+        );
+        output::keyval(
+            "Package filter",
+            options.package.as_deref().unwrap_or("(none)"),
+        );
+        output::keyval(
+            "State file",
+            &state::io::get_state_path()?.display().to_string(),
+        );
+    }
 
     match format_str {
-        "json" => output_json_filtered(&filtered_packages),
-        "yaml" => output_yaml_filtered(&filtered_packages),
+        "json" => output_json_filtered(&filtered_packages, options.output_version.as_deref()),
+        "yaml" => output_yaml_filtered(&filtered_packages, options.output_version.as_deref()),
         _ => output_table_filtered(&state, &filtered_packages),
     }
 }
@@ -121,9 +134,14 @@ fn output_table_filtered(
 
 fn output_json_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
+    output_version: Option<&str>,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
+
+    if output_version == Some("v1") {
+        return machine_output::emit_v1("info", &packages, Vec::new(), Vec::new(), "json");
+    }
 
     let json = serde_json::to_string_pretty(&packages)?;
     println!("{}", json);
@@ -132,9 +150,14 @@ fn output_json_filtered(
 
 fn output_yaml_filtered(
     filtered_packages: &[(&String, &state::types::PackageState)],
+    output_version: Option<&str>,
 ) -> Result<()> {
     let packages: Vec<&state::types::PackageState> =
         filtered_packages.iter().map(|(_, pkg)| *pkg).collect();
+
+    if output_version == Some("v1") {
+        return machine_output::emit_v1("info", &packages, Vec::new(), Vec::new(), "yaml");
+    }
 
     let json_value = serde_json::to_value(&packages)?;
     let yaml = serde_yml::to_string(&json_value)?;
@@ -157,15 +180,46 @@ fn count_backends_filtered(
     counts
 }
 
-fn run_doctor() -> Result<()> {
+fn run_doctor(verbose: bool) -> Result<()> {
     output::header("System Diagnosis");
     let mut all_ok = true;
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    output::info(&format!("OS/Arch: {}/{}", os, arch));
+    if verbose {
+        output::info("Runtime paths");
+        output::indent(
+            &format!("• Config dir: {}", paths::config_dir()?.display()),
+            2,
+        );
+        output::indent(
+            &format!("• Config file: {}", paths::config_file()?.display()),
+            2,
+        );
+        output::indent(
+            &format!("• State file: {}", state::io::get_state_path()?.display()),
+            2,
+        );
+    } else {
+        output::info("Tip: run with --verbose to show runtime paths.");
+    }
+    if os == "macos" || os == "windows" {
+        output::warning(
+            "This OS path is experimental (alpha). Core workflow should work, but expect rough edges.",
+        );
+    }
+    output::separator();
 
     // Check 1: Config file
     output::info("Checking configuration file...");
     let config_path = paths::config_file()?;
     if config_path.exists() {
-        output::success(&format!("Config found: {}", config_path.display()));
+        if verbose {
+            output::success(&format!("Config found: {}", config_path.display()));
+        } else {
+            output::success("Config found");
+        }
 
         match loader::load_root_config(&config_path) {
             Ok(config) => {
@@ -180,7 +234,11 @@ fn run_doctor() -> Result<()> {
             }
         }
     } else {
-        output::warning(&format!("Config not found: {}", config_path.display()));
+        if verbose {
+            output::warning(&format!("Config not found: {}", config_path.display()));
+        } else {
+            output::warning("Config not found");
+        }
         output::info("Run 'declarch init' to create a configuration");
         all_ok = false;
     }
@@ -189,7 +247,11 @@ fn run_doctor() -> Result<()> {
     output::info("Checking state file...");
     let state_path = state::io::get_state_path()?;
     if state_path.exists() {
-        output::success(&format!("State found: {}", state_path.display()));
+        if verbose {
+            output::success(&format!("State found: {}", state_path.display()));
+        } else {
+            output::success("State found");
+        }
 
         match state::io::load_state() {
             Ok(state) => {
@@ -222,8 +284,8 @@ fn run_doctor() -> Result<()> {
                             "Found {} orphan packages (not in config)",
                             orphan_count
                         ));
-                        output::info("Run 'declarch info --list --orphans' to see them");
-                        output::info("Run 'declarch sync --prune' to remove orphans");
+                        output::info("Run 'declarch info --list --scope orphans' to see them");
+                        output::info("Run 'declarch sync prune' to remove orphans");
                     } else {
                         output::success("No orphan packages found");
                     }
@@ -241,7 +303,7 @@ fn run_doctor() -> Result<()> {
 
     // Check 3: Backend availability (dynamic)
     output::info("Checking backends...");
-    let available_backends = check_backends_dynamically()?;
+    let available_backends = check_backends_dynamically(verbose)?;
 
     // Check 4: State consistency
     output::info("Checking state consistency...");
@@ -275,8 +337,10 @@ fn run_doctor() -> Result<()> {
     if all_ok {
         output::success("All checks passed!");
         output::info(&format!("Available backends: {}", available_backends.len()));
-        for backend in &available_backends {
-            output::indent(&format!("• {}", backend), 2);
+        if verbose {
+            for backend in &available_backends {
+                output::indent(&format!("• {}", backend), 2);
+            }
         }
     } else {
         output::warning("Some issues found - see details above");
@@ -286,7 +350,7 @@ fn run_doctor() -> Result<()> {
 }
 
 /// Check backends dynamically from config
-fn check_backends_dynamically() -> Result<Vec<String>> {
+fn check_backends_dynamically(verbose: bool) -> Result<Vec<String>> {
     let mut available = Vec::new();
     let runtime_config = load_runtime_config_for_command("doctor backend checks");
 
@@ -297,7 +361,9 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
                 apply_runtime_backend_overrides(&mut config, &name, &runtime_config);
 
                 if !crate::utils::platform::backend_supports_current_os(&config) {
-                    output::info(&format!("{}: Skipped (not for this OS)", name));
+                    if verbose {
+                        output::info(&format!("{}: Skipped (not for this OS)", name));
+                    }
                     continue;
                 }
 
@@ -308,7 +374,9 @@ fn check_backends_dynamically() -> Result<Vec<String>> {
                 );
 
                 if manager.is_available() {
-                    output::success(&format!("{}: Available", name));
+                    if verbose {
+                        output::success(&format!("{}: Available", name));
+                    }
                     available.push(name);
                 } else {
                     output::warning(&format!("{}: Backend binary not found", name));

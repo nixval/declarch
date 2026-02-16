@@ -68,9 +68,9 @@ host "vps-1" {
 Activate them explicitly from CLI:
 
 ```bash
-declarch sync sync --profile desktop
-declarch sync sync --host vps-1
-declarch sync sync --profile desktop --host vps-1
+declarch sync --profile desktop
+declarch sync --host vps-1
+declarch sync --profile desktop --host vps-1
 ```
 
 Need full syntax details? Use [Syntax Reference (Advanced)](./syntax.md).

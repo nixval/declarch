@@ -1,19 +1,16 @@
 //! Command dispatcher
 //!
-//! Routes CLI commands to their appropriate handlers and manages
-//! deprecated flag handling.
+//! Routes CLI commands to their appropriate handlers.
 
-use crate::cli::args::{Cli, Command, LintMode, SyncCommand};
+use crate::cli::args::{Cli, Command, InfoListScope, LintMode, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 
-use super::deprecated::{
-    handle_deprecated_sync_flags, show_deprecation_warning, sync_command_to_options,
-};
-
 /// Dispatch the parsed CLI command to the appropriate handler
 pub fn dispatch(args: &Cli) -> Result<()> {
+    validate_machine_output_contract(args)?;
+
     match &args.command {
         Some(Command::Init {
             host,
@@ -23,170 +20,54 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             local,
             restore_backends,
             restore_declarch,
-        }) => {
-            // Handle --list flag first
-            if let Some(what) = list {
-                if what == "backends" {
-                    return commands::init::list_available_backends();
-                } else if what == "modules" {
-                    return commands::init::list_available_modules();
-                } else {
-                    return Err(DeclarchError::Other(format!(
-                        "Unknown list target: '{}'. Available: backends, modules",
-                        what
-                    )));
-                }
-            }
+        }) => handle_init_command(
+            args,
+            host,
+            path,
+            backend,
+            list,
+            *local,
+            *restore_backends,
+            *restore_declarch,
+        ),
 
-            // Handle restore flags
-            if *restore_backends {
-                return commands::init::restore_backends();
-            }
-            if *restore_declarch {
-                return commands::init::restore_declarch(host.clone());
-            }
-
-            commands::init::run(commands::init::InitOptions {
-                host: host.clone(),
-                path: path.clone(),
-                backends: backend.clone(),
-                force: args.global.force,
-                yes: args.global.yes,
-                local: *local,
-            })
-        }
-
-        Some(Command::Sync { command, gc }) => {
-            match command {
-                Some(SyncCommand::Cache { backend }) => {
-                    commands::cache::run(commands::cache::CacheOptions {
-                        backends: if backend.is_empty() {
-                            None
-                        } else {
-                            Some(backend.clone())
-                        },
-                        verbose: args.global.verbose,
-                    })
-                }
-                Some(SyncCommand::Upgrade { backend, no_sync }) => {
-                    commands::upgrade::run(commands::upgrade::UpgradeOptions {
-                        backends: if backend.is_empty() {
-                            None
-                        } else {
-                            Some(backend.clone())
-                        },
-                        no_sync: *no_sync,
-                        verbose: args.global.verbose,
-                    })
-                }
-                _ => {
-                    // Handle other sync subcommands (Sync, Preview, Update, Prune)
-                    let (has_deprecated_flags, deprecated_command, new_cmd_str) =
-                        handle_deprecated_sync_flags(false, false, false, *gc);
-
-                    // Use the command from subcommand if provided, otherwise use deprecated flags
-                    let sync_cmd = command
-                        .clone()
-                        .unwrap_or_else(|| deprecated_command.clone());
-
-                    // Show deprecation warning if old flags were used
-                    if has_deprecated_flags {
-                        show_deprecation_warning(new_cmd_str);
-                    }
-
-                    // Convert and execute
-                    let options =
-                        sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
-                    commands::sync::run(options)
-                }
-            }
-        }
+        Some(Command::Sync {
+            target,
+            diff,
+            noconfirm,
+            hooks,
+            profile,
+            host,
+            modules,
+            command,
+        }) => handle_sync_command(
+            args, target, *diff, *noconfirm, *hooks, profile, host, modules, command,
+        ),
 
         Some(Command::Info {
             query,
             doctor,
             plan,
             list,
-            orphans,
-            synced,
+            scope,
             backend,
             package,
             profile,
             host,
             modules,
-        }) => {
-            let mut mode_count = 0u8;
-            if *doctor {
-                mode_count += 1;
-            }
-            if *plan {
-                mode_count += 1;
-            }
-            if query.is_some() {
-                mode_count += 1;
-            }
-            if *list || *orphans || *synced {
-                mode_count += 1;
-            }
-            if mode_count > 1 {
-                return Err(DeclarchError::Other(
-                    "Use only one info mode at a time: status, query, --plan, --doctor, or --list/--orphans/--synced".to_string(),
-                ));
-            }
-
-            if *doctor {
-                return commands::info::run(commands::info::InfoOptions {
-                    doctor: true,
-                    format: args.global.format.clone(),
-                    backend: backend.clone(),
-                    package: package.clone(),
-                    verbose: args.global.verbose,
-                });
-            }
-
-            if *list || *orphans || *synced {
-                return commands::list::run(commands::list::ListOptions {
-                    backend: backend.clone(),
-                    orphans: *orphans,
-                    synced: *synced,
-                    format: args.global.format.clone(),
-                });
-            }
-
-            if *plan || query.is_some() {
-                return commands::info_reason::run(commands::info_reason::InfoReasonOptions {
-                    query: if *plan { None } else { query.clone() },
-                    target: if *plan {
-                        Some("sync-plan".to_string())
-                    } else {
-                        None
-                    },
-                    profile: profile.clone(),
-                    host: host.clone(),
-                    modules: modules.clone(),
-                    verbose: args.global.verbose,
-                });
-            }
-
-            commands::info::run(commands::info::InfoOptions {
-                doctor: false,
-                format: args.global.format.clone(),
-                backend: backend.clone(),
-                package: package.clone(),
-                verbose: args.global.verbose,
-            })
-        }
+        }) => handle_info_command(
+            args, query, *doctor, *plan, *list, scope, backend, package, profile, host, modules,
+        ),
 
         Some(Command::Switch {
             old_package,
             new_package,
             backend,
-            dry_run,
         }) => commands::switch::run(commands::switch::SwitchOptions {
             old_package: old_package.clone(),
             new_package: new_package.clone(),
             backend: backend.clone(),
-            dry_run: *dry_run,
+            dry_run: args.global.dry_run,
             yes: args.global.yes,
             force: args.global.force,
         }),
@@ -222,6 +103,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             no_sync: *no_sync,
             yes: args.global.yes,
             dry_run: args.global.dry_run,
+            verbose: args.global.verbose,
         }),
 
         Some(Command::Search {
@@ -231,31 +113,15 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             installed_only,
             available_only,
             local,
-        }) => {
-            // Parse limit option: "all" or "0" means unlimited, otherwise parse as number
-            let parsed_limit = if let Some(limit_str) = limit {
-                if limit_str == "all" || limit_str == "0" {
-                    None // Unlimited
-                } else {
-                    Some(limit_str.parse::<usize>().unwrap_or(10))
-                }
-            } else {
-                Some(10) // Default 10
-            };
-
-            commands::search::run(commands::search::SearchOptions {
-                query: query.clone(),
-                backends: if backends.is_empty() {
-                    None
-                } else {
-                    Some(backends.clone())
-                },
-                limit: parsed_limit,
-                installed_only: *installed_only,
-                available_only: *available_only,
-                local: *local,
-            })
-        }
+        }) => handle_search_command(
+            args,
+            query,
+            backends,
+            limit.as_deref(),
+            *installed_only,
+            *available_only,
+            *local,
+        ),
         Some(Command::Lint {
             strict,
             fix,
@@ -264,33 +130,526 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             diff,
             benchmark,
             repair_state,
+            state_rm,
+            state_rm_backend,
+            state_rm_all,
             profile,
             host,
             modules,
-        }) => commands::lint::run(commands::lint::LintOptions {
-            strict: *strict,
-            fix: *fix,
-            mode: match mode {
-                LintMode::All => commands::lint::LintMode::All,
-                LintMode::Validate => commands::lint::LintMode::Validate,
-                LintMode::Duplicates => commands::lint::LintMode::Duplicates,
-                LintMode::Conflicts => commands::lint::LintMode::Conflicts,
-            },
-            backend: backend.clone(),
-            diff: *diff,
-            benchmark: *benchmark,
-            repair_state: *repair_state,
-            verbose: args.global.verbose,
+        }) => handle_lint_command(
+            args,
+            *strict,
+            *fix,
+            mode,
+            backend,
+            *diff,
+            *benchmark,
+            *repair_state,
+            state_rm,
+            state_rm_backend,
+            *state_rm_all,
+            profile,
+            host,
+            modules,
+        ),
+
+        Some(Command::Completions { shell }) => commands::completions::run(*shell),
+        Some(Command::Ext) => commands::ext::run(),
+
+        None => {
+            output::info("No command provided.");
+            output::info("Quick start:");
+            output::indent("- declarch init", 2);
+            output::indent("- declarch edit  // write package you want OR directly", 2);
+            output::indent("- declarch install flatpak:anypackage", 2);
+            output::indent("- declarch sync", 2);
+            output::info("Use `declarch --help` for full command list.");
+            Ok(())
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_init_command(
+    args: &Cli,
+    host: &Option<String>,
+    path: &Option<String>,
+    backend: &[String],
+    list: &Option<String>,
+    local: bool,
+    restore_backends: bool,
+    restore_declarch: bool,
+) -> Result<()> {
+    if let Some(what) = list {
+        return match what.as_str() {
+            "backends" => commands::init::list_available_backends(),
+            "modules" => commands::init::list_available_modules(),
+            _ => Err(DeclarchError::Other(format!(
+                "Unknown init list target '{}'. Use `declarch init --list backends` or `declarch init --list modules`.",
+                what,
+            ))),
+        };
+    }
+
+    if restore_backends {
+        return commands::init::restore_backends();
+    }
+    if restore_declarch {
+        return commands::init::restore_declarch(host.clone());
+    }
+
+    commands::init::run(commands::init::InitOptions {
+        host: host.clone(),
+        path: path.clone(),
+        backends: backend.to_vec(),
+        force: args.global.force,
+        yes: args.global.yes,
+        local,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_sync_command(
+    args: &Cli,
+    target: &Option<String>,
+    diff: bool,
+    noconfirm: bool,
+    hooks: bool,
+    profile: &Option<String>,
+    host: &Option<String>,
+    modules: &[String],
+    command: &Option<SyncCommand>,
+) -> Result<()> {
+    match command {
+        Some(SyncCommand::Cache { backend }) => {
+            commands::cache::run(commands::cache::CacheOptions {
+                backends: list_to_optional_vec(backend),
+                verbose: args.global.verbose,
+            })
+        }
+        Some(SyncCommand::Upgrade { backend, no_sync }) => {
+            commands::upgrade::run(commands::upgrade::UpgradeOptions {
+                backends: list_to_optional_vec(backend),
+                no_sync: *no_sync,
+                verbose: args.global.verbose,
+            })
+        }
+        Some(SyncCommand::Update {
+            target,
+            diff,
+            noconfirm,
+            hooks,
+            profile,
+            host,
+            modules,
+        }) => commands::sync::run(commands::sync::SyncOptions {
+            dry_run: args.global.dry_run,
+            prune: false,
+            update: true,
+            yes: args.global.yes,
+            force: args.global.force,
+            target: target.clone(),
+            noconfirm: *noconfirm,
+            hooks: *hooks,
             profile: profile.clone(),
             host: host.clone(),
             modules: modules.clone(),
+            diff: *diff,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
         }),
+        Some(SyncCommand::Prune {
+            target,
+            diff,
+            noconfirm,
+            hooks,
+            profile,
+            host,
+            modules,
+        }) => commands::sync::run(commands::sync::SyncOptions {
+            dry_run: args.global.dry_run,
+            prune: true,
+            update: false,
+            yes: args.global.yes,
+            force: args.global.force,
+            target: target.clone(),
+            noconfirm: *noconfirm,
+            hooks: *hooks,
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.clone(),
+            diff: *diff,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        }),
+        _ => commands::sync::run(commands::sync::SyncOptions {
+            dry_run: args.global.dry_run,
+            prune: false,
+            update: false,
+            yes: args.global.yes,
+            force: args.global.force,
+            target: target.clone(),
+            noconfirm,
+            hooks,
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.to_vec(),
+            diff,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        }),
+    }
+}
 
-        Some(Command::Completions { shell }) => commands::completions::run(*shell),
+#[allow(clippy::too_many_arguments)]
+fn handle_info_command(
+    args: &Cli,
+    query: &Option<String>,
+    doctor: bool,
+    plan: bool,
+    list: bool,
+    scope: &Option<InfoListScope>,
+    backend: &Option<String>,
+    package: &Option<String>,
+    profile: &Option<String>,
+    host: &Option<String>,
+    modules: &[String],
+) -> Result<()> {
+    let mut mode_count = 0u8;
+    if doctor {
+        mode_count += 1;
+    }
+    if plan {
+        mode_count += 1;
+    }
+    if query.is_some() {
+        mode_count += 1;
+    }
+    if list || scope.is_some() {
+        mode_count += 1;
+    }
+    if mode_count > 1 {
+        return Err(DeclarchError::Other(
+            "Use only one info mode at a time: status, query, --plan, --doctor, or --list [--scope ...]".to_string(),
+        ));
+    }
 
-        None => {
-            output::info("No command provided. Use --help.");
-            Ok(())
+    if doctor {
+        return commands::info::run(commands::info::InfoOptions {
+            doctor: true,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+            backend: backend.clone(),
+            package: package.clone(),
+            verbose: args.global.verbose,
+        });
+    }
+
+    if list || scope.is_some() {
+        let (orphans, synced, unmanaged) = match scope {
+            Some(InfoListScope::Orphans) => (true, false, false),
+            Some(InfoListScope::Synced) => (false, true, false),
+            Some(InfoListScope::Unmanaged) => (false, false, true),
+            _ => (false, false, false),
+        };
+        return commands::list::run(commands::list::ListOptions {
+            backend: backend.clone(),
+            orphans,
+            synced,
+            unmanaged,
+            format: args.global.format.clone(),
+            output_version: args.global.output_version.clone(),
+        });
+    }
+
+    if plan || query.is_some() {
+        return commands::info_reason::run(commands::info_reason::InfoReasonOptions {
+            query: if plan { None } else { query.clone() },
+            target: if plan {
+                Some("sync-plan".to_string())
+            } else {
+                None
+            },
+            profile: profile.clone(),
+            host: host.clone(),
+            modules: modules.to_vec(),
+            verbose: args.global.verbose,
+        });
+    }
+
+    commands::info::run(commands::info::InfoOptions {
+        doctor: false,
+        format: args.global.format.clone(),
+        output_version: args.global.output_version.clone(),
+        backend: backend.clone(),
+        package: package.clone(),
+        verbose: args.global.verbose,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_search_command(
+    args: &Cli,
+    query: &str,
+    backends: &[String],
+    limit: Option<&str>,
+    installed_only: bool,
+    available_only: bool,
+    local: bool,
+) -> Result<()> {
+    let parsed_limit = parse_limit_option(limit)?;
+
+    commands::search::run(commands::search::SearchOptions {
+        query: query.to_string(),
+        backends: list_to_optional_vec(backends),
+        limit: parsed_limit,
+        installed_only,
+        available_only,
+        local,
+        verbose: args.global.verbose,
+        format: args.global.format.clone(),
+        output_version: args.global.output_version.clone(),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_lint_command(
+    args: &Cli,
+    strict: bool,
+    fix: bool,
+    mode: &LintMode,
+    backend: &Option<String>,
+    diff: bool,
+    benchmark: bool,
+    repair_state: bool,
+    state_rm: &[String],
+    state_rm_backend: &Option<String>,
+    state_rm_all: bool,
+    profile: &Option<String>,
+    host: &Option<String>,
+    modules: &[String],
+) -> Result<()> {
+    commands::lint::run(commands::lint::LintOptions {
+        strict,
+        fix,
+        mode: map_lint_mode(mode),
+        backend: backend.clone(),
+        diff,
+        benchmark,
+        repair_state,
+        state_rm: state_rm.to_vec(),
+        state_rm_backend: state_rm_backend.clone(),
+        state_rm_all,
+        dry_run: args.global.dry_run,
+        yes: args.global.yes,
+        format: args.global.format.clone(),
+        output_version: args.global.output_version.clone(),
+        verbose: args.global.verbose,
+        profile: profile.clone(),
+        host: host.clone(),
+        modules: modules.to_vec(),
+    })
+}
+
+fn map_lint_mode(mode: &LintMode) -> commands::lint::LintMode {
+    match mode {
+        LintMode::All => commands::lint::LintMode::All,
+        LintMode::Validate => commands::lint::LintMode::Validate,
+        LintMode::Duplicates => commands::lint::LintMode::Duplicates,
+        LintMode::Conflicts => commands::lint::LintMode::Conflicts,
+    }
+}
+
+fn list_to_optional_vec(values: &[String]) -> Option<Vec<String>> {
+    if values.is_empty() {
+        None
+    } else {
+        Some(values.to_vec())
+    }
+}
+
+fn parse_limit_option(limit: Option<&str>) -> Result<Option<usize>> {
+    match limit {
+        None => Ok(Some(10)),
+        Some("all") | Some("0") => Ok(None),
+        Some(raw) => raw.parse::<usize>().map(Some).map_err(|_| {
+            DeclarchError::Other(format!(
+                "Invalid --limit value '{}'. Use a non-negative integer, 0, or 'all'.",
+                raw
+            ))
+        }),
+    }
+}
+
+fn validate_machine_output_contract(args: &Cli) -> Result<()> {
+    if let Some(version) = args.global.output_version.as_deref() {
+        if version != "v1" {
+            return Err(DeclarchError::Other(format!(
+                "Unsupported output contract version '{}'. Supported: v1",
+                version
+            )));
         }
+
+        match args.global.format.as_deref() {
+            Some("json") | Some("yaml") => {}
+            Some(other) => {
+                return Err(DeclarchError::Other(format!(
+                    "--output-version v1 requires --format json|yaml (got '{}')",
+                    other
+                )));
+            }
+            None => {
+                output::warning(
+                    "--output-version v1 is set without --format; output remains human-oriented.",
+                );
+            }
+        }
+
+        if !supports_v1_contract(args) {
+            return Err(DeclarchError::Other(
+                "This command does not support --output-version v1 yet.\nSupported now: `declarch info`, `declarch info --list`, `declarch lint`, `declarch search`, `declarch --dry-run sync`.".to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn supports_v1_contract(args: &Cli) -> bool {
+    match &args.command {
+        Some(Command::Lint { .. }) => true,
+        Some(Command::Search { .. }) => true,
+        Some(Command::Sync { command: None, .. }) => args.global.dry_run,
+        Some(Command::Info {
+            doctor,
+            plan,
+            query,
+            ..
+        }) => !*doctor && !*plan && query.is_none(),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_limit_option, validate_machine_output_contract};
+    use crate::cli::args::{Cli, GlobalFlags};
+
+    fn base_cli() -> Cli {
+        Cli {
+            global: GlobalFlags {
+                verbose: false,
+                quiet: false,
+                yes: false,
+                force: false,
+                dry_run: false,
+                format: None,
+                output_version: None,
+            },
+            command: None,
+        }
+    }
+
+    #[test]
+    fn output_version_v1_allows_json_format() {
+        use crate::cli::args::{Command, LintMode};
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("json".to_string());
+        cli.command = Some(Command::Lint {
+            strict: false,
+            fix: false,
+            mode: LintMode::All,
+            backend: None,
+            diff: false,
+            benchmark: false,
+            repair_state: false,
+            state_rm: Vec::new(),
+            state_rm_backend: None,
+            state_rm_all: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+        });
+        assert!(validate_machine_output_contract(&cli).is_ok());
+    }
+
+    #[test]
+    fn output_version_rejects_unknown_version() {
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v2".to_string());
+        cli.global.format = Some("json".to_string());
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+
+    #[test]
+    fn output_version_requires_structured_format() {
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("table".to_string());
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+
+    #[test]
+    fn output_version_rejects_unsupported_command() {
+        use crate::cli::args::{Command, SyncCommand};
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("json".to_string());
+        cli.command = Some(Command::Sync {
+            target: None,
+            diff: false,
+            noconfirm: false,
+            hooks: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+            command: Some(SyncCommand::Update {
+                target: None,
+                diff: false,
+                noconfirm: false,
+                hooks: false,
+                profile: None,
+                host: None,
+                modules: Vec::new(),
+            }),
+        });
+        assert!(validate_machine_output_contract(&cli).is_err());
+    }
+
+    #[test]
+    fn output_version_allows_dry_run_sync() {
+        use crate::cli::args::Command;
+        let mut cli = base_cli();
+        cli.global.output_version = Some("v1".to_string());
+        cli.global.format = Some("json".to_string());
+        cli.global.dry_run = true;
+        cli.command = Some(Command::Sync {
+            target: None,
+            diff: false,
+            noconfirm: false,
+            hooks: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+            command: None,
+        });
+        assert!(validate_machine_output_contract(&cli).is_ok());
+    }
+
+    #[test]
+    fn parse_limit_option_defaults_to_ten() {
+        assert_eq!(parse_limit_option(None).unwrap(), Some(10));
+    }
+
+    #[test]
+    fn parse_limit_option_supports_unlimited() {
+        assert_eq!(parse_limit_option(Some("0")).unwrap(), None);
+        assert_eq!(parse_limit_option(Some("all")).unwrap(), None);
+    }
+
+    #[test]
+    fn parse_limit_option_rejects_invalid_input() {
+        assert!(parse_limit_option(Some("abc")).is_err());
     }
 }

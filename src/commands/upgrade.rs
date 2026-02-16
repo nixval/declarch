@@ -163,7 +163,6 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
         crate::commands::sync::run(crate::commands::sync::SyncOptions {
             dry_run: false,
             prune: false,
-            gc: false,
             update: false,
             yes: true, // Auto-yes since we just did upgrade
             force: false,
@@ -174,6 +173,8 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             host: None,
             modules: Vec::new(),
             diff: false,
+            format: None,
+            output_version: None,
         })?;
 
         output::separator();

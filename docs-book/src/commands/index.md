@@ -12,7 +12,7 @@ declarch sync
 
 ## Daily commands
 
-- `declarch sync preview` - safe preview mode.
+- `declarch --dry-run sync` - safe preview mode.
 - `declarch search <query>` - find package candidates.
 - `declarch info` - status, doctor, list, and package reasoning.
 - `declarch lint` - config quality checks.
@@ -23,8 +23,8 @@ declarch sync
 - `declarch sync prune` - remove unmanaged packages.
 - `declarch sync cache` - clean cache(s).
 - `declarch sync upgrade` - run backend upgrades.
-- `declarch sync sync --profile <name>` - opt-in profile layer.
-- `declarch sync sync --host <name>` - opt-in host layer.
+- `declarch sync --profile <name>` - opt-in profile layer.
+- `declarch sync --host <name>` - opt-in host layer.
 
 ## Global flags
 
@@ -33,6 +33,7 @@ declarch sync
 - `-v, --verbose`
 - `-q, --quiet`
 - `--dry-run`
+- `--output-version v1` (machine-readable envelope, with `--format json|yaml`)
 
 ## Beginner advice
 

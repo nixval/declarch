@@ -43,7 +43,13 @@ pub fn run(options: InfoReasonOptions) -> Result<()> {
     show_active_context(&options, &config);
 
     if options.verbose {
-        output::info("Verbose mode enabled");
+        output::header("Verbose Context");
+        output::keyval("Config file", &config_path.display().to_string());
+        output::keyval("Declared packages", &config.packages.len().to_string());
+        output::keyval(
+            "Known backends",
+            &load_known_backends(&config).len().to_string(),
+        );
     }
 
     if let Some(target) = options.target {
@@ -363,7 +369,7 @@ fn find_matches(
         .cloned()
         .collect();
 
-    matches.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
+    matches.sort_by_key(|a| a.to_string());
     matches
 }
 

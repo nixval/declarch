@@ -15,12 +15,18 @@ Before upgrading:
 cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
+Linux example shown above. For your exact paths on macOS/Windows, run:
+
+```bash
+declarch info --doctor
+```
+
 Reality check:
 - declarch is still evolving,
 - backend/environment coverage keeps improving,
 - not every backend combo is tested equally yet.
 
-Use `declarch sync preview` first when unsure.
+Use `declarch --dry-run sync` first when unsure.
 
 ## What declarch is
 
@@ -48,6 +54,8 @@ declarch init --backend <backend-name>
 
 Examples:
 `aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`, and more.
+
+Planned Windows backend set (experimental roadmap): `winget`, `choco`, `scoop`.
 
 Declarch started with strong Arch focus, but the same declarative pattern works for many backends.
 So you do not need to remember dozens of rarely-used commands.
@@ -89,6 +97,17 @@ paru -S declarch
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
 
+macOS support via script is currently **experimental (alpha)**.
+Installer includes lightweight smoke checks after install (`--help`, `info`).
+
+### Windows (PowerShell, experimental alpha)
+
+```powershell
+irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
+```
+
+Installer includes lightweight smoke checks after install (`--help`, `info`).
+
 ## First-time setup
 
 ### 1. Initialize
@@ -124,7 +143,7 @@ declarch sync
 Use preview when needed:
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 ```
 
 ## Backend setup
@@ -142,13 +161,23 @@ Use `--force` to overwrite an existing backend file.
 
 ```bash
 declarch sync
-declarch sync preview
+declarch --dry-run sync
 declarch sync update
 declarch sync prune
 declarch search firefox
 declarch lint
 declarch info
 declarch info --list
+```
+
+Machine-readable placeholder contract (v1, staged rollout):
+
+```bash
+declarch info --format json --output-version v1
+declarch info --list --format yaml --output-version v1
+declarch lint --format json --output-version v1
+declarch search firefox --format json --output-version v1
+declarch --dry-run sync --format json --output-version v1
 ```
 
 ## Documentation
@@ -160,10 +189,16 @@ mdDocs source pages (`docs-book/src`):
 - [Introduction](docs-book/src/intro.md)
 - [Installation](docs-book/src/getting-started/installation.md)
 - [Quick Start](docs-book/src/getting-started/quick-start.md)
+- [First Run (Linear Guide)](docs-book/src/getting-started/first-run-linear.md)
+- [Common Mistakes](docs-book/src/getting-started/common-mistakes.md)
+- [Config Progression](docs-book/src/getting-started/config-progression.md)
+- [Cross-OS (Alpha)](docs-book/src/getting-started/cross-os-alpha.md)
 - [Command Overview](docs-book/src/commands/index.md)
 - [Backends](docs-book/src/configuration/backends.md)
 - [KDL Basics](docs-book/src/configuration/kdl-syntax.md)
 - [Syntax Reference (Advanced)](docs-book/src/configuration/syntax.md)
+- [Integration Roadmap RFC](docs-book/src/advanced/rfc-integration-roadmap.md)
+- [Integration Examples](docs-book/src/advanced/integration-examples.md)
 - [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
 - [Full sidebar](docs-book/src/SUMMARY.md)
 

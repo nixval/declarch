@@ -38,6 +38,19 @@ personal-docs/
 .obsidian/
 .aur/scripts/
 .aur/work/
+plan/*
+!plan/README.md
+!plan/phase-00-baseline.md
+!plan/phase-01-security-correctness.md
+!plan/phase-02-maintainability-modularity.md
+!plan/phase-03-performance-reliability.md
+!plan/phase-04-beginner-experience.md
+!plan/phase-05-release-guardrails.md
+!plan/commit-strategy.md
+!plan/risk-register.md
+!plan/rollback-map.md
+!plan/rfc-flag-subcommand-surface-simplification.md
+!plan/cli-surface-spec-lock.md
 
 # Keep AUR templates tracked
 !.aur/templates/

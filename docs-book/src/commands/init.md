@@ -32,11 +32,25 @@ declarch init --list backends
 ~/.config/declarch/
 ├── declarch.kdl
 ├── backends.kdl
-├── state.json
 ├── backends/
 └── modules/
     └── base.kdl
 ```
+
+`state.json` is not in config dir. It lives in your OS state directory.
+Linux example:
+
+```text
+~/.local/state/declarch/state.json
+```
+
+Tip:
+
+```bash
+declarch info --doctor
+```
+
+This prints actual config/state paths for your machine.
 
 ## Useful options
 

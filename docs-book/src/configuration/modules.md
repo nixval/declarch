@@ -15,6 +15,14 @@ gaming.kdl
 
 ## Create one
 
+Beginner path (recommended):
+
+```bash
+declarch edit --create dev
+```
+
+Manual path (Linux example):
+
 ```bash
 mkdir -p ~/.config/declarch/modules
 cat > ~/.config/declarch/modules/dev.kdl << 'EOKDL'
@@ -29,6 +37,12 @@ pkg {
     }
 }
 EOKDL
+```
+
+For macOS/Windows exact config path, check:
+
+```bash
+declarch info --doctor
 ```
 
 ## Import it

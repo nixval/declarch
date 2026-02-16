@@ -18,6 +18,8 @@ Think of it like this:
 - Language/dev: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
 - Other: `soar`
 
+Planned Windows backends: `winget`, `choco`, `scoop`.
+
 ## Add backend definitions
 
 ```bash
@@ -42,10 +44,9 @@ pkg {
 A backend can fallback when binary is missing.
 Examples:
 - `nala -> apt`
-- `pnpm -> npm`
-- `yarn -> npm`
-- `bun -> npm`
-- `aur -> pacman`
+- `aur -> pacman` (when no AUR helper is available)
+- `paru -> pacman`
+- `yay -> pacman`
 
 ## Beginner tips
 

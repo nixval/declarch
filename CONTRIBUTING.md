@@ -13,9 +13,17 @@ Please see the [full documentation](https://nixval.github.io/declarch/) for:
 
 1. **Install Rust**: Ensure you have the latest stable Rust toolchain
 2. **Clone**: `git clone https://github.com/nixval/declarch.git`
-3. **Test**: `cargo test --all`
+3. **Test**: `cargo test --all-targets`
 4. **Format**: `cargo fmt`
-5. **Lint**: `cargo clippy --all-targets --all-features`
+5. **Lint**: `cargo clippy --all-targets -- -D warnings`
+
+## Changelog Discipline
+
+If your change affects behavior, CLI UX, defaults, safety policy, or troubleshooting steps:
+
+1. Add an entry under `## [Unreleased]` in `CHANGELOG.md`.
+2. Keep entries user-facing (what changed, migration impact, and safe usage notes).
+3. Keep technical implementation details in commit history or PR description, not changelog noise.
 
 ## Quick Links
 

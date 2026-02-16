@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "command": "lint",
+  "ok": true,
+  "data": {
+    "mode": "all",
+    "errors": 0,
+    "warnings": 1
+  },
+  "warnings": [
+    "Duplicate package declaration: aur:bat"
+  ],
+  "errors": [],
+  "meta": {
+    "generated_at": "2026-02-15T00:00:00Z"
+  }
+}

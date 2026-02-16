@@ -10,6 +10,7 @@
 mod executor;
 mod hooks;
 mod planner;
+mod policy;
 mod state_sync;
 mod variants;
 
@@ -28,13 +29,16 @@ use crate::config::loader;
 use crate::core::types::SyncTarget;
 use crate::error::Result;
 use crate::ui as output;
+use crate::utils::machine_output;
 use crate::utils::paths;
+use serde::Serialize;
 use std::path::Path;
 
 use crate::core::types::{PackageId, PackageMetadata};
 use crate::packages::PackageManager;
 use crate::state;
 use crate::state::types::Backend;
+use policy::{enforce_sync_policy, resolve_hooks_enabled};
 use std::collections::HashMap;
 
 // Re-export dry-run display function
@@ -44,11 +48,24 @@ pub use planner::display_dry_run_details;
 pub type InstalledSnapshot = HashMap<PackageId, PackageMetadata>;
 pub type ManagerMap = HashMap<Backend, Box<dyn PackageManager>>;
 
+#[derive(Debug, Serialize)]
+struct SyncPreviewReport {
+    dry_run: bool,
+    prune: bool,
+    update: bool,
+    target: String,
+    install_count: usize,
+    remove_count: usize,
+    adopt_count: usize,
+    to_install: Vec<String>,
+    to_remove: Vec<String>,
+    to_adopt: Vec<String>,
+}
+
 #[derive(Debug)]
 pub struct SyncOptions {
     pub dry_run: bool,
     pub prune: bool,
-    pub gc: bool,
     pub update: bool,
     pub yes: bool,
     pub force: bool,
@@ -59,22 +76,24 @@ pub struct SyncOptions {
     pub host: Option<String>,
     pub modules: Vec<String>,
     pub diff: bool,
+    pub format: Option<String>,
+    pub output_version: Option<String>,
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
+    let machine_preview_mode = options.dry_run
+        && matches!(options.output_version.as_deref(), Some("v1"))
+        && matches!(options.format.as_deref(), Some("json" | "yaml"));
+
     // Acquire exclusive lock at the very beginning to prevent concurrent sync
     // Lock is held until this function returns (RAII pattern)
     let lock = if options.dry_run {
-        // Dry-run doesn't need exclusive lock, but we check if another process is running
-        match state::io::acquire_lock() {
-            Ok(lock) => Some(lock),
-            Err(_) => {
-                output::warning(
-                    "Another declarch process is running. Dry-run may show stale state.",
-                );
-                None
-            }
+        // Dry-run doesn't need to hold the lock for the whole command.
+        // We only probe lock availability to warn about potentially stale state.
+        if state::io::acquire_lock().is_err() {
+            output::warning("Another declarch process is running. Dry-run may show stale state.");
         }
+        None
     } else {
         // Real sync requires exclusive lock
         Some(state::io::acquire_lock().map_err(|e| {
@@ -130,7 +149,13 @@ pub fn run(options: SyncOptions) -> Result<()> {
     }
 
     // 4. Load State & Resolve
-    let state = state::io::load_state()?;
+    // Use strict state recovery for mutating prune flows to avoid accidental
+    // destructive actions when state is unreadable/corrupted and unrecoverable.
+    let state = if !options.dry_run && options.prune {
+        state::io::load_state_strict()?
+    } else {
+        state::io::load_state()?
+    };
 
     // 5. Create Transaction
     let transaction = create_transaction(
@@ -150,7 +175,22 @@ pub fn run(options: SyncOptions) -> Result<()> {
         &sync_target,
         &options,
     )?;
-    warn_partial_upgrade(&state, &transaction, &options);
+    if !machine_preview_mode {
+        warn_partial_upgrade(&state, &transaction, &options);
+    }
+
+    if machine_preview_mode {
+        let report = build_sync_preview_report(&options, &sync_target, &transaction);
+
+        machine_output::emit_v1(
+            "sync",
+            report,
+            Vec::new(),
+            Vec::new(),
+            options.format.as_deref().unwrap_or("json"),
+        )?;
+        return Ok(());
+    }
 
     // 6. Display Plan
     if transaction.to_install.is_empty()
@@ -234,74 +274,47 @@ pub fn run(options: SyncOptions) -> Result<()> {
     Ok(())
 }
 
-fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &SyncOptions) -> bool {
-    if !options.hooks {
-        return false;
+fn build_sync_preview_report(
+    options: &SyncOptions,
+    sync_target: &SyncTarget,
+    transaction: &crate::core::resolver::Transaction,
+) -> SyncPreviewReport {
+    SyncPreviewReport {
+        dry_run: true,
+        prune: options.prune,
+        update: options.update,
+        target: sync_target_to_string(sync_target),
+        install_count: transaction.to_install.len(),
+        remove_count: transaction.to_prune.len(),
+        adopt_count: transaction.to_adopt.len(),
+        to_install: transaction
+            .to_install
+            .iter()
+            .map(package_id_to_string)
+            .collect(),
+        to_remove: transaction
+            .to_prune
+            .iter()
+            .map(package_id_to_string)
+            .collect(),
+        to_adopt: transaction
+            .to_adopt
+            .iter()
+            .map(package_id_to_string)
+            .collect(),
     }
-
-    if config
-        .policy
-        .as_ref()
-        .and_then(|p| p.forbid_hooks)
-        .unwrap_or(false)
-    {
-        output::warning("Hooks are blocked by policy { forbid_hooks true }.");
-        return false;
-    }
-
-    if config.is_experimental_enabled("enable-hooks") {
-        return true;
-    }
-
-    output::warning(
-        "Hooks were requested but blocked by policy. Add experimental { \"enable-hooks\" } to declarch.kdl to allow hook execution.",
-    );
-    false
 }
 
-fn enforce_sync_policy(config: &loader::MergedConfig) -> Result<()> {
-    let Some(policy) = config.policy.as_ref() else {
-        return Ok(());
-    };
+fn package_id_to_string(pkg: &PackageId) -> String {
+    format!("{}:{}", pkg.backend, pkg.name)
+}
 
-    if policy.require_backend.unwrap_or(false) {
-        let legacy_default: Vec<_> = config
-            .packages
-            .keys()
-            .filter(|pkg| pkg.backend.to_string() == "default")
-            .map(|pkg| pkg.name.clone())
-            .collect();
-
-        if !legacy_default.is_empty() {
-            return Err(crate::error::DeclarchError::ConfigError(format!(
-                "Policy violation: require-backend=true but {} package(s) still use legacy default backend: {}",
-                legacy_default.len(),
-                legacy_default.join(", ")
-            )));
-        }
+fn sync_target_to_string(target: &SyncTarget) -> String {
+    match target {
+        SyncTarget::All => "all".to_string(),
+        SyncTarget::Backend(b) => format!("backend:{}", b),
+        SyncTarget::Named(name) => format!("named:{}", name),
     }
-
-    if policy.duplicate_is_error() {
-        let duplicates = config.get_duplicates();
-        if !duplicates.is_empty() {
-            return Err(crate::error::DeclarchError::ConfigError(format!(
-                "Policy violation: on-duplicate=error and {} duplicate declaration(s) were found",
-                duplicates.len()
-            )));
-        }
-    }
-
-    if policy.conflict_is_error() {
-        let conflicts = config.get_cross_backend_conflicts();
-        if !conflicts.is_empty() {
-            return Err(crate::error::DeclarchError::ConfigError(format!(
-                "Policy violation: on-conflict=error and {} cross-backend conflict(s) were found",
-                conflicts.len()
-            )));
-        }
-    }
-
-    Ok(())
 }
 
 /// Show diff view of sync changes

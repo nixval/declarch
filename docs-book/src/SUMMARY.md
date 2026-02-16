@@ -6,7 +6,11 @@
 
 - [Installation](./getting-started/installation.md)
 - [Quick Start](./getting-started/quick-start.md)
+- [First Run (Linear Guide)](./getting-started/first-run-linear.md)
+- [Common Mistakes](./getting-started/common-mistakes.md)
+- [Config Progression](./getting-started/config-progression.md)
 - [Basic Concepts](./getting-started/basic-concepts.md)
+- [Cross-OS (Alpha)](./getting-started/cross-os-alpha.md)
 
 ## Daily Commands
 
@@ -35,9 +39,12 @@
 
 - [Syntax Reference (Advanced)](./configuration/syntax.md)
 - [Custom Backends](./advanced/custom-backends.md)
+- [Debugging](./advanced/debugging.md)
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
-- [Version Pinning (Placeholder)](./advanced/version-pinning-placeholder.md)
+- [Version Pinning (Planned)](./advanced/version-pinning.md)
+- [Integration Examples](./advanced/integration-examples.md)
+- [MCP Setup (Technical)](./advanced/mcp-setup.md)
 - [edit](./commands/edit.md)
 - [switch](./commands/switch.md)
 

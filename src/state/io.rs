@@ -1,7 +1,7 @@
 use crate::error::{DeclarchError, Result};
 use crate::state::types::State;
 use crate::ui;
-use directories::ProjectDirs;
+use crate::utils::paths;
 use fs2::FileExt;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -147,10 +147,10 @@ pub fn validate_state_integrity(state: &State) -> Vec<String> {
 
     // Check for future timestamps
     let now = SystemTime::now();
-    if let Ok(last_sync) = pkg_state_timestamp(&state.meta.last_sync) {
-        if last_sync > now {
-            issues.push("Last sync timestamp is in the future".to_string());
-        }
+    if let Ok(last_sync) = pkg_state_timestamp(&state.meta.last_sync)
+        && last_sync > now
+    {
+        issues.push("Last sync timestamp is in the future".to_string());
     }
 
     issues
@@ -226,13 +226,10 @@ fn pkg_state_timestamp(dt: &chrono::DateTime<chrono::Utc>) -> Result<SystemTime>
 }
 
 pub fn get_state_path() -> Result<PathBuf> {
-    let proj_dirs = ProjectDirs::from("com", "declarch", "declarch").ok_or(
-        DeclarchError::PathError("Could not determine home directory".into()),
-    )?;
-
-    let state_dir = proj_dirs.state_dir().ok_or(DeclarchError::PathError(
-        "System does not support state directory".into(),
-    ))?;
+    let state_file = paths::state_file()?;
+    let state_dir = state_file
+        .parent()
+        .ok_or_else(|| DeclarchError::PathError("Could not determine state directory".into()))?;
 
     if !state_dir.exists() {
         fs::create_dir_all(state_dir).map_err(|e| DeclarchError::IoError {
@@ -241,7 +238,7 @@ pub fn get_state_path() -> Result<PathBuf> {
         })?;
     }
 
-    Ok(state_dir.join("state.json"))
+    Ok(state_file)
 }
 
 /// Migrate state to fix duplicate keys and format issues
@@ -308,8 +305,13 @@ fn migrate_state_schema(state: &mut crate::state::types::State) -> bool {
     changed
 }
 
-pub fn load_state() -> Result<State> {
+fn load_state_internal(strict_recovery: bool) -> Result<State> {
     let path = get_state_path()?;
+    load_state_from_path(&path, strict_recovery)
+}
+
+fn load_state_from_path(path: &Path, strict_recovery: bool) -> Result<State> {
+    let path = path.to_path_buf();
 
     if !path.exists() {
         return Ok(State::default());
@@ -342,13 +344,21 @@ pub fn load_state() -> Result<State> {
                     ui::error(&format!("State file corrupted: {}", e));
                     ui::info("Attempting to restore from backup...");
                     // Main state file is corrupted, try to restore from backup
-                    match restore_from_backup(&path) {
-                        Ok(state) => {
+                    match restore_from_backup(&path)? {
+                        Some(state) => {
                             ui::success("State restored from backup successfully");
                             state
                         }
-                        Err(restore_err) => {
-                            ui::warning(&format!("Failed to restore from backup: {}", restore_err));
+                        None => {
+                            ui::warning("Failed to restore from backup: no valid backup found");
+                            if strict_recovery {
+                                return Err(DeclarchError::Other(format!(
+                                    "State file is corrupted and backup restore failed (strict mode).\n\
+                                     File: {}\n\
+                                     Hint: run `declarch info --doctor`, inspect state backups, then retry.",
+                                    path.display()
+                                )));
+                            }
                             ui::info("Using default state");
                             State::default()
                         }
@@ -360,13 +370,21 @@ pub fn load_state() -> Result<State> {
             ui::error(&format!("Failed to read state file: {}", e));
             ui::info("Attempting to restore from backup...");
             // Failed to read state file, try to restore from backup
-            match restore_from_backup(&path) {
-                Ok(state) => {
+            match restore_from_backup(&path)? {
+                Some(state) => {
                     ui::success("State restored from backup successfully");
                     state
                 }
-                Err(restore_err) => {
-                    ui::warning(&format!("Failed to restore from backup: {}", restore_err));
+                None => {
+                    ui::warning("Failed to restore from backup: no valid backup found");
+                    if strict_recovery {
+                        return Err(DeclarchError::Other(format!(
+                            "State file cannot be read and backup restore failed (strict mode).\n\
+                             File: {}\n\
+                             Hint: run `declarch info --doctor`, inspect file permissions/state path, then retry.",
+                            path.display()
+                        )));
+                    }
                     ui::info("Using default state");
                     State::default()
                 }
@@ -377,8 +395,20 @@ pub fn load_state() -> Result<State> {
     Ok(state)
 }
 
+pub fn load_state() -> Result<State> {
+    load_state_internal(false)
+}
+
+/// Load state in strict mode.
+///
+/// In strict mode, fallback-to-default is disabled when the state file is unreadable/corrupted
+/// and backup restore also fails. This is intended for high-risk mutating flows.
+pub fn load_state_strict() -> Result<State> {
+    load_state_internal(true)
+}
+
 /// Attempt to restore state from the most recent backup
-fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
+fn restore_from_backup(state_path: &PathBuf) -> Result<Option<State>> {
     let dir = state_path.parent().ok_or_else(|| {
         DeclarchError::PathError(format!(
             "Invalid state path (no parent directory): {}",
@@ -399,15 +429,15 @@ fn restore_from_backup(state_path: &PathBuf) -> Result<State> {
                 Ok(state) => {
                     // Successfully restored from backup, restore the main file
                     let _ = fs::copy(&backup_path, state_path);
-                    return Ok(state);
+                    return Ok(Some(state));
                 }
                 Err(_) => continue,
             }
         }
     }
 
-    // All backups failed or don't exist, return default state
-    Ok(State::default())
+    // All backups failed or don't exist
+    Ok(None)
 }
 
 /// Rotate backup files, keeping last 3 versions
@@ -545,10 +575,10 @@ pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
     })?;
 
     // Sync directory to ensure rename is persisted
-    if let Ok(dir_file) = fs::File::open(dir) {
-        if let Err(e) = dir_file.sync_all() {
-            ui::warning(&format!("Failed to sync state directory: {}", e));
-        }
+    if let Ok(dir_file) = fs::File::open(dir)
+        && let Err(e) = dir_file.sync_all()
+    {
+        ui::warning(&format!("Failed to sync state directory: {}", e));
     }
 
     // Lock is released when StateLock is dropped (RAII)
@@ -586,9 +616,11 @@ impl crate::traits::StateStore for FilesystemStateStore {
 
 #[cfg(test)]
 mod tests {
-    use super::{sanitize_state_in_place, validate_state_integrity};
+    use super::{load_state_from_path, sanitize_state_in_place, validate_state_integrity};
     use crate::state::types::{Backend, PackageState, State};
     use chrono::Utc;
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn sanitize_removes_empty_and_rekeys() {
@@ -651,5 +683,41 @@ mod tests {
         );
         let issues = validate_state_integrity(&state);
         assert!(issues.iter().any(|i| i.contains("Non-canonical state key")));
+    }
+
+    #[test]
+    fn load_state_non_strict_falls_back_to_default_when_unrecoverable() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("state.json");
+        fs::write(&path, "{broken json").expect("write corrupted state");
+
+        let loaded = load_state_from_path(&path, false).expect("non-strict should not fail");
+        assert!(loaded.packages.is_empty());
+    }
+
+    #[test]
+    fn load_state_strict_fails_when_unrecoverable() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("state.json");
+        fs::write(&path, "{broken json").expect("write corrupted state");
+
+        let err = load_state_from_path(&path, true).expect_err("strict mode should fail");
+        let msg = err.to_string();
+        assert!(msg.contains("strict mode"));
+    }
+
+    #[test]
+    fn load_state_strict_restores_from_backup_when_available() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("state.json");
+        fs::write(&path, "{broken json").expect("write corrupted state");
+
+        let backup_path = dir.path().join("state.json.bak.1");
+        let backup_content =
+            serde_json::to_string(&State::default()).expect("serialize default state");
+        fs::write(&backup_path, backup_content).expect("write backup");
+
+        let loaded = load_state_from_path(&path, true).expect("strict mode should recover");
+        assert!(loaded.packages.is_empty());
     }
 }

@@ -56,8 +56,8 @@ Use small files by context:
 If you need machine-specific extras, you can opt in:
 
 ```bash
-declarch sync sync --profile desktop
-declarch sync sync --host vps-1
+declarch sync --profile desktop
+declarch sync --host vps-1
 ```
 
 If you do not pass those flags, declarch uses your normal default config only.
@@ -67,5 +67,5 @@ If you do not pass those flags, declarch uses your normal default config only.
 When unsure, use:
 
 ```bash
-declarch sync preview
+declarch --dry-run sync
 ```
