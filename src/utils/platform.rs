@@ -1,6 +1,6 @@
-use crate::error::Result;
 #[cfg(any(windows, not(any(unix, windows))))]
 use crate::error::DeclarchError;
+use crate::error::Result;
 use std::process::Command;
 
 /// Build a shell command in a platform-aware way.

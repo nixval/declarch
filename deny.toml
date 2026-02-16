@@ -14,9 +14,6 @@ targets = [
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # The path where the advisory database is cloned/fetched to
 db-path = "~/.cargo/advisory-db"
-# If true, the database will be fetched if it doesn't exist
-# If false, the check will fail if the database doesn't exist
-fetch = true
 
 # Vulnerability severity threshold
 # - "low": Allow all severities (default)
@@ -64,12 +61,6 @@ unused-allowed-license = "allow"
 multiple-versions = "warn"
 # How to handle wildcards in dependencies
 wildcards = "warn"
-# How to handle git dependencies
-git = "warn"
-# How to handle path dependencies  
-path = "allow"
-# How to handle dev dependencies that are duplicated
-dev-duplicates = "allow"
 
 # Deny specific crates
 deny = [
@@ -84,19 +75,7 @@ skip = [
 ]
 
 [sources]
-# Allow crates.io
-[sources.crates-io]
-name = "crates-io"
-registry = "https://github.com/rust-lang/crates.io-index"
-
-# Allow specific git sources if needed
-# [sources.git]
-# name = "some-git-repo"
-# git = "https://github.com/user/repo"
-
-# Deny unknown git sources
 unknown-git = "deny"
-# Deny unknown registry sources
 unknown-registry = "deny"
 
 [graph]
