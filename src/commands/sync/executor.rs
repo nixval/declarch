@@ -288,11 +288,12 @@ fn execute_pruning(
         return Ok(());
     }
 
-    if orphan_strategy == "ask" && !options.yes {
-        if !output::prompt_yes_no("Policy requests confirmation for orphan removal. Continue?") {
-            output::info("Skipping orphan removal");
-            return Ok(());
-        }
+    if orphan_strategy == "ask"
+        && !options.yes
+        && !output::prompt_yes_no("Policy requests confirmation for orphan removal. Continue?")
+    {
+        output::info("Skipping orphan removal");
+        return Ok(());
     }
 
     // Build protected list - collect all actual installed package names from config

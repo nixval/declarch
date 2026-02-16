@@ -314,13 +314,13 @@ pub fn run(options: SearchOptions) -> Result<()> {
         // Summary
         println!();
         if has_results {
-            if let Some(limit) = effective_limit {
-                if total_found > limit {
-                    output::info(&format!(
-                        "Showing limited results. Use --limit 0 for all {} matches.",
-                        total_found
-                    ));
-                }
+            if let Some(limit) = effective_limit
+                && total_found > limit
+            {
+                output::info(&format!(
+                    "Showing limited results. Use --limit 0 for all {} matches.",
+                    total_found
+                ));
             }
         } else {
             output::info(&format!(
@@ -350,10 +350,10 @@ fn search_single_backend(
             Ok(mut results) => {
                 let total = results.len();
                 // Apply limit
-                if let Some(limit_value) = limit {
-                    if results.len() > limit_value {
-                        results.truncate(limit_value);
-                    }
+                if let Some(limit_value) = limit
+                    && results.len() > limit_value
+                {
+                    results.truncate(limit_value);
                 }
                 Ok((results, total))
             }
@@ -368,10 +368,10 @@ fn search_single_backend(
             Ok(mut results) => {
                 let total = results.len();
                 // Apply limit
-                if let Some(limit_value) = limit {
-                    if results.len() > limit_value {
-                        results.truncate(limit_value);
-                    }
+                if let Some(limit_value) = limit
+                    && results.len() > limit_value
+                {
+                    results.truncate(limit_value);
                 }
                 Ok((results, total))
             }
@@ -436,15 +436,15 @@ fn display_backend_results(
     println!("{}", format!("{}:", backend).cyan().bold());
 
     // Show limit note if applicable
-    if let Some(_limit_val) = limit {
-        if total_found > results.len() {
-            println!(
-                "  {} (showing {} of {})",
-                "Limited results".dimmed(),
-                results.len(),
-                total_found
-            );
-        }
+    if let Some(_limit_val) = limit
+        && total_found > results.len()
+    {
+        println!(
+            "  {} (showing {} of {})",
+            "Limited results".dimmed(),
+            results.len(),
+            total_found
+        );
     }
 
     // Print results
@@ -534,12 +534,10 @@ fn get_backends_to_search(
             } else {
                 output::warning("No backends with local search support configured");
             }
+        } else if machine_mode {
+            warnings.push(msg);
         } else {
-            if machine_mode {
-                warnings.push(msg);
-            } else {
-                output::warning("No backends with search support configured");
-            }
+            output::warning("No backends with search support configured");
         }
         if machine_mode {
             warnings.push("Run 'declarch init --backend <name>' to add a backend".to_string());

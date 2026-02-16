@@ -66,7 +66,7 @@ pub fn build_program_command(program: &str, args: &[String], elevated: bool) -> 
             c
         };
 
-        return Ok(cmd);
+        Ok(cmd)
     }
 
     #[cfg(windows)]

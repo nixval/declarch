@@ -38,8 +38,8 @@ use crate::core::types::{PackageId, PackageMetadata};
 use crate::packages::PackageManager;
 use crate::state;
 use crate::state::types::Backend;
-use std::collections::HashMap;
 use policy::{enforce_sync_policy, resolve_hooks_enabled};
+use std::collections::HashMap;
 
 // Re-export dry-run display function
 pub use planner::display_dry_run_details;

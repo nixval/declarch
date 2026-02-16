@@ -268,28 +268,29 @@ fn get_editor_with_fallback() -> Result<(String, &'static str, bool)> {
     // Priority 1: KDL config 'editor' field
     if let Ok(config) =
         crate::config::loader::load_root_config(&crate::utils::paths::config_file()?)
+        && let Some(ref editor) = config.editor
     {
-        if let Some(ref editor) = config.editor {
-            if editor_exists(editor) {
-                return Ok((editor.clone(), "config", false));
-            } else {
-                output::warning(&format!("Configured editor '{}' not found in PATH", editor));
-            }
+        if editor_exists(editor) {
+            return Ok((editor.clone(), "config", false));
+        } else {
+            output::warning(&format!("Configured editor '{}' not found in PATH", editor));
         }
     }
 
     // Priority 2: $VISUAL environment variable
-    if let Ok(ed) = std::env::var("VISUAL") {
-        if !ed.is_empty() && editor_exists(&ed) {
-            return Ok((ed, "$VISUAL", false));
-        }
+    if let Ok(ed) = std::env::var("VISUAL")
+        && !ed.is_empty()
+        && editor_exists(&ed)
+    {
+        return Ok((ed, "$VISUAL", false));
     }
 
     // Priority 3: $EDITOR environment variable
-    if let Ok(ed) = std::env::var("EDITOR") {
-        if !ed.is_empty() && editor_exists(&ed) {
-            return Ok((ed, "$EDITOR", false));
-        }
+    if let Ok(ed) = std::env::var("EDITOR")
+        && !ed.is_empty()
+        && editor_exists(&ed)
+    {
+        return Ok((ed, "$EDITOR", false));
     }
 
     // Priority 4: Fallback to nano

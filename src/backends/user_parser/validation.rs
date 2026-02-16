@@ -78,7 +78,8 @@ pub(super) fn validate_backend_config(config: &BackendConfig) -> Result<()> {
 
     // update_cmd should contain {binary} if backend has multiple binaries
     if let Some(ref update_cmd) = config.update_cmd
-        && needs_binary_placeholder && !update_cmd.contains("{binary}")
+        && needs_binary_placeholder
+        && !update_cmd.contains("{binary}")
     {
         ui::warning(&format!(
             "Backend '{}' has multiple binaries but update_cmd missing '{{binary}}' placeholder",
@@ -88,7 +89,8 @@ pub(super) fn validate_backend_config(config: &BackendConfig) -> Result<()> {
 
     // cache_clean_cmd should contain {binary} if backend has multiple binaries
     if let Some(ref cache_clean_cmd) = config.cache_clean_cmd
-        && needs_binary_placeholder && !cache_clean_cmd.contains("{binary}")
+        && needs_binary_placeholder
+        && !cache_clean_cmd.contains("{binary}")
     {
         ui::warning(&format!(
             "Backend '{}' has multiple binaries but cache_clean_cmd missing '{{binary}}' placeholder",
@@ -98,7 +100,8 @@ pub(super) fn validate_backend_config(config: &BackendConfig) -> Result<()> {
 
     // upgrade_cmd should contain {binary} if backend has multiple binaries
     if let Some(ref upgrade_cmd) = config.upgrade_cmd
-        && needs_binary_placeholder && !upgrade_cmd.contains("{binary}")
+        && needs_binary_placeholder
+        && !upgrade_cmd.contains("{binary}")
     {
         ui::warning(&format!(
             "Backend '{}' has multiple binaries but upgrade_cmd missing '{{binary}}' placeholder",

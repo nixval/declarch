@@ -51,8 +51,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             host,
             modules,
         }) => handle_info_command(
-            args, query, *doctor, *plan, *list, *orphans, *synced, backend, package, profile,
-            host, modules,
+            args, query, *doctor, *plan, *list, *orphans, *synced, backend, package, profile, host,
+            modules,
         ),
 
         Some(Command::Switch {
@@ -130,7 +130,16 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             host,
             modules,
         }) => handle_lint_command(
-            args, *strict, *fix, mode, backend, *diff, *benchmark, *repair_state, profile, host,
+            args,
+            *strict,
+            *fix,
+            mode,
+            backend,
+            *diff,
+            *benchmark,
+            *repair_state,
+            profile,
+            host,
             modules,
         ),
 
@@ -185,10 +194,12 @@ fn handle_init_command(
 
 fn handle_sync_command(args: &Cli, command: &Option<SyncCommand>, gc: bool) -> Result<()> {
     match command {
-        Some(SyncCommand::Cache { backend }) => commands::cache::run(commands::cache::CacheOptions {
-            backends: list_to_optional_vec(backend),
-            verbose: args.global.verbose,
-        }),
+        Some(SyncCommand::Cache { backend }) => {
+            commands::cache::run(commands::cache::CacheOptions {
+                backends: list_to_optional_vec(backend),
+                verbose: args.global.verbose,
+            })
+        }
         Some(SyncCommand::Upgrade { backend, no_sync }) => {
             commands::upgrade::run(commands::upgrade::UpgradeOptions {
                 backends: list_to_optional_vec(backend),
@@ -208,7 +219,8 @@ fn handle_sync_command(args: &Cli, command: &Option<SyncCommand>, gc: bool) -> R
                 show_deprecation_warning(new_cmd_str);
             }
 
-            let mut options = sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
+            let mut options =
+                sync_command_to_options(&sync_cmd, args.global.yes, args.global.force);
             options.format = args.global.format.clone();
             options.output_version = args.global.output_version.clone();
             commands::sync::run(options)

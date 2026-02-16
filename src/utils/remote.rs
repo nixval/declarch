@@ -357,10 +357,7 @@ fn validate_url(url_str: &str) -> Result<()> {
 
     // Prevent access to localhost/private networks (basic check)
     let host = parsed.host_str().ok_or_else(|| {
-        DeclarchError::RemoteFetchError(format!(
-            "URL must include a valid host: {}",
-            url_str
-        ))
+        DeclarchError::RemoteFetchError(format!("URL must include a valid host: {}", url_str))
     })?;
     if is_private_address(host) {
         return Err(DeclarchError::RemoteFetchError(format!(
