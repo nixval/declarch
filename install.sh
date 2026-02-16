@@ -6,7 +6,7 @@ if (set -o pipefail) >/dev/null 2>&1; then
   set -o pipefail
 fi
 
-VERSION="0.8.0"
+DECLARCH_VERSION="${DECLARCH_VERSION:-latest}"
 REPO="nixval/declarch"
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -47,8 +47,13 @@ case "${OS}" in
     ;;
 esac
 
-URL="https://github.com/${REPO}/releases/download/v${VERSION}/declarch-${TARGET}.tar.gz"
-echo "Downloading declarch ${VERSION} for ${TARGET}..."
+if [ "${DECLARCH_VERSION}" = "latest" ]; then
+  URL="https://github.com/${REPO}/releases/latest/download/declarch-${TARGET}.tar.gz"
+  echo "Downloading declarch (latest release) for ${TARGET}..."
+else
+  URL="https://github.com/${REPO}/releases/download/v${DECLARCH_VERSION}/declarch-${TARGET}.tar.gz"
+  echo "Downloading declarch ${DECLARCH_VERSION} for ${TARGET}..."
+fi
 curl -fsSL "${URL}" -o "${ARCHIVE}"
 tar xzf "${ARCHIVE}" -C "${TMP_DIR}"
 
