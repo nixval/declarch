@@ -192,6 +192,9 @@ fn parse_backend_node(node: &KdlNode) -> Result<BackendConfig> {
                 "upgrade" => parse_upgrade_cmd(child, &mut config)?,
                 "noconfirm" => parse_noconfirm(child, &mut config)?,
                 "needs_sudo" | "sudo" => config.needs_sudo = parse_bool(child)?,
+                "prefer_list_for_local_search" => {
+                    config.prefer_list_for_local_search = parse_bool(child)?
+                }
                 "env" => parse_env(child, &mut config)?,
                 "fallback" => parse_fallback(child, &mut config)?,
                 "platforms" | "supported_os" | "os" => parse_supported_os(child, &mut config),
@@ -1140,6 +1143,28 @@ mod tests {
             config.supported_os,
             Some(vec!["linux".to_string(), "macos".to_string()])
         );
+    }
+
+    #[test]
+    fn test_parse_prefer_list_for_local_search() {
+        let kdl = r#"
+            backend "npm" {
+                binary "npm"
+                list "npm list -g --json" {
+                    format "json_object_keys"
+                    json_path "dependencies"
+                    version_key "version"
+                }
+                install "npm install -g {packages}"
+                prefer_list_for_local_search "true"
+            }
+        "#;
+
+        let doc = KdlDocument::parse(kdl).unwrap();
+        let node = doc.nodes().first().unwrap();
+        let config = parse_backend_node(node).unwrap();
+
+        assert!(config.prefer_list_for_local_search);
     }
 
     #[test]

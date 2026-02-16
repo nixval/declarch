@@ -163,6 +163,10 @@ pub struct BackendConfig {
 
     /// Capture group index for package name in local search regex
     pub search_local_regex_name_group: Option<usize>,
+
+    /// Prefer list+filter strategy over search_local command for local search.
+    /// Useful for backends where `search_local` is known to be slow/unreliable.
+    pub prefer_list_for_local_search: bool,
 }
 
 /// Binary specifier - can be single or multiple alternatives
@@ -281,6 +285,7 @@ impl Default for BackendConfig {
             search_local_name_col: None,
             search_local_regex: None,
             search_local_regex_name_group: None,
+            prefer_list_for_local_search: false,
         }
     }
 }

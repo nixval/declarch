@@ -23,6 +23,8 @@ use std::time::Duration;
 
 /// Maximum time to wait for a backend to respond (seconds)
 const BACKEND_TIMEOUT_SECONDS: u64 = SEARCH_BACKEND_TIMEOUT_SECS;
+/// Local search should feel responsive even with slow/misconfigured backends.
+const LOCAL_BACKEND_TIMEOUT_SECONDS: u64 = 8;
 
 pub struct SearchOptions {
     pub query: String,
@@ -177,6 +179,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
             continue;
         };
         let mut backend_config = backend_config;
+        let prefer_list_for_local_search = backend_config.prefer_list_for_local_search;
         // Search is read-only; never require sudo here.
         // This avoids password prompts/timeouts in non-interactive flows.
         backend_config.needs_sudo = false;
@@ -194,7 +197,13 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
         thread::spawn(move || {
             let started_at = std::time::Instant::now();
-            let result = search_single_backend(manager, &query, local_mode, effective_limit);
+            let result = search_single_backend(
+                manager,
+                &query,
+                local_mode,
+                effective_limit,
+                prefer_list_for_local_search,
+            );
             let duration_ms = started_at.elapsed().as_millis();
 
             // Send result (ignore errors if receiver dropped)
@@ -239,7 +248,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     // Receive results with timeout
     let start_time = std::time::Instant::now();
-    let timeout = Duration::from_secs(BACKEND_TIMEOUT_SECONDS);
+    let timeout = Duration::from_secs(if options.local {
+        LOCAL_BACKEND_TIMEOUT_SECONDS
+    } else {
+        BACKEND_TIMEOUT_SECONDS
+    });
 
     while let Ok(result) = rx.recv_timeout(timeout) {
         match result {
@@ -323,6 +336,13 @@ pub fn run(options: SearchOptions) -> Result<()> {
         }
     }
 
+    if options.verbose && !machine_mode && options.local && start_time.elapsed() >= timeout {
+        output::info(&format!(
+            "Stopped waiting after {}s; use --backends to target specific local sources.",
+            timeout.as_secs()
+        ));
+    }
+
     if machine_mode {
         let report = SearchReportOut {
             query: actual_query.clone(),
@@ -369,9 +389,12 @@ fn search_single_backend(
     query: &str,
     local_mode: bool,
     limit: Option<usize>,
+    prefer_list_for_local_search: bool,
 ) -> std::result::Result<(Vec<PackageSearchResult>, usize), String> {
     if local_mode {
-        let mut results = if manager.supports_search_local() {
+        let backend_name = manager.backend_type().name().to_string();
+
+        let mut results = if manager.supports_search_local() && !prefer_list_for_local_search {
             manager
                 .search_local(query)
                 .map_err(|e| format!("Local search failed: {}", e))?
@@ -389,7 +412,7 @@ fn search_single_backend(
                     name,
                     version: meta.version,
                     description: None,
-                    backend: manager.backend_type(),
+                    backend: Backend::from(backend_name.clone()),
                 })
                 .collect()
         };
