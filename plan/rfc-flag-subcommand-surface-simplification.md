@@ -80,7 +80,22 @@ This RFC documents the observed problems and defines a phased simplification pla
 - `preview` keyword remains only when the command is fundamentally “render/report focused” and not equivalent to just no-apply execution.
 - If behavior is equivalent to `--dry-run` execution path, avoid separate user-facing concept long-term.
 
-### 6.3 Verbose minimum contract
+### 6.3 Output tier policy (Beginner-first default)
+
+- Default output (non-verbose) must be concise and action-oriented:
+  - success/fail status,
+  - short reason,
+  - immediate next fix step.
+- Default output should avoid noisy internals (full path dumps, backend trace details, fetch source internals) unless required to resolve error.
+
+- Verbose output (`--verbose`) is diagnostic mode:
+  - include path/location details,
+  - include backend/source resolution trace,
+  - include deeper failure chain and timing.
+
+- Rule: information that is useful only for debugging should be moved from default output into verbose output.
+
+### 6.4 Verbose minimum contract
 
 Each command that accepts `--verbose` should expose at least one of:
 - execution timing summary,
@@ -153,8 +168,9 @@ Exit criteria:
 - If distinction is only naming, converge to one model; if distinction is meaningful (e.g., line-annotated patch preview), document strict role boundaries.
 
 3. `sync preview` vs `--dry-run sync`
-- Action: define canonical form for “plan report”.
-- Keep alternative as compatibility alias during migration.
+- Action: canonicalize to global dry-run model for minimal surface.
+- Canonical command becomes `declarch --dry-run sync`.
+- Keep `declarch sync preview` as compatibility alias during migration, then remove after deprecation window.
 
 4. `--verbose`
 - Action: audit each command for guaranteed extra output; add missing signal or remove claim from help.
@@ -173,16 +189,24 @@ Exit criteria:
 4. Hidden behavior divergence
 - Mitigation: parity tests between old/new invocation shapes.
 
-## 10. Open Questions (for review)
+## 10. Decision Record (Resolved)
 
-1. Canonical sync preview path should be:
-- A) `declarch sync preview` (report-first UX), or
-- B) `declarch --dry-run sync` (single no-op concept globally)?
+1. Canonical sync no-apply path:
+- Decision: `declarch --dry-run sync` (single global no-op concept, fewer subcommands).
+- Migration: `declarch sync preview` remains alias with deprecation warning for compatibility window.
 
-2. Should `edit --preview` stay as a first-class UX for editor-centric flow, with `--dry-run` treated as execution guard only?
+2. `edit --preview` policy:
+- Decision: keep `edit --preview` as first-class output mode (human diff/preview UX).
+- `--dry-run` remains execution guard; not a replacement for preview rendering mode.
+- Rationale: avoids removing a useful beginner-friendly flow while still clarifying semantics.
 
-3. Deprecation window target:
-- one minor release or two minor releases?
+3. Deprecation window:
+- Decision: two minor releases.
+- Rationale: safer for scripts/automation and gives enough time for docs and user migration.
+
+4. Default vs verbose output:
+- Decision: default output is beginner-first and remediation-first; diagnostic depth is behind `--verbose`.
+- Rationale: reduce overwhelm for users who only need “works / fails / how to fix”.
 
 ## 11. Acceptance Criteria
 
@@ -190,6 +214,7 @@ This RFC is accepted when:
 1. Canonical and compatibility invocation sets are approved.
 2. Deprecation timeline is approved.
 3. Test expectations for parser/help/parity are approved.
+4. Output-tier contract (default vs verbose) is approved and mapped per command.
 
 ## 12. Implementation Note
 
