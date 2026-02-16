@@ -172,10 +172,6 @@ Other useful commands:
 
         #[command(subcommand)]
         command: Option<SyncCommand>,
-
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
     },
 
     /// Show status, diagnosis, and package reasoning
@@ -452,10 +448,6 @@ pub enum SyncCommand {
     ///
     /// Runs system package manager update before syncing packages.
     Update {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,
@@ -489,10 +481,6 @@ pub enum SyncCommand {
     ///
     /// Removes packages that are not defined in your configuration (Strict Mode).
     Prune {
-        /// Garbage collect system orphans after sync
-        #[arg(long, help_heading = "Advanced")]
-        gc: bool,
-
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
         target: Option<String>,

@@ -40,9 +40,8 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             host,
             modules,
             command,
-            gc,
         }) => handle_sync_command(
-            args, target, *diff, *noconfirm, *hooks, profile, host, modules, command, *gc,
+            args, target, *diff, *noconfirm, *hooks, profile, host, modules, command,
         ),
 
         Some(Command::Info {
@@ -214,7 +213,6 @@ fn handle_sync_command(
     host: &Option<String>,
     modules: &[String],
     command: &Option<SyncCommand>,
-    gc: bool,
 ) -> Result<()> {
     match command {
         Some(SyncCommand::Cache { backend }) => {
@@ -231,7 +229,6 @@ fn handle_sync_command(
             })
         }
         Some(SyncCommand::Update {
-            gc,
             target,
             diff,
             noconfirm,
@@ -242,7 +239,6 @@ fn handle_sync_command(
         }) => commands::sync::run(commands::sync::SyncOptions {
             dry_run: args.global.dry_run,
             prune: false,
-            gc: *gc,
             update: true,
             yes: args.global.yes,
             force: args.global.force,
@@ -257,7 +253,6 @@ fn handle_sync_command(
             output_version: args.global.output_version.clone(),
         }),
         Some(SyncCommand::Prune {
-            gc,
             target,
             diff,
             noconfirm,
@@ -268,7 +263,6 @@ fn handle_sync_command(
         }) => commands::sync::run(commands::sync::SyncOptions {
             dry_run: args.global.dry_run,
             prune: true,
-            gc: *gc,
             update: false,
             yes: args.global.yes,
             force: args.global.force,
@@ -285,7 +279,6 @@ fn handle_sync_command(
         _ => commands::sync::run(commands::sync::SyncOptions {
             dry_run: args.global.dry_run,
             prune: false,
-            gc,
             update: false,
             yes: args.global.yes,
             force: args.global.force,
@@ -593,7 +586,6 @@ mod tests {
             host: None,
             modules: Vec::new(),
             command: Some(SyncCommand::Update {
-                gc: false,
                 target: None,
                 diff: false,
                 noconfirm: false,
@@ -602,7 +594,6 @@ mod tests {
                 host: None,
                 modules: Vec::new(),
             }),
-            gc: false,
         });
         assert!(validate_machine_output_contract(&cli).is_err());
     }
@@ -623,7 +614,6 @@ mod tests {
             host: None,
             modules: Vec::new(),
             command: None,
-            gc: false,
         });
         assert!(validate_machine_output_contract(&cli).is_ok());
     }

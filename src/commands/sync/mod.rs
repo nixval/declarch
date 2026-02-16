@@ -66,7 +66,6 @@ struct SyncPreviewReport {
 pub struct SyncOptions {
     pub dry_run: bool,
     pub prune: bool,
-    pub gc: bool,
     pub update: bool,
     pub yes: bool,
     pub force: bool,

@@ -280,7 +280,6 @@ pub fn run(options: InstallOptions) -> Result<()> {
         let sync_result = sync::run(SyncOptions {
             update: false,
             prune: false,
-            gc: false,
             dry_run: false,
             target: None,
             yes: options.yes,
