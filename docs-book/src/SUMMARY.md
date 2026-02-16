@@ -6,6 +6,9 @@
 
 - [Installation](./getting-started/installation.md)
 - [Quick Start](./getting-started/quick-start.md)
+- [First Run (Linear Guide)](./getting-started/first-run-linear.md)
+- [Common Mistakes](./getting-started/common-mistakes.md)
+- [Config Progression](./getting-started/config-progression.md)
 - [Basic Concepts](./getting-started/basic-concepts.md)
 - [Cross-OS (Alpha)](./getting-started/cross-os-alpha.md)
 

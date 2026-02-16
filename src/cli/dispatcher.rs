@@ -147,7 +147,13 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         Some(Command::Ext) => commands::ext::run(),
 
         None => {
-            output::info("No command provided. Use --help.");
+            output::info("No command provided.");
+            output::info("Quick start:");
+            output::indent("1) declarch init", 2);
+            output::indent("2) declarch install aur:bat", 2);
+            output::indent("3) declarch sync preview", 2);
+            output::indent("4) declarch sync", 2);
+            output::info("Use `declarch --help` for full command list.");
             Ok(())
         }
     }
@@ -169,8 +175,8 @@ fn handle_init_command(
             "backends" => commands::init::list_available_backends(),
             "modules" => commands::init::list_available_modules(),
             _ => Err(DeclarchError::Other(format!(
-                "Unknown list target: '{}'. Available: backends, modules",
-                what
+                "Unknown init list target '{}'. Use `declarch init --list backends` or `declarch init --list modules`.",
+                what,
             ))),
         };
     }
@@ -420,7 +426,7 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
 
         if !supports_v1_contract(args) {
             return Err(DeclarchError::Other(
-                "This command does not support --output-version v1 yet. Supported now: `info`, `info --list`, `lint`, `search`, `sync preview`.".to_string(),
+                "This command does not support --output-version v1 yet.\nSupported now: `declarch info`, `declarch info --list`, `declarch lint`, `declarch search`, `declarch sync preview`.".to_string(),
             ));
         }
     }

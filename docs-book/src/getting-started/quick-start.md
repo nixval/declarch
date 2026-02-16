@@ -2,6 +2,10 @@
 
 Fast first run.
 
+If you want a strict step-by-step guide, use:
+- [First Run (Linear Guide)](./first-run-linear.md)
+- [Common Mistakes](./common-mistakes.md)
+
 ## 1) Initialize
 
 ```bash

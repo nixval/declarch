@@ -5,6 +5,14 @@ use clap_complete::Shell;
 #[command(
     name = "declarch",
     about = "Universal declarative package manager - unify aur, flatpak, npm, nix, cargo, pip, and custom backends under one declarative config(s).",
+    after_help = "Quick start:
+  declarch init
+  declarch install aur:bat aur:fd aur:ripgrep
+  declarch sync preview
+  declarch sync
+
+Need command-specific help?
+  declarch <command> --help",
     version,
     help_template = "{about-with-newline}
 {usage-heading} {usage}
@@ -14,6 +22,7 @@ Commands:
 
 Options:
 {options}
+{after-help}
 ",
     term_width = 100,
     max_term_width = 120
@@ -133,6 +142,13 @@ pub enum Command {
     /// Main command for managing packages. Subcommands provide additional
     /// functionality like previewing changes, updating package indices,
     /// upgrading packages, and cleaning caches.
+    #[command(after_help = "Most common flow:
+  declarch sync preview
+  declarch sync
+
+Other useful commands:
+  declarch sync update
+  declarch sync prune")]
     Sync {
         #[command(subcommand)]
         command: Option<SyncCommand>,
@@ -245,18 +261,20 @@ pub enum Command {
     ///
     /// Adds packages to KDL configuration files and automatically syncs the system.
     ///
-    /// Examples:
-    ///   declarch install hyprland              Add to modules/others.kdl
-    ///   declarch install vim nano emacs        Add multiple packages
-    ///   declarch install soar:bat              Add to backend-specific block
-    ///   declarch install package --modules base    Add to specific module
+    /// Common examples:
+    /// - declarch install aur:hyprland
+    /// - declarch install aur:vim aur:nano aur:emacs
+    /// - declarch install soar:bat
+    /// - declarch install bat fzf ripgrep --backend aur
+    /// - declarch install npm:typescript --module development
+    #[command(verbatim_doc_comment)]
     Install {
         /// Package(s) to install (format: [backend:]package)
         ///
         /// Examples:
-        ///   hyprland                     Package without backend (uses default)
-        ///   backend:package              Package with backend override
-        ///   backend:name                 Package with specific backend
+        /// - hyprland
+        /// - backend:package
+        /// - backend:name
         #[arg(required = true, num_args = 1.., value_name = "PACKAGES")]
         packages: Vec<String>,
 
