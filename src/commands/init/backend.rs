@@ -77,17 +77,26 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         if !meta.description.is_empty() && meta.description != "-" {
             println!("  Description: {}", meta.description);
         }
-        if !meta.maintainer.is_empty() && meta.maintainer != "-" {
-            println!("  Maintainer:  {}", meta.maintainer);
+        if !meta.maintainers.is_empty() {
+            println!("  Maintainer:  {}", meta.maintainers.join(", "));
+        } else if let Some(author) = &meta.author
+            && author != "-"
+        {
+            println!("  Author:      {}", author);
         }
         if !meta.homepage.is_empty() && meta.homepage != "-" {
             println!("  Homepage:    {}", meta.homepage);
         }
+        if let Some(guide) = &meta.installation_guide
+            && guide != "-"
+        {
+            println!("  Install:     {}", guide);
+        }
         if !meta.platforms.is_empty() {
             println!("  Platforms:   {}", meta.platforms.join(", "));
         }
-        if !meta.requires.is_empty() && meta.requires != "-" {
-            println!("  Requires:    {}", meta.requires);
+        if !meta.requires.is_empty() {
+            println!("  Requires:    {}", meta.requires.join(", "));
         }
         println!();
     }
@@ -158,7 +167,7 @@ pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> 
     let import_path = format!("backends/{}.kdl", backend_name);
 
     // Check if already imported
-    let existing_pattern = format!(r#"\"{}\""#, regex::escape(&import_path));
+    let existing_pattern = format!(r#""{}""#, regex::escape(&import_path));
     if Regex::new(&existing_pattern)
         .map(|re| re.is_match(&content))
         .unwrap_or(false)
@@ -175,10 +184,10 @@ pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> 
     }
 
     // Add import in the backends block header line
-    let backends_block_re = Regex::new(r#"(?m)^(\s*backends(?:\s+\"[^\"]*\")?\s*\{)"#)
+    let backends_block_re = Regex::new(r#"(?m)^(\s*backends(?:\s+"[^"]*")?\s*\{)"#)
         .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
 
-    let import_line = format!(r#"    \"{}\""#, import_path);
+    let import_line = format!(r#"    "{}""#, import_path);
 
     let new_content = backends_block_re
         .replace(&content, |caps: &regex::Captures| {
@@ -195,10 +204,12 @@ pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> 
 pub struct BackendMeta {
     pub title: String,
     pub description: String,
-    pub maintainer: String,
+    pub author: Option<String>,
+    pub maintainers: Vec<String>,
     pub homepage: String,
+    pub installation_guide: Option<String>,
     pub platforms: Vec<String>,
-    pub requires: String,
+    pub requires: Vec<String>,
 }
 
 /// Extract meta information from backend KDL content
@@ -239,14 +250,20 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
                                     .unwrap_or("")
                                     .to_string();
                             }
-                            // Support both old and new keys
-                            "maintained" | "maintainer" => {
-                                meta.maintainer = meta_node
+                            "author" => {
+                                meta.author = meta_node
                                     .entries()
                                     .first()
                                     .and_then(|e| e.value().as_string())
-                                    .unwrap_or("")
-                                    .to_string();
+                                    .map(ToString::to_string);
+                            }
+                            // Support both old and new keys
+                            "maintained" | "maintainer" => {
+                                for entry in meta_node.entries() {
+                                    if let Some(val) = entry.value().as_string() {
+                                        meta.maintainers.push(val.to_string());
+                                    }
+                                }
                             }
                             "homepage" => {
                                 meta.homepage = meta_node
@@ -257,12 +274,18 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
                                     .to_string();
                             }
                             "requires" => {
-                                meta.requires = meta_node
+                                for entry in meta_node.entries() {
+                                    if let Some(val) = entry.value().as_string() {
+                                        meta.requires.push(val.to_string());
+                                    }
+                                }
+                            }
+                            "installation_guide" | "install-guide" => {
+                                meta.installation_guide = meta_node
                                     .entries()
                                     .first()
                                     .and_then(|e| e.value().as_string())
-                                    .unwrap_or("")
-                                    .to_string();
+                                    .map(ToString::to_string);
                             }
                             "platforms" => {
                                 for entry in meta_node.entries() {
@@ -280,6 +303,13 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
 
         break;
     }
+
+    meta.maintainers.sort();
+    meta.maintainers.dedup();
+    meta.platforms.sort();
+    meta.platforms.dedup();
+    meta.requires.sort();
+    meta.requires.dedup();
 
     Ok(meta)
 }
@@ -308,7 +338,8 @@ backends {
         assert!(result);
 
         let new_content = fs::read_to_string(temp_file.path()).unwrap();
-        assert!(new_content.contains("backends/flatpak.kdl"));
+        assert!(new_content.contains(r#""backends/flatpak.kdl""#));
+        assert!(!new_content.contains(r#"\"backends/flatpak.kdl\""#));
     }
 
     #[test]
@@ -329,7 +360,10 @@ backend "nala" {
     meta {
         title "Nala"
         maintained "declarch"
+        maintainer "community-a" "community-b"
         homepage "https://example.com"
+        install-guide "https://example.com/guide"
+        requires "nala" "apt"
     }
     binary "nala"
     install "{binary} install {packages}"
@@ -337,6 +371,18 @@ backend "nala" {
 "#;
         let meta = extract_backend_meta(content).unwrap();
         assert_eq!(meta.title, "Nala");
-        assert_eq!(meta.maintainer, "declarch");
+        assert_eq!(
+            meta.maintainers,
+            vec![
+                "community-a".to_string(),
+                "community-b".to_string(),
+                "declarch".to_string(),
+            ]
+        );
+        assert_eq!(
+            meta.installation_guide,
+            Some("https://example.com/guide".to_string())
+        );
+        assert_eq!(meta.requires, vec!["apt".to_string(), "nala".to_string()]);
     }
 }

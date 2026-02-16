@@ -82,9 +82,15 @@ pub struct ProjectMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
     pub author: Option<String>,
+    pub maintainers: Vec<String>,
     pub version: Option<String>,
     pub tags: Vec<String>,
+    pub homepage: Option<String>,
     pub url: Option<String>,
+    pub license: Option<String>,
+    pub platforms: Vec<String>,
+    pub requires: Vec<String>,
+    pub installation_guide: Option<String>,
 }
 
 /// Conflict entry - mutually exclusive packages

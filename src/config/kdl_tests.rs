@@ -158,13 +158,45 @@ fn test_meta_block_parsing() {
                 title "My Config"
                 description "Test configuration"
                 author "testuser"
+                maintainer "maint-a" "maint-b"
+                maintained "legacy-maintainer"
                 version "1.0.0"
+                homepage "https://example.com"
+                license "MIT"
+                platforms "linux" "macos"
+                requires "git" "curl"
+                install-guide "https://example.com/setup"
             }
         "#;
 
     let config = parse_kdl_content(kdl).unwrap();
     assert_eq!(config.project_metadata.title, Some("My Config".to_string()));
     assert_eq!(config.project_metadata.author, Some("testuser".to_string()));
+    assert_eq!(
+        config.project_metadata.maintainers,
+        vec![
+            "legacy-maintainer".to_string(),
+            "maint-a".to_string(),
+            "maint-b".to_string()
+        ]
+    );
+    assert_eq!(
+        config.project_metadata.homepage.as_deref(),
+        Some("https://example.com")
+    );
+    assert_eq!(config.project_metadata.license.as_deref(), Some("MIT"));
+    assert_eq!(
+        config.project_metadata.platforms,
+        vec!["linux".to_string(), "macos".to_string()]
+    );
+    assert_eq!(
+        config.project_metadata.requires,
+        vec!["curl".to_string(), "git".to_string()]
+    );
+    assert_eq!(
+        config.project_metadata.installation_guide.as_deref(),
+        Some("https://example.com/setup")
+    );
 }
 
 #[test]

@@ -24,6 +24,13 @@ pub fn parse_meta_block(node: &KdlNode, project_metadata: &mut ProjectMetadata) 
                         project_metadata.author = Some(val);
                     }
                 }
+                "maintainer" | "maintained" => {
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            project_metadata.maintainers.push(val.to_string());
+                        }
+                    }
+                }
                 "version" => {
                     if let Some(val) = super::get_first_string(child) {
                         project_metadata.version = Some(val);
@@ -42,10 +49,45 @@ pub fn parse_meta_block(node: &KdlNode, project_metadata: &mut ProjectMetadata) 
                         project_metadata.url = Some(val);
                     }
                 }
+                "homepage" => {
+                    if let Some(val) = super::get_first_string(child) {
+                        project_metadata.homepage = Some(val);
+                    }
+                }
+                "license" => {
+                    if let Some(val) = super::get_first_string(child) {
+                        project_metadata.license = Some(val);
+                    }
+                }
+                "platforms" => {
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            project_metadata.platforms.push(val.to_string());
+                        }
+                    }
+                }
+                "requires" => {
+                    for entry in child.entries() {
+                        if let Some(val) = entry.value().as_string() {
+                            project_metadata.requires.push(val.to_string());
+                        }
+                    }
+                }
+                "installation_guide" | "install-guide" => {
+                    if let Some(val) = super::get_first_string(child) {
+                        project_metadata.installation_guide = Some(val);
+                    }
+                }
                 _ => {}
             }
         }
     }
+    project_metadata.maintainers.sort();
+    project_metadata.maintainers.dedup();
+    project_metadata.platforms.sort();
+    project_metadata.platforms.dedup();
+    project_metadata.requires.sort();
+    project_metadata.requires.dedup();
     Ok(())
 }
 

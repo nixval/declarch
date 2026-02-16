@@ -165,9 +165,15 @@ fn display_module_meta(content: &str) {
         let has_meta = meta.title.is_some()
             || meta.description.is_some()
             || meta.author.is_some()
+            || !meta.maintainers.is_empty()
             || meta.version.is_some()
             || !meta.tags.is_empty()
-            || meta.url.is_some();
+            || meta.url.is_some()
+            || meta.homepage.is_some()
+            || meta.license.is_some()
+            || !meta.platforms.is_empty()
+            || !meta.requires.is_empty()
+            || meta.installation_guide.is_some();
 
         if has_meta {
             crate::ui::separator();
@@ -189,6 +195,13 @@ fn display_module_meta(content: &str) {
                 details.push(format!("Author: {}", author.yellow()));
             }
 
+            if !meta.maintainers.is_empty() {
+                details.push(format!(
+                    "Maintainer: {}",
+                    meta.maintainers.join(", ").yellow()
+                ));
+            }
+
             if let Some(version) = &meta.version {
                 details.push(format!("Version: {}", version.green()));
             }
@@ -199,6 +212,26 @@ fn display_module_meta(content: &str) {
 
             if let Some(url) = &meta.url {
                 details.push(format!("URL: {}", url.blue().underline()));
+            }
+
+            if let Some(homepage) = &meta.homepage {
+                details.push(format!("Homepage: {}", homepage.blue().underline()));
+            }
+
+            if let Some(license) = &meta.license {
+                details.push(format!("License: {}", license.normal()));
+            }
+
+            if !meta.platforms.is_empty() {
+                details.push(format!("Platforms: {}", meta.platforms.join(", ").normal()));
+            }
+
+            if !meta.requires.is_empty() {
+                details.push(format!("Requires: {}", meta.requires.join(", ").normal()));
+            }
+
+            if let Some(guide) = &meta.installation_guide {
+                details.push(format!("Installation Guide: {}", guide.blue().underline()));
             }
 
             for detail in details {
