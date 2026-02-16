@@ -161,8 +161,8 @@ fn e2e_sync_preview_with_mock_backend() {
     let mut cmd = declarch();
     env.apply(&mut cmd);
 
-    cmd.arg("sync")
-        .arg("preview")
+    cmd.arg("--dry-run")
+        .arg("sync")
         .arg("--target")
         .arg("mockpm")
         .assert()

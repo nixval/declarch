@@ -1,5 +1,5 @@
 use colored::Colorize;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -59,7 +59,7 @@ fn should_colorize() -> bool {
         ColorMode::Never => false,
         ColorMode::Auto => {
             // Check if we're in a TTY
-            atty::is(atty::Stream::Stdout)
+            io::stdout().is_terminal()
         }
     }
 }

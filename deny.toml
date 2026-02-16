@@ -8,6 +8,7 @@
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # The path where the advisory database is cloned/fetched to
 db-path = "~/.cargo/advisory-db"
+unmaintained = "warn"
 
 # Ignore specific advisories
 # ignore = [
@@ -28,6 +29,7 @@ allow = [
     "MPL-2.0",
     "CC0-1.0",
     "Unlicense",
+    "CDLA-Permissive-2.0",
 ]
 
 # Allow unused licenses for now (can be strict later)
