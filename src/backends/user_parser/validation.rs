@@ -32,10 +32,9 @@ pub(super) fn validate_backend_config(config: &BackendConfig) -> Result<()> {
             ));
         }
     } else {
-        // Only show install-only warning for backends that have list capability
-        // (i.e., not intentionally install-only)
-        ui::info(&format!(
-            "Backend '{}' install-only mode (no list_cmd)",
+        // Keep non-verbose output clean; show install-only diagnostics in verbose mode.
+        ui::verbose(&format!(
+            "Backend '{}' install-only mode (no list_cmd configured)",
             config.name
         ));
     }

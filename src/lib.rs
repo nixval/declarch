@@ -30,6 +30,7 @@ pub fn run_cli() {
     // 2. Parse & Run
     let args = cli::args::Cli::parse();
     ui::set_quiet(args.global.quiet);
+    ui::set_verbose(args.global.verbose);
 
     if let Err(e) = cli::dispatcher::dispatch(&args) {
         ui::error(&format!("{}", e));

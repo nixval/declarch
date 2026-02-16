@@ -7,6 +7,7 @@ pub mod progress;
 
 static COLOR_MODE: OnceLock<ColorMode> = OnceLock::new();
 static QUIET_MODE: AtomicBool = AtomicBool::new(false);
+static VERBOSE_MODE: AtomicBool = AtomicBool::new(false);
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq)]
@@ -34,6 +35,16 @@ pub fn init_colors() {
 /// Enable or disable quiet mode globally.
 pub fn set_quiet(enabled: bool) {
     QUIET_MODE.store(enabled, Ordering::Relaxed);
+}
+
+/// Enable or disable verbose mode globally.
+pub fn set_verbose(enabled: bool) {
+    VERBOSE_MODE.store(enabled, Ordering::Relaxed);
+}
+
+/// Check whether verbose mode is enabled.
+pub fn is_verbose() -> bool {
+    VERBOSE_MODE.load(Ordering::Relaxed)
 }
 
 /// Mark an interruption request (e.g. Ctrl+C).
@@ -92,6 +103,14 @@ pub fn info(msg: &str) {
         return;
     }
     println!("{}", color_str(msg, |s| s.blue()));
+}
+
+/// Print a message only in verbose mode.
+pub fn verbose(msg: &str) {
+    if is_quiet() || !is_verbose() {
+        return;
+    }
+    println!("{}", color_str(msg, |s| s.dimmed()));
 }
 
 pub fn warning(msg: &str) {
