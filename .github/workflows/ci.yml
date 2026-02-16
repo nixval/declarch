@@ -36,10 +36,10 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Check Formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --check
 
       - name: Clippy (Linting)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Build
         run: cargo build --verbose
@@ -57,7 +57,7 @@ jobs:
           .\target\debug\declarch.exe info --doctor
 
       - name: Run Tests
-        run: cargo test --verbose
+        run: cargo test --all-targets --verbose
 
   cross-platform-build:
     name: Build (${{ matrix.os }})

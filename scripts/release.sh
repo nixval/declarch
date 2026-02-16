@@ -17,6 +17,11 @@ fi
 
 echo "🔄 Preparing release $VERSION..."
 
+if [ ! -f "RELEASE_CHECKLIST.md" ]; then
+    echo "Error: RELEASE_CHECKLIST.md not found"
+    exit 1
+fi
+
 # Check for uncommitted changes
 if [ -n "$(git status --porcelain)" ]; then
     echo "⚠️  Warning: You have uncommitted changes"
@@ -36,13 +41,30 @@ sed -i "s/\\[string\\]\\$Version = \".*\"/[string]\$Version = \"$VERSION\"/" ins
 
 # Run checks
 echo "🔍 Running tests..."
-cargo test --all --quiet
+cargo test --all-targets --quiet
 
 echo "🔍 Running clippy..."
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets -- -D warnings
 
 echo "🔍 Checking formatting..."
-cargo fmt -- --check
+cargo fmt --check
+
+# Changelog discipline checks
+echo "📝 Verifying changelog..."
+if ! grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+    echo "Error: CHANGELOG.md must contain an [Unreleased] section"
+    exit 1
+fi
+
+if ! awk '
+  /^## \[Unreleased\]/ { in_unreleased=1; next }
+  /^## \[/ && in_unreleased { in_unreleased=0 }
+  in_unreleased && /^- / { found=1 }
+  END { exit found ? 0 : 1 }
+' CHANGELOG.md; then
+    echo "Error: Add at least one bullet under CHANGELOG.md [Unreleased]"
+    exit 1
+fi
 
 # Commit changes
 echo "💾 Committing changes..."
@@ -53,6 +75,7 @@ echo "📊 Summary of changes:"
 git show --stat HEAD
 
 echo ""
+echo "Checklist reference: RELEASE_CHECKLIST.md"
 echo "🏷️  About to create and push tag v$VERSION..."
 echo "Press Ctrl+C to cancel, or Enter to continue"
 read

@@ -48,6 +48,7 @@ plan/*
 !plan/phase-05-release-guardrails.md
 !plan/commit-strategy.md
 !plan/risk-register.md
+!plan/rollback-map.md
 
 # Keep AUR templates tracked
 !.aur/templates/

@@ -4,7 +4,7 @@
 Menurunkan kompleksitas file inti dan meningkatkan keterbacaan perubahan.
 
 ## TODO
-- [ ] Pecah file hotspot menjadi submodule:
+- [x] Pecah file hotspot menjadi submodule:
   - [x] `backends/user_parser.rs`
   - [x] `backends/generic.rs`
   - [x] `commands/sync/mod.rs`

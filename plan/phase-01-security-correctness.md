@@ -10,7 +10,7 @@ Menutup potensi bug/security yang paling berisiko tanpa mengubah UX besar.
   - [x] package name validation
   - [x] search query validation
   - [x] hook command validation
-- [ ] Hardening remote fetch URL:
+- [x] Hardening remote fetch URL:
   - [x] review skema allowed
   - [x] perketat private/local network block
   - [x] dokumentasikan trade-off compatibility
