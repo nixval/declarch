@@ -196,13 +196,9 @@ Other useful commands:
         #[arg(long)]
         list: bool,
 
-        /// With --list: show orphan packages only
-        #[arg(long)]
-        orphans: bool,
-
-        /// With --list: show synced packages only
-        #[arg(long)]
-        synced: bool,
+        /// With --list: select list scope (all, orphans, synced)
+        #[arg(long, value_enum, requires = "list")]
+        scope: Option<InfoListScope>,
 
         /// Filter by backend name
         #[arg(long, value_name = "BACKEND")]
@@ -416,6 +412,38 @@ pub enum LintMode {
     Validate,
     Duplicates,
     Conflicts,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum InfoListScope {
+    All,
+    Orphans,
+    Synced,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn parser_rejects_removed_sync_preview_subcommand() {
+        let parsed = Cli::try_parse_from(["declarch", "sync", "preview"]);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn parser_rejects_removed_sync_sync_subcommand() {
+        let parsed = Cli::try_parse_from(["declarch", "sync", "sync"]);
+        assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn parser_allows_switch_with_global_dry_run() {
+        let parsed = Cli::try_parse_from(["declarch", "switch", "old", "new", "--dry-run"])
+            .expect("switch with global --dry-run should parse");
+        assert!(parsed.global.dry_run);
+    }
 }
 
 #[derive(Subcommand, Debug, Clone)]

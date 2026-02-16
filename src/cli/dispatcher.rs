@@ -2,7 +2,7 @@
 //!
 //! Routes CLI commands to their appropriate handlers.
 
-use crate::cli::args::{Cli, Command, LintMode, SyncCommand};
+use crate::cli::args::{Cli, Command, InfoListScope, LintMode, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
@@ -50,16 +50,14 @@ pub fn dispatch(args: &Cli) -> Result<()> {
             doctor,
             plan,
             list,
-            orphans,
-            synced,
+            scope,
             backend,
             package,
             profile,
             host,
             modules,
         }) => handle_info_command(
-            args, query, *doctor, *plan, *list, *orphans, *synced, backend, package, profile, host,
-            modules,
+            args, query, *doctor, *plan, *list, scope, backend, package, profile, host, modules,
         ),
 
         Some(Command::Switch {
@@ -311,8 +309,7 @@ fn handle_info_command(
     doctor: bool,
     plan: bool,
     list: bool,
-    orphans: bool,
-    synced: bool,
+    scope: &Option<InfoListScope>,
     backend: &Option<String>,
     package: &Option<String>,
     profile: &Option<String>,
@@ -329,12 +326,12 @@ fn handle_info_command(
     if query.is_some() {
         mode_count += 1;
     }
-    if list || orphans || synced {
+    if list || scope.is_some() {
         mode_count += 1;
     }
     if mode_count > 1 {
         return Err(DeclarchError::Other(
-            "Use only one info mode at a time: status, query, --plan, --doctor, or --list/--orphans/--synced".to_string(),
+            "Use only one info mode at a time: status, query, --plan, --doctor, or --list [--scope ...]".to_string(),
         ));
     }
 
@@ -349,7 +346,12 @@ fn handle_info_command(
         });
     }
 
-    if list || orphans || synced {
+    if list || scope.is_some() {
+        let (orphans, synced) = match scope {
+            Some(InfoListScope::Orphans) => (true, false),
+            Some(InfoListScope::Synced) => (false, true),
+            _ => (false, false),
+        };
         return commands::list::run(commands::list::ListOptions {
             backend: backend.clone(),
             orphans,
