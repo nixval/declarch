@@ -6,6 +6,7 @@
 use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
 };
+use crate::constants::SEARCH_BACKEND_TIMEOUT_SECS;
 use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
@@ -20,7 +21,7 @@ use std::thread;
 use std::time::Duration;
 
 /// Maximum time to wait for a backend to respond (seconds)
-const BACKEND_TIMEOUT_SECONDS: u64 = 30;
+const BACKEND_TIMEOUT_SECONDS: u64 = SEARCH_BACKEND_TIMEOUT_SECS;
 
 pub struct SearchOptions {
     pub query: String,

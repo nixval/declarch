@@ -1,6 +1,7 @@
 use crate::config::kdl::{
     ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
 };
+use crate::constants::HOOK_TIMEOUT_SECS;
 use crate::error::{DeclarchError, Result};
 use crate::ui as output;
 use crate::utils::sanitize;
@@ -11,7 +12,7 @@ use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 /// Default timeout for hook execution (30 seconds)
-const DEFAULT_HOOK_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_HOOK_TIMEOUT: Duration = Duration::from_secs(HOOK_TIMEOUT_SECS);
 
 /// Safe character regex for hook command validation
 /// Compiled once and reused for performance and safety

@@ -2,6 +2,7 @@ mod command_exec;
 
 use crate::backends::config::BackendConfig;
 use crate::backends::parsers;
+use crate::constants::BACKEND_COMMAND_TIMEOUT_SECS;
 use crate::core::types::{Backend as CoreBackend, PackageMetadata};
 use crate::error::{DeclarchError, Result};
 use crate::packages::traits::{PackageManager, PackageSearchResult};
@@ -15,7 +16,7 @@ use std::process::Command;
 use std::time::Duration;
 
 /// Default timeout for backend commands (5 minutes)
-const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(300);
+const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(BACKEND_COMMAND_TIMEOUT_SECS);
 
 /// Generic package manager that works with any backend configuration
 pub struct GenericManager {

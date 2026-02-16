@@ -8,7 +8,7 @@ Meningkatkan konsistensi performa dan reliability pada operasi kritikal.
   - [x] sync transaction path
   - [x] search multi-backend
   - [x] list installed snapshot
-- [ ] Standardisasi timeout/retry policy lintas module.
+- [x] Standardisasi timeout/retry policy lintas module.
 - [ ] Review penggunaan thread/rayon untuk menghindari overhead tidak perlu.
 - [ ] Tingkatkan observability ringan (durasi operation-level di mode verbose).
 - [ ] Evaluasi bottleneck I/O state read/write dan lock contention.
@@ -28,6 +28,8 @@ Meningkatkan konsistensi performa dan reliability pada operasi kritikal.
 - 2026-02-16
   - added reusable baseline script: `scripts/perf_baseline.sh`.
   - captured initial timing snapshot for hot-path proxy scenarios.
+  - centralized runtime timeout/retry constants in `constants/common.rs`.
+  - wired standardized constants into `generic`, `search`, `hooks`, and `sync/executor`.
 
 ## Exit Criteria
 - Ada metrik before/after yang menunjukkan perbaikan.

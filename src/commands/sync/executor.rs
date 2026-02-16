@@ -8,7 +8,7 @@ use crate::commands::sync::hooks::{
     execute_post_install, execute_post_remove, execute_pre_install, execute_pre_remove,
 };
 use crate::config::loader;
-use crate::constants::CRITICAL_PACKAGES;
+use crate::constants::{BACKEND_OPERATION_MAX_RETRIES, BACKEND_RETRY_DELAY_MS, CRITICAL_PACKAGES};
 use crate::core::{
     resolver,
     types::{Backend, PackageId},
@@ -22,9 +22,9 @@ use std::thread;
 use std::time::Duration;
 
 /// Maximum retry attempts for failed backend operations
-const MAX_RETRIES: u32 = 3;
+const MAX_RETRIES: u32 = BACKEND_OPERATION_MAX_RETRIES;
 /// Delay between retries (in milliseconds)
-const RETRY_DELAY_MS: u64 = 1000;
+const RETRY_DELAY_MS: u64 = BACKEND_RETRY_DELAY_MS;
 
 /// Execute a function with retry logic
 fn execute_with_retry<F>(
