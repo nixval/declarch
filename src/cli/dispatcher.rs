@@ -149,7 +149,7 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         None => {
             output::info("No command provided.");
             output::info("Quick start:");
-            output::indent("- declarch init", 2);
+            output::indent("- declarch init --backend flatpak soar brew", 2);
             output::indent("- declarch edit  // write package you want OR directly", 2);
             output::indent("- declarch install flatpak:anypackage", 2);
             output::indent("- declarch sync", 2);
