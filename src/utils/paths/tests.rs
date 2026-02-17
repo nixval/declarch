@@ -1,4 +1,3 @@
-
 use super::*;
 use crate::constants::{CONFIG_FILE_NAME, STATE_FILE_NAME};
 

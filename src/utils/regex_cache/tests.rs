@@ -1,4 +1,3 @@
-
 use super::*;
 
 /// Test that regex compilation works
