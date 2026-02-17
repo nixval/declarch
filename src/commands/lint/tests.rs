@@ -1,4 +1,4 @@
-use super::{file_graph, resolve_state_remove_keys, sort_import_lines};
+use super::{file_graph, sort_import_lines, state_ops};
 use crate::core::types::Backend;
 use crate::project_identity;
 use crate::state::types::PackageState;
@@ -87,8 +87,9 @@ fn resolve_state_remove_keys_prefixed_id() {
     let mut packages: HashMap<String, PackageState> = HashMap::new();
     packages.insert("soar:firefox".to_string(), pkg_state("soar", "firefox"));
 
-    let keys = resolve_state_remove_keys(&packages, &["soar:firefox".to_string()], None, false)
-        .expect("resolve keys");
+    let keys =
+        state_ops::resolve_state_remove_keys(&packages, &["soar:firefox".to_string()], None, false)
+            .expect("resolve keys");
     assert_eq!(keys, vec!["soar:firefox".to_string()]);
 }
 
@@ -98,8 +99,13 @@ fn resolve_state_remove_keys_backend_filter_plain_name() {
     packages.insert("aur:firefox".to_string(), pkg_state("aur", "firefox"));
     packages.insert("soar:firefox".to_string(), pkg_state("soar", "firefox"));
 
-    let keys = resolve_state_remove_keys(&packages, &["firefox".to_string()], Some("soar"), false)
-        .expect("resolve keys");
+    let keys = state_ops::resolve_state_remove_keys(
+        &packages,
+        &["firefox".to_string()],
+        Some("soar"),
+        false,
+    )
+    .expect("resolve keys");
     assert_eq!(keys, vec!["soar:firefox".to_string()]);
 }
 
@@ -110,7 +116,7 @@ fn resolve_state_remove_keys_all_for_backend() {
     packages.insert("soar:bat".to_string(), pkg_state("soar", "bat"));
     packages.insert("aur:bat".to_string(), pkg_state("aur", "bat"));
 
-    let keys = resolve_state_remove_keys(&packages, &[], Some("soar"), true)
+    let keys = state_ops::resolve_state_remove_keys(&packages, &[], Some("soar"), true)
         .expect("resolve backend keys");
     assert_eq!(
         keys,
@@ -124,7 +130,8 @@ fn resolve_state_remove_keys_ambiguous_plain_name_errors() {
     packages.insert("aur:firefox".to_string(), pkg_state("aur", "firefox"));
     packages.insert("soar:firefox".to_string(), pkg_state("soar", "firefox"));
 
-    let err = resolve_state_remove_keys(&packages, &["firefox".to_string()], None, false)
-        .expect_err("plain name should be ambiguous");
+    let err =
+        state_ops::resolve_state_remove_keys(&packages, &["firefox".to_string()], None, false)
+            .expect_err("plain name should be ambiguous");
     assert!(err.to_string().contains("matched multiple backends"));
 }
