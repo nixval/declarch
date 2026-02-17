@@ -30,7 +30,7 @@ fn verify_checksum_detects_mismatch() {
 
 #[test]
 fn build_windows_update_bootstrap_contains_expected_values() {
-    let ps = build_windows_update_bootstrap_ps("0.8.2");
+    let ps = policy::build_windows_update_bootstrap_ps("0.8.2");
     assert!(ps.contains("Start-Process -WindowStyle Hidden"));
     assert!(ps.contains("install.ps1"));
     assert!(ps.contains("/v0.8.2/install.ps1"));

@@ -2,8 +2,8 @@ use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::ui as output;
 use crate::utils::update_check::{
-    InstallOwner, compare_versions, current_version, detect_install_owner,
-    is_managed_by_package_manager, latest_version_live,
+    compare_versions, current_version, detect_install_owner, is_managed_by_package_manager,
+    latest_version_live,
 };
 #[cfg(not(target_os = "windows"))]
 use reqwest::blocking::Client;
@@ -17,6 +17,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 #[cfg(not(target_os = "windows"))]
 use std::time::Duration;
+
+mod policy;
+#[cfg(test)]
+mod tests;
+
+#[cfg(target_os = "windows")]
+use policy::build_windows_update_bootstrap_ps;
+use policy::{managed_update_hint, normalize_requested_version};
 
 pub struct SelfUpdateOptions {
     pub check: bool,
@@ -114,81 +122,6 @@ fn perform_self_update_windows(version: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
-fn build_windows_update_bootstrap_ps(version: &str) -> String {
-    let script_ref = format!("v{}", version);
-    let install_url = format!(
-        "https://raw.githubusercontent.com/{}/{}/install.ps1",
-        project_identity::REPO_SLUG,
-        script_ref
-    );
-    let ps_inner = format!(
-        "$ErrorActionPreference='Stop'; $u='{url}'; $s=(Invoke-WebRequest -UseBasicParsing -Uri $u).Content; $sb=[scriptblock]::Create($s); & $sb -Version '{version}' -Repo '{repo}'",
-        url = install_url,
-        version = version,
-        repo = project_identity::REPO_SLUG
-    );
-    format!(
-        "Start-Process -WindowStyle Hidden -FilePath powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',\"Start-Sleep -Seconds 2; {inner}\"",
-        inner = ps_inner.replace('"', "\\\"")
-    )
-}
-
-fn normalize_requested_version(input: &str) -> Result<String> {
-    let clean = input.trim().trim_start_matches('v');
-    if clean.is_empty() {
-        return Err(DeclarchError::Other(
-            "Invalid version. Use semantic version like 0.8.2".to_string(),
-        ));
-    }
-
-    if !clean.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        return Err(DeclarchError::Other(
-            "Invalid version. Only digits and dots are allowed (example: 0.8.2)".to_string(),
-        ));
-    }
-    Ok(clean.to_string())
-}
-
-fn managed_update_hint(owner: &InstallOwner) -> String {
-    match owner {
-        InstallOwner::Pacman => {
-            format!(
-                "This {} installation is managed by pacman/AUR. Use: paru -Syu {}",
-                project_identity::BINARY_NAME,
-                project_identity::BINARY_NAME
-            )
-        }
-        InstallOwner::Homebrew => {
-            format!(
-                "This {} installation is managed by Homebrew. Use: brew upgrade {}",
-                project_identity::BINARY_NAME,
-                project_identity::BINARY_NAME
-            )
-        }
-        InstallOwner::Scoop => {
-            format!(
-                "This {} installation is managed by Scoop. Use: scoop update {}",
-                project_identity::BINARY_NAME,
-                project_identity::BINARY_NAME
-            )
-        }
-        InstallOwner::Winget => {
-            format!(
-                "This {} installation is managed by Winget. Use: winget upgrade {}",
-                project_identity::BINARY_NAME,
-                project_identity::BINARY_NAME
-            )
-        }
-        _ => {
-            format!(
-                "This {} installation is managed externally. Use your package manager to update.",
-                project_identity::BINARY_NAME
-            )
-        }
-    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -512,6 +445,3 @@ fn update_decl_symlink(dir: &Path, target: &Path) -> Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;
