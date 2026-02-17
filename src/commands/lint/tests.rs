@@ -1,4 +1,4 @@
-use super::{file_graph, sort_import_lines, state_ops};
+use super::{file_checks, file_graph, state_ops};
 use crate::core::types::Backend;
 use crate::project_identity;
 use crate::state::types::PackageState;
@@ -17,7 +17,7 @@ imports {
 }
 "#;
 
-    let output = sort_import_lines(input);
+    let output = file_checks::sort_import_lines(input);
     assert!(output.contains("\"a.kdl\""));
     assert!(output.contains("\"b.kdl\""));
     assert_eq!(output.matches("\"a.kdl\"").count(), 1);
