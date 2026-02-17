@@ -164,6 +164,7 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
             dry_run: false,
             prune: false,
             update: false,
+            verbose: options.verbose,
             yes: true, // Auto-yes since we just did upgrade
             force: false,
             target: None,

@@ -67,6 +67,7 @@ pub struct SyncOptions {
     pub dry_run: bool,
     pub prune: bool,
     pub update: bool,
+    pub verbose: bool,
     pub yes: bool,
     pub force: bool,
     pub target: Option<String>,
@@ -121,11 +122,33 @@ pub fn run(options: SyncOptions) -> Result<()> {
     } else {
         loader::load_root_config_with_selectors(&config_path, &selectors)?
     };
+    if options.verbose {
+        output::verbose(&format!("Config file: {}", config_path.display()));
+        output::verbose(&format!(
+            "Runtime selectors: profile={}, host={}",
+            options.profile.as_deref().unwrap_or("(none)"),
+            options.host.as_deref().unwrap_or("(none)")
+        ));
+        output::verbose(&format!(
+            "Extra modules: {}",
+            if options.modules.is_empty() {
+                "(none)".to_string()
+            } else {
+                options.modules.join(", ")
+            }
+        ));
+    }
     enforce_sync_policy(&config)?;
     let hooks_enabled = resolve_hooks_enabled(&config, &options);
 
     // 2. Target Resolution
     let sync_target = resolve_target(&options.target, &config);
+    if options.verbose {
+        output::verbose(&format!(
+            "Sync target resolved: {}",
+            sync_target_to_string(&sync_target)
+        ));
+    }
     if let SyncTarget::Named(query) = &sync_target
         && !named_target_exists(&config, query)
     {
@@ -144,7 +167,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
 
     // 3.5. Run backend updates if --update flag is set
     if options.update && !options.dry_run {
-        execute_backend_updates(&managers)?;
+        execute_backend_updates(&managers, options.verbose)?;
         execute_on_update(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
     }
 
@@ -699,7 +722,7 @@ fn refresh_installed_snapshot(managers: &ManagerMap) -> InstalledSnapshot {
 }
 
 /// Execute update for all backends that support it
-fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
+fn execute_backend_updates(managers: &ManagerMap, verbose: bool) -> Result<()> {
     output::separator();
     output::info("Updating package indices...");
 
@@ -712,7 +735,9 @@ fn execute_backend_updates(managers: &ManagerMap) -> Result<()> {
         }
 
         if !manager.supports_update() {
-            output::info(&format!("Skipping '{}': no update_cmd configured", backend));
+            if verbose {
+                output::verbose(&format!("Skipping '{}': no update_cmd configured", backend));
+            }
             skipped_count += 1;
             continue;
         }

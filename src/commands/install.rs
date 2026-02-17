@@ -296,6 +296,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
             update: false,
             prune: false,
             dry_run: false,
+            verbose: options.verbose,
             target: None,
             yes: options.yes,
             force: false,
