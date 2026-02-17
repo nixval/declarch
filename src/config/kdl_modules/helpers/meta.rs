@@ -24,7 +24,7 @@ pub fn parse_meta_block(node: &KdlNode, project_metadata: &mut ProjectMetadata) 
                         project_metadata.author = Some(val);
                     }
                 }
-                "maintainer" | "maintained" => {
+                "kdl-maintainer" | "maintainer" | "maintained" => {
                     for entry in child.entries() {
                         if let Some(val) = entry.value().as_string() {
                             project_metadata.maintainers.push(val.to_string());
@@ -73,7 +73,7 @@ pub fn parse_meta_block(node: &KdlNode, project_metadata: &mut ProjectMetadata) 
                         }
                     }
                 }
-                "installation_guide" | "install-guide" => {
+                "install-guide" | "installation_guide" => {
                     if let Some(val) = super::get_first_string(child) {
                         project_metadata.installation_guide = Some(val);
                     }

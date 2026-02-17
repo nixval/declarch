@@ -37,7 +37,7 @@ backend "aur" {
     meta {
         title "AUR Helper"
         description "Arch User Repository with automatic fallback chain"
-        maintained "declarch"
+        kdl-maintainer "declarch"
         tags "package-manager" "aur" "arch" "fallback"
         platforms "arch"
         requires "paru" "yay" "pacman"
@@ -86,7 +86,7 @@ backend "pacman" {
     meta {
         title "Pacman"
         description "Arch Linux native package manager (official repos only)"
-        maintained "declarch"
+        kdl-maintainer "declarch"
         tags "package-manager" "arch" "native" "official"
         platforms "arch"
         requires "pacman"
@@ -127,7 +127,7 @@ backend "flatpak" {
     meta {
         title "Flatpak"
         description "Universal Linux application sandboxing"
-        maintained "declarch"
+        kdl-maintainer "declarch"
         tags "package-manager" "flatpak" "sandbox" "universal" "gui"
         platforms "linux"
         requires "flatpak"
@@ -191,7 +191,7 @@ backend "{name}" {{
     meta {{
         title "{name}"
         description "Custom {name} backend configuration"
-        maintained "user"
+        kdl-maintainer "user"
         tags "package-manager" "{name}"
         created "{date}"
         platforms "linux"

@@ -158,7 +158,7 @@ fn test_meta_block_parsing() {
                 title "My Config"
                 description "Test configuration"
                 author "testuser"
-                maintainer "maint-a" "maint-b"
+                kdl-maintainer "maint-a" "maint-b"
                 maintained "legacy-maintainer"
                 version "1.0.0"
                 homepage "https://example.com"

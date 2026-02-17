@@ -257,8 +257,8 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
                                     .and_then(|e| e.value().as_string())
                                     .map(ToString::to_string);
                             }
-                            // Support both old and new keys
-                            "maintained" | "maintainer" => {
+                            // Support canonical and legacy aliases
+                            "kdl-maintainer" | "maintained" | "maintainer" => {
                                 for entry in meta_node.entries() {
                                     if let Some(val) = entry.value().as_string() {
                                         meta.maintainers.push(val.to_string());
@@ -280,7 +280,7 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
                                     }
                                 }
                             }
-                            "installation_guide" | "install-guide" => {
+                            "install-guide" | "installation_guide" => {
                                 meta.installation_guide = meta_node
                                     .entries()
                                     .first()
@@ -360,7 +360,7 @@ backend "nala" {
     meta {
         title "Nala"
         maintained "declarch"
-        maintainer "community-a" "community-b"
+        kdl-maintainer "community-a" "community-b"
         homepage "https://example.com"
         install-guide "https://example.com/guide"
         requires "nala" "apt"
