@@ -485,17 +485,17 @@ fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn save_state(state: &State) -> Result<()> {
+fn normalize_state_for_persist(state: &State) -> State {
     let mut state = state.clone();
     state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
     state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
     if state.meta.generator.is_none() {
         state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
     }
+    state
+}
 
-    let path = get_state_path()?;
-
-    // Get parent directory - state paths should always have a parent
+fn write_state_atomically(path: &Path, state: &State, sync_dir_after_write: bool) -> Result<()> {
     let dir = path.parent().ok_or_else(|| {
         DeclarchError::PathError(format!(
             "Invalid state path (no parent directory): {}",
@@ -503,18 +503,14 @@ pub fn save_state(state: &State) -> Result<()> {
         ))
     })?;
 
-    // Perform backup rotation
-    rotate_backups(dir, &path)?;
+    rotate_backups(dir, path)?;
 
-    // 1. Serialize to string first
     let content = serde_json::to_string_pretty(&state)
         .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
 
-    // 2. Validate JSON is well-formed by parsing it back
     let _: State = serde_json::from_str(&content)
         .map_err(|e| DeclarchError::SerializationError(format!("Invalid JSON generated: {}", e)))?;
 
-    // 3. Write to temp file
     let tmp_path = dir.join("state.tmp");
     let mut tmp_file = fs::File::create(&tmp_path).map_err(|e| DeclarchError::IoError {
         path: tmp_path.clone(),
@@ -523,11 +519,27 @@ pub fn save_state(state: &State) -> Result<()> {
 
     tmp_file.write_all(content.as_bytes())?;
     tmp_file.sync_all()?;
+    drop(tmp_file);
 
-    fs::rename(&tmp_path, &path).map_err(|e| DeclarchError::IoError {
-        path: path.clone(),
+    fs::rename(&tmp_path, path).map_err(|e| DeclarchError::IoError {
+        path: path.to_path_buf(),
         source: e,
     })?;
+
+    if sync_dir_after_write
+        && let Ok(dir_file) = fs::File::open(dir)
+        && let Err(e) = dir_file.sync_all()
+    {
+        ui::warning(&format!("Failed to sync state directory: {}", e));
+    }
+
+    Ok(())
+}
+
+pub fn save_state(state: &State) -> Result<()> {
+    let state = normalize_state_for_persist(state);
+    let path = get_state_path()?;
+    write_state_atomically(&path, &state, false)?;
 
     Ok(())
 }
@@ -538,52 +550,9 @@ pub fn save_state(state: &State) -> Result<()> {
 /// IMPORTANT: The lock is acquired at the START of the sync operation (not just during save)
 /// to prevent concurrent modifications. Use `acquire_lock()` at the beginning of sync.
 pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
-    let mut state = state.clone();
-    state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
-    state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
-    if state.meta.generator.is_none() {
-        state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
-    }
-
+    let state = normalize_state_for_persist(state);
     let path = get_state_path()?;
-    let dir = path.parent().ok_or(DeclarchError::Other(
-        "Could not determine state directory".into(),
-    ))?;
-
-    // Perform backup rotation (same as save_state)
-    rotate_backups(dir, &path)?;
-
-    // Serialize to string
-    let content = serde_json::to_string_pretty(&state)
-        .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
-
-    // Validate JSON
-    let _: State = serde_json::from_str(&content)
-        .map_err(|e| DeclarchError::SerializationError(format!("Invalid JSON generated: {}", e)))?;
-
-    // Write to temp file
-    let tmp_path = dir.join("state.tmp");
-    let mut tmp_file = fs::File::create(&tmp_path).map_err(|e| DeclarchError::IoError {
-        path: tmp_path.clone(),
-        source: e,
-    })?;
-
-    tmp_file.write_all(content.as_bytes())?;
-    tmp_file.sync_all()?;
-    drop(tmp_file); // Close temp file before rename
-
-    // Atomic rename
-    fs::rename(&tmp_path, &path).map_err(|e| DeclarchError::IoError {
-        path: path.clone(),
-        source: e,
-    })?;
-
-    // Sync directory to ensure rename is persisted
-    if let Ok(dir_file) = fs::File::open(dir)
-        && let Err(e) = dir_file.sync_all()
-    {
-        ui::warning(&format!("Failed to sync state directory: {}", e));
-    }
+    write_state_atomically(&path, &state, true)?;
 
     // Lock is released when StateLock is dropped (RAII)
     Ok(())
