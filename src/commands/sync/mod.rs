@@ -117,7 +117,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
         if options.modules.len() == 1 && options.target.is_none() {
             load_single_module(&config_path, &options.modules[0], &selectors)?
         } else {
-            load_config_with_modules(&config_path, &options.modules, &selectors)?
+            load_config_with_modules(&config_path, &options.modules, &selectors, options.verbose)?
         }
     } else {
         loader::load_root_config_with_selectors(&config_path, &selectors)?
@@ -806,6 +806,7 @@ fn load_config_with_modules(
     config_path: &Path,
     extra_modules: &[String],
     selectors: &loader::LoadSelectors,
+    verbose: bool,
 ) -> Result<loader::MergedConfig> {
     use std::path::PathBuf;
 
@@ -840,7 +841,9 @@ fn load_config_with_modules(
             }
         };
 
-        output::info(&format!("  Loading module: {}", final_path.display()));
+        if verbose {
+            output::verbose(&format!("Loading module: {}", final_path.display()));
+        }
         let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
         merged.packages.extend(module_config.packages);
         merged.excludes.extend(module_config.excludes);
