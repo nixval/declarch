@@ -2,7 +2,7 @@
 //!
 //! Adds packages to KDL configuration files and auto-syncs the system.
 
-use crate::config::editor::{self, ConfigEditor, ModuleEdit, restore_from_backup};
+use crate::config::editor::{self, ConfigEditor};
 use crate::config::loader;
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
@@ -10,42 +10,11 @@ use crate::packages::get_registry;
 use crate::project_identity;
 use crate::ui as output;
 use crate::utils::paths;
-use crate::utils::sanitize::validate_package_name;
-use regex::Regex;
-use std::fs;
+use file_ops::{cleanup_install_backups, inject_import_to_root, rollback_install_edits};
+use planning::plan_installs;
 
-#[derive(Debug, Clone)]
-struct PlannedInstall {
-    package: String,
-    backend: String,
-}
-
-fn plan_installs(
-    raw_packages: &[String],
-    backend_flag: Option<&String>,
-) -> Result<Vec<PlannedInstall>> {
-    let mut planned = Vec::with_capacity(raw_packages.len());
-
-    for raw in raw_packages {
-        let (backend_override, pkg_name) = editor::parse_package_string(raw)?;
-        validate_package_name(&pkg_name)?;
-        let backend = backend_override
-            .or_else(|| backend_flag.cloned())
-            .ok_or_else(|| {
-                DeclarchError::Other(format!(
-                    "Package '{}' has no backend. Use '<backend>:{}' or '--backend <name>'.",
-                    pkg_name, pkg_name
-                ))
-            })?;
-
-        planned.push(PlannedInstall {
-            package: pkg_name,
-            backend,
-        });
-    }
-
-    Ok(planned)
-}
+mod file_ops;
+mod planning;
 
 /// Options for the install command
 #[derive(Debug)]
@@ -346,83 +315,6 @@ pub fn run(options: InstallOptions) -> Result<()> {
     }
 
     cleanup_install_backups(&all_edits, root_backup.as_ref());
-    Ok(())
-}
-
-fn rollback_install_edits(all_edits: &[ModuleEdit], root_backup: Option<&std::path::PathBuf>) {
-    for edit in all_edits {
-        if let Some(ref backup) = edit.backup_path {
-            let _ = restore_from_backup(backup);
-        } else if edit.created_new_file {
-            let _ = std::fs::remove_file(&edit.file_path);
-        }
-    }
-
-    if let Some(backup) = root_backup {
-        let _ = restore_from_backup(backup);
-    }
-}
-
-fn cleanup_install_backups(all_edits: &[ModuleEdit], root_backup: Option<&std::path::PathBuf>) {
-    for edit in all_edits {
-        if let Some(ref backup) = edit.backup_path {
-            let _ = std::fs::remove_file(backup);
-        }
-    }
-
-    if let Some(backup) = root_backup {
-        let _ = std::fs::remove_file(backup);
-    }
-}
-
-/// Helper to inject the import statement into main config file
-/// Auto-imports newly created modules so they're picked up by sync
-fn inject_import_to_root(module_path: &std::path::Path) -> Result<()> {
-    let config_path = paths::config_file()?;
-
-    // Normalize path to use forward slashes in KDL (cross-platform)
-    let import_path = module_path
-        .components()
-        .map(|comp| comp.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/");
-
-    // Skip if config file doesn't exist
-    if !config_path.exists() {
-        return Ok(());
-    }
-
-    let content = fs::read_to_string(&config_path)?;
-
-    // Check if it already exists
-    if content.contains(&import_path) {
-        return Ok(());
-    }
-
-    // Normalize path to use forward slashes and remove .kdl extension for import
-    let import_line = format!("    {:?}", import_path);
-
-    // Regex Magic - same as init.rs
-    let re = Regex::new(r#"(?m)^(.*imports\s*\{)"#)
-        .map_err(|e| DeclarchError::Other(format!("Invalid regex pattern: {}", e)))?;
-
-    let new_content = if re.is_match(&content) {
-        // INJECT: Insert right after the opening brace
-        re.replace(&content, |caps: &regex::Captures| {
-            format!("{}\n{}", &caps[0], import_line)
-        })
-        .to_string()
-    } else {
-        // FALLBACK: Append new block if not found
-        format!(
-            "{}\n\nimports {{\n{}\n}}\n",
-            content.trim_end(),
-            import_line
-        )
-    };
-
-    fs::write(&config_path, new_content)?;
-
     Ok(())
 }
 
