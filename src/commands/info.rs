@@ -333,10 +333,21 @@ fn run_doctor(verbose: bool) -> Result<()> {
         return Ok(());
     };
 
-    let keys: Vec<_> = state.packages.keys().collect();
-    let unique_keys: std::collections::HashSet<_> = keys.iter().collect();
-    if keys.len() != unique_keys.len() {
-        output::warning("State has duplicate keys - consider running sync to fix");
+    let duplicate_signatures = collect_state_signature_duplicates(&state);
+    if !duplicate_signatures.is_empty() {
+        output::warning(&format!(
+            "State has {} duplicate package signature(s) (backend:name)",
+            duplicate_signatures.len()
+        ));
+        if verbose {
+            for (signature, keys) in duplicate_signatures.iter().take(5) {
+                output::indent(&format!("• {} -> keys: {}", signature, keys.join(", ")), 2);
+            }
+        }
+        output::info(&format!(
+            "Run '{}' to repair malformed state entries",
+            project_identity::cli_with("lint --repair-state")
+        ));
     } else {
         output::success("State consistency: OK");
     }
@@ -540,5 +551,83 @@ fn format_packages_inline(pkg_names: &[String], term_width: usize) -> String {
         lines.join(&format!("\n{CONTINUATION_INDENT}"))
     } else {
         lines.join("\n")
+    }
+}
+
+fn collect_state_signature_duplicates(
+    state: &crate::state::types::State,
+) -> Vec<(String, Vec<String>)> {
+    let mut signatures: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (key, pkg_state) in &state.packages {
+        let signature = format!("{}:{}", pkg_state.backend, pkg_state.config_name);
+        signatures.entry(signature).or_default().push(key.clone());
+    }
+
+    let mut duplicates: Vec<(String, Vec<String>)> = signatures
+        .into_iter()
+        .filter_map(|(signature, keys)| (keys.len() > 1).then_some((signature, keys)))
+        .collect();
+    duplicates.sort_by(|a, b| a.0.cmp(&b.0));
+    duplicates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::collect_state_signature_duplicates;
+    use crate::core::types::Backend;
+    use crate::state::types::{PackageState, State};
+    use chrono::Utc;
+
+    fn sample_state() -> State {
+        State::default()
+    }
+
+    fn pkg(backend: &str, config_name: &str) -> PackageState {
+        PackageState {
+            backend: Backend::from(backend),
+            config_name: config_name.to_string(),
+            provides_name: config_name.to_string(),
+            actual_package_name: None,
+            installed_at: Utc::now(),
+            version: None,
+            install_reason: None,
+            source_module: None,
+            last_seen_at: None,
+            backend_meta: None,
+        }
+    }
+
+    #[test]
+    fn state_signature_duplicates_detected() {
+        let mut state = sample_state();
+        state
+            .packages
+            .insert("legacy:bat".to_string(), pkg("aur", "bat"));
+        state
+            .packages
+            .insert("aur:bat".to_string(), pkg("aur", "bat"));
+        state
+            .packages
+            .insert("aur:ripgrep".to_string(), pkg("aur", "ripgrep"));
+
+        let duplicates = collect_state_signature_duplicates(&state);
+        assert_eq!(duplicates.len(), 1);
+        assert_eq!(duplicates[0].0, "aur:bat");
+        assert_eq!(duplicates[0].1.len(), 2);
+    }
+
+    #[test]
+    fn state_signature_duplicates_empty_when_clean() {
+        let mut state = sample_state();
+        state
+            .packages
+            .insert("aur:bat".to_string(), pkg("aur", "bat"));
+        state
+            .packages
+            .insert("aur:ripgrep".to_string(), pkg("aur", "ripgrep"));
+
+        let duplicates = collect_state_signature_duplicates(&state);
+        assert!(duplicates.is_empty());
     }
 }

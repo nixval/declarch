@@ -358,8 +358,8 @@ fn load_state_from_path(path: &Path, strict_recovery: bool) -> Result<State> {
                                     "State file is corrupted and backup restore failed (strict mode).\n\
                                      File: {}\n\
                                      Hint: run `{}`, inspect state backups, then retry.",
-                                    project_identity::cli_with("info --doctor"),
-                                    path.display()
+                                    path.display(),
+                                    project_identity::cli_with("info --doctor")
                                 )));
                             }
                             ui::info("Using default state");
@@ -385,8 +385,8 @@ fn load_state_from_path(path: &Path, strict_recovery: bool) -> Result<State> {
                             "State file cannot be read and backup restore failed (strict mode).\n\
                              File: {}\n\
                              Hint: run `{}`, inspect file permissions/state path, then retry.",
-                            project_identity::cli_with("info --doctor"),
-                            path.display()
+                            path.display(),
+                            project_identity::cli_with("info --doctor")
                         )));
                     }
                     ui::info("Using default state");
@@ -621,6 +621,7 @@ impl crate::traits::StateStore for FilesystemStateStore {
 #[cfg(test)]
 mod tests {
     use super::{load_state_from_path, sanitize_state_in_place, validate_state_integrity};
+    use crate::project_identity;
     use crate::state::types::{Backend, PackageState, State};
     use chrono::Utc;
     use std::fs;
@@ -708,6 +709,11 @@ mod tests {
         let err = load_state_from_path(&path, true).expect_err("strict mode should fail");
         let msg = err.to_string();
         assert!(msg.contains("strict mode"));
+        assert!(msg.contains(&format!("File: {}", path.display())));
+        assert!(msg.contains(&format!(
+            "Hint: run `{}`",
+            project_identity::cli_with("info --doctor")
+        )));
     }
 
     #[test]
