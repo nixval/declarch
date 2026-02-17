@@ -1,24 +1,14 @@
+mod execution;
+
 use crate::config::kdl::{
-    ActionType, ErrorBehavior, LifecycleAction, LifecycleConfig, LifecyclePhase,
+    ActionType, LifecycleAction, LifecycleConfig, LifecyclePhase,
 };
-use crate::constants::HOOK_TIMEOUT_SECS;
-use crate::error::{DeclarchError, Result};
+use crate::error::Result;
 use crate::project_identity;
 use crate::ui as output;
 use crate::utils::sanitize;
 use colored::Colorize;
-use regex::Regex;
-use std::process::Stdio;
-use std::sync::LazyLock;
-use std::time::{Duration, Instant};
-
-/// Default timeout for hook execution (30 seconds)
-const DEFAULT_HOOK_TIMEOUT: Duration = Duration::from_secs(HOOK_TIMEOUT_SECS);
-
-/// Safe character regex for hook command validation
-/// Compiled once and reused for performance and safety
-static SAFE_CHAR_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_\-.\s/:]+$").expect("Valid regex pattern"));
+use execution::execute_single_hook;
 
 /// Execute hooks for a specific phase
 pub fn execute_hooks_by_phase(
@@ -127,156 +117,6 @@ fn display_hooks(hooks: &[&LifecycleAction], title: &str, warn_mode: bool) {
             safe_display.cyan(),
             package_info
         );
-    }
-}
-
-fn execute_single_hook(hook: &LifecycleAction) -> Result<()> {
-    // Validate: Don't allow embedded "sudo" in command
-    let trimmed = hook.command.trim();
-    if trimmed.starts_with("sudo ") {
-        return Err(DeclarchError::ConfigError(format!(
-            "Embedded 'sudo' detected in hook command. Use --sudo flag instead.\n  Command: {}",
-            sanitize::sanitize_for_display(&hook.command)
-        )));
-    }
-
-    // Security: Validate command contains only safe characters before parsing
-    // Allow: alphanumeric, spaces, slashes, dots, hyphens, underscores, colons
-    // More restrictive to prevent command injection attempts
-    if !SAFE_CHAR_REGEX.is_match(&hook.command) {
-        return Err(DeclarchError::ConfigError(format!(
-            "Hook command contains unsafe characters.\n  Command: {}\n  Allowed: a-zA-Z0-9_-./: and whitespace",
-            sanitize::sanitize_for_display(&hook.command)
-        )));
-    }
-
-    // Security: Prevent path traversal in commands
-    if hook.command.contains("../") || hook.command.contains("..\\") {
-        return Err(DeclarchError::ConfigError(
-            "Hook command contains path traversal sequence (../)".to_string(),
-        ));
-    }
-
-    // Parse the command string into args using shlex (safer than shell_words)
-    let args = shlex::split(&hook.command).ok_or_else(|| {
-        DeclarchError::ConfigError(format!(
-            "Failed to parse hook command '{}': Invalid quoting or escaping",
-            sanitize::sanitize_for_display(&hook.command)
-        ))
-    })?;
-
-    if args.is_empty() {
-        return Ok(());
-    }
-
-    let program = &args[0];
-    let program_args = &args[1..];
-
-    let use_sudo = matches!(hook.action_type, ActionType::Root);
-
-    if use_sudo {
-        output::info(&format!("Executing hook with sudo: {}", program));
-    } else {
-        output::info(&format!("Executing hook: {}", program));
-    }
-
-    let mut cmd = crate::utils::platform::build_program_command(program, program_args, use_sudo)?;
-
-    cmd.stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-
-    // Spawn the process with timeout
-    let start_time = Instant::now();
-    let timeout = DEFAULT_HOOK_TIMEOUT;
-
-    let mut child = match cmd.spawn() {
-        Ok(child) => child,
-        Err(e) => {
-            return handle_hook_error(hook, e, program);
-        }
-    };
-
-    // Wait for completion with timeout
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                // Process completed
-                return handle_hook_status(hook, status);
-            }
-            Ok(None) => {
-                // Still running, check timeout
-                if start_time.elapsed() > timeout {
-                    output::warning(&format!(
-                        "Hook timed out after {} seconds, killing process...",
-                        timeout.as_secs()
-                    ));
-                    let _ = child.kill();
-                    let _ = child.wait();
-
-                    match hook.error_behavior {
-                        ErrorBehavior::Required => {
-                            return Err(DeclarchError::Other(
-                                "Required hook timed out".to_string(),
-                            ));
-                        }
-                        ErrorBehavior::Ignore => return Ok(()),
-                        ErrorBehavior::Warn => {
-                            output::warning("Hook timed out");
-                            return Ok(());
-                        }
-                    }
-                }
-                // Sleep briefly before checking again
-                std::thread::sleep(Duration::from_millis(100));
-            }
-            Err(e) => {
-                return Err(DeclarchError::Other(format!(
-                    "Failed to wait for hook: {}",
-                    e
-                )));
-            }
-        }
-    }
-}
-
-/// Handle hook execution status
-fn handle_hook_status(hook: &LifecycleAction, status: std::process::ExitStatus) -> Result<()> {
-    if status.success() {
-        return Ok(());
-    }
-
-    // Handle based on error_behavior
-    match hook.error_behavior {
-        ErrorBehavior::Required => Err(DeclarchError::Other(format!(
-            "Required hook failed with status: {}",
-            status
-        ))),
-        ErrorBehavior::Ignore => Ok(()),
-        ErrorBehavior::Warn => {
-            output::warning(&format!("Hook exited with status: {}", status));
-            Ok(())
-        }
-    }
-}
-
-/// Handle hook execution error
-fn handle_hook_error(hook: &LifecycleAction, e: std::io::Error, program: &str) -> Result<()> {
-    match hook.error_behavior {
-        ErrorBehavior::Required => Err(DeclarchError::Other(format!(
-            "Failed to execute hook: {}",
-            e
-        ))),
-        ErrorBehavior::Ignore => Ok(()),
-        ErrorBehavior::Warn => {
-            // If binary not found, helpful error
-            if e.kind() == std::io::ErrorKind::NotFound {
-                output::warning(&format!("Command not found: {}", program));
-            } else {
-                output::warning(&format!("Failed to execute hook: {}", e));
-            }
-            Ok(())
-        }
     }
 }
 
