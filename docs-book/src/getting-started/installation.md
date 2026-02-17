@@ -49,6 +49,9 @@ sudo install declarch /usr/local/bin/
 cargo install declarch --git https://github.com/nixval/declarch
 ```
 
+Source builds can be slower on first run because Cargo compiles the full dependency graph.
+If you want a faster setup path, prefer prebuilt release binaries via install script or package manager.
+
 ## Verify
 
 ```bash
