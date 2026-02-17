@@ -8,9 +8,15 @@ use crate::utils::paths;
 use chrono::Utc;
 use kdl::KdlDocument;
 use serde::Serialize;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+mod file_graph;
+#[cfg(test)]
+mod tests;
+
+use file_graph::{collect_lint_files, load_config_with_modules, resolve_import_path};
 
 pub struct LintOptions {
     pub strict: bool,
@@ -447,29 +453,6 @@ fn collect_file_issues(path: &Path, issues: &mut Vec<LintIssue>) -> Result<()> {
     Ok(())
 }
 
-fn resolve_import_path(base_file: &Path, import: &str) -> Result<PathBuf> {
-    let parent = base_file.parent().ok_or_else(|| {
-        DeclarchError::Other(format!(
-            "Cannot determine parent directory for {}",
-            base_file.display()
-        ))
-    })?;
-
-    let candidate = if import.starts_with("~/") {
-        crate::utils::paths::expand_home(Path::new(import))?
-    } else if import.starts_with('/') {
-        PathBuf::from(import)
-    } else {
-        parent.join(import)
-    };
-
-    if candidate.exists() || candidate.extension().is_some() {
-        Ok(candidate)
-    } else {
-        Ok(candidate.with_extension("kdl"))
-    }
-}
-
 fn display_issues(issues: &[LintIssue]) -> (usize, usize) {
     let mut warn_count = 0;
     let mut err_count = 0;
@@ -494,109 +477,6 @@ fn display_issues(issues: &[LintIssue]) -> (usize, usize) {
     }
 
     (warn_count, err_count)
-}
-
-fn collect_lint_files(config_path: &Path, modules: &[String]) -> Result<Vec<PathBuf>> {
-    let mut files: BTreeSet<PathBuf> = BTreeSet::new();
-    discover_lint_files_recursive(config_path, &mut files)?;
-
-    for module in modules {
-        let module_path = resolve_module_path(module)?;
-        discover_lint_files_recursive(&module_path, &mut files)?;
-    }
-
-    Ok(files.into_iter().collect())
-}
-
-fn discover_lint_files_recursive(path: &Path, files: &mut BTreeSet<PathBuf>) -> Result<()> {
-    let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    if !files.insert(canonical.clone()) {
-        return Ok(());
-    }
-
-    if !canonical.exists() {
-        return Ok(());
-    }
-
-    let content = match fs::read_to_string(&canonical) {
-        Ok(content) => content,
-        Err(_) => return Ok(()),
-    };
-
-    let file_str = canonical.display().to_string();
-    let raw = match parse_kdl_content_with_path(&content, Some(&file_str)) {
-        Ok(raw) => raw,
-        Err(_) => return Ok(()),
-    };
-
-    for import in raw.imports {
-        if import
-            .replace('\\', "/")
-            .split('/')
-            .any(|part| part == "..")
-        {
-            continue;
-        }
-
-        let resolved = resolve_import_path(&canonical, &import)?;
-        if resolved.exists() {
-            discover_lint_files_recursive(&resolved, files)?;
-        }
-    }
-
-    for import in raw.backend_imports {
-        if import
-            .replace('\\', "/")
-            .split('/')
-            .any(|part| part == "..")
-        {
-            continue;
-        }
-
-        let resolved = resolve_import_path(&canonical, &import)?;
-        if resolved.exists() {
-            discover_lint_files_recursive(&resolved, files)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn load_config_with_modules(
-    config_path: &Path,
-    extra_modules: &[String],
-    selectors: &LoadSelectors,
-) -> Result<MergedConfig> {
-    let mut merged = loader::load_root_config_with_selectors(config_path, selectors)?;
-
-    for module_name in extra_modules {
-        let final_path = resolve_module_path(module_name)?;
-        output::info(&format!("  Loading module: {}", final_path.display()));
-
-        let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
-        merged.packages.extend(module_config.packages);
-        merged.excludes.extend(module_config.excludes);
-    }
-
-    Ok(merged)
-}
-
-fn resolve_module_path(module_name: &str) -> Result<PathBuf> {
-    if let Ok(path) = paths::module_file(module_name)
-        && path.exists()
-    {
-        return Ok(path);
-    }
-
-    let direct = PathBuf::from(module_name);
-    if direct.exists() {
-        return Ok(direct);
-    }
-
-    Err(DeclarchError::Other(format!(
-        "Module not found: {}",
-        module_name
-    )))
 }
 
 fn apply_safe_fixes(files: &[PathBuf]) -> Result<()> {
@@ -878,6 +758,3 @@ fn sort_import_lines(content: &str) -> String {
     let trimmed = result.trim_end();
     format!("{}\n", trimmed)
 }
-
-#[cfg(test)]
-mod tests;

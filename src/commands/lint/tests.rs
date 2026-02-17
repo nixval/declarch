@@ -1,4 +1,4 @@
-use super::{discover_lint_files_recursive, resolve_state_remove_keys, sort_import_lines};
+use super::{file_graph, resolve_state_remove_keys, sort_import_lines};
 use crate::core::types::Backend;
 use crate::project_identity;
 use crate::state::types::PackageState;
@@ -54,7 +54,7 @@ pkg { aur { bat } }
     fs::write(&nested, "pkg { aur { ripgrep } }\n").expect("write nested");
 
     let mut files = BTreeSet::new();
-    discover_lint_files_recursive(&root, &mut files).expect("discover");
+    file_graph::discover_lint_files_recursive(&root, &mut files).expect("discover");
 
     let as_strings: Vec<String> = files.iter().map(|p| p.display().to_string()).collect();
     assert_eq!(as_strings.len(), 3);
