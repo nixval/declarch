@@ -24,13 +24,13 @@ Detailed maintainer checklist:
 
 ## Release Workflow
 
-### Method 1: Full Automation (Recommended)
+### Method 1: Direct Publish (Recommended for AUR source package)
 
 Publish `declarch` source package with one command:
 
 ```bash
 # From repository root
-./.aur/scripts/publish-declarch.sh 0.8.1
+./.aur/scripts/publish-declarch.sh X.Y.Z
 ```
 
 This script will:
@@ -45,7 +45,7 @@ If you prefer manual control:
 
 #### Step 1: Prepare release artifacts
 ```bash
-scripts/release.sh 0.8.1
+scripts/release.sh X.Y.Z
 ```
 
 #### Step 2: Wait for GitHub Actions
@@ -55,7 +55,7 @@ Wait until all checks pass (±10 minutes).
 
 #### Step 3: Publish source package to AUR
 ```bash
-./.aur/scripts/publish-declarch.sh 0.8.1
+./.aur/scripts/publish-declarch.sh X.Y.Z
 ```
 
 This script will:
@@ -122,7 +122,7 @@ Then run the script again.
 
 ### "Tag already exists"
 
-**Problem**: Tag v0.4.0 already exists
+**Problem**: Tag `vX.Y.Z` already exists
 
 **Solution**: The script will ask if you want to delete and recreate.
 - Type `y` to delete and recreate (if you made changes)
@@ -132,9 +132,9 @@ Then run the script again.
 
 | Command | Purpose |
 |---------|---------|
-| `scripts/release.sh 0.8.1` | Prepare release/tag from repo root |
-| `./.aur/scripts/publish-declarch.sh 0.8.1` | Publish `declarch` to AUR |
-| `scripts/check_release_consistency.sh --tag v0.8.1 --strict` | Validate release/AUR version consistency |
+| `scripts/release.sh X.Y.Z` | Prepare release/tag from repo root |
+| `./.aur/scripts/publish-declarch.sh X.Y.Z` | Publish `declarch` to AUR |
+| `scripts/check_release_consistency.sh --tag vX.Y.Z --strict` | Validate release/AUR version consistency |
 | `https://github.com/nixval/declarch/actions` | Monitor GitHub Actions |
 
 ## Version Auto-Detection
@@ -149,6 +149,6 @@ scripts/release.sh                 # Uses version from Cargo.toml
 Or specify version explicitly:
 
 ```bash
-scripts/release.sh 0.8.1
-./.aur/scripts/publish-declarch.sh 0.8.1
+scripts/release.sh X.Y.Z
+./.aur/scripts/publish-declarch.sh X.Y.Z
 ```
