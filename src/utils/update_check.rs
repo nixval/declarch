@@ -127,7 +127,10 @@ fn fetch_latest_version(timeout: Duration) -> Option<String> {
 
     let response = client
         .get(project_identity::github_latest_release_api())
-        .header("User-Agent", "declarch-cli")
+        .header(
+            "User-Agent",
+            format!("{}-cli", project_identity::BINARY_NAME),
+        )
         .send()
         .ok()?;
 
@@ -209,7 +212,7 @@ fn install_marker_path() -> Option<PathBuf> {
         let local = env::var_os("LOCALAPPDATA")?;
         return Some(
             PathBuf::from(local)
-                .join("declarch")
+                .join(project_identity::STABLE_PROJECT_ID)
                 .join("install-channel.json"),
         );
     }
@@ -222,7 +225,10 @@ fn install_marker_path() -> Option<PathBuf> {
             let home = env::var_os("HOME")?;
             PathBuf::from(home).join(".local").join("state")
         };
-        return Some(path.join("declarch").join("install-channel.json"));
+        return Some(
+            path.join(project_identity::STABLE_PROJECT_ID)
+                .join("install-channel.json"),
+        );
     }
 }
 
@@ -248,7 +254,7 @@ fn is_homebrew_managed(exe_path: Option<&Path>) -> bool {
     let output = Command::new("brew")
         .arg("list")
         .arg("--versions")
-        .arg("declarch")
+        .arg(project_identity::BINARY_NAME)
         .output();
     matches!(output, Ok(out) if out.status.success())
 }
@@ -260,7 +266,10 @@ fn is_scoop_managed(exe_path: Option<&Path>) -> bool {
     };
     path.to_string_lossy()
         .to_ascii_lowercase()
-        .contains("\\scoop\\apps\\declarch\\")
+        .contains(&format!(
+            "\\scoop\\apps\\{}\\",
+            project_identity::BINARY_NAME
+        ))
 }
 
 #[cfg(target_os = "windows")]

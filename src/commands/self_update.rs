@@ -55,7 +55,12 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
     }
 
     if !options.yes
-        && !output::prompt_yes_no(&format!("Update declarch from {} to {}?", current, target))
+        && !output::prompt_yes_no(&format!(
+            "Update {} from {} to {}?",
+            project_identity::BINARY_NAME,
+            current,
+            target
+        ))
     {
         output::warning("Update cancelled.");
         return Ok(());
@@ -63,10 +68,14 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        return Err(DeclarchError::Other(
-            "Self-update is not supported on Windows yet. Use:\nirm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex"
-                .to_string(),
-        ));
+        let install_url = format!(
+            "https://raw.githubusercontent.com/{}/main/install.ps1",
+            project_identity::REPO_SLUG
+        );
+        return Err(DeclarchError::Other(format!(
+            "Self-update is not supported on Windows yet. Use:\nirm {} | iex",
+            install_url
+        )));
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -74,7 +83,10 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
         perform_self_update_unix(&target)?;
     }
 
-    output::success("declarch updated successfully.");
+    output::success(&format!(
+        "{} updated successfully.",
+        project_identity::BINARY_NAME
+    ));
     Ok(())
 }
 
@@ -97,23 +109,38 @@ fn normalize_requested_version(input: &str) -> Result<String> {
 fn managed_update_hint(owner: &InstallOwner) -> String {
     match owner {
         InstallOwner::Pacman => {
-            "This declarch installation is managed by pacman/AUR. Use: paru -Syu declarch"
-                .to_string()
+            format!(
+                "This {} installation is managed by pacman/AUR. Use: paru -Syu {}",
+                project_identity::BINARY_NAME,
+                project_identity::BINARY_NAME
+            )
         }
         InstallOwner::Homebrew => {
-            "This declarch installation is managed by Homebrew. Use: brew upgrade declarch"
-                .to_string()
+            format!(
+                "This {} installation is managed by Homebrew. Use: brew upgrade {}",
+                project_identity::BINARY_NAME,
+                project_identity::BINARY_NAME
+            )
         }
         InstallOwner::Scoop => {
-            "This declarch installation is managed by Scoop. Use: scoop update declarch".to_string()
+            format!(
+                "This {} installation is managed by Scoop. Use: scoop update {}",
+                project_identity::BINARY_NAME,
+                project_identity::BINARY_NAME
+            )
         }
         InstallOwner::Winget => {
-            "This declarch installation is managed by Winget. Use: winget upgrade declarch"
-                .to_string()
+            format!(
+                "This {} installation is managed by Winget. Use: winget upgrade {}",
+                project_identity::BINARY_NAME,
+                project_identity::BINARY_NAME
+            )
         }
         _ => {
-            "This declarch installation is managed externally. Use your package manager to update."
-                .to_string()
+            format!(
+                "This {} installation is managed externally. Use your package manager to update.",
+                project_identity::BINARY_NAME
+            )
         }
     }
 }
@@ -121,12 +148,20 @@ fn managed_update_hint(owner: &InstallOwner) -> String {
 #[cfg(not(target_os = "windows"))]
 fn perform_self_update_unix(version: &str) -> Result<()> {
     let target = detect_target_triple()?;
-    let asset = format!("declarch-{}.tar.gz", target);
+    let asset = format!(
+        "{}-{}.tar.gz",
+        project_identity::RELEASE_ASSET_PREFIX,
+        target
+    );
     let base = project_identity::release_download_base_url(version);
     let asset_url = format!("{}/{}", base, asset);
     let checksums_url = format!("{}/checksums.txt", base);
 
-    let tmp = env::temp_dir().join(format!("declarch-self-update-{}", std::process::id()));
+    let tmp = env::temp_dir().join(format!(
+        "{}-self-update-{}",
+        project_identity::STABLE_PROJECT_ID,
+        std::process::id()
+    ));
     let _ = fs::remove_dir_all(&tmp);
     fs::create_dir_all(&tmp)?;
 
@@ -144,11 +179,12 @@ fn perform_self_update_unix(version: &str) -> Result<()> {
     output::success("Checksum verification passed.");
 
     extract_archive(&archive_path, &tmp)?;
-    let new_bin = tmp.join("declarch");
+    let new_bin = tmp.join(project_identity::BINARY_NAME);
     if !new_bin.exists() {
-        return Err(DeclarchError::Other(
-            "Archive did not contain declarch binary".to_string(),
-        ));
+        return Err(DeclarchError::Other(format!(
+            "Archive did not contain {} binary",
+            project_identity::BINARY_NAME
+        )));
     }
 
     let current_exe = env::current_exe()
@@ -197,7 +233,10 @@ fn download_file(url: &str, path: &Path) -> Result<()> {
         .map_err(|e| DeclarchError::RemoteFetchError(e.to_string()))?;
     let response = client
         .get(url)
-        .header("User-Agent", "declarch-cli")
+        .header(
+            "User-Agent",
+            format!("{}-cli", project_identity::BINARY_NAME),
+        )
         .send()
         .map_err(|e| DeclarchError::RemoteFetchError(e.to_string()))?;
     if !response.status().is_success() {
@@ -308,7 +347,7 @@ fn verify_checksum(asset: &str, expected: &str, actual: &str) -> Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn create_backup_binary(current_exe: &Path) -> Result<PathBuf> {
-    let backup = current_exe.with_extension("declarch.backup");
+    let backup = current_exe.with_extension(format!("{}.backup", project_identity::BINARY_NAME));
     fs::copy(current_exe, &backup)?;
     Ok(backup)
 }
@@ -397,7 +436,10 @@ fn install_binary_with_elevation_if_needed(new_bin: &Path, current_exe: &Path) -
 
 #[cfg(not(target_os = "windows"))]
 fn dest_dir_is_writable(dir: &Path) -> bool {
-    let probe = dir.join(".declarch-write-check");
+    let probe = dir.join(format!(
+        ".{}-write-check",
+        project_identity::STABLE_PROJECT_ID
+    ));
     let created = fs::OpenOptions::new()
         .create(true)
         .write(true)
