@@ -16,6 +16,9 @@ use std::path::Path;
 /// Initialize a new backend configuration file
 pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     let root_dir = paths::config_dir()?;
+    if output::is_verbose() {
+        output::verbose(&format!("Config root: {}", root_dir.display()));
+    }
 
     // Ensure declarch environment exists (auto-init if needed)
     super::root::ensure_environment()?;
@@ -38,6 +41,12 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     let backends_dir = root_dir.join("backends");
     if !backends_dir.exists() {
         fs::create_dir_all(&backends_dir)?;
+        if output::is_verbose() {
+            output::verbose(&format!(
+                "Created backend directory: {}",
+                backends_dir.display()
+            ));
+        }
     }
 
     println!(
@@ -123,12 +132,18 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     }
 
     fs::write(&backend_file, &backend_content)?;
+    if output::is_verbose() {
+        output::verbose(&format!("Backend file written: {}", backend_file.display()));
+    }
 
     // Always import directly to declarch.kdl
     let declarch_kdl_path = root_dir.join("declarch.kdl");
     match add_backend_to_declarch(&declarch_kdl_path, &sanitized_name) {
         Ok(true) => {
             println!("Backend '{}' adopted.", sanitized_name);
+            if output::is_verbose() {
+                output::verbose(&format!("Imported into: {}", declarch_kdl_path.display()));
+            }
         }
         Ok(false) => {
             println!(
@@ -136,6 +151,9 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
                 sanitized_name
             );
             output::info(&format!("backends {{\"backends/{}.kdl\"}}", sanitized_name));
+            if output::is_verbose() {
+                output::verbose("No backends block found for automatic import.");
+            }
         }
         Err(e) => {
             output::warning(&format!("Could not auto-import: {}", e));

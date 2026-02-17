@@ -105,6 +105,9 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
     // Step 1: Load existing config to check for duplicates
     let config_path = paths::config_file()?;
+    if options.verbose {
+        output::verbose(&format!("Root config: {}", config_path.display()));
+    }
     let existing_packages = if config_path.exists() {
         let config = loader::load_root_config(&config_path)?;
         Some(config.packages)
@@ -222,6 +225,14 @@ pub fn run(options: InstallOptions) -> Result<()> {
 
         // Add package to config
         let edit = editor.add_package(pkg_name, Some(backend_str), options.module.as_deref())?;
+        if options.verbose {
+            output::verbose(&format!(
+                "Planned edit: backend={} package={} file={}",
+                backend_str,
+                pkg_name,
+                edit.file_path.display()
+            ));
+        }
 
         all_edits.push(edit);
     }
@@ -230,6 +241,10 @@ pub fn run(options: InstallOptions) -> Result<()> {
     if skipped_count == options.packages.len() {
         output::info("All packages already exist in config");
         return Ok(());
+    }
+    if options.verbose {
+        output::verbose(&format!("Skipped packages: {}", skipped_count));
+        output::verbose(&format!("Applied edits: {}", all_edits.len()));
     }
 
     // Step 3: Show summary of edits
@@ -293,6 +308,16 @@ pub fn run(options: InstallOptions) -> Result<()> {
             format: None,
             output_version: None,
         });
+        if options.verbose {
+            output::verbose(&format!(
+                "Auto-sync modules: {}",
+                if modified_modules.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    modified_modules.join(", ")
+                }
+            ));
+        }
 
         match sync_result {
             Ok(()) => {

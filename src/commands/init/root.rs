@@ -20,6 +20,8 @@ use std::fs;
 pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     let config_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
+    let backends_dir = config_dir.join("backends");
+    let modules_dir = config_dir.join("modules");
 
     if config_file.exists() && !force {
         println!("Declarch is already initialized.");
@@ -42,9 +44,6 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     let _state = state::io::init_state(hostname.clone())?;
 
     // STEP 3: Create directory structure
-    let backends_dir = config_dir.join("backends");
-    let modules_dir = config_dir.join("modules");
-
     fs::create_dir_all(&config_dir)?;
     fs::create_dir_all(&backends_dir)?;
     fs::create_dir_all(&modules_dir)?;
@@ -59,6 +58,11 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     println!("Created declarch directory:");
     println!("  {}", config_dir.display());
     println!("Initializing declarch for host: {}", hostname);
+    if crate::ui::is_verbose() {
+        crate::ui::verbose(&format!("Config file: {}", config_file.display()));
+        crate::ui::verbose(&format!("Backends dir: {}", backends_dir.display()));
+        crate::ui::verbose(&format!("Modules dir: {}", modules_dir.display()));
+    }
 
     Ok(())
 }
@@ -75,6 +79,8 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
 pub fn ensure_environment() -> Result<bool> {
     let config_dir = paths::config_dir()?;
     let config_file = paths::config_file()?;
+    let backends_dir = config_dir.join("backends");
+    let modules_dir = config_dir.join("modules");
 
     // Already initialized, nothing to do
     if config_file.exists() {
@@ -94,9 +100,6 @@ pub fn ensure_environment() -> Result<bool> {
     let _state = state::io::init_state(hostname)?;
 
     // Create directories
-    let backends_dir = config_dir.join("backends");
-    let modules_dir = config_dir.join("modules");
-
     fs::create_dir_all(&config_dir)?;
     fs::create_dir_all(&backends_dir)?;
     fs::create_dir_all(&modules_dir)?;
@@ -109,6 +112,10 @@ pub fn ensure_environment() -> Result<bool> {
 
     // Show minimal output for behind-the-scenes operation
     crate::ui::success(&format!("Created config file: {}", config_file.display()));
+    if crate::ui::is_verbose() {
+        crate::ui::verbose(&format!("Backends dir: {}", backends_dir.display()));
+        crate::ui::verbose(&format!("Modules dir: {}", modules_dir.display()));
+    }
 
     Ok(true)
 }
