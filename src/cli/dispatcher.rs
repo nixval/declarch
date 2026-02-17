@@ -5,6 +5,7 @@
 use crate::cli::args::{Cli, Command, InfoListScope, LintMode, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 
 /// Dispatch the parsed CLI command to the appropriate handler
@@ -156,11 +157,32 @@ pub fn dispatch(args: &Cli) -> Result<()> {
         None => {
             output::info("No command provided.");
             output::info("Quick start:");
-            output::indent("- declarch init --backend flatpak soar brew", 2);
-            output::indent("- declarch edit  // write package you want OR directly", 2);
-            output::indent("- declarch install flatpak:anypackage", 2);
-            output::indent("- declarch sync", 2);
-            output::info("Use `declarch --help` for full command list.");
+            output::indent(
+                &format!(
+                    "{} init --backend flatpak soar brew",
+                    project_identity::BINARY_NAME
+                ),
+                2,
+            );
+            output::indent(
+                &format!(
+                    "{} edit  // write package you want OR directly",
+                    project_identity::BINARY_NAME
+                ),
+                2,
+            );
+            output::indent(
+                &format!(
+                    "{} install flatpak:anypackage",
+                    project_identity::BINARY_NAME
+                ),
+                2,
+            );
+            output::indent(&format!("{} sync", project_identity::BINARY_NAME), 2);
+            output::info(&format!(
+                "Use `{} --help` for full command list.",
+                project_identity::BINARY_NAME
+            ));
             Ok(())
         }
     }

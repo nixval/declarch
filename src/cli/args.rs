@@ -1,9 +1,10 @@
+use crate::project_identity;
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "declarch",
+    name = project_identity::BINARY_NAME,
     about = "Universal declarative package manager - unify aur, flatpak, npm, nix, cargo, pip, and custom backends under one declarative config(s).",
     version,
     help_template = "{about-with-newline}

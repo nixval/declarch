@@ -4,6 +4,7 @@ use crate::commands::runtime_overrides::{
 use crate::config::loader;
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
+use crate::project_identity;
 use crate::state;
 use crate::ui as output;
 use crate::utils::machine_output;
@@ -363,21 +364,38 @@ fn maybe_print_update_notification() {
 
     output::separator();
     output::warning(&format!(
-        "New declarch release available: {} -> {}",
-        hint.current, hint.latest
+        "New {} release available: {} -> {}",
+        project_identity::BINARY_NAME,
+        hint.current,
+        hint.latest
     ));
 
     if is_managed_by_package_manager(&hint.owner) {
         let msg = match hint.owner {
-            InstallOwner::Pacman => "Update using package manager: paru -Syu declarch",
-            InstallOwner::Homebrew => "Update using package manager: brew upgrade declarch",
-            InstallOwner::Scoop => "Update using package manager: scoop update declarch",
-            InstallOwner::Winget => "Update using package manager: winget upgrade declarch",
-            _ => "Update using your package manager",
+            InstallOwner::Pacman => format!(
+                "Update using package manager: paru -Syu {}",
+                project_identity::BINARY_NAME
+            ),
+            InstallOwner::Homebrew => format!(
+                "Update using package manager: brew upgrade {}",
+                project_identity::BINARY_NAME
+            ),
+            InstallOwner::Scoop => format!(
+                "Update using package manager: scoop update {}",
+                project_identity::BINARY_NAME
+            ),
+            InstallOwner::Winget => format!(
+                "Update using package manager: winget upgrade {}",
+                project_identity::BINARY_NAME
+            ),
+            _ => "Update using your package manager".to_string(),
         };
-        output::info(msg);
+        output::info(&msg);
     } else {
-        output::info("For curl/manual install, run: declarch self-update");
+        output::info(&format!(
+            "For curl/manual install, run: {} self-update",
+            project_identity::BINARY_NAME
+        ));
     }
 }
 
