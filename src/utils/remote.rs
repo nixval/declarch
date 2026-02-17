@@ -4,6 +4,7 @@ use crate::ui as output;
 use reqwest::blocking::Client;
 use std::env;
 use std::net::{IpAddr, ToSocketAddrs};
+use std::thread;
 use std::time::Duration;
 
 const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
@@ -97,12 +98,30 @@ pub fn fetch_backend_content(backend_name: &str) -> Result<String> {
 
     let mut failures = Vec::new();
     for url in urls {
-        match fetch_url(&client, &url) {
-            Ok(content) => {
-                output::info(&format!("fetch backend: {}", url));
-                return Ok(content);
+        let mut last_error: Option<DeclarchError> = None;
+
+        // Retry transient backend fetch failures once. This reduces flakiness
+        // when GitHub raw endpoints or DNS have short hiccups.
+        for attempt in 1..=2 {
+            match fetch_url(&client, &url) {
+                Ok(content) => {
+                    output::info(&format!("fetch backend: {}", url));
+                    return Ok(content);
+                }
+                Err(e) => {
+                    let should_retry = attempt == 1 && is_retryable_fetch_error(&e);
+                    last_error = Some(e);
+                    if should_retry {
+                        thread::sleep(Duration::from_millis(250));
+                        continue;
+                    }
+                    break;
+                }
             }
-            Err(e) => failures.push(format_fetch_failure(&url, &e.to_string())),
+        }
+
+        if let Some(err) = last_error {
+            failures.push(format_fetch_failure(&url, &err.to_string()));
         }
     }
 
@@ -111,6 +130,11 @@ pub fn fetch_backend_content(backend_name: &str) -> Result<String> {
         backend_name,
         format_failure_summary(&failures)
     )))
+}
+
+fn is_retryable_fetch_error(err: &DeclarchError) -> bool {
+    let msg = err.to_string().to_ascii_lowercase();
+    !(msg.contains("http 404") || msg.contains("not found"))
 }
 
 /// Build list of URLs to try for backend

@@ -56,10 +56,14 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     let backend_content = match remote::fetch_backend_content(&sanitized_name) {
         Ok(content) => content,
-        Err(_) => {
-            return Err(DeclarchError::Other(
-                "not found, please check 'declarch init --list backends'".to_string(),
-            ));
+        Err(e) => {
+            if output::is_verbose() {
+                output::verbose(&format!("Backend fetch error detail: {}", e));
+            }
+            return Err(DeclarchError::Other(format!(
+                "failed to fetch backend '{}'. Please verify name/network and retry.\nHint: declarch init --list backends\nDetail: {}",
+                sanitized_name, e
+            )));
         }
     };
 

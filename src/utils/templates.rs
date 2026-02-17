@@ -34,10 +34,6 @@ excludes {{
 }}
 
 backends {{
-    // Initialize backends first, then import them here.
-    // Example:
-    // "backends/aur.kdl"
-    // "backends/flatpak.kdl"
 }}
 "#,
         hostname = hostname
