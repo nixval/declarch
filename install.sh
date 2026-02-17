@@ -7,11 +7,15 @@ if (set -o pipefail) >/dev/null 2>&1; then
 fi
 
 DECLARCH_VERSION="${DECLARCH_VERSION:-latest}"
-REPO="nixval/declarch"
+REPO_SLUG="nixval/declarch"
+BIN_NAME="declarch"
+BIN_ALIAS="decl"
+ASSET_PREFIX="declarch"
+STABLE_ID="declarch"
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 TMP_DIR="$(mktemp -d)"
-ARCHIVE="${TMP_DIR}/declarch.tar.gz"
+ARCHIVE="${TMP_DIR}/${BIN_NAME}.tar.gz"
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -31,7 +35,7 @@ case "${OS}" in
     ;;
   Darwin)
     echo "WARNING: macOS installer path is experimental (alpha)."
-    echo "Use on non-production machines first and validate with 'declarch info' + 'declarch lint'."
+    echo "Use on non-production machines first and validate with '${BIN_NAME} info' + '${BIN_NAME} lint'."
     case "${ARCH}" in
       x86_64) TARGET="x86_64-apple-darwin" ;;
       arm64|aarch64) TARGET="aarch64-apple-darwin" ;;
@@ -48,17 +52,17 @@ case "${OS}" in
 esac
 
 if [ "${DECLARCH_VERSION}" = "latest" ]; then
-  URL="https://github.com/${REPO}/releases/latest/download/declarch-${TARGET}.tar.gz"
-  echo "Downloading declarch (latest release) for ${TARGET}..."
+  URL="https://github.com/${REPO_SLUG}/releases/latest/download/${ASSET_PREFIX}-${TARGET}.tar.gz"
+  echo "Downloading ${BIN_NAME} (latest release) for ${TARGET}..."
 else
-  URL="https://github.com/${REPO}/releases/download/v${DECLARCH_VERSION}/declarch-${TARGET}.tar.gz"
-  echo "Downloading declarch ${DECLARCH_VERSION} for ${TARGET}..."
+  URL="https://github.com/${REPO_SLUG}/releases/download/v${DECLARCH_VERSION}/${ASSET_PREFIX}-${TARGET}.tar.gz"
+  echo "Downloading ${BIN_NAME} ${DECLARCH_VERSION} for ${TARGET}..."
 fi
 curl -fsSL "${URL}" -o "${ARCHIVE}"
 tar xzf "${ARCHIVE}" -C "${TMP_DIR}"
 
-if [ ! -f "${TMP_DIR}/declarch" ]; then
-  echo "Error: failed to extract declarch binary from release archive"
+if [ ! -f "${TMP_DIR}/${BIN_NAME}" ]; then
+  echo "Error: failed to extract ${BIN_NAME} binary from release archive"
   exit 1
 fi
 
@@ -75,28 +79,28 @@ if [ ! -w "${INSTALL_DIR}" ]; then
 fi
 
 echo "Installing to ${INSTALL_DIR}..."
-${USE_SUDO} install -m 755 "${TMP_DIR}/declarch" "${INSTALL_DIR}/declarch"
+${USE_SUDO} install -m 755 "${TMP_DIR}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_NAME}"
 
-# Create short alias (decl -> declarch) if safe.
-if [ -e "${INSTALL_DIR}/decl" ] && [ ! -L "${INSTALL_DIR}/decl" ]; then
-  echo "Skipping alias: ${INSTALL_DIR}/decl exists and is not a symlink."
+# Create short alias if safe.
+if [ -e "${INSTALL_DIR}/${BIN_ALIAS}" ] && [ ! -L "${INSTALL_DIR}/${BIN_ALIAS}" ]; then
+  echo "Skipping alias: ${INSTALL_DIR}/${BIN_ALIAS} exists and is not a symlink."
 else
-  ${USE_SUDO} ln -sfn "${INSTALL_DIR}/declarch" "${INSTALL_DIR}/decl"
+  ${USE_SUDO} ln -sfn "${INSTALL_DIR}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_ALIAS}"
 fi
 
-INSTALLED_VERSION="$("${INSTALL_DIR}/declarch" --version)"
-echo "Installed ${INSTALLED_VERSION} to ${INSTALL_DIR}/declarch"
+INSTALLED_VERSION="$("${INSTALL_DIR}/${BIN_NAME}" --version)"
+echo "Installed ${INSTALLED_VERSION} to ${INSTALL_DIR}/${BIN_NAME}"
 
 # Persist installation channel marker for update guidance (best-effort).
 STATE_BASE="${XDG_STATE_HOME:-${HOME}/.local/state}"
-MARKER_DIR="${STATE_BASE}/declarch"
+MARKER_DIR="${STATE_BASE}/${STABLE_ID}"
 MARKER_PATH="${MARKER_DIR}/install-channel.json"
 mkdir -p "${MARKER_DIR}" 2>/dev/null || true
 cat > "${MARKER_PATH}" <<EOF || true
 {"channel":"curl","installed_at":"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"}
 EOF
 
-if ! command -v declarch >/dev/null 2>&1; then
+if ! command -v "${BIN_NAME}" >/dev/null 2>&1; then
   echo "Note: '${INSTALL_DIR}' is not in PATH for this shell."
   if [ "${INSTALL_DIR}" = "${HOME}/.local/bin" ]; then
     echo "Add this line to your shell profile:"
@@ -106,8 +110,8 @@ fi
 
 # Lightweight smoke checks (safe on fresh machines, no config required).
 echo "Running smoke checks..."
-"${INSTALL_DIR}/declarch" --help >/dev/null
-"${INSTALL_DIR}/declarch" info >/dev/null || true
+"${INSTALL_DIR}/${BIN_NAME}" --help >/dev/null
+"${INSTALL_DIR}/${BIN_NAME}" info >/dev/null || true
 echo "Smoke checks complete."
 
 echo "Install complete."

@@ -4,9 +4,13 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$BinName = "declarch"
+$BinAlias = "decl"
+$AssetPrefix = "declarch"
+$StableId = "declarch"
 
 Write-Warning "Windows installer path is experimental (alpha)."
-Write-Warning "Use on non-production machines first and validate with 'declarch info' and 'declarch lint'."
+Write-Warning "Use on non-production machines first and validate with '$BinName info' and '$BinName lint'."
 
 $arch = $env:PROCESSOR_ARCHITECTURE
 switch ($arch.ToLower()) {
@@ -17,44 +21,44 @@ switch ($arch.ToLower()) {
     }
 }
 
-$asset = "declarch-$target.zip"
+$asset = "$AssetPrefix-$target.zip"
 $url = "https://github.com/$Repo/releases/download/v$Version/$asset"
 
-$installRoot = Join-Path $env:LOCALAPPDATA "Programs\declarch\bin"
+$installRoot = Join-Path $env:LOCALAPPDATA "Programs\$BinName\bin"
 New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
-$metaRoot = Join-Path $env:LOCALAPPDATA "declarch"
+$metaRoot = Join-Path $env:LOCALAPPDATA $StableId
 New-Item -ItemType Directory -Path $metaRoot -Force | Out-Null
 
-$tmpDir = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("declarch-" + [guid]::NewGuid().ToString())) -Force
+$tmpDir = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("$BinName-" + [guid]::NewGuid().ToString())) -Force
 $zipPath = Join-Path $tmpDir.FullName $asset
 
-Write-Host "Downloading declarch $Version for $target..."
+Write-Host "Downloading $BinName $Version for $target..."
 Invoke-WebRequest -Uri $url -OutFile $zipPath
 Expand-Archive -Path $zipPath -DestinationPath $tmpDir.FullName -Force
 
-$exePath = Join-Path $tmpDir.FullName "declarch.exe"
+$exePath = Join-Path $tmpDir.FullName "$BinName.exe"
 if (-not (Test-Path $exePath)) {
-    Write-Error "declarch.exe not found in downloaded archive"
+    Write-Error "$BinName.exe not found in downloaded archive"
     exit 1
 }
 
-Copy-Item $exePath (Join-Path $installRoot "declarch.exe") -Force
+Copy-Item $exePath (Join-Path $installRoot "$BinName.exe") -Force
 
-# Optional short alias binary if release includes decl.exe
-$declExe = Join-Path $tmpDir.FullName "decl.exe"
+# Optional short alias binary if release includes alias executable
+$declExe = Join-Path $tmpDir.FullName "$BinAlias.exe"
 if (Test-Path $declExe) {
-    Copy-Item $declExe (Join-Path $installRoot "decl.exe") -Force
+    Copy-Item $declExe (Join-Path $installRoot "$BinAlias.exe") -Force
 }
 
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$installRoot*") {
     [Environment]::SetEnvironmentVariable("Path", ($userPath.TrimEnd(';') + ";" + $installRoot), "User")
     Write-Host "Added $installRoot to User PATH."
-    Write-Host "Open a new terminal to use declarch."
+    Write-Host "Open a new terminal to use $BinName."
 }
 
-Write-Host "Installed declarch to $installRoot"
-& (Join-Path $installRoot "declarch.exe") --version
+Write-Host "Installed $BinName to $installRoot"
+& (Join-Path $installRoot "$BinName.exe") --version
 
 # Persist installation channel marker for update guidance (best-effort)
 $markerPath = Join-Path $metaRoot "install-channel.json"
@@ -65,9 +69,9 @@ $markerPath = Join-Path $metaRoot "install-channel.json"
 
 # Lightweight smoke checks (safe on fresh machines, no config required)
 Write-Host "Running smoke checks..."
-& (Join-Path $installRoot "declarch.exe") --help | Out-Null
+& (Join-Path $installRoot "$BinName.exe") --help | Out-Null
 try {
-    & (Join-Path $installRoot "declarch.exe") info | Out-Null
+    & (Join-Path $installRoot "$BinName.exe") info | Out-Null
 } catch {
     # Keep installer non-blocking for first-run state/config scenarios
 }
