@@ -3,10 +3,15 @@
 //! This module provides functionality to programmatically edit KDL configuration files.
 //! It's used by the `install` command to add packages to config files.
 
+mod package_spec;
+
 use crate::constants::CONFIG_EXTENSION;
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths;
 use kdl::{KdlDocument, KdlNode};
+#[cfg(test)]
+use package_spec::is_valid_backend;
+pub use package_spec::parse_package_string;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -372,90 +377,6 @@ impl ConfigEditor {
 
         Ok((updated_content, vec![package.to_string()]))
     }
-}
-
-/// Parse package string with optional backend
-///
-/// # Arguments
-/// * `input` - Package string, e.g., "vim" or "soar:bat"
-///
-/// # Returns
-/// * `(Option<backend>, package_name)` - Backend if specified, and package name
-///
-/// # Examples
-/// ```
-/// # use declarch::config::editor::parse_package_string;
-/// # use declarch::error::Result;
-/// # fn main() -> Result<()> {
-/// assert_eq!(parse_package_string("vim")?, (None, "vim".to_string()));
-/// assert_eq!(parse_package_string("soar:bat")?, (Some("soar".to_string()), "bat".to_string()));
-/// assert_eq!(parse_package_string("npm:nodejs")?, (Some("npm".to_string()), "nodejs".to_string()));
-/// # Ok(())
-/// # }
-/// ```
-pub fn parse_package_string(input: &str) -> Result<(Option<String>, String)> {
-    let trimmed = input.trim();
-
-    // Check for empty string
-    if trimmed.is_empty() {
-        return Err(DeclarchError::Other(
-            "Package name cannot be empty".to_string(),
-        ));
-    }
-
-    // Check for multiple colons (e.g., "::package" or "backend::package")
-    if trimmed.matches(':').count() > 1 {
-        return Err(DeclarchError::Other(format!(
-            "Invalid package format '{}'. Use 'backend:package' or 'package'",
-            input
-        )));
-    }
-
-    if let Some((backend, package)) = trimmed.split_once(':') {
-        // Check for empty backend (":package")
-        let backend = backend.trim();
-        let package = package.trim();
-
-        if backend.is_empty() {
-            return Err(DeclarchError::Other(
-                "Backend cannot be empty (use 'package' without colon)".to_string(),
-            ));
-        }
-
-        // Check for empty package ("backend:")
-        if package.is_empty() {
-            return Err(DeclarchError::Other(
-                "Package name cannot be empty (use 'backend:' without package)".to_string(),
-            ));
-        }
-
-        // Validate backend name format (alphanumeric and hyphens only)
-        if is_valid_backend(backend) {
-            Ok((Some(backend.to_string()), package.to_string()))
-        } else {
-            Err(DeclarchError::Other(format!(
-                "Invalid backend name: '{}'. Backend names must contain only letters, numbers, and hyphens",
-                backend
-            )))
-        }
-    } else {
-        // No backend specified - validate package name is not empty
-        if trimmed.is_empty() {
-            return Err(DeclarchError::Other(
-                "Package name cannot be empty".to_string(),
-            ));
-        }
-        Ok((None, trimmed.to_string()))
-    }
-}
-
-/// Check if a backend name is valid
-/// Accepts any alphanumeric+hyphen name - no hardcoded backend list
-fn is_valid_backend(backend: &str) -> bool {
-    !backend.is_empty()
-        && backend
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
 /// Create a backup of a KDL file before modification
