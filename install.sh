@@ -16,6 +16,24 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 TMP_DIR="$(mktemp -d)"
 ARCHIVE="${TMP_DIR}/${BIN_NAME}.tar.gz"
+CHECKSUMS_FILE="${TMP_DIR}/checksums.txt"
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return 0
+  fi
+  if command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$1" | awk '{print $NF}'
+    return 0
+  fi
+  echo "Error: no SHA256 tool found (need sha256sum, shasum, or openssl)." >&2
+  exit 1
+}
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -52,13 +70,30 @@ case "${OS}" in
 esac
 
 if [ "${DECLARCH_VERSION}" = "latest" ]; then
-  URL="https://github.com/${REPO_SLUG}/releases/latest/download/${ASSET_PREFIX}-${TARGET}.tar.gz"
+  BASE_URL="https://github.com/${REPO_SLUG}/releases/latest/download"
   echo "Downloading ${BIN_NAME} (latest release) for ${TARGET}..."
 else
-  URL="https://github.com/${REPO_SLUG}/releases/download/v${DECLARCH_VERSION}/${ASSET_PREFIX}-${TARGET}.tar.gz"
+  BASE_URL="https://github.com/${REPO_SLUG}/releases/download/v${DECLARCH_VERSION}"
   echo "Downloading ${BIN_NAME} ${DECLARCH_VERSION} for ${TARGET}..."
 fi
+ASSET_NAME="${ASSET_PREFIX}-${TARGET}.tar.gz"
+URL="${BASE_URL}/${ASSET_NAME}"
+CHECKSUMS_URL="${BASE_URL}/checksums.txt"
 curl -fsSL "${URL}" -o "${ARCHIVE}"
+curl -fsSL "${CHECKSUMS_URL}" -o "${CHECKSUMS_FILE}"
+EXPECTED_SHA="$(awk -v asset="${ASSET_NAME}" '$2==asset{print $1; exit}' "${CHECKSUMS_FILE}")"
+if [ -z "${EXPECTED_SHA}" ]; then
+  echo "Error: checksum entry for ${ASSET_NAME} not found in checksums.txt"
+  exit 1
+fi
+ACTUAL_SHA="$(sha256_file "${ARCHIVE}")"
+if [ "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]; then
+  echo "Error: checksum verification failed for ${ASSET_NAME}"
+  echo "Expected: ${EXPECTED_SHA}"
+  echo "Actual:   ${ACTUAL_SHA}"
+  exit 1
+fi
+echo "Checksum verified: ${ASSET_NAME}"
 tar xzf "${ARCHIVE}" -C "${TMP_DIR}"
 
 if [ ! -f "${TMP_DIR}/${BIN_NAME}" ]; then

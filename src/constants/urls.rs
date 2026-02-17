@@ -1,3 +1,5 @@
+use crate::project_identity;
+
 /// External URLs and URL patterns
 ///
 /// Centralized URLs for:
@@ -261,4 +263,3 @@ mod tests {
         assert_eq!(urls[0], "https://example.com/config.kdl");
     }
 }
-use crate::project_identity;

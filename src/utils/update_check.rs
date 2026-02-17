@@ -229,10 +229,10 @@ fn install_marker_path() -> Option<PathBuf> {
             let home = env::var_os("HOME")?;
             PathBuf::from(home).join(".local").join("state")
         };
-        return Some(
+        Some(
             path.join(project_identity::STABLE_PROJECT_ID)
                 .join("install-channel.json"),
-        );
+        )
     }
 }
 

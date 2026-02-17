@@ -118,9 +118,11 @@ fn perform_self_update_windows(version: &str) -> Result<()> {
 
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 fn build_windows_update_bootstrap_ps(version: &str) -> String {
+    let script_ref = format!("v{}", version);
     let install_url = format!(
-        "https://raw.githubusercontent.com/{}/main/install.ps1",
-        project_identity::REPO_SLUG
+        "https://raw.githubusercontent.com/{}/{}/install.ps1",
+        project_identity::REPO_SLUG,
+        script_ref
     );
     let ps_inner = format!(
         "$ErrorActionPreference='Stop'; $u='{url}'; $s=(Invoke-WebRequest -UseBasicParsing -Uri $u).Content; $sb=[scriptblock]::Create($s); & $sb -Version '{version}' -Repo '{repo}'",
@@ -553,6 +555,7 @@ mod windows_tests {
         let ps = build_windows_update_bootstrap_ps("0.8.2");
         assert!(ps.contains("Start-Process -WindowStyle Hidden"));
         assert!(ps.contains("install.ps1"));
+        assert!(ps.contains("/v0.8.2/install.ps1"));
         assert!(ps.contains("-Version '0.8.2'"));
         assert!(ps.contains(project_identity::REPO_SLUG));
     }
@@ -568,6 +571,7 @@ mod cross_platform_tests {
         let ps = build_windows_update_bootstrap_ps("0.8.2");
         assert!(ps.contains("Start-Process -WindowStyle Hidden"));
         assert!(ps.contains("install.ps1"));
+        assert!(ps.contains("/v0.8.2/install.ps1"));
         assert!(ps.contains("-Version '0.8.2'"));
         assert!(ps.contains(project_identity::REPO_SLUG));
     }

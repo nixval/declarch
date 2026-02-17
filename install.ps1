@@ -23,10 +23,12 @@ switch ($arch.ToLower()) {
 
 $asset = "$AssetPrefix-$target.zip"
 if ($Version -eq "latest") {
-    $url = "https://github.com/$Repo/releases/latest/download/$asset"
+    $baseUrl = "https://github.com/$Repo/releases/latest/download"
 } else {
-    $url = "https://github.com/$Repo/releases/download/v$Version/$asset"
+    $baseUrl = "https://github.com/$Repo/releases/download/v$Version"
 }
+$url = "$baseUrl/$asset"
+$checksumsUrl = "$baseUrl/checksums.txt"
 
 $installRoot = Join-Path $env:LOCALAPPDATA "Programs\$BinName\bin"
 New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
@@ -42,6 +44,32 @@ if ($Version -eq "latest") {
     Write-Host "Downloading $BinName $Version for $target..."
 }
 Invoke-WebRequest -Uri $url -OutFile $zipPath
+$checksumsPath = Join-Path $tmpDir.FullName "checksums.txt"
+Invoke-WebRequest -Uri $checksumsUrl -OutFile $checksumsPath
+
+$expectedSha = $null
+foreach ($line in Get-Content -Path $checksumsPath) {
+    if ($line -match "^\s*([0-9a-fA-F]{64})\s+\*?(.+?)\s*$") {
+        $sha = $matches[1].ToLower()
+        $name = $matches[2]
+        if ($name -eq $asset) {
+            $expectedSha = $sha
+            break
+        }
+    }
+}
+if (-not $expectedSha) {
+    Write-Error "Checksum entry for $asset not found in checksums.txt"
+    exit 1
+}
+
+$actualSha = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
+if ($actualSha -ne $expectedSha) {
+    Write-Error "Checksum verification failed for $asset. Expected: $expectedSha, Actual: $actualSha"
+    exit 1
+}
+Write-Host "Checksum verified: $asset"
+
 Expand-Archive -Path $zipPath -DestinationPath $tmpDir.FullName -Force
 
 $exePath = Join-Path $tmpDir.FullName "$BinName.exe"
