@@ -26,8 +26,8 @@ pub fn run(options: SwitchOptions) -> Result<()> {
         crate::error::DeclarchError::Other(format!(
             "Cannot start switch: {}\n\
              If no other {} process is running, delete the lock file manually.",
-            project_identity::BINARY_NAME,
-            e
+            e,
+            project_identity::BINARY_NAME
         ))
     })?;
 
@@ -79,8 +79,9 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     if old_state_entry.is_none() && !options.force {
         return Err(DeclarchError::Other(format!(
-            "Package '{}' is not tracked by declarch. Use --force to override.",
-            old_package
+            "Package '{}' is not tracked by {}. Use --force to override.",
+            old_package,
+            project_identity::BINARY_NAME
         )));
     }
 

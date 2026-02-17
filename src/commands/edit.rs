@@ -1,4 +1,5 @@
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::paths;
 use colored::Colorize;
@@ -24,9 +25,11 @@ pub fn run(options: EditOptions) -> Result<()> {
 
     // Check if declarch is initialized
     if !config_dir.exists() {
-        return Err(DeclarchError::Other(
-            "Declarch not initialized. Run 'declarch init' first.".into(),
-        ));
+        return Err(DeclarchError::Other(format!(
+            "{} not initialized. Run '{}' first.",
+            project_identity::DISPLAY_NAME,
+            project_identity::cli_with("init")
+        )));
     }
 
     // Determine which file to edit
@@ -51,8 +54,9 @@ pub fn run(options: EditOptions) -> Result<()> {
     // Verify file exists (after handling --create)
     if !file_to_edit.exists() {
         return Err(DeclarchError::Other(format!(
-            "File not found: {}\nHint: Use 'declarch init' first, or use --create to make a new module",
-            file_to_edit.display()
+            "File not found: {}\nHint: Use '{}' first, or use --create to make a new module",
+            file_to_edit.display(),
+            project_identity::cli_with("init")
         )));
     }
 
@@ -155,7 +159,10 @@ pub fn run(options: EditOptions) -> Result<()> {
     if let Err(e) = content.parse::<KdlDocument>() {
         output::warning("KDL syntax error detected!");
         output::warning(&format!("  {}", e));
-        output::info("Run 'declarch lint --mode validate' for more details");
+        output::info(&format!(
+            "Run '{}' for more details",
+            project_identity::cli_with("lint --mode validate")
+        ));
     } else {
         output::success("Configuration syntax is valid!");
     }
@@ -228,9 +235,10 @@ fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
 
         // Not found
         return Err(DeclarchError::Other(format!(
-            "Module '{}' not found\n  Tried: {}\n  Hint: Use 'declarch info' to list available modules",
+            "Module '{}' not found\n  Tried: {}\n  Hint: Use '{}' to list available modules",
             target,
-            full_path.display() // Use full_path which already includes modules/
+            full_path.display(), // Use full_path which already includes modules/
+            project_identity::cli_with("info")
         )));
     }
 

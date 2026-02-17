@@ -1,4 +1,5 @@
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::state::types::State;
 use crate::ui;
 use crate::utils::paths;
@@ -75,9 +76,10 @@ pub fn acquire_lock() -> Result<StateLock> {
                     String::new()
                 };
                 return Err(DeclarchError::Other(format!(
-                    "Another declarch process is currently running.\n\
+                    "Another {} process is currently running.\n\
                      Lock file: {}{}\n\
                      Wait for it to complete, or delete the lock file if you're sure no other process is running.",
+                    project_identity::BINARY_NAME,
                     lock_path.display(),
                     age_hint
                 )));
@@ -298,7 +300,7 @@ fn migrate_state_schema(state: &mut crate::state::types::State) -> bool {
     }
 
     if state.meta.generator.is_none() {
-        state.meta.generator = Some("declarch".to_string());
+        state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
         changed = true;
     }
 
@@ -355,7 +357,8 @@ fn load_state_from_path(path: &Path, strict_recovery: bool) -> Result<State> {
                                 return Err(DeclarchError::Other(format!(
                                     "State file is corrupted and backup restore failed (strict mode).\n\
                                      File: {}\n\
-                                     Hint: run `declarch info --doctor`, inspect state backups, then retry.",
+                                     Hint: run `{}`, inspect state backups, then retry.",
+                                    project_identity::cli_with("info --doctor"),
                                     path.display()
                                 )));
                             }
@@ -381,7 +384,8 @@ fn load_state_from_path(path: &Path, strict_recovery: bool) -> Result<State> {
                         return Err(DeclarchError::Other(format!(
                             "State file cannot be read and backup restore failed (strict mode).\n\
                              File: {}\n\
-                             Hint: run `declarch info --doctor`, inspect file permissions/state path, then retry.",
+                             Hint: run `{}`, inspect file permissions/state path, then retry.",
+                            project_identity::cli_with("info --doctor"),
                             path.display()
                         )));
                     }
@@ -486,7 +490,7 @@ pub fn save_state(state: &State) -> Result<()> {
     state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
     state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
     if state.meta.generator.is_none() {
-        state.meta.generator = Some("declarch".to_string());
+        state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
     }
 
     let path = get_state_path()?;
@@ -538,7 +542,7 @@ pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
     state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
     state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
     if state.meta.generator.is_none() {
-        state.meta.generator = Some("declarch".to_string());
+        state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
     }
 
     let path = get_state_path()?;

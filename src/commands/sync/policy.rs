@@ -1,6 +1,7 @@
 use super::SyncOptions;
 use crate::config::loader;
 use crate::error::Result;
+use crate::project_identity;
 use crate::ui as output;
 
 pub(super) fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &SyncOptions) -> bool {
@@ -22,9 +23,10 @@ pub(super) fn resolve_hooks_enabled(config: &loader::MergedConfig, options: &Syn
         return true;
     }
 
-    output::warning(
-        "Hooks were requested but blocked by policy. Add experimental { \"enable-hooks\" } to declarch.kdl to allow hook execution.",
-    );
+    output::warning(&format!(
+        "Hooks were requested but blocked by policy. Add experimental {{ \"enable-hooks\" }} to {} to allow hook execution.",
+        project_identity::CONFIG_FILE_BASENAME
+    ));
     false
 }
 

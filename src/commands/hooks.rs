@@ -3,6 +3,7 @@ use crate::config::kdl::{
 };
 use crate::constants::HOOK_TIMEOUT_SECS;
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::sanitize;
 use colored::Colorize;
@@ -73,11 +74,19 @@ pub fn execute_hooks(
         );
 
         println!("\n{}", "To enable hooks after reviewing:".dimmed());
-        println!("  {}", "declarch sync --hooks".bold());
+        println!("  {}", project_identity::cli_with("sync --hooks").bold());
         println!("  {}", "dc sync --hooks".dimmed());
 
         println!("\n{}", "To review the full config:".dimmed());
-        println!("  {}", "cat ~/.config/declarch/declarch.kdl".dimmed());
+        println!(
+            "  {}",
+            format!(
+                "cat ~/.config/{}/{}",
+                project_identity::CONFIG_DIR_NAME,
+                project_identity::CONFIG_FILE_BASENAME
+            )
+            .dimmed()
+        );
 
         return Ok(());
     }

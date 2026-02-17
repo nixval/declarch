@@ -7,6 +7,7 @@ use crate::config::loader;
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::packages::get_registry;
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::paths;
 use crate::utils::sanitize::validate_package_name;
@@ -204,8 +205,9 @@ pub fn run(options: InstallOptions) -> Result<()> {
         // Check if backend config exists
         if !registry_guard.has_backend(backend_str) {
             output::warning(&format!(
-                "Backend '{}' not found. Run 'declarch init --backend {}'",
-                backend_str, backend_str
+                "Backend '{}' not found. Run '{}'",
+                backend_str,
+                project_identity::cli_with(&format!("init --backend {}", backend_str))
             ));
             skipped_count += 1;
             continue;

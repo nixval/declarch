@@ -5,6 +5,7 @@
 
 use crate::constants::CONFIG_EXTENSION;
 use crate::error::Result;
+use crate::project_identity;
 use crate::state;
 use crate::utils::{self, paths};
 use std::fs;
@@ -24,7 +25,7 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     let modules_dir = config_dir.join("modules");
 
     if config_file.exists() && !force {
-        println!("Declarch is already initialized.");
+        println!("{} is already initialized.", project_identity::DISPLAY_NAME);
         println!("  {}", config_dir.display());
         return Ok(());
     }
@@ -55,9 +56,13 @@ pub fn init_root(host: Option<String>, force: bool) -> Result<()> {
     fs::write(&base_module_path, base_template)?;
 
     // Simple, clean output
-    println!("Created declarch directory:");
+    println!("Created {} directory:", project_identity::BINARY_NAME);
     println!("  {}", config_dir.display());
-    println!("Initializing declarch for host: {}", hostname);
+    println!(
+        "Initializing {} for host: {}",
+        project_identity::BINARY_NAME,
+        hostname
+    );
     if crate::ui::is_verbose() {
         crate::ui::verbose(&format!("Config file: {}", config_file.display()));
         crate::ui::verbose(&format!("Backends dir: {}", backends_dir.display()));

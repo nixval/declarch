@@ -1,6 +1,7 @@
 use crate::config::loader;
 use crate::core::types::Backend;
 use crate::error::Result;
+use crate::project_identity;
 use crate::state;
 use crate::ui as output;
 use crate::utils::machine_output;
@@ -284,8 +285,14 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
 
     if is_orphans {
         println!();
-        output::info("Orphan packages are not managed by declarch");
-        output::info("Add them to your config or use 'declarch sync prune' to remove");
+        output::info(&format!(
+            "Orphan packages are not managed by {}",
+            project_identity::BINARY_NAME
+        ));
+        output::info(&format!(
+            "Add them to your config or use '{}' to remove",
+            project_identity::cli_with("sync prune")
+        ));
     }
 }
 

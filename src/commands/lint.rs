@@ -1,6 +1,7 @@
 use crate::config::kdl::parse_kdl_content_with_path;
 use crate::config::loader::{self, LoadSelectors, MergedConfig};
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::machine_output;
 use crate::utils::paths;
@@ -219,7 +220,10 @@ pub fn run(options: LintOptions) -> Result<()> {
 
     if err_count > 0 {
         if !machine_mode {
-            output::info("Tip: run `declarch lint --fix` for safe autofixes first.");
+            output::info(&format!(
+                "Tip: run `{}` for safe autofixes first.",
+                project_identity::cli_with("lint --fix")
+            ));
         }
         return Err(DeclarchError::ConfigError(format!(
             "Lint failed with {} error(s)",
@@ -241,7 +245,10 @@ pub fn run(options: LintOptions) -> Result<()> {
         if issues.is_empty() {
             output::success("No lint issues found");
         } else {
-            output::info("Use `declarch lint --fix` to apply safe fixes where available.");
+            output::info(&format!(
+                "Use `{}` to apply safe fixes where available.",
+                project_identity::cli_with("lint --fix")
+            ));
             output::success("Lint completed");
         }
     }
@@ -684,8 +691,9 @@ fn handle_state_remove(options: &LintOptions) -> Result<bool> {
 
     let lock = crate::state::io::acquire_lock().map_err(|e| {
         DeclarchError::Other(format!(
-            "Cannot modify state now: {}\nIf no other declarch process is running, delete the lock file manually.",
-            e
+            "Cannot modify state now: {}\nIf no other {} process is running, delete the lock file manually.",
+            e,
+            project_identity::BINARY_NAME
         ))
     })?;
 
@@ -715,9 +723,10 @@ fn handle_state_remove(options: &LintOptions) -> Result<bool> {
     }
 
     if !options.yes
-        && !output::prompt_yes_no(
-            "Remove these entries from declarch state only (no package uninstall)?",
-        )
+        && !output::prompt_yes_no(&format!(
+            "Remove these entries from {} state only (no package uninstall)?",
+            project_identity::BINARY_NAME
+        ))
     {
         output::warning("State remove cancelled by user.");
         return Ok(true);

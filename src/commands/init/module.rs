@@ -10,6 +10,7 @@
 use crate::config::kdl::parse_kdl_content;
 use crate::constants::CONFIG_EXTENSION;
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::utils::{self, paths, remote};
 use colored::Colorize;
 use regex::Regex;
@@ -64,7 +65,10 @@ pub fn init_module(target_path: &str, force: bool, yes: bool, local: bool) -> Re
         && !force
     {
         crate::ui::warning(&format!("{}", e));
-        crate::ui::info("The module may be malformed or incompatible with your declarch version.");
+        crate::ui::info(&format!(
+            "The module may be malformed or incompatible with your {} version.",
+            project_identity::BINARY_NAME
+        ));
         crate::ui::info("You can still import it with --force, then edit the file manually.");
 
         if !crate::ui::prompt_yes_no("Continue with potentially invalid module") {
@@ -118,10 +122,14 @@ fn resolve_module_content(
                 "Failed to fetch module '{}' from registry: {}
 
 Try one of these alternatives:
-  1. List available modules:    declarch init --list modules
-  2. Create local module:       declarch init --local {}
-  3. Use simple name:           declarch init {}",
-                target_path, e, slug, slug
+  1. List available modules:    {}
+  2. Create local module:       {}
+  3. Use simple name:           {}",
+                target_path,
+                e,
+                project_identity::cli_with("init --list modules"),
+                project_identity::cli_with(&format!("init --local {}", slug)),
+                project_identity::cli_with(&format!("init {}", slug))
             ))),
         };
     }
@@ -140,10 +148,13 @@ Try one of these alternatives:
             "Module '{}' not found in registry.
 
 Try one of these alternatives:
-  1. List available modules:    declarch init --list modules
-  2. Create local module:       declarch init --local {}
-  3. Check module path:         declarch init <category>/{}",
-            target_path, slug, slug
+  1. List available modules:    {}
+  2. Create local module:       {}
+  3. Check module path:         {}",
+            target_path,
+            project_identity::cli_with("init --list modules"),
+            project_identity::cli_with(&format!("init --local {}", slug)),
+            project_identity::cli_with(&format!("init <category>/{}", slug))
         )));
     }
 

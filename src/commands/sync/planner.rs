@@ -7,6 +7,7 @@ use crate::config::loader;
 use crate::constants::CRITICAL_PACKAGES;
 use crate::core::{resolver, types::SyncTarget};
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::state::types::State;
 use crate::ui as output;
 use chrono::Utc;
@@ -63,8 +64,10 @@ pub fn resolve_and_filter_packages(
 
         for (backend, count) in skipped_by_backend {
             output::warning(&format!(
-                "Skipping {} package(s), backend '{}' not available. Run 'declarch init --backend {}'",
-                count, backend, backend
+                "Skipping {} package(s), backend '{}' not available. Run '{}'",
+                count,
+                backend,
+                project_identity::cli_with(&format!("init --backend {}", backend))
             ));
         }
     }
@@ -166,13 +169,10 @@ pub fn check_variant_transitions(
             let backend_prefix = format!("{}:", backend);
             println!(
                 "     {}",
-                format!(
-                    "declarch switch {}{} {}{}",
-                    backend_prefix.yellow(),
-                    installed_name.yellow(),
-                    backend_prefix.cyan(),
-                    config_name.cyan()
-                )
+                project_identity::cli_with(&format!(
+                    "switch {}{} {}{}",
+                    backend_prefix, installed_name, backend_prefix, config_name
+                ))
                 .bold()
             );
         }
@@ -190,9 +190,10 @@ pub fn check_variant_transitions(
             "--force".yellow().bold()
         );
 
-        return Err(DeclarchError::Other(
-            "Variant transition required. Use 'declarch switch' or update your config.".to_string(),
-        ));
+        return Err(DeclarchError::Other(format!(
+            "Variant transition required. Use '{}' or update your config.",
+            project_identity::cli_with("switch")
+        )));
     }
 
     Ok(())
@@ -417,7 +418,10 @@ pub fn display_dry_run_details(
             "{} package(s) appear to already be installed but not tracked in state",
             already_installed.len()
         ));
-        println!("  They will be 'adopted' into declarch's state management.");
+        println!(
+            "  They will be 'adopted' into {} state management.",
+            project_identity::BINARY_NAME
+        );
     } else {
         println!("  ✅ No conflicts detected");
     }

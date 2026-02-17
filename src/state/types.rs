@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 // Re-export Backend from core to avoid duplication
 pub use crate::core::types::Backend;
+use crate::project_identity;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
@@ -133,9 +134,9 @@ impl Default for State {
                 schema_version: 3,
                 last_sync: Utc::now(),
                 hostname: "unknown".to_string(),
-                last_update: None, // Default is never updated via declarch
+                last_update: None, // Default is never updated via the CLI
                 state_revision: Some(1),
-                generator: Some("declarch".to_string()),
+                generator: Some(project_identity::STABLE_PROJECT_ID.to_string()),
                 features: None,
             },
             packages: HashMap::new(),

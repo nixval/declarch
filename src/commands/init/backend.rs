@@ -7,6 +7,7 @@
 //! 4. Add import to `declarch.kdl` in `backends { ... }`
 
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::{paths, remote};
 use regex::Regex;
@@ -50,8 +51,9 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     }
 
     println!(
-        "fetching '{}' from nixval/declarch-packages",
-        sanitized_name
+        "fetching '{}' from {}",
+        sanitized_name,
+        project_identity::REGISTRY_SLUG
     );
 
     let backend_content = match remote::fetch_backend_content(&sanitized_name) {
@@ -61,8 +63,10 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
                 output::verbose(&format!("Backend fetch error detail: {}", e));
             }
             return Err(DeclarchError::Other(format!(
-                "failed to fetch backend '{}'. Please verify name/network and retry.\nHint: declarch init --list backends\nDetail: {}",
-                sanitized_name, e
+                "failed to fetch backend '{}'. Please verify name/network and retry.\nHint: {}\nDetail: {}",
+                sanitized_name,
+                project_identity::cli_with("init --list backends"),
+                e
             )));
         }
     };
@@ -72,7 +76,10 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         && !force
     {
         output::warning(&format!("{}", e));
-        output::info("The backend may be malformed or incompatible with your declarch version.");
+        output::info(&format!(
+            "The backend may be malformed or incompatible with your {} version.",
+            project_identity::BINARY_NAME
+        ));
         output::info("You can still adopt it with --force, then edit the file manually.");
 
         if !output::prompt_yes_no("Continue with potentially invalid backend") {
@@ -140,19 +147,20 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         output::verbose(&format!("Backend file written: {}", backend_file.display()));
     }
 
-    // Always import directly to declarch.kdl
-    let declarch_kdl_path = root_dir.join("declarch.kdl");
-    match add_backend_to_declarch(&declarch_kdl_path, &sanitized_name) {
+    // Always import directly to root config file.
+    let root_config_path = root_dir.join(project_identity::CONFIG_FILE_BASENAME);
+    match add_backend_to_declarch(&root_config_path, &sanitized_name) {
         Ok(true) => {
             println!("Backend '{}' adopted.", sanitized_name);
             if output::is_verbose() {
-                output::verbose(&format!("Imported into: {}", declarch_kdl_path.display()));
+                output::verbose(&format!("Imported into: {}", root_config_path.display()));
             }
         }
         Ok(false) => {
             println!(
-                "Backend '{}' fetched. Add to declarch.kdl to use:",
-                sanitized_name
+                "Backend '{}' fetched. Add to {} to use:",
+                sanitized_name,
+                project_identity::CONFIG_FILE_BASENAME
             );
             output::info(&format!("backends {{\"backends/{}.kdl\"}}", sanitized_name));
             if output::is_verbose() {
@@ -162,8 +170,9 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         Err(e) => {
             output::warning(&format!("Could not auto-import: {}", e));
             output::info(&format!(
-                "Add manually to declarch.kdl: backends {{\"backends/{}.kdl\"}}",
-                sanitized_name
+                "Add manually to {}: backends {{\"backends/{}.kdl\"}}",
+                project_identity::CONFIG_FILE_BASENAME,
+                sanitized_name,
             ));
         }
     }
@@ -180,7 +189,8 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> Result<bool> {
     if !declarch_kdl_path.exists() {
         return Err(DeclarchError::Other(format!(
-            "declarch.kdl not found at {}",
+            "{} not found at {}",
+            project_identity::CONFIG_FILE_BASENAME,
             declarch_kdl_path.display()
         )));
     }

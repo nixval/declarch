@@ -2,6 +2,7 @@ use crate::config::loader::{self, LoadSelectors, MergedConfig};
 use crate::core::resolver;
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::state;
 use crate::ui as output;
 use crate::utils::paths;
@@ -72,9 +73,18 @@ fn explain_target(target: &str, config: &MergedConfig) -> Result<()> {
             output::indent("• --target module:<path>", 1);
             output::separator();
             output::info("Examples:");
-            output::indent("• declarch info --plan", 1);
-            output::indent("• declarch info backend:pnpm", 1);
-            output::indent("• declarch info system/base", 1);
+            output::indent(
+                &format!("• {}", project_identity::cli_with("info --plan")),
+                1,
+            );
+            output::indent(
+                &format!("• {}", project_identity::cli_with("info backend:pnpm")),
+                1,
+            );
+            output::indent(
+                &format!("• {}", project_identity::cli_with("info system/base")),
+                1,
+            );
             Ok(())
         }
         "sync-plan" => explain_sync_plan(config),
@@ -206,11 +216,32 @@ fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
 
         output::warning(&format!("Nothing matched '{}'.", query));
         output::info("Try one of these:");
-        output::indent("• declarch info <package-name>", 1);
-        output::indent("• declarch info <backend>:<package>", 1);
-        output::indent("• declarch info backend:<backend-name>", 1);
-        output::indent("• declarch info <module-name>", 1);
-        output::indent("• declarch info --plan", 1);
+        output::indent(
+            &format!("• {}", project_identity::cli_with("info <package-name>")),
+            1,
+        );
+        output::indent(
+            &format!(
+                "• {}",
+                project_identity::cli_with("info <backend>:<package>")
+            ),
+            1,
+        );
+        output::indent(
+            &format!(
+                "• {}",
+                project_identity::cli_with("info backend:<backend-name>")
+            ),
+            1,
+        );
+        output::indent(
+            &format!("• {}", project_identity::cli_with("info <module-name>")),
+            1,
+        );
+        output::indent(
+            &format!("• {}", project_identity::cli_with("info --plan")),
+            1,
+        );
         return Err(DeclarchError::TargetNotFound(query.to_string()));
     }
 
