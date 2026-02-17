@@ -12,6 +12,7 @@
 //! to install backends via `declarch init --backend <name>`.
 
 use crate::error::DeclarchError;
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::paths;
 use std::collections::HashMap;
@@ -22,7 +23,7 @@ type BackendSourceMap = HashMap<String, Vec<String>>;
 type BackendsWithSources = (Vec<BackendConfig>, BackendSourceMap);
 
 fn strict_backend_mode_enabled() -> bool {
-    std::env::var("DECLARCH_STRICT_BACKENDS")
+    std::env::var(project_identity::env_key("STRICT_BACKENDS"))
         .map(|v| {
             matches!(
                 v.trim().to_ascii_lowercase().as_str(),

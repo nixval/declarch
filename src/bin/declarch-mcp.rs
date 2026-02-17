@@ -1,4 +1,5 @@
 use declarch::config::loader;
+use declarch::project_identity;
 use declarch::utils::paths;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -356,12 +357,13 @@ fn build_declarch_args(
 }
 
 fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<(), String> {
-    let allow_apply = std::env::var("DECLARCH_MCP_ALLOW_APPLY").unwrap_or_default();
+    let allow_apply_key = project_identity::env_key("MCP_ALLOW_APPLY");
+    let allow_apply = std::env::var(&allow_apply_key).unwrap_or_default();
     if allow_apply != "1" {
-        return Err(
-            "Apply is disabled. Set DECLARCH_MCP_ALLOW_APPLY=1 to allow declarch_sync_apply."
-                .to_string(),
-        );
+        return Err(format!(
+            "Apply is disabled. Set {}=1 to allow declarch_sync_apply.",
+            allow_apply_key
+        ));
     }
     let confirm = arguments
         .get("confirm")
@@ -377,7 +379,8 @@ fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<()
 }
 
 fn run_declarch_json(args: &[String]) -> Result<Value, String> {
-    let bin = std::env::var("DECLARCH_BIN").unwrap_or_else(|_| "declarch".to_string());
+    let bin_env = project_identity::env_key("BIN");
+    let bin = std::env::var(&bin_env).unwrap_or_else(|_| project_identity::BINARY_NAME.to_string());
 
     let output = Command::new(&bin)
         .args(args)

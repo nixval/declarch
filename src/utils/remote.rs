@@ -376,9 +376,10 @@ fn validate_url(url_str: &str) -> Result<()> {
     // Check scheme policy (HTTPS by default, HTTP opt-in only).
     let scheme = parsed.scheme();
     if !is_allowed_scheme(scheme) {
+        let insecure_key = project_identity::env_key("ALLOW_INSECURE_HTTP");
         return Err(DeclarchError::RemoteFetchError(format!(
-            "URL scheme '{}' is blocked. Allowed by default: https. To allow http explicitly set DECLARCH_ALLOW_INSECURE_HTTP=1.",
-            scheme
+            "URL scheme '{}' is blocked. Allowed by default: https. To allow http explicitly set {}=1.",
+            scheme, insecure_key
         )));
     }
 
@@ -421,7 +422,8 @@ fn is_allowed_scheme(scheme: &str) -> bool {
     }
 
     if scheme == INSECURE_SCHEME {
-        return env::var("DECLARCH_ALLOW_INSECURE_HTTP").unwrap_or_default() == "1";
+        return env::var(project_identity::env_key("ALLOW_INSECURE_HTTP")).unwrap_or_default()
+            == "1";
     }
 
     false
