@@ -1,3 +1,5 @@
+mod filters;
+
 use crate::config::loader;
 use crate::core::types::Backend;
 use crate::error::Result;
@@ -7,6 +9,7 @@ use crate::ui as output;
 use crate::utils::machine_output;
 use crate::utils::paths;
 use colored::Colorize;
+use filters::{find_orphans, find_synced};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -201,41 +204,6 @@ fn run_unmanaged_list(options: ListOptions) -> Result<()> {
             Ok(())
         }
     }
-}
-
-/// Find orphan packages (installed but not in config)
-fn find_orphans<'a>(
-    installed: Vec<&'a state::types::PackageState>,
-    config: &HashMap<crate::core::types::PackageId, Vec<std::path::PathBuf>>,
-) -> Vec<&'a state::types::PackageState> {
-    installed
-        .into_iter()
-        .filter(|pkg| {
-            // Create PackageId for lookup
-            let pkg_id = crate::core::types::PackageId {
-                backend: pkg.backend.clone(),
-                name: pkg.config_name.clone(),
-            };
-            !config.contains_key(&pkg_id)
-        })
-        .collect()
-}
-
-/// Find synced packages (installed and in config)
-fn find_synced<'a>(
-    installed: Vec<&'a state::types::PackageState>,
-    config: &HashMap<crate::core::types::PackageId, Vec<std::path::PathBuf>>,
-) -> Vec<&'a state::types::PackageState> {
-    installed
-        .into_iter()
-        .filter(|pkg| {
-            let pkg_id = crate::core::types::PackageId {
-                backend: pkg.backend.clone(),
-                name: pkg.config_name.clone(),
-            };
-            config.contains_key(&pkg_id)
-        })
-        .collect()
 }
 
 /// Display packages with formatting
