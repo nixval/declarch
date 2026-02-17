@@ -2,6 +2,7 @@ use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::error::{DeclarchError, Result};
 use crate::packages::{PackageManager, create_manager};
+use crate::project_identity;
 use crate::state::{self, types::PackageState};
 use crate::ui as output;
 use chrono::Utc;
@@ -24,7 +25,8 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     let lock = state::io::acquire_lock().map_err(|e| {
         crate::error::DeclarchError::Other(format!(
             "Cannot start switch: {}\n\
-             If no other declarch process is running, delete the lock file manually.",
+             If no other {} process is running, delete the lock file manually.",
+            project_identity::BINARY_NAME,
             e
         ))
     })?;
@@ -152,7 +154,10 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     match execute_transition(&old_package, &new_package, &backend, &*manager) {
         Ok(()) => {
-            output::info("Updating declarch state...");
+            output::info(&format!(
+                "Updating {} state...",
+                project_identity::BINARY_NAME
+            ));
 
             // Remove old package from state
             state.packages.remove(&old_state_key);
@@ -296,7 +301,10 @@ fn determine_target(
                     .unwrap_or_default();
 
                 let backend_list = if backends.is_empty() {
-                    "No backends configured. Run 'declarch init' first.".to_string()
+                    format!(
+                        "No backends configured. Run '{}' first.",
+                        project_identity::cli_with("init")
+                    )
                 } else {
                     format!("Available backends: {}", backends.join(", "))
                 };
@@ -304,14 +312,16 @@ fn determine_target(
                 Err(DeclarchError::Other(format!(
                     "Cannot determine backend.\n\n\
                      Use explicit prefix syntax:\n\
-                       declarch switch {}:{} {}:{}\n\n\
+                       {} {}:{} {}:{}\n\n\
                      Or specify backend:\n\
-                       declarch switch {} {} --backend <BACKEND>\n\n\
+                       {} {} {} --backend <BACKEND>\n\n\
                      {}",
+                    project_identity::BINARY_NAME,
                     backends.first().unwrap_or(&"BACKEND".to_string()),
                     strip_prefix(old_package),
                     backends.first().unwrap_or(&"BACKEND".to_string()),
                     strip_prefix(new_package),
+                    project_identity::BINARY_NAME,
                     strip_prefix(old_package),
                     strip_prefix(new_package),
                     backend_list

@@ -10,6 +10,7 @@ use crate::constants::SEARCH_BACKEND_TIMEOUT_SECS;
 use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::{PackageManager, PackageSearchResult};
+use crate::project_identity;
 use crate::state;
 use crate::ui as output;
 use crate::utils::machine_output;
@@ -196,7 +197,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
             )?;
         } else {
             output::warning("No backends available for search");
-            output::info("Run 'declarch init --backend <name>' to add a backend");
+            output::info(&format!(
+                "Run '{}' to add a backend",
+                project_identity::cli_with("init --backend <name>")
+            ));
         }
         return Ok(());
     }
@@ -863,9 +867,15 @@ fn get_backends_to_search(
             output::warning("No backends with search support configured");
         }
         if machine_mode {
-            warnings.push("Run 'declarch init --backend <name>' to add a backend".to_string());
+            warnings.push(format!(
+                "Run '{}' to add a backend",
+                project_identity::cli_with("init --backend <name>")
+            ));
         } else {
-            output::info("Run 'declarch init --backend <name>' to add a backend");
+            output::info(&format!(
+                "Run '{}' to add a backend",
+                project_identity::cli_with("init --backend <name>")
+            ));
         }
     }
 

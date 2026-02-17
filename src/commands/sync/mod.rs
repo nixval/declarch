@@ -28,6 +28,7 @@ pub use variants::{find_variant, resolve_installed_package_name};
 use crate::config::loader;
 use crate::core::types::SyncTarget;
 use crate::error::Result;
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::machine_output;
 use crate::utils::paths;
@@ -92,7 +93,10 @@ pub fn run(options: SyncOptions) -> Result<()> {
         // Dry-run doesn't need to hold the lock for the whole command.
         // We only probe lock availability to warn about potentially stale state.
         if state::io::acquire_lock().is_err() {
-            output::warning("Another declarch process is running. Dry-run may show stale state.");
+            output::warning(&format!(
+                "Another {} process is running. Dry-run may show stale state.",
+                project_identity::BINARY_NAME
+            ));
         }
         None
     } else {
@@ -100,8 +104,9 @@ pub fn run(options: SyncOptions) -> Result<()> {
         Some(state::io::acquire_lock().map_err(|e| {
             crate::error::DeclarchError::Other(format!(
                 "Cannot start sync: {}\n\
-                 If no other declarch process is running, delete the lock file manually.",
-                e
+                 If no other {} process is running, delete the lock file manually.",
+                e,
+                project_identity::BINARY_NAME
             ))
         })?)
     };
@@ -389,7 +394,10 @@ fn show_sync_diff(
     let total_changes =
         transaction.to_install.len() + transaction.to_prune.len() + transaction.to_adopt.len();
     output::info(&format!("Total changes: {}", total_changes));
-    output::info("Run 'declarch sync' to apply these changes");
+    output::info(&format!(
+        "Run '{}' to apply these changes",
+        project_identity::cli_with("sync")
+    ));
 }
 
 fn resolve_target(target: &Option<String>, config: &loader::MergedConfig) -> SyncTarget {
@@ -459,8 +467,9 @@ fn initialize_managers_and_snapshot(
         let backend_name = backend.name().to_string();
         let Some(mut backend_config) = known_backends.get(&backend_name).cloned() else {
             output::warning(&format!(
-                "Backend '{}' is referenced by packages but has no config. Run 'declarch init --backend {}'",
-                backend_name, backend_name
+                "Backend '{}' is referenced by packages but has no config. Run '{}'",
+                backend_name,
+                project_identity::cli_with(&format!("init --backend {}", backend_name))
             ));
             continue;
         };

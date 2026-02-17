@@ -8,6 +8,7 @@ use crate::commands::runtime_overrides::{
 };
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
+use crate::project_identity;
 use crate::ui as output;
 use std::collections::HashSet;
 
@@ -25,7 +26,10 @@ pub fn run(options: CacheOptions) -> Result<()> {
 
     if all_backends.is_empty() {
         output::warning("No backends configured");
-        output::info("Run 'declarch init --backend <name>' to add a backend");
+        output::info(&format!(
+            "Run '{}' to add a backend",
+            project_identity::cli_with("init --backend <name>")
+        ));
         return Ok(());
     }
 

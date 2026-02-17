@@ -203,8 +203,10 @@ fn handle_init_command(
             "backends" => commands::init::list_available_backends(),
             "modules" => commands::init::list_available_modules(),
             _ => Err(DeclarchError::Other(format!(
-                "Unknown init list target '{}'. Use `declarch init --list backends` or `declarch init --list modules`.",
+                "Unknown init list target '{}'. Use '{}' or '{}'.",
                 what,
+                project_identity::cli_with("init --list backends"),
+                project_identity::cli_with("init --list modules"),
             ))),
         };
     }
@@ -524,9 +526,14 @@ fn validate_machine_output_contract(args: &Cli) -> Result<()> {
         }
 
         if !supports_v1_contract(args) {
-            return Err(DeclarchError::Other(
-                "This command does not support --output-version v1 yet.\nSupported now: `declarch info`, `declarch info --list`, `declarch lint`, `declarch search`, `declarch --dry-run sync`.".to_string(),
-            ));
+            return Err(DeclarchError::Other(format!(
+                "This command does not support --output-version v1 yet.\nSupported now: `{}`, `{}`, `{}`, `{}`, `{}`.",
+                project_identity::cli_with("info"),
+                project_identity::cli_with("info --list"),
+                project_identity::cli_with("lint"),
+                project_identity::cli_with("search"),
+                project_identity::cli_with("--dry-run sync"),
+            )));
         }
     }
 

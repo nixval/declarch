@@ -245,7 +245,10 @@ fn run_doctor(verbose: bool) -> Result<()> {
         } else {
             output::warning("Config not found");
         }
-        output::info("Run 'declarch init' to create a configuration");
+        output::info(&format!(
+            "Run '{}' to create a configuration",
+            project_identity::cli_with("init")
+        ));
         all_ok = false;
     }
 
@@ -290,8 +293,14 @@ fn run_doctor(verbose: bool) -> Result<()> {
                             "Found {} orphan packages (not in config)",
                             orphan_count
                         ));
-                        output::info("Run 'declarch info --list --scope orphans' to see them");
-                        output::info("Run 'declarch sync prune' to remove orphans");
+                        output::info(&format!(
+                            "Run '{}' to see them",
+                            project_identity::cli_with("info --list --scope orphans")
+                        ));
+                        output::info(&format!(
+                            "Run '{}' to remove orphans",
+                            project_identity::cli_with("sync prune")
+                        ));
                     } else {
                         output::success("No orphan packages found");
                     }
@@ -304,7 +313,10 @@ fn run_doctor(verbose: bool) -> Result<()> {
         }
     } else {
         output::warning("State not found");
-        output::info("Run 'declarch sync' to create initial state");
+        output::info(&format!(
+            "Run '{}' to create initial state",
+            project_identity::cli_with("sync")
+        ));
     }
 
     // Check 3: Backend availability (dynamic)
@@ -333,7 +345,10 @@ fn run_doctor(verbose: bool) -> Result<()> {
     let days_since_sync = (now - state.meta.last_sync).num_days();
     if days_since_sync > 7 {
         output::warning(&format!("Last sync was {} days ago", days_since_sync));
-        output::info("Consider running 'declarch sync' to update");
+        output::info(&format!(
+            "Consider running '{}' to update",
+            project_identity::cli_with("sync")
+        ));
     } else {
         output::success(&format!("Last sync: {} day(s) ago", days_since_sync));
     }
@@ -440,7 +455,10 @@ fn check_backends_dynamically(verbose: bool) -> Result<Vec<String>> {
 
     if available.is_empty() {
         output::warning("No backends configured or available");
-        output::info("Run 'declarch init --backend <name>' to add a backend");
+        output::info(&format!(
+            "Run '{}' to add a backend",
+            project_identity::cli_with("init --backend <name>")
+        ));
     }
 
     Ok(available)

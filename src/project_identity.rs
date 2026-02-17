@@ -46,6 +46,10 @@ pub fn env_get(suffix: &str) -> Option<String> {
     None
 }
 
+pub fn cli_with(args: &str) -> String {
+    format!("{} {}", BINARY_NAME, args)
+}
+
 pub fn registry_raw_base_url() -> String {
     format!("https://raw.githubusercontent.com/{}/main", REGISTRY_SLUG)
 }
