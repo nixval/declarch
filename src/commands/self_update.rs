@@ -518,23 +518,27 @@ mod tests {
 
     #[test]
     fn parse_checksum_line_supports_coreutils_and_bsd_style() {
-        assert_eq!(
-            parse_checksum_line("abc123  declarch-x86_64-unknown-linux-gnu.tar.gz"),
-            Some(("abc123", "declarch-x86_64-unknown-linux-gnu.tar.gz"))
+        let file_name = format!(
+            "{}-x86_64-unknown-linux-gnu.tar.gz",
+            project_identity::RELEASE_ASSET_PREFIX
         );
         assert_eq!(
-            parse_checksum_line("abc123 *declarch-x86_64-unknown-linux-gnu.tar.gz"),
-            Some(("abc123", "declarch-x86_64-unknown-linux-gnu.tar.gz"))
+            parse_checksum_line(&format!("abc123  {}", file_name)),
+            Some(("abc123", file_name.as_str()))
+        );
+        assert_eq!(
+            parse_checksum_line(&format!("abc123 *{}", file_name)),
+            Some(("abc123", file_name.as_str()))
         );
     }
 
     #[test]
     fn verify_checksum_detects_mismatch() {
-        let result = verify_checksum(
-            "declarch-x86_64-unknown-linux-gnu.tar.gz",
-            "abc123",
-            "def456",
+        let file_name = format!(
+            "{}-x86_64-unknown-linux-gnu.tar.gz",
+            project_identity::RELEASE_ASSET_PREFIX
         );
+        let result = verify_checksum(&file_name, "abc123", "def456");
         assert!(result.is_err());
     }
 }
