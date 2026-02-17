@@ -68,14 +68,12 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        let install_url = format!(
-            "https://raw.githubusercontent.com/{}/main/install.ps1",
-            project_identity::REPO_SLUG
-        );
-        return Err(DeclarchError::Other(format!(
-            "Self-update is not supported on Windows yet. Use:\nirm {} | iex",
-            install_url
-        )));
+        perform_self_update_windows(&target)?;
+        output::success(&format!(
+            "Update to {} has been started in the background. Open a new terminal after it finishes.",
+            target
+        ));
+        return Ok(());
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -87,6 +85,47 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
         "{} updated successfully.",
         project_identity::BINARY_NAME
     ));
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn perform_self_update_windows(version: &str) -> Result<()> {
+    use std::process::Command;
+
+    let install_url = format!(
+        "https://raw.githubusercontent.com/{}/main/install.ps1",
+        project_identity::REPO_SLUG
+    );
+    let ps_inner = format!(
+        "$ErrorActionPreference='Stop'; $u='{url}'; $s=(Invoke-WebRequest -UseBasicParsing -Uri $u).Content; $sb=[scriptblock]::Create($s); & $sb -Version '{version}' -Repo '{repo}'",
+        url = install_url,
+        version = version,
+        repo = project_identity::REPO_SLUG
+    );
+    let ps_bootstrap = format!(
+        "Start-Process -WindowStyle Hidden -FilePath powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',\"Start-Sleep -Seconds 2; {inner}\"",
+        inner = ps_inner.replace('"', "\\\"")
+    );
+
+    let status = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            &ps_bootstrap,
+        ])
+        .status()
+        .map_err(|e| DeclarchError::SystemCommandFailed {
+            command: "powershell".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    if !status.success() {
+        return Err(DeclarchError::Other(
+            "Failed to start Windows self-update process.".to_string(),
+        ));
+    }
     Ok(())
 }
 
