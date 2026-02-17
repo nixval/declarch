@@ -48,11 +48,6 @@ fi
 echo "📝 Updating Cargo.toml..."
 sed_in_place "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
 
-# Update installer scripts
-echo "📝 Updating installers..."
-# install.sh uses DECLARCH_VERSION env fallback (no static VERSION field to bump)
-sed_in_place "s/\\[string\\]\\$Version = \".*\"/[string]\$Version = \"$VERSION\"/" install.ps1
-
 # Run checks
 echo "🔍 Running tests..."
 cargo test --all-targets --quiet
@@ -82,7 +77,7 @@ fi
 
 # Commit changes
 echo "💾 Committing changes..."
-git add Cargo.toml install.sh install.ps1
+git add Cargo.toml
 git commit -m "chore: prepare release $VERSION"
 
 echo "📊 Summary of changes:"

@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.8.1",
+    [string]$Version = "latest",
     [string]$Repo = "nixval/declarch"
 )
 
@@ -22,7 +22,11 @@ switch ($arch.ToLower()) {
 }
 
 $asset = "$AssetPrefix-$target.zip"
-$url = "https://github.com/$Repo/releases/download/v$Version/$asset"
+if ($Version -eq "latest") {
+    $url = "https://github.com/$Repo/releases/latest/download/$asset"
+} else {
+    $url = "https://github.com/$Repo/releases/download/v$Version/$asset"
+}
 
 $installRoot = Join-Path $env:LOCALAPPDATA "Programs\$BinName\bin"
 New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
@@ -32,7 +36,11 @@ New-Item -ItemType Directory -Path $metaRoot -Force | Out-Null
 $tmpDir = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("$BinName-" + [guid]::NewGuid().ToString())) -Force
 $zipPath = Join-Path $tmpDir.FullName $asset
 
-Write-Host "Downloading $BinName $Version for $target..."
+if ($Version -eq "latest") {
+    Write-Host "Downloading $BinName (latest release) for $target..."
+} else {
+    Write-Host "Downloading $BinName $Version for $target..."
+}
 Invoke-WebRequest -Uri $url -OutFile $zipPath
 Expand-Archive -Path $zipPath -DestinationPath $tmpDir.FullName -Force
 
