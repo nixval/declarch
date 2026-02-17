@@ -133,6 +133,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
     } else {
         HashMap::new()
     };
+    if options.verbose && !machine_mode && include_managed_hits {
+        let preloaded = managed_hits.values().map(|v| v.len()).sum::<usize>();
+        output::verbose(&format!("Managed state preloaded matches: {}", preloaded));
+    }
 
     let runtime_config = load_runtime_config_for_command("search command");
 
@@ -144,6 +148,34 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Get backends to search
     let (backends_to_search, selection_warnings) =
         get_backends_to_search(&updated_options, &backend_configs, machine_mode)?;
+    if options.verbose && !machine_mode {
+        let mode = if options.local {
+            "local installed search"
+        } else {
+            "repository search"
+        };
+        let requested = updated_options
+            .backends
+            .as_ref()
+            .map(|b| b.join(", "))
+            .unwrap_or_else(|| "(auto)".to_string());
+        let selected = backends_to_search
+            .iter()
+            .map(|b| b.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        output::verbose(&format!("Search mode: {}", mode));
+        output::verbose(&format!("Requested backends: {}", requested));
+        output::verbose(&format!(
+            "Selected backends ({}): {}",
+            backends_to_search.len(),
+            if selected.is_empty() {
+                "(none)".to_string()
+            } else {
+                selected
+            }
+        ));
+    }
 
     if backends_to_search.is_empty() {
         if machine_mode {
@@ -609,6 +641,18 @@ fn run_managed_installed_search(
         query.cyan()
     ));
     println!();
+    if options.verbose {
+        let backend_filter = options
+            .backends
+            .as_ref()
+            .map(|b| b.join(", "))
+            .unwrap_or_else(|| "(all managed backends)".to_string());
+        output::verbose(&format!(
+            "Managed packages tracked: {}",
+            state.packages.len()
+        ));
+        output::verbose(&format!("Backend filter: {}", backend_filter));
+    }
 
     let mut total_found = 0usize;
     let limit = options.limit.or(Some(10));
