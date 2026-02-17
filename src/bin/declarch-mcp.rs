@@ -112,38 +112,61 @@ fn handle_request(req: RpcRequest) -> Value {
     }
 }
 
+fn stable_tool_name(suffix: &str) -> String {
+    format!("{}_{}", project_identity::STABLE_PROJECT_ID, suffix)
+}
+
+fn normalize_tool_name(name: &str) -> String {
+    let stable = project_identity::STABLE_PROJECT_ID;
+    let binary = project_identity::BINARY_NAME;
+    if stable != binary {
+        let binary_prefix = format!("{}_", binary);
+        if let Some(suffix) = name.strip_prefix(&binary_prefix) {
+            return format!("{}_{}", stable, suffix);
+        }
+    }
+    name.to_string()
+}
+
 fn tools_list_response(id: Option<Value>) -> Value {
+    let info_tool = stable_tool_name("info");
+    let list_tool = stable_tool_name("list");
+    let lint_tool = stable_tool_name("lint");
+    let search_tool = stable_tool_name("search");
+    let sync_dry_tool = stable_tool_name("sync_dry_run");
+    let sync_apply_tool = stable_tool_name("sync_apply");
+
     let mut tools = vec![
         json!({
-            "name": "declarch_info",
+            "name": info_tool,
             "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("info")),
             "inputSchema": {"type":"object","properties":{"query":{"type":"string"}}}
         }),
         json!({
-            "name": "declarch_list",
+            "name": list_tool,
             "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("info --list")),
             "inputSchema": {"type":"object","properties":{"scope":{"type":"string","enum":["all","orphans","synced","unmanaged"]},"backend":{"type":"string"}}}
         }),
         json!({
-            "name": "declarch_lint",
+            "name": lint_tool,
             "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("lint")),
             "inputSchema": {"type":"object","properties":{"mode":{"type":"string"},"strict":{"type":"boolean"}}}
         }),
         json!({
-            "name": "declarch_search",
+            "name": search_tool,
             "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("search")),
             "inputSchema": {"type":"object","required":["query"],"properties":{"query":{"type":"string"},"limit":{"type":"integer"},"local":{"type":"boolean"},"installed_only":{"type":"boolean"},"available_only":{"type":"boolean"},"backends":{"oneOf":[{"type":"string"},{"type":"array","items":{"type":"string"}}]}}}
         }),
         json!({
-            "name": "declarch_sync_dry_run",
+            "name": sync_dry_tool,
             "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("--dry-run sync")),
             "inputSchema": {"type":"object","properties":{"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }),
     ];
 
-    if policy().allows_write_tool("declarch_sync_apply").is_ok() {
+    if policy().allows_write_tool(&sync_apply_tool).is_ok() {
         tools.push(json!({
-            "name": "declarch_sync_apply",
+            "name": sync_apply_tool,
             "description": format!("Run `{}` (apply). Requires mcp config allow + {}=1 + confirm=\"APPLY_SYNC\".", project_identity::cli_with("sync"), project_identity::env_key("MCP_ALLOW_APPLY")),
             "inputSchema": {"type":"object","required":["confirm"],"properties":{"confirm":{"type":"string"},"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }));
@@ -157,11 +180,12 @@ fn tools_list_response(id: Option<Value>) -> Value {
 }
 
 fn tools_call_response(id: Option<Value>, params: Value) -> Value {
-    let name = params
+    let raw_name = params
         .get("name")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    let name = normalize_tool_name(&raw_name);
     let arguments = params
         .get("arguments")
         .and_then(Value::as_object)
@@ -202,16 +226,22 @@ fn build_declarch_args(
     name: &str,
     arguments: &serde_json::Map<String, Value>,
 ) -> Result<Vec<String>, String> {
+    let info_tool = stable_tool_name("info");
+    let list_tool = stable_tool_name("list");
+    let lint_tool = stable_tool_name("lint");
+    let search_tool = stable_tool_name("search");
+    let sync_dry_tool = stable_tool_name("sync_dry_run");
+    let sync_apply_tool = stable_tool_name("sync_apply");
     let mut args: Vec<String> = Vec::new();
 
     match name {
-        "declarch_info" => {
+        n if n == info_tool => {
             args.push("info".into());
             if let Some(q) = arguments.get("query").and_then(Value::as_str) {
                 args.push(q.to_string());
             }
         }
-        "declarch_list" => {
+        n if n == list_tool => {
             args.push("info".into());
             args.push("--list".into());
             if let Some(scope) = arguments.get("scope").and_then(Value::as_str) {
@@ -223,7 +253,7 @@ fn build_declarch_args(
                 args.push(backend.to_string());
             }
         }
-        "declarch_lint" => {
+        n if n == lint_tool => {
             args.push("lint".into());
             if let Some(mode) = arguments.get("mode").and_then(Value::as_str) {
                 args.push("--mode".into());
@@ -237,10 +267,10 @@ fn build_declarch_args(
                 args.push("--strict".into());
             }
         }
-        "declarch_search" => {
+        n if n == search_tool => {
             args.push("search".into());
             let Some(query) = arguments.get("query").and_then(Value::as_str) else {
-                return Err("declarch_search requires arguments.query".to_string());
+                return Err(format!("{} requires arguments.query", search_tool));
             };
             args.push(query.to_string());
 
@@ -288,7 +318,7 @@ fn build_declarch_args(
                 _ => {}
             }
         }
-        "declarch_sync_dry_run" => {
+        n if n == sync_dry_tool => {
             args.push("--dry-run".into());
             args.push("sync".into());
             if let Some(target) = arguments.get("target").and_then(Value::as_str) {
@@ -315,8 +345,8 @@ fn build_declarch_args(
                 }
             }
         }
-        "declarch_sync_apply" => {
-            policy().allows_write_tool("declarch_sync_apply")?;
+        n if n == sync_apply_tool => {
+            policy().allows_write_tool(&sync_apply_tool)?;
             enforce_apply_safety(arguments)?;
             args.push("sync".into());
             args.push("--yes".into());
@@ -357,12 +387,13 @@ fn build_declarch_args(
 }
 
 fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<(), String> {
+    let sync_apply_tool = stable_tool_name("sync_apply");
     let allow_apply_key = project_identity::env_key("MCP_ALLOW_APPLY");
     let allow_apply = project_identity::env_get("MCP_ALLOW_APPLY").unwrap_or_default();
     if allow_apply != "1" {
         return Err(format!(
-            "Apply is disabled. Set {}=1 to allow declarch_sync_apply.",
-            allow_apply_key
+            "Apply is disabled. Set {}=1 to allow {}.",
+            allow_apply_key, sync_apply_tool
         ));
     }
     let confirm = arguments
@@ -370,10 +401,10 @@ fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<()
         .and_then(Value::as_str)
         .unwrap_or("");
     if confirm != "APPLY_SYNC" {
-        return Err(
-            "Invalid confirm token. Pass confirm=\"APPLY_SYNC\" to run declarch_sync_apply."
-                .to_string(),
-        );
+        return Err(format!(
+            "Invalid confirm token. Pass confirm=\"APPLY_SYNC\" to run {}.",
+            sync_apply_tool
+        ));
     }
     Ok(())
 }
