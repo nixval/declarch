@@ -352,7 +352,10 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
 
     let resp = client
         .get(url)
-        .header("User-Agent", "declarch-cli")
+        .header(
+            "User-Agent",
+            format!("{}-cli", project_identity::BINARY_NAME),
+        )
         .send()
         .map_err(|e| DeclarchError::RemoteFetchError(format!("Network request: {}", e)))?;
 

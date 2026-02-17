@@ -58,6 +58,9 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      - name: Identity Literal Guard
+        run: scripts/check_identity_literals.sh
+
       - name: Smoke check (Unix)
         if: runner.os != 'Windows'
         run: |

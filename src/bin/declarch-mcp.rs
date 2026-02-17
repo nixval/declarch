@@ -391,7 +391,8 @@ fn run_declarch_json(args: &[String]) -> Result<Value, String> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
         return Err(format!(
-            "declarch command failed (status: {:?})\nstdout:\n{}\nstderr:\n{}",
+            "{} command failed (status: {:?})\nstdout:\n{}\nstderr:\n{}",
+            project_identity::BINARY_NAME,
             output.status.code(),
             stdout,
             stderr
