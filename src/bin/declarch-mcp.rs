@@ -116,27 +116,27 @@ fn tools_list_response(id: Option<Value>) -> Value {
     let mut tools = vec![
         json!({
             "name": "declarch_info",
-            "description": "Run `declarch info` in machine-output mode (v1).",
+            "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("info")),
             "inputSchema": {"type":"object","properties":{"query":{"type":"string"}}}
         }),
         json!({
             "name": "declarch_list",
-            "description": "Run `declarch info --list` in machine-output mode (v1).",
+            "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("info --list")),
             "inputSchema": {"type":"object","properties":{"scope":{"type":"string","enum":["all","orphans","synced","unmanaged"]},"backend":{"type":"string"}}}
         }),
         json!({
             "name": "declarch_lint",
-            "description": "Run `declarch lint` in machine-output mode (v1).",
+            "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("lint")),
             "inputSchema": {"type":"object","properties":{"mode":{"type":"string"},"strict":{"type":"boolean"}}}
         }),
         json!({
             "name": "declarch_search",
-            "description": "Run `declarch search` in machine-output mode (v1).",
+            "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("search")),
             "inputSchema": {"type":"object","required":["query"],"properties":{"query":{"type":"string"},"limit":{"type":"integer"},"local":{"type":"boolean"},"installed_only":{"type":"boolean"},"available_only":{"type":"boolean"},"backends":{"oneOf":[{"type":"string"},{"type":"array","items":{"type":"string"}}]}}}
         }),
         json!({
             "name": "declarch_sync_dry_run",
-            "description": "Run `declarch --dry-run sync` in machine-output mode (v1).",
+            "description": format!("Run `{}` in machine-output mode (v1).", project_identity::cli_with("--dry-run sync")),
             "inputSchema": {"type":"object","properties":{"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }),
     ];
@@ -144,7 +144,7 @@ fn tools_list_response(id: Option<Value>) -> Value {
     if policy().allows_write_tool("declarch_sync_apply").is_ok() {
         tools.push(json!({
             "name": "declarch_sync_apply",
-            "description": "Run `declarch sync` (apply). Requires mcp config allow + DECLARCH_MCP_ALLOW_APPLY=1 + confirm=\"APPLY_SYNC\".",
+            "description": format!("Run `{}` (apply). Requires mcp config allow + {}=1 + confirm=\"APPLY_SYNC\".", project_identity::cli_with("sync"), project_identity::env_key("MCP_ALLOW_APPLY")),
             "inputSchema": {"type":"object","required":["confirm"],"properties":{"confirm":{"type":"string"},"target":{"type":"string"},"profile":{"type":"string"},"host":{"type":"string"},"modules":{"type":"array","items":{"type":"string"}}}}
         }));
     }
@@ -400,8 +400,14 @@ fn run_declarch_json(args: &[String]) -> Result<Value, String> {
     }
 
     let stdout = String::from_utf8(output.stdout).map_err(|e| format!("Invalid UTF-8: {}", e))?;
-    serde_json::from_str::<Value>(&stdout)
-        .map_err(|e| format!("Failed to parse declarch JSON output: {}\n{}", e, stdout))
+    serde_json::from_str::<Value>(&stdout).map_err(|e| {
+        format!(
+            "Failed to parse {} JSON output: {}\n{}",
+            project_identity::BINARY_NAME,
+            e,
+            stdout
+        )
+    })
 }
 
 fn error_response(id: Option<Value>, message: &str) -> Value {

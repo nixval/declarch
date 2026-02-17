@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::project_identity;
 use crate::ui as output;
 use std::collections::BTreeSet;
 use std::env;
@@ -7,9 +8,10 @@ use std::path::Path;
 
 /// Hidden placeholder for future extension protocol.
 pub fn run() -> Result<()> {
+    let ext_prefix = extension_prefix();
     output::header("Extension Protocol Placeholder");
     output::info("External extension runtime (execution) is not implemented yet.");
-    output::info("Planned discovery pattern: declarch-ext-*");
+    output::info(&format!("Planned discovery pattern: {}*", ext_prefix));
     output::info("Planned contract version: v1");
     output::info("See: docs/contracts/v1/README.md");
 
@@ -27,6 +29,7 @@ pub fn run() -> Result<()> {
 
 fn discover_extensions_from_path() -> Vec<String> {
     let mut found = BTreeSet::new();
+    let prefix = extension_prefix();
     let Some(path_var) = env::var_os("PATH") else {
         return Vec::new();
     };
@@ -47,7 +50,7 @@ fn discover_extensions_from_path() -> Vec<String> {
                 continue;
             };
             let normalized = normalize_ext_name(name);
-            if normalized.starts_with("declarch-ext-") {
+            if normalized.starts_with(&prefix) {
                 found.insert(normalized);
             }
         }
@@ -71,29 +74,26 @@ fn normalize_ext_name(name: &str) -> String {
     name.to_string()
 }
 
+fn extension_prefix() -> String {
+    format!("{}-ext-", project_identity::BINARY_NAME)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::normalize_ext_name;
+    use super::{extension_prefix, normalize_ext_name};
 
     #[test]
     fn normalize_keeps_unix_name() {
-        assert_eq!(
-            normalize_ext_name("declarch-ext-security"),
-            "declarch-ext-security"
-        );
+        let sample = format!("{}security", extension_prefix());
+        assert_eq!(normalize_ext_name(&sample), sample);
     }
 
     #[test]
     fn normalize_windows_suffixes() {
         if cfg!(windows) {
-            assert_eq!(
-                normalize_ext_name("declarch-ext-security.exe"),
-                "declarch-ext-security"
-            );
-            assert_eq!(
-                normalize_ext_name("declarch-ext-security.cmd"),
-                "declarch-ext-security"
-            );
+            let sample = format!("{}security", extension_prefix());
+            assert_eq!(normalize_ext_name(&format!("{}.exe", sample)), sample);
+            assert_eq!(normalize_ext_name(&format!("{}.cmd", sample)), sample);
         }
     }
 }
