@@ -1,8 +1,6 @@
 mod execution;
 
-use crate::config::kdl::{
-    ActionType, LifecycleAction, LifecycleConfig, LifecyclePhase,
-};
+use crate::config::kdl::{ActionType, LifecycleAction, LifecycleConfig, LifecyclePhase};
 use crate::error::Result;
 use crate::project_identity;
 use crate::ui as output;
