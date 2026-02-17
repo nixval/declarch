@@ -883,6 +883,7 @@ fn sort_import_lines(content: &str) -> String {
 mod tests {
     use super::{discover_lint_files_recursive, resolve_state_remove_keys, sort_import_lines};
     use crate::core::types::Backend;
+    use crate::project_identity;
     use crate::state::types::PackageState;
     use chrono::Utc;
     use std::collections::{BTreeSet, HashMap};
@@ -908,7 +909,7 @@ imports {
     #[test]
     fn discover_lint_files_traverses_nested_imports() {
         let dir = tempdir().expect("tempdir");
-        let root = dir.path().join("declarch.kdl");
+        let root = dir.path().join(project_identity::CONFIG_FILE_BASENAME);
         let modules_dir = dir.path().join("modules");
         fs::create_dir_all(&modules_dir).expect("mkdir");
         let base = modules_dir.join("base.kdl");
@@ -940,7 +941,11 @@ pkg { aur { bat } }
 
         let as_strings: Vec<String> = files.iter().map(|p| p.display().to_string()).collect();
         assert_eq!(as_strings.len(), 3);
-        assert!(as_strings.iter().any(|p| p.ends_with("declarch.kdl")));
+        assert!(
+            as_strings
+                .iter()
+                .any(|p| p.ends_with(project_identity::CONFIG_FILE_BASENAME))
+        );
         assert!(as_strings.iter().any(|p| p.ends_with("base.kdl")));
         assert!(as_strings.iter().any(|p| p.ends_with("nested.kdl")));
     }

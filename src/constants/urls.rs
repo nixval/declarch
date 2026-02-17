@@ -227,6 +227,7 @@ impl RemoteUrlBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project_identity;
 
     #[test]
     fn test_build_urls_github() {
@@ -236,7 +237,10 @@ mod tests {
         // Check that we get some URL with github.com (from default registry)
         // OR declarch-packages registry
         assert!(!urls.is_empty());
-        assert!(urls.iter().any(|u| u.contains("declarch.kdl")));
+        assert!(
+            urls.iter()
+                .any(|u| u.contains(project_identity::CONFIG_FILE_BASENAME))
+        );
     }
 
     #[test]

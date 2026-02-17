@@ -349,6 +349,7 @@ pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project_identity;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -400,15 +401,19 @@ backend "nala" {
     binary "nala"
     install "{binary} install {packages}"
 }
-"#;
-        let meta = extract_backend_meta(content).unwrap();
+"#
+        .replace(
+            "maintained \"declarch\"",
+            &format!("maintained \"{}\"", project_identity::STABLE_PROJECT_ID),
+        );
+        let meta = extract_backend_meta(&content).unwrap();
         assert_eq!(meta.title, "Nala");
         assert_eq!(
             meta.maintainers,
             vec![
                 "community-a".to_string(),
                 "community-b".to_string(),
-                "declarch".to_string(),
+                project_identity::STABLE_PROJECT_ID.to_string(),
             ]
         );
         assert_eq!(

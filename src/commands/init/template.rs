@@ -2,6 +2,7 @@
 //!
 //! This module contains templates for generating default backend configurations.
 //! Templates are used when creating new backends via `declarch init --backend <name>`.
+use crate::project_identity;
 
 /// Generate a backend template based on name
 ///
@@ -71,7 +72,13 @@ backend "aur" {
     fallback "pacman"
 }
 "#
-    .to_string()
+    .replace(
+        r#"kdl-maintainer "declarch""#,
+        &format!(
+            r#"kdl-maintainer "{}""#,
+            project_identity::STABLE_PROJECT_ID
+        ),
+    )
 }
 
 /// Pacman backend template
@@ -112,7 +119,13 @@ backend "pacman" {
     needs_sudo "true"
 }
 "#
-    .to_string()
+    .replace(
+        r#"kdl-maintainer "declarch""#,
+        &format!(
+            r#"kdl-maintainer "{}""#,
+            project_identity::STABLE_PROJECT_ID
+        ),
+    )
 }
 
 /// Flatpak backend template
@@ -163,7 +176,13 @@ backend "flatpak" {
     needs_sudo "false"
 }
 "#
-    .to_string()
+    .replace(
+        r#"kdl-maintainer "declarch""#,
+        &format!(
+            r#"kdl-maintainer "{}""#,
+            project_identity::STABLE_PROJECT_ID
+        ),
+    )
 }
 
 /// Generic backend template for custom backends
