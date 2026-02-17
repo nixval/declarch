@@ -1,6 +1,6 @@
-# Release Maintainer Guide
+# Release Guide
 
-This page is for maintainers preparing a new `declarch` release and AUR update.
+This page is for preparing a new `declarch` release and AUR update.
 
 ## 1. Prepare Version
 

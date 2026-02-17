@@ -113,7 +113,7 @@ Installer includes lightweight smoke checks after install (`--help`, `info`).
 - If installed from package manager (AUR/Homebrew/etc), update via package manager.
 - If installed via script/manual binary (`curl`/`wget`), use `declarch self-update`.
 
-### Release consistency guard (maintainers)
+### Release consistency guard
 
 Before publishing a release or AUR update, run:
 
@@ -123,9 +123,9 @@ scripts/check_release_consistency.sh --tag vX.Y.Z --strict
 
 This verifies Cargo version, tag version, and `.aur/templates/PKGBUILD` `pkgver` alignment.
 
-Maintainer docs:
+Release docs:
 - `.aur/README.md`
-- `.aur/RELEASE_MAINTAINER.md`
+- `.aur/RELEASE_GUIDE.md`
 
 ## First-time setup
 

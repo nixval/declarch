@@ -1,7 +1,7 @@
 # AUR Release Automation
 
-Detailed maintainer checklist:
-- `./.aur/RELEASE_MAINTAINER.md`
+Detailed release checklist:
+- `./.aur/RELEASE_GUIDE.md`
 
 ## Directory Structure
 
