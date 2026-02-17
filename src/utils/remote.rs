@@ -3,7 +3,6 @@ use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::ui as output;
 use reqwest::blocking::Client;
-use std::env;
 use std::net::{IpAddr, ToSocketAddrs};
 use std::sync::LazyLock;
 use std::thread;
@@ -425,8 +424,7 @@ fn is_allowed_scheme(scheme: &str) -> bool {
     }
 
     if scheme == INSECURE_SCHEME {
-        return env::var(project_identity::env_key("ALLOW_INSECURE_HTTP")).unwrap_or_default()
-            == "1";
+        return project_identity::env_get("ALLOW_INSECURE_HTTP").unwrap_or_default() == "1";
     }
 
     false

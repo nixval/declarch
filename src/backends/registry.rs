@@ -23,7 +23,7 @@ type BackendSourceMap = HashMap<String, Vec<String>>;
 type BackendsWithSources = (Vec<BackendConfig>, BackendSourceMap);
 
 fn strict_backend_mode_enabled() -> bool {
-    std::env::var(project_identity::env_key("STRICT_BACKENDS"))
+    project_identity::env_get("STRICT_BACKENDS")
         .map(|v| {
             matches!(
                 v.trim().to_ascii_lowercase().as_str(),

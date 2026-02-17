@@ -358,7 +358,7 @@ fn build_declarch_args(
 
 fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<(), String> {
     let allow_apply_key = project_identity::env_key("MCP_ALLOW_APPLY");
-    let allow_apply = std::env::var(&allow_apply_key).unwrap_or_default();
+    let allow_apply = project_identity::env_get("MCP_ALLOW_APPLY").unwrap_or_default();
     if allow_apply != "1" {
         return Err(format!(
             "Apply is disabled. Set {}=1 to allow declarch_sync_apply.",
@@ -379,8 +379,8 @@ fn enforce_apply_safety(arguments: &serde_json::Map<String, Value>) -> Result<()
 }
 
 fn run_declarch_json(args: &[String]) -> Result<Value, String> {
-    let bin_env = project_identity::env_key("BIN");
-    let bin = std::env::var(&bin_env).unwrap_or_else(|_| project_identity::BINARY_NAME.to_string());
+    let bin = project_identity::env_get("BIN")
+        .unwrap_or_else(|| project_identity::BINARY_NAME.to_string());
 
     let output = Command::new(&bin)
         .args(args)

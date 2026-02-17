@@ -10,6 +10,7 @@ pub const STABLE_PROJECT_ID: &str = "declarch";
 pub const CONFIG_DIR_NAME: &str = "declarch";
 pub const STATE_DIR_NAME: &str = "declarch";
 pub const ENV_PREFIX: &str = "DECLARCH";
+pub const LEGACY_ENV_PREFIXES: &[&str] = &["DECLARCH"];
 pub const RELEASE_ASSET_PREFIX: &str = "declarch";
 pub const REPO_SLUG: &str = "nixval/declarch";
 pub const REGISTRY_SLUG: &str = "nixval/declarch-packages";
@@ -17,6 +18,32 @@ pub const CONFIG_FILE_BASENAME: &str = "declarch.kdl";
 
 pub fn env_key(suffix: &str) -> String {
     format!("{}_{}", ENV_PREFIX, suffix)
+}
+
+pub fn env_key_for_prefix(prefix: &str, suffix: &str) -> String {
+    format!("{}_{}", prefix, suffix)
+}
+
+pub fn env_keys(suffix: &str) -> Vec<String> {
+    let mut keys = Vec::with_capacity(1 + LEGACY_ENV_PREFIXES.len());
+    let active = env_key(suffix);
+    keys.push(active.clone());
+    for prefix in LEGACY_ENV_PREFIXES {
+        let legacy = env_key_for_prefix(prefix, suffix);
+        if legacy != active {
+            keys.push(legacy);
+        }
+    }
+    keys
+}
+
+pub fn env_get(suffix: &str) -> Option<String> {
+    for key in env_keys(suffix) {
+        if let Ok(value) = std::env::var(&key) {
+            return Some(value);
+        }
+    }
+    None
 }
 
 pub fn registry_raw_base_url() -> String {
