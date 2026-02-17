@@ -1,4 +1,5 @@
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::update_check::{
     InstallOwner, compare_versions, current_version, detect_install_owner,
@@ -121,10 +122,7 @@ fn managed_update_hint(owner: &InstallOwner) -> String {
 fn perform_self_update_unix(version: &str) -> Result<()> {
     let target = detect_target_triple()?;
     let asset = format!("declarch-{}.tar.gz", target);
-    let base = format!(
-        "https://github.com/nixval/declarch/releases/download/v{}",
-        version
-    );
+    let base = project_identity::release_download_base_url(version);
     let asset_url = format!("{}/{}", base, asset);
     let checksums_url = format!("{}/checksums.txt", base);
 

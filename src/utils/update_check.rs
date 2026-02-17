@@ -1,3 +1,4 @@
+use crate::project_identity;
 use crate::utils::paths;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const RELEASES_LATEST_API: &str = "https://api.github.com/repos/nixval/declarch/releases/latest";
 const CACHE_TTL_SECS: i64 = 24 * 60 * 60;
 const HTTP_TIMEOUT_SECS: u64 = 3;
 
@@ -126,7 +126,7 @@ fn fetch_latest_version(timeout: Duration) -> Option<String> {
     let client = Client::builder().timeout(timeout).build().ok()?;
 
     let response = client
-        .get(RELEASES_LATEST_API)
+        .get(project_identity::github_latest_release_api())
         .header("User-Agent", "declarch-cli")
         .send()
         .ok()?;

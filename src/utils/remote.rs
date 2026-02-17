@@ -1,15 +1,17 @@
 use crate::constants::{CONFIG_EXTENSION, DEFAULT_BRANCHES, PROJECT_NAME};
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use reqwest::blocking::Client;
 use std::env;
 use std::net::{IpAddr, ToSocketAddrs};
+use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
 
-const DEFAULT_REGISTRY: &str = "https://raw.githubusercontent.com/nixval/declarch-packages/main";
-const BACKENDS_REGISTRY: &str =
-    "https://raw.githubusercontent.com/nixval/declarch-packages/main/backends";
+static DEFAULT_REGISTRY: LazyLock<String> = LazyLock::new(project_identity::registry_raw_base_url);
+static BACKENDS_REGISTRY: LazyLock<String> =
+    LazyLock::new(|| format!("{}/backends", *DEFAULT_REGISTRY));
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Secure scheme allowed by default.
@@ -155,7 +157,7 @@ fn build_backend_urls(backend_name: &str) -> Vec<String> {
     // 2. Default registry backends
     urls.push(format!(
         "{}/{}.{}",
-        BACKENDS_REGISTRY, clean_name, CONFIG_EXTENSION
+        *BACKENDS_REGISTRY, clean_name, CONFIG_EXTENSION
     ));
 
     // 3. Try GitHub repo (owner/repo pattern for custom backends)
@@ -280,7 +282,7 @@ fn build_urls(target: &str) -> Vec<String> {
         // It's a registry module path with extension
         urls.push(format!(
             "{}/modules/{}",
-            DEFAULT_REGISTRY,
+            *DEFAULT_REGISTRY,
             target // Keep .kdl extension
         ));
 
@@ -328,7 +330,7 @@ fn build_urls(target: &str) -> Vec<String> {
             // Also try modules/ path for default registry (without .kdl)
             urls.push(format!(
                 "{}/modules/{}.{}",
-                DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION
+                *DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION
             ));
         }
 
@@ -338,7 +340,7 @@ fn build_urls(target: &str) -> Vec<String> {
     // 6. Flat name → try default registry
     urls.push(format!(
         "{}/modules/{}.{}",
-        DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION
+        *DEFAULT_REGISTRY, clean_target, CONFIG_EXTENSION
     ));
 
     urls
