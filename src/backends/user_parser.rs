@@ -3,11 +3,12 @@
 //! Parses backend definitions from KDL configuration files,
 //! allowing users to extend declarch with custom package managers.
 
+mod imports;
 mod validation;
 
 use crate::backends::config::{BackendConfig, BinarySpecifier, OutputFormat};
 use crate::error::{DeclarchError, Result};
-use crate::ui;
+use imports::{collect_import_backends, collect_imports_block_backends};
 use kdl::{KdlDocument, KdlNode};
 use std::path::Path;
 use validation::validate_backend_config;
@@ -34,93 +35,10 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
                 backends.push(config);
             }
             "import" => {
-                // Handle top-level import statements: import "backends/name.kdl"
-                if let Some(path_val) = node.entries().first().and_then(|e| e.value().as_string())
-                    && let Ok(config_dir) = crate::utils::paths::config_dir()
-                {
-                    let import_path = config_dir.join(path_val);
-                    match load_backend_file(&import_path) {
-                        Ok(Some(config)) => {
-                            backends.push(config);
-                        }
-                        Ok(None) => {
-                            // File doesn't exist, skip
-                        }
-                        Err(e) => {
-                            ui::warning(&format!(
-                                "Failed to load backend from '{}': {}",
-                                path_val, e
-                            ));
-                        }
-                    }
-                }
+                backends.extend(collect_import_backends(node)?);
             }
             "imports" => {
-                // Handle imports { ... } block
-                // String entries like "backends/name.kdl" are entries (arguments) of the imports node
-                // Check entries first
-                for entry in node.entries() {
-                    if let Some(path_val) = entry.value().as_string()
-                        && path_val.ends_with(".kdl")
-                        && let Ok(config_dir) = crate::utils::paths::config_dir()
-                    {
-                        let import_path = config_dir.join(path_val);
-                        match load_backend_file(&import_path) {
-                            Ok(Some(config)) => backends.push(config),
-                            Ok(None) => {}
-                            Err(e) => {
-                                eprintln!(
-                                    "Warning: Failed to load backend from '{}': {}",
-                                    path_val, e
-                                );
-                            }
-                        }
-                    }
-                }
-
-                // Also check children (for import "path" style or other node types)
-                if let Some(children) = node.children() {
-                    for child in children.nodes() {
-                        let child_name = child.name().value();
-
-                        // Handle import "path" nodes
-                        if child_name == "import" {
-                            if let Some(path_val) =
-                                child.entries().first().and_then(|e| e.value().as_string())
-                                && let Ok(config_dir) = crate::utils::paths::config_dir()
-                            {
-                                let import_path = config_dir.join(path_val);
-                                match load_backend_file(&import_path) {
-                                    Ok(Some(config)) => backends.push(config),
-                                    Ok(None) => {}
-                                    Err(e) => {
-                                        ui::warning(&format!(
-                                            "Failed to load backend from '{}': {}",
-                                            path_val, e
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                        // Handle bare string child nodes like "backends/name.kdl"
-                        else if child_name.ends_with(".kdl")
-                            && child_name.contains('/')
-                            && let Ok(config_dir) = crate::utils::paths::config_dir()
-                        {
-                            let import_path = config_dir.join(child_name);
-                            match load_backend_file(&import_path) {
-                                Ok(Some(config)) => backends.push(config),
-                                Ok(None) => {}
-                                Err(e) => {
-                                    ui::warning(&format!(
-                                        "Failed to load backend from '{}': {}",
-                                        child_name, e
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
+                backends.extend(collect_imports_block_backends(node)?);
             }
             _ => {}
         }
@@ -132,7 +50,7 @@ pub fn load_user_backends(path: &Path) -> Result<Vec<BackendConfig>> {
 /// Parse a single backend from file content
 ///
 /// Used for individual backend files in backends/ directory
-pub fn parse_backend_file(content: &str) -> Result<Option<BackendConfig>> {
+pub(super) fn parse_backend_file(content: &str) -> Result<Option<BackendConfig>> {
     let doc = KdlDocument::parse(content)
         .map_err(|e| DeclarchError::Other(format!("Failed to parse backend file: {}", e)))?;
 
@@ -143,18 +61,6 @@ pub fn parse_backend_file(content: &str) -> Result<Option<BackendConfig>> {
     }
 
     Ok(None)
-}
-
-/// Load a single backend from file path
-fn load_backend_file(path: &Path) -> Result<Option<BackendConfig>> {
-    if !path.exists() {
-        return Ok(None);
-    }
-
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| DeclarchError::Other(format!("Failed to read backend file: {}", e)))?;
-
-    parse_backend_file(&content)
 }
 
 /// Parse a single backend node
