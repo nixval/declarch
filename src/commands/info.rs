@@ -8,6 +8,7 @@ use crate::state;
 use crate::ui as output;
 use crate::utils::machine_output;
 use crate::utils::paths;
+use crate::utils::update_check::{InstallOwner, is_managed_by_package_manager, update_hint_cached};
 use colored::Colorize;
 use std::collections::HashMap;
 use terminal_size::{Width, terminal_size};
@@ -33,7 +34,11 @@ pub fn run(options: InfoOptions) -> Result<()> {
         return run_doctor(options.verbose);
     }
 
-    run_info(&options)
+    let result = run_info(&options);
+    if result.is_ok() && !matches!(options.format.as_deref(), Some("json" | "yaml")) {
+        maybe_print_update_notification();
+    }
+    result
 }
 
 fn run_info(options: &InfoOptions) -> Result<()> {
@@ -346,7 +351,34 @@ fn run_doctor(verbose: bool) -> Result<()> {
         output::warning("Some issues found - see details above");
     }
 
+    maybe_print_update_notification();
+
     Ok(())
+}
+
+fn maybe_print_update_notification() {
+    let Some(hint) = update_hint_cached() else {
+        return;
+    };
+
+    output::separator();
+    output::warning(&format!(
+        "New declarch release available: {} -> {}",
+        hint.current, hint.latest
+    ));
+
+    if is_managed_by_package_manager(&hint.owner) {
+        let msg = match hint.owner {
+            InstallOwner::Pacman => "Update using package manager: paru -Syu declarch",
+            InstallOwner::Homebrew => "Update using package manager: brew upgrade declarch",
+            InstallOwner::Scoop => "Update using package manager: scoop update declarch",
+            InstallOwner::Winget => "Update using package manager: winget upgrade declarch",
+            _ => "Update using your package manager",
+        };
+        output::info(msg);
+    } else {
+        output::info("For curl/manual install, run: declarch self-update");
+    }
 }
 
 /// Check backends dynamically from config

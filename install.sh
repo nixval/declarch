@@ -87,6 +87,15 @@ fi
 INSTALLED_VERSION="$("${INSTALL_DIR}/declarch" --version)"
 echo "Installed ${INSTALLED_VERSION} to ${INSTALL_DIR}/declarch"
 
+# Persist installation channel marker for update guidance (best-effort).
+STATE_BASE="${XDG_STATE_HOME:-${HOME}/.local/state}"
+MARKER_DIR="${STATE_BASE}/declarch"
+MARKER_PATH="${MARKER_DIR}/install-channel.json"
+mkdir -p "${MARKER_DIR}" 2>/dev/null || true
+cat > "${MARKER_PATH}" <<EOF || true
+{"channel":"curl","installed_at":"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"}
+EOF
+
 if ! command -v declarch >/dev/null 2>&1; then
   echo "Note: '${INSTALL_DIR}' is not in PATH for this shell."
   if [ "${INSTALL_DIR}" = "${HOME}/.local/bin" ]; then

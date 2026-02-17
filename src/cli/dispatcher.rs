@@ -145,6 +145,13 @@ pub fn dispatch(args: &Cli) -> Result<()> {
 
         Some(Command::Completions { shell }) => commands::completions::run(*shell),
         Some(Command::Ext) => commands::ext::run(),
+        Some(Command::SelfUpdate { check, version }) => {
+            commands::self_update::run(commands::self_update::SelfUpdateOptions {
+                check: *check,
+                version: version.clone(),
+                yes: args.global.yes,
+            })
+        }
 
         None => {
             output::info("No command provided.");

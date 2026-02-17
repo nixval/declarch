@@ -408,6 +408,18 @@ Other useful commands:
         modules: Vec<String>,
     },
 
+    /// Self-update command (hidden; primarily for curl/manual installs)
+    #[command(hide = true)]
+    SelfUpdate {
+        /// Check whether a new version is available
+        #[arg(long)]
+        check: bool,
+
+        /// Update to a specific version (e.g. 0.8.2)
+        #[arg(long, value_name = "VERSION")]
+        version: Option<String>,
+    },
+
     /// Generate shell completions (hidden from main help)
     #[command(hide = true)]
     Completions {
@@ -491,6 +503,16 @@ mod tests {
         assert!(help.contains("unmanaged"));
         assert!(!help.contains("--orphans"));
         assert!(!help.contains("--synced"));
+    }
+
+    #[test]
+    fn help_does_not_show_self_update() {
+        let mut cmd = Cli::command();
+        let mut out = Vec::new();
+        cmd.write_long_help(&mut out).expect("can render root help");
+        let help = String::from_utf8(out).expect("help is valid utf8");
+        assert!(!help.contains("self-update"));
+        assert!(!help.contains("selfupdate"));
     }
 }
 

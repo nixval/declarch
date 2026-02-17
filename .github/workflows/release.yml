@@ -164,15 +164,22 @@ jobs:
           esac
           VERSION=${TAG#v}
 
+          : > artifacts/checksums.txt
+          while IFS= read -r -d '' file; do
+            sum="$(sha256sum "$file" | awk '{print $1}')"
+            base="$(basename "$file")"
+            echo "${sum}  ${base}" >> artifacts/checksums.txt
+          done < <(find artifacts -type f -name 'declarch-*' -print0 | sort -z)
+
           if gh release view "${TAG}" &>/dev/null; then
             echo "Release ${TAG} already exists, uploading artifacts..."
-            gh release upload "${TAG}" artifacts/*/declarch-* --clobber
+            gh release upload "${TAG}" artifacts/*/declarch-* artifacts/checksums.txt --clobber
           else
             echo "Creating new release ${TAG}..."
             gh release create "${TAG}" \
               --title "Declarch ${VERSION}" \
               --notes-file CHANGELOG.md
-            gh release upload "${TAG}" artifacts/*/declarch-*
+            gh release upload "${TAG}" artifacts/*/declarch-* artifacts/checksums.txt
           fi
 
       - name: Publish info
