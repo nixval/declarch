@@ -116,9 +116,7 @@ fn stable_tool_name(suffix: &str) -> String {
     format!("{}_{}", project_identity::STABLE_PROJECT_ID, suffix)
 }
 
-fn normalize_tool_name(name: &str) -> String {
-    let stable = project_identity::STABLE_PROJECT_ID;
-    let binary = project_identity::BINARY_NAME;
+fn normalize_tool_name_with_ids(name: &str, stable: &str, binary: &str) -> String {
     if stable != binary {
         let binary_prefix = format!("{}_", binary);
         if let Some(suffix) = name.strip_prefix(&binary_prefix) {
@@ -126,6 +124,14 @@ fn normalize_tool_name(name: &str) -> String {
         }
     }
     name.to_string()
+}
+
+fn normalize_tool_name(name: &str) -> String {
+    normalize_tool_name_with_ids(
+        name,
+        project_identity::STABLE_PROJECT_ID,
+        project_identity::BINARY_NAME,
+    )
 }
 
 fn tools_list_response(id: Option<Value>) -> Value {
@@ -450,4 +456,29 @@ fn error_response(id: Option<Value>, message: &str) -> Value {
             "message": message
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stable_tool_name_uses_stable_project_id() {
+        assert_eq!(
+            stable_tool_name("sync_apply"),
+            format!("{}_sync_apply", project_identity::STABLE_PROJECT_ID)
+        );
+    }
+
+    #[test]
+    fn normalize_tool_name_with_ids_maps_binary_prefix_to_stable_prefix() {
+        let out = normalize_tool_name_with_ids("nextsync_sync_apply", "declarch", "nextsync");
+        assert_eq!(out, "declarch_sync_apply");
+    }
+
+    #[test]
+    fn normalize_tool_name_with_ids_keeps_unknown_names() {
+        let out = normalize_tool_name_with_ids("other_tool", "declarch", "nextsync");
+        assert_eq!(out, "other_tool");
+    }
 }

@@ -92,20 +92,7 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
 fn perform_self_update_windows(version: &str) -> Result<()> {
     use std::process::Command;
 
-    let install_url = format!(
-        "https://raw.githubusercontent.com/{}/main/install.ps1",
-        project_identity::REPO_SLUG
-    );
-    let ps_inner = format!(
-        "$ErrorActionPreference='Stop'; $u='{url}'; $s=(Invoke-WebRequest -UseBasicParsing -Uri $u).Content; $sb=[scriptblock]::Create($s); & $sb -Version '{version}' -Repo '{repo}'",
-        url = install_url,
-        version = version,
-        repo = project_identity::REPO_SLUG
-    );
-    let ps_bootstrap = format!(
-        "Start-Process -WindowStyle Hidden -FilePath powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',\"Start-Sleep -Seconds 2; {inner}\"",
-        inner = ps_inner.replace('"', "\\\"")
-    );
+    let ps_bootstrap = build_windows_update_bootstrap_ps(version);
 
     let status = Command::new("powershell")
         .args([
@@ -127,6 +114,24 @@ fn perform_self_update_windows(version: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn build_windows_update_bootstrap_ps(version: &str) -> String {
+    let install_url = format!(
+        "https://raw.githubusercontent.com/{}/main/install.ps1",
+        project_identity::REPO_SLUG
+    );
+    let ps_inner = format!(
+        "$ErrorActionPreference='Stop'; $u='{url}'; $s=(Invoke-WebRequest -UseBasicParsing -Uri $u).Content; $sb=[scriptblock]::Create($s); & $sb -Version '{version}' -Repo '{repo}'",
+        url = install_url,
+        version = version,
+        repo = project_identity::REPO_SLUG
+    );
+    format!(
+        "Start-Process -WindowStyle Hidden -FilePath powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',\"Start-Sleep -Seconds 2; {inner}\"",
+        inner = ps_inner.replace('"', "\\\"")
+    )
 }
 
 fn normalize_requested_version(input: &str) -> Result<String> {
@@ -531,5 +536,35 @@ mod tests {
             "def456",
         );
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+#[cfg(target_os = "windows")]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn build_windows_update_bootstrap_contains_expected_values() {
+        let ps = build_windows_update_bootstrap_ps("0.8.2");
+        assert!(ps.contains("Start-Process -WindowStyle Hidden"));
+        assert!(ps.contains("install.ps1"));
+        assert!(ps.contains("-Version '0.8.2'"));
+        assert!(ps.contains(project_identity::REPO_SLUG));
+    }
+}
+
+#[cfg(test)]
+#[cfg(not(target_os = "windows"))]
+mod cross_platform_tests {
+    use super::*;
+
+    #[test]
+    fn build_windows_update_bootstrap_contains_expected_values() {
+        let ps = build_windows_update_bootstrap_ps("0.8.2");
+        assert!(ps.contains("Start-Process -WindowStyle Hidden"));
+        assert!(ps.contains("install.ps1"));
+        assert!(ps.contains("-Version '0.8.2'"));
+        assert!(ps.contains(project_identity::REPO_SLUG));
     }
 }
