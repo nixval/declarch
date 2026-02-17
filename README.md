@@ -123,6 +123,10 @@ scripts/check_release_consistency.sh --tag vX.Y.Z --strict
 
 This verifies Cargo version, tag version, and `.aur/templates/PKGBUILD` `pkgver` alignment.
 
+Maintainer docs:
+- `.aur/README.md`
+- `.aur/RELEASE_MAINTAINER.md`
+
 ## First-time setup
 
 ### 1. Initialize
@@ -215,7 +219,6 @@ mdDocs source pages (`docs-book/src`):
 - [Integration Roadmap RFC](docs-book/src/advanced/rfc-integration-roadmap.md)
 - [Integration Examples](docs-book/src/advanced/integration-examples.md)
 - [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
-- [Release Maintainer Guide](docs-book/src/advanced/release-maintainer.md)
 - [Full sidebar](docs-book/src/SUMMARY.md)
 
 ## License
