@@ -59,7 +59,7 @@ declarch --help
 ## Updating
 
 - Package manager install (AUR/Homebrew/etc): update with your package manager.
-- Script/manual install: update with `declarch self-update`.
+- Script/manual install (`curl`/`wget`): update with `declarch self-update`.
 
 If you are on macOS/Windows, run:
 

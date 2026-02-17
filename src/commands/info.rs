@@ -408,7 +408,7 @@ fn maybe_print_update_notification() {
         output::info(&msg);
     } else {
         output::info(&format!(
-            "For curl/manual install, run: {} self-update",
+            "For script/manual install, run: {} self-update",
             project_identity::BINARY_NAME
         ));
     }

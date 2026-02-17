@@ -71,7 +71,7 @@ Write-Host "Installed $BinName to $installRoot"
 # Persist installation channel marker for update guidance (best-effort)
 $markerPath = Join-Path $metaRoot "install-channel.json"
 @{
-    channel = "curl"
+    channel = "script"
     installed_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 } | ConvertTo-Json -Compress | Set-Content -Path $markerPath -Encoding UTF8
 

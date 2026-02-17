@@ -199,9 +199,11 @@ fn has_script_marker() -> bool {
     };
     fs::read_to_string(path)
         .map(|content| {
-            content
-                .to_ascii_lowercase()
-                .contains("\"channel\":\"curl\"")
+            let normalized = content.to_ascii_lowercase();
+            normalized.contains("\"channel\":\"script\"")
+                || normalized.contains("\"channel\":\"curl\"")
+                || normalized.contains("\"channel\":\"wget\"")
+                || normalized.contains("\"channel\":\"manual\"")
         })
         .unwrap_or(false)
 }

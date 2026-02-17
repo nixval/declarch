@@ -111,7 +111,7 @@ Installer includes lightweight smoke checks after install (`--help`, `info`).
 ### Update policy
 
 - If installed from package manager (AUR/Homebrew/etc), update via package manager.
-- If installed via curl/manual script, use `declarch self-update`.
+- If installed via script/manual binary (`curl`/`wget`), use `declarch self-update`.
 
 ## First-time setup
 

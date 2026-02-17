@@ -97,7 +97,7 @@ MARKER_DIR="${STATE_BASE}/${STABLE_ID}"
 MARKER_PATH="${MARKER_DIR}/install-channel.json"
 mkdir -p "${MARKER_DIR}" 2>/dev/null || true
 cat > "${MARKER_PATH}" <<EOF || true
-{"channel":"curl","installed_at":"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"}
+{"channel":"script","installed_at":"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"}
 EOF
 
 if ! command -v "${BIN_NAME}" >/dev/null 2>&1; then
