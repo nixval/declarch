@@ -1,3 +1,5 @@
+mod selector_filter;
+
 use crate::config::kdl::{
     ConflictEntry, LifecycleConfig, McpConfig, PolicyConfig, ProjectMetadata,
     parse_kdl_content_with_path,
@@ -5,7 +7,7 @@ use crate::config::kdl::{
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths::expand_home;
-use kdl::KdlDocument;
+use selector_filter::filter_content_by_selectors;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -432,64 +434,6 @@ fn recursive_load(
     context.pop();
 
     Ok(())
-}
-
-fn filter_content_by_selectors(content: &str, selectors: &LoadSelectors) -> Result<String> {
-    if selectors.is_empty() {
-        return Ok(content.to_string());
-    }
-
-    let doc: KdlDocument = content
-        .parse()
-        .map_err(|e: kdl::KdlError| DeclarchError::ConfigError(format!("Invalid KDL: {}", e)))?;
-
-    let mut output = String::new();
-
-    for node in doc.nodes() {
-        match node.name().value() {
-            "profile" => {
-                if selectors
-                    .profile
-                    .as_ref()
-                    .zip(selector_name(node))
-                    .is_some_and(|(selected, current)| selected == &current)
-                    && let Some(children) = node.children()
-                {
-                    for child in children.nodes() {
-                        output.push_str(&child.to_string());
-                        output.push('\n');
-                    }
-                }
-            }
-            "host" => {
-                if selectors
-                    .host
-                    .as_ref()
-                    .zip(selector_name(node))
-                    .is_some_and(|(selected, current)| selected == &current)
-                    && let Some(children) = node.children()
-                {
-                    for child in children.nodes() {
-                        output.push_str(&child.to_string());
-                        output.push('\n');
-                    }
-                }
-            }
-            _ => {
-                output.push_str(&node.to_string());
-                output.push('\n');
-            }
-        }
-    }
-
-    Ok(output)
-}
-
-fn selector_name(node: &kdl::KdlNode) -> Option<String> {
-    node.entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .map(ToString::to_string)
 }
 
 #[cfg(test)]
