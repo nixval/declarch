@@ -65,6 +65,25 @@ backend "mypm" {
 
 `"-"` can be used on some commands to explicitly disable capability.
 
+## Optional meta block (recommended)
+
+```kdl
+meta {
+    title "My Backend"
+    description "What this backend does"
+    kdl-maintainer "your-name"
+    tags "linux" "package-manager"
+    homepage "https://example.com"
+    platforms "linux"
+    requires "mybinary"
+    install-guide "https://example.com/install"
+}
+```
+
+Compatibility:
+- Canonical keys: `kdl-maintainer`, `install-guide`
+- Legacy aliases accepted: `maintainer`, `maintained`, `installation_guide`
+
 ## Placeholders
 
 - `{binary}`: resolved executable (supports multi-binary and fallback scenarios)

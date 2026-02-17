@@ -159,6 +159,7 @@ fn test_meta_block_parsing() {
                 description "Test configuration"
                 author "testuser"
                 kdl-maintainer "maint-a" "maint-b"
+                maintainer "maint-c"
                 maintained "legacy-maintainer"
                 version "1.0.0"
                 homepage "https://example.com"
@@ -177,7 +178,8 @@ fn test_meta_block_parsing() {
         vec![
             "legacy-maintainer".to_string(),
             "maint-a".to_string(),
-            "maint-b".to_string()
+            "maint-b".to_string(),
+            "maint-c".to_string()
         ]
     );
     assert_eq!(
