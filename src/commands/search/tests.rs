@@ -1,5 +1,6 @@
 use super::*;
 use crate::backends::config::BackendConfig;
+use crate::packages::traits::PackageSearchResult;
 use crate::state::types::{PackageState, State};
 use chrono::Utc;
 

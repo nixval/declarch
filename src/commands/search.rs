@@ -3,6 +3,7 @@
 //! Search for packages across configured backends with streaming results.
 //! Results from faster backends are displayed immediately without waiting for slower ones.
 
+mod backend_runtime;
 mod managed;
 mod matching;
 mod render;
@@ -14,7 +15,6 @@ use crate::commands::runtime_overrides::{
 use crate::constants::SEARCH_BACKEND_TIMEOUT_SECS;
 use crate::core::types::Backend;
 use crate::error::Result;
-use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::project_identity;
 use crate::state;
 use crate::ui as output;
@@ -27,6 +27,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+use backend_runtime::{BackendResult, create_manager_from_config, search_single_backend};
 use managed::{collect_managed_hits, run_managed_installed_search};
 #[cfg(test)]
 use matching::normalize_package_name;
@@ -71,21 +72,6 @@ struct SearchReportOut {
     total_matches: usize,
     shown_results: usize,
     results: Vec<SearchResultOut>,
-}
-
-/// Result from a backend search
-enum BackendResult {
-    Success {
-        backend: Backend,
-        results: Vec<PackageSearchResult>,
-        total_found: usize,
-        duration_ms: u128,
-    },
-    Error {
-        backend: Backend,
-        error: String,
-        duration_ms: u128,
-    },
 }
 
 pub fn run(options: SearchOptions) -> Result<()> {
@@ -455,84 +441,6 @@ pub fn run(options: SearchOptions) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Search a single backend
-/// Returns a std::result::Result (not crate::error::Result) since this runs in a thread
-fn search_single_backend(
-    manager: Box<dyn PackageManager>,
-    query: &str,
-    local_mode: bool,
-    limit: Option<usize>,
-    prefer_list_for_local_search: bool,
-) -> std::result::Result<(Vec<PackageSearchResult>, usize), String> {
-    if local_mode {
-        let backend_name = manager.backend_type().name().to_string();
-
-        let mut results = if manager.supports_search_local() && !prefer_list_for_local_search {
-            manager
-                .search_local(query)
-                .map_err(|e| format!("Local search failed: {}", e))?
-        } else {
-            // Fallback for backends without dedicated search_local:
-            // list installed packages and filter by query.
-            let installed = manager
-                .list_installed()
-                .map_err(|e| format!("Local list fallback failed: {}", e))?;
-            let query_lower = query.to_lowercase();
-            installed
-                .into_iter()
-                .filter(|(name, _)| name.to_lowercase().contains(&query_lower))
-                .map(|(name, meta)| PackageSearchResult {
-                    name,
-                    version: meta.version,
-                    description: None,
-                    backend: Backend::from(backend_name.clone()),
-                })
-                .collect()
-        };
-
-        let total = results.len();
-        if let Some(limit_value) = limit
-            && results.len() > limit_value
-        {
-            results.truncate(limit_value);
-        }
-        Ok((results, total))
-    } else {
-        if !manager.supports_search() {
-            return Err("Does not support search".to_string());
-        }
-
-        match manager.search(query) {
-            Ok(mut results) => {
-                let total = results.len();
-                // Apply limit
-                if let Some(limit_value) = limit
-                    && results.len() > limit_value
-                {
-                    results.truncate(limit_value);
-                }
-                Ok((results, total))
-            }
-            Err(e) => Err(format!("Search failed: {}", e)),
-        }
-    }
-}
-
-/// Create manager from backend config directly (for import-based architecture)
-fn create_manager_from_config(
-    config: &crate::backends::config::BackendConfig,
-) -> Result<Box<dyn PackageManager>> {
-    use crate::backends::GenericManager;
-    use crate::core::types::Backend;
-
-    let backend = Backend::from(config.name.clone());
-    Ok(Box::new(GenericManager::from_config(
-        config.clone(),
-        backend,
-        false,
-    )))
 }
 
 #[cfg(test)]
