@@ -8,10 +8,12 @@
 //! - Variant matching (variants.rs)
 
 mod backend_overrides;
+mod config_loading;
 mod executor;
 mod hooks;
 mod planner;
 mod policy;
+mod presentation;
 mod state_sync;
 mod targeting;
 mod variants;
@@ -35,7 +37,6 @@ use crate::ui as output;
 use crate::utils::machine_output;
 use crate::utils::paths;
 use serde::Serialize;
-use std::path::Path;
 
 use crate::core::types::{PackageId, PackageMetadata};
 use crate::packages::PackageManager;
@@ -44,7 +45,9 @@ use crate::state::types::Backend;
 pub(crate) use backend_overrides::{
     apply_backend_env_overrides, apply_backend_option_overrides, apply_backend_package_sources,
 };
+use config_loading::{load_config_with_modules, load_single_module};
 use policy::{enforce_sync_policy, resolve_hooks_enabled};
+use presentation::{build_sync_preview_report, show_sync_diff, sync_target_to_string};
 use std::collections::HashMap;
 use targeting::{named_target_exists, resolve_target};
 
@@ -308,104 +311,6 @@ pub fn run(options: SyncOptions) -> Result<()> {
     Ok(())
 }
 
-fn build_sync_preview_report(
-    options: &SyncOptions,
-    sync_target: &SyncTarget,
-    transaction: &crate::core::resolver::Transaction,
-) -> SyncPreviewReport {
-    SyncPreviewReport {
-        dry_run: true,
-        prune: options.prune,
-        update: options.update,
-        target: sync_target_to_string(sync_target),
-        install_count: transaction.to_install.len(),
-        remove_count: transaction.to_prune.len(),
-        adopt_count: transaction.to_adopt.len(),
-        to_install: transaction
-            .to_install
-            .iter()
-            .map(package_id_to_string)
-            .collect(),
-        to_remove: transaction
-            .to_prune
-            .iter()
-            .map(package_id_to_string)
-            .collect(),
-        to_adopt: transaction
-            .to_adopt
-            .iter()
-            .map(package_id_to_string)
-            .collect(),
-    }
-}
-
-fn package_id_to_string(pkg: &PackageId) -> String {
-    format!("{}:{}", pkg.backend, pkg.name)
-}
-
-fn sync_target_to_string(target: &SyncTarget) -> String {
-    match target {
-        SyncTarget::All => "all".to_string(),
-        SyncTarget::Backend(b) => format!("backend:{}", b),
-        SyncTarget::Named(name) => format!("named:{}", name),
-    }
-}
-
-/// Show diff view of sync changes
-fn show_sync_diff(
-    transaction: &crate::core::resolver::Transaction,
-    installed_snapshot: &InstalledSnapshot,
-) {
-    use colored::Colorize;
-
-    output::header("Sync Diff");
-
-    // Show packages to install
-    if !transaction.to_install.is_empty() {
-        println!("\n{}:", "Packages to install".green().bold());
-        for pkg_id in &transaction.to_install {
-            println!("  {} {} {}", "+".green(), pkg_id.backend, pkg_id.name);
-        }
-    }
-
-    // Show packages to remove
-    if !transaction.to_prune.is_empty() {
-        println!("\n{}:", "Packages to remove".red().bold());
-        for pkg_id in &transaction.to_prune {
-            let version = installed_snapshot
-                .get(pkg_id)
-                .and_then(|m| m.version.as_ref())
-                .map(|v| format!(" ({})", v))
-                .unwrap_or_default();
-            println!(
-                "  {} {} {}{}",
-                "-".red(),
-                pkg_id.backend,
-                pkg_id.name,
-                version.dimmed()
-            );
-        }
-    }
-
-    // Show packages to adopt
-    if !transaction.to_adopt.is_empty() {
-        println!("\n{}:", "Packages to adopt".yellow().bold());
-        for pkg_id in &transaction.to_adopt {
-            println!("  {} {} {}", "~".yellow(), pkg_id.backend, pkg_id.name);
-        }
-    }
-
-    // Summary
-    println!();
-    let total_changes =
-        transaction.to_install.len() + transaction.to_prune.len() + transaction.to_adopt.len();
-    output::info(&format!("Total changes: {}", total_changes));
-    output::info(&format!(
-        "Run '{}' to apply these changes",
-        project_identity::cli_with("sync")
-    ));
-}
-
 fn initialize_managers_and_snapshot(
     config: &loader::MergedConfig,
     options: &SyncOptions,
@@ -560,95 +465,6 @@ fn execute_backend_updates(managers: &ManagerMap, verbose: bool) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn load_single_module(
-    _config_path: &Path,
-    module_name: &str,
-    selectors: &loader::LoadSelectors,
-) -> Result<loader::MergedConfig> {
-    use std::path::PathBuf;
-
-    let module_path = paths::module_file(module_name);
-
-    let final_path = if let Ok(path) = module_path {
-        if path.exists() {
-            path
-        } else {
-            let direct_path = PathBuf::from(module_name);
-            if direct_path.exists() {
-                direct_path
-            } else {
-                return Err(crate::error::DeclarchError::Other(format!(
-                    "Module not found: {}",
-                    module_name
-                )));
-            }
-        }
-    } else {
-        let direct_path = PathBuf::from(module_name);
-        if direct_path.exists() {
-            direct_path
-        } else {
-            return Err(crate::error::DeclarchError::Other(format!(
-                "Module not found: {}",
-                module_name
-            )));
-        }
-    };
-
-    let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
-    Ok(module_config)
-}
-
-fn load_config_with_modules(
-    config_path: &Path,
-    extra_modules: &[String],
-    selectors: &loader::LoadSelectors,
-    verbose: bool,
-) -> Result<loader::MergedConfig> {
-    use std::path::PathBuf;
-
-    let mut merged = loader::load_root_config_with_selectors(config_path, selectors)?;
-
-    for module_name in extra_modules {
-        let module_path = paths::module_file(module_name);
-
-        let final_path = if let Ok(path) = module_path {
-            if path.exists() {
-                path
-            } else {
-                let direct_path = PathBuf::from(module_name);
-                if direct_path.exists() {
-                    direct_path
-                } else {
-                    return Err(crate::error::DeclarchError::Other(format!(
-                        "Module not found: {}",
-                        module_name
-                    )));
-                }
-            }
-        } else {
-            let direct_path = PathBuf::from(module_name);
-            if direct_path.exists() {
-                direct_path
-            } else {
-                return Err(crate::error::DeclarchError::Other(format!(
-                    "Module not found: {}",
-                    module_name
-                )));
-            }
-        };
-
-        if verbose {
-            output::verbose(&format!("Loading module: {}", final_path.display()));
-        }
-        let module_config = loader::load_root_config_with_selectors(&final_path, selectors)?;
-        merged.packages.extend(module_config.packages);
-        merged.excludes.extend(module_config.excludes);
-    }
-
-    Ok(merged)
 }
 
 #[cfg(test)]
