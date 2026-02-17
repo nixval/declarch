@@ -36,7 +36,6 @@ state.json.*
 # =============================================================================
 personal-docs/
 .obsidian/
-.aur/scripts/
 .aur/work/
 plan/
 examples/
@@ -49,6 +48,10 @@ RFC-000*.md
 # Keep AUR templates tracked
 !.aur/templates/
 !.aur/templates/**
+
+# Keep public-safe AUR scripts tracked
+.aur/scripts/*
+!.aur/scripts/*
 
 # =============================================================================
 # Config and state files (runtime)
@@ -87,5 +90,5 @@ tests/.temp/
 # =============================================================================
 # AUR build artifacts
 # =============================================================================
-PKGBUILD
-.SRCINFO
+/PKGBUILD
+/.SRCINFO
