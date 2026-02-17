@@ -15,7 +15,14 @@ Please see the [full documentation](https://nixval.github.io/declarch/) for:
 2. **Clone**: `git clone https://github.com/nixval/declarch.git`
 3. **Test**: `cargo test --all-targets`
 4. **Format**: `cargo fmt`
-5. **Lint**: `cargo clippy --all-targets -- -D warnings`
+5. **Lint**: `cargo clippy --all-targets --all-features -- -D warnings`
+6. **Dependency policy**: `cargo deny check`
+
+If your environment exports `RUSTC_WRAPPER=sccache` and you hit permission errors, run with wrapper disabled:
+
+- `RUSTC_WRAPPER= cargo test --all-targets`
+- `RUSTC_WRAPPER= cargo clippy --all-targets --all-features -- -D warnings`
+- `RUSTC_WRAPPER= cargo deny check`
 
 ## Changelog Discipline
 
