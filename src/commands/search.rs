@@ -812,7 +812,7 @@ fn get_backends_to_search(
             output::warning(&msg);
         }
     }
-    if !unsupported.is_empty() {
+    if !unsupported.is_empty() && should_emit_selection_warning(options) {
         let capability = if options.local {
             "local search/list support"
         } else {
@@ -829,7 +829,7 @@ fn get_backends_to_search(
             output::warning(&msg);
         }
     }
-    if !os_mismatch.is_empty() {
+    if !os_mismatch.is_empty() && should_emit_selection_warning(options) {
         let msg = format!(
             "Skipped backend(s) that are not for this OS: {}",
             os_mismatch.join(", ")
@@ -870,6 +870,12 @@ fn get_backends_to_search(
     }
 
     Ok((result, warnings))
+}
+
+fn should_emit_selection_warning(options: &SearchOptions) -> bool {
+    // Keep default output focused: show capability/OS skip warnings when user
+    // explicitly requested backends, or when verbose diagnostics are enabled.
+    options.verbose || options.backends.as_ref().is_some_and(|b| !b.is_empty())
 }
 
 fn select_backends_to_search(
@@ -1122,6 +1128,28 @@ mod tests {
             true,
             true
         ));
+    }
+
+    #[test]
+    fn selection_warnings_are_quiet_in_auto_mode_without_verbose() {
+        let auto_quiet = SearchOptions {
+            query: "bat".to_string(),
+            backends: None,
+            limit: None,
+            installed_only: false,
+            available_only: false,
+            local: false,
+            verbose: false,
+            format: None,
+            output_version: None,
+        };
+        assert!(!should_emit_selection_warning(&auto_quiet));
+
+        let explicit_backend = SearchOptions {
+            backends: Some(vec!["aur".to_string()]),
+            ..auto_quiet
+        };
+        assert!(should_emit_selection_warning(&explicit_backend));
     }
 
     #[test]
