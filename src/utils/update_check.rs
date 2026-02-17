@@ -51,10 +51,6 @@ pub fn is_managed_by_package_manager(owner: &InstallOwner) -> bool {
 }
 
 pub fn detect_install_owner() -> InstallOwner {
-    if has_script_marker() {
-        return InstallOwner::Script;
-    }
-
     let exe_path = env::current_exe().ok();
 
     #[cfg(target_os = "linux")]
@@ -79,6 +75,10 @@ pub fn detect_install_owner() -> InstallOwner {
         if is_winget_managed(exe_path.as_deref()) {
             return InstallOwner::Winget;
         }
+    }
+
+    if has_script_marker() {
+        return InstallOwner::Script;
     }
 
     InstallOwner::Unknown
@@ -198,14 +198,16 @@ fn has_script_marker() -> bool {
         return false;
     };
     fs::read_to_string(path)
-        .map(|content| {
-            let normalized = content.to_ascii_lowercase();
-            normalized.contains("\"channel\":\"script\"")
-                || normalized.contains("\"channel\":\"curl\"")
-                || normalized.contains("\"channel\":\"wget\"")
-                || normalized.contains("\"channel\":\"manual\"")
-        })
+        .map(|content| install_channel_is_script_like(&content))
         .unwrap_or(false)
+}
+
+fn install_channel_is_script_like(content: &str) -> bool {
+    let normalized = content.to_ascii_lowercase();
+    normalized.contains("\"channel\":\"script\"")
+        || normalized.contains("\"channel\":\"curl\"")
+        || normalized.contains("\"channel\":\"wget\"")
+        || normalized.contains("\"channel\":\"manual\"")
 }
 
 fn install_marker_path() -> Option<PathBuf> {
@@ -298,5 +300,24 @@ mod tests {
     fn parses_prefixed_versions() {
         assert_eq!(version_tuple("v0.8.1"), Some((0, 8, 1)));
         assert_eq!(version_tuple("0.8.1-beta.1"), Some((0, 8, 1)));
+    }
+
+    #[test]
+    fn recognizes_script_like_install_channels() {
+        assert!(install_channel_is_script_like(
+            r#"{"channel":"script","installed_at":"2026-01-01T00:00:00Z"}"#
+        ));
+        assert!(install_channel_is_script_like(
+            r#"{"channel":"curl","installed_at":"2026-01-01T00:00:00Z"}"#
+        ));
+        assert!(install_channel_is_script_like(
+            r#"{"channel":"wget","installed_at":"2026-01-01T00:00:00Z"}"#
+        ));
+        assert!(install_channel_is_script_like(
+            r#"{"channel":"manual","installed_at":"2026-01-01T00:00:00Z"}"#
+        ));
+        assert!(!install_channel_is_script_like(
+            r#"{"channel":"aur","installed_at":"2026-01-01T00:00:00Z"}"#
+        ));
     }
 }
