@@ -8,11 +8,11 @@ fn parse_checksum_line_supports_coreutils_and_bsd_style() {
         project_identity::RELEASE_ASSET_PREFIX
     );
     assert_eq!(
-        parse_checksum_line(&format!("abc123  {}", file_name)),
+        unix_ops::parse_checksum_line(&format!("abc123  {}", file_name)),
         Some(("abc123", file_name.as_str()))
     );
     assert_eq!(
-        parse_checksum_line(&format!("abc123 *{}", file_name)),
+        unix_ops::parse_checksum_line(&format!("abc123 *{}", file_name)),
         Some(("abc123", file_name.as_str()))
     );
 }
@@ -24,7 +24,7 @@ fn verify_checksum_detects_mismatch() {
         "{}-x86_64-unknown-linux-gnu.tar.gz",
         project_identity::RELEASE_ASSET_PREFIX
     );
-    let result = verify_checksum(&file_name, "abc123", "def456");
+    let result = unix_ops::verify_checksum(&file_name, "abc123", "def456");
     assert!(result.is_err());
 }
 
