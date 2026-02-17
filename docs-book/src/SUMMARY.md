@@ -42,6 +42,7 @@
 - [Debugging](./advanced/debugging.md)
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
+- [Release Maintainer Guide](./advanced/release-maintainer.md)
 - [Version Pinning (Planned)](./advanced/version-pinning.md)
 - [Integration Examples](./advanced/integration-examples.md)
 - [MCP Setup (Technical)](./advanced/mcp-setup.md)
