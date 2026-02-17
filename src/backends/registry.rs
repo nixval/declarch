@@ -157,14 +157,4 @@ pub fn load_all_backends_unified() -> crate::error::Result<HashMap<String, Backe
 }
 
 #[cfg(test)]
-mod tests {
-    use super::load_all_backends;
-
-    #[test]
-    fn test_load_all_backends_empty() {
-        // In test environment, likely no backends configured
-        let result = load_all_backends();
-        assert!(result.is_ok());
-        // Result may be empty or have backends depending on environment
-    }
-}
+mod tests;
