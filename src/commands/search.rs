@@ -3,6 +3,9 @@
 //! Search for packages across configured backends with streaming results.
 //! Results from faster backends are displayed immediately without waiting for slower ones.
 
+mod render;
+mod selection;
+
 use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
 };
@@ -21,6 +24,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+
+use render::{display_backend_results, sorted_backend_keys};
+use selection::get_backends_to_search;
 
 /// Maximum time to wait for a backend to respond (seconds)
 const BACKEND_TIMEOUT_SECONDS: u64 = SEARCH_BACKEND_TIMEOUT_SECS;
@@ -744,208 +750,6 @@ fn collect_managed_hits(
     }
 
     grouped
-}
-
-fn sorted_backend_keys(grouped: &HashMap<String, Vec<PackageSearchResult>>) -> Vec<String> {
-    let mut backends: Vec<_> = grouped.keys().cloned().collect();
-    backends.sort();
-    backends
-}
-
-/// Display results for a single backend immediately
-fn display_backend_results(
-    backend: &Backend,
-    results: &[PackageSearchResult],
-    total_found: usize,
-    limit: Option<usize>,
-) {
-    // Print backend header
-    println!("{}", format!("{}:", backend).cyan().bold());
-
-    // Show limit note if applicable
-    if let Some(_limit_val) = limit
-        && total_found > results.len()
-    {
-        println!(
-            "  {} (showing {} of {})",
-            "Limited results".dimmed(),
-            results.len(),
-            total_found
-        );
-    }
-
-    // Print results
-    for result in results {
-        print_search_result(result);
-    }
-
-    println!(); // Empty line between backends
-}
-
-/// Print a single search result
-fn print_search_result(result: &PackageSearchResult) {
-    let name_colored = if result.name.contains('✓') {
-        result.name.green()
-    } else {
-        result.name.cyan()
-    };
-
-    if let Some(ref desc) = result.description {
-        // Multi-line format for results with description
-        println!("  {} - {}", name_colored, desc.as_str().dimmed());
-    } else {
-        // Single line format
-        println!("  {}", name_colored);
-    }
-}
-
-fn get_backends_to_search(
-    options: &SearchOptions,
-    backend_configs: &HashMap<String, crate::backends::config::BackendConfig>,
-    machine_mode: bool,
-) -> Result<(Vec<Backend>, Vec<String>)> {
-    let (result, unknown, unsupported, os_mismatch) =
-        select_backends_to_search(backend_configs, options.backends.as_ref(), options.local);
-    let mut warnings = Vec::new();
-
-    if !unknown.is_empty() {
-        let msg = format!("Unknown backend(s): {}", unknown.join(", "));
-        if machine_mode {
-            warnings.push(msg);
-        } else {
-            output::warning(&msg);
-        }
-    }
-    if !unsupported.is_empty() && should_emit_selection_warning(options) {
-        let capability = if options.local {
-            "local search/list support"
-        } else {
-            "search support"
-        };
-        let msg = format!(
-            "Skipped backend(s) without {}: {}",
-            capability,
-            unsupported.join(", ")
-        );
-        if machine_mode {
-            warnings.push(msg);
-        } else {
-            output::warning(&msg);
-        }
-    }
-    if !os_mismatch.is_empty() && should_emit_selection_warning(options) {
-        let msg = format!(
-            "Skipped backend(s) that are not for this OS: {}",
-            os_mismatch.join(", ")
-        );
-        if machine_mode {
-            warnings.push(msg);
-            warnings.push(
-                "This is normal when one config is shared across different machines.".to_string(),
-            );
-        } else {
-            output::warning(&msg);
-            output::info("This is normal when one config is shared across different machines.");
-        }
-    }
-
-    if result.is_empty() {
-        let msg = if options.local {
-            "No backends with local search/list support configured".to_string()
-        } else {
-            "No backends with search support configured".to_string()
-        };
-        if options.local {
-            if machine_mode {
-                warnings.push(msg);
-            } else {
-                output::warning("No backends with local search/list support configured");
-            }
-        } else if machine_mode {
-            warnings.push(msg);
-        } else {
-            output::warning("No backends with search support configured");
-        }
-        if machine_mode {
-            warnings.push(format!(
-                "Run '{}' to add a backend",
-                project_identity::cli_with("init --backend <name>")
-            ));
-        } else {
-            output::info(&format!(
-                "Run '{}' to add a backend",
-                project_identity::cli_with("init --backend <name>")
-            ));
-        }
-    }
-
-    Ok((result, warnings))
-}
-
-fn should_emit_selection_warning(options: &SearchOptions) -> bool {
-    // Keep default output focused: show capability/OS skip warnings when user
-    // explicitly requested backends, or when verbose diagnostics are enabled.
-    options.verbose || options.backends.as_ref().is_some_and(|b| !b.is_empty())
-}
-
-fn select_backends_to_search(
-    all_backends: &HashMap<String, crate::backends::config::BackendConfig>,
-    requested_backends: Option<&Vec<String>>,
-    local_mode: bool,
-) -> (Vec<Backend>, Vec<String>, Vec<String>, Vec<String>) {
-    let supports_mode = |config: &crate::backends::config::BackendConfig| {
-        if local_mode {
-            config.search_local_cmd.is_some() || config.list_cmd.is_some()
-        } else {
-            config.search_cmd.is_some()
-        }
-    };
-
-    let mut selected = Vec::new();
-    let mut unknown = Vec::new();
-    let mut unsupported = Vec::new();
-    let mut os_mismatch = Vec::new();
-
-    if let Some(requested) = requested_backends {
-        for name in requested {
-            match all_backends.get(name) {
-                Some(config)
-                    if crate::utils::platform::backend_supports_current_os(config)
-                        && supports_mode(config) =>
-                {
-                    selected.push(Backend::from(name.as_str()))
-                }
-                Some(config) if !crate::utils::platform::backend_supports_current_os(config) => {
-                    os_mismatch.push(name.clone())
-                }
-                Some(_) => unsupported.push(name.clone()),
-                None => unknown.push(name.clone()),
-            }
-        }
-    } else {
-        let mut entries: Vec<_> = all_backends.iter().collect();
-        entries.sort_by(|a, b| a.0.cmp(b.0));
-        let mut selected_local_groups: HashSet<String> = HashSet::new();
-        for (name, config) in entries {
-            if crate::utils::platform::backend_supports_current_os(config) && supports_mode(config)
-            {
-                if local_mode {
-                    let group = canonical_backend_group(name).to_string();
-                    if selected_local_groups.contains(&group) {
-                        continue;
-                    }
-                    selected_local_groups.insert(group);
-                }
-                selected.push(Backend::from(name.as_str()));
-            }
-        }
-    }
-
-    unknown.sort();
-    unsupported.sort();
-    os_mismatch.sort();
-
-    (selected, unknown, unsupported, os_mismatch)
 }
 
 /// Create manager from backend config directly (for import-based architecture)

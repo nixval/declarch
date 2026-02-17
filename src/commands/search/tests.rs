@@ -25,7 +25,7 @@ fn select_backends_filters_unknown_and_unsupported() {
 
     let requested = vec!["paru".to_string(), "pip".to_string(), "missing".to_string()];
     let (selected_remote, unknown_remote, unsupported_remote, os_mismatch_remote) =
-        select_backends_to_search(&all, Some(&requested), false);
+        super::selection::select_backends_to_search(&all, Some(&requested), false);
     let names_remote: Vec<_> = selected_remote
         .iter()
         .map(|b| b.name().to_string())
@@ -36,7 +36,7 @@ fn select_backends_filters_unknown_and_unsupported() {
     assert!(os_mismatch_remote.is_empty());
 
     let (selected_local, unknown_local, unsupported_local, os_mismatch_local) =
-        select_backends_to_search(&all, Some(&requested), true);
+        super::selection::select_backends_to_search(&all, Some(&requested), true);
     let names_local: Vec<_> = selected_local
         .iter()
         .map(|b| b.name().to_string())
@@ -68,7 +68,7 @@ fn select_backends_auto_mode_is_sorted() {
     );
 
     let (selected, unknown, unsupported, os_mismatch) =
-        select_backends_to_search(&all, None, false);
+        super::selection::select_backends_to_search(&all, None, false);
     let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
     assert_eq!(names, vec!["apt".to_string(), "zypper".to_string()]);
     assert!(unknown.is_empty());
@@ -88,7 +88,8 @@ fn select_backends_local_mode_accepts_list_fallback() {
         },
     );
 
-    let (selected, unknown, unsupported, os_mismatch) = select_backends_to_search(&all, None, true);
+    let (selected, unknown, unsupported, os_mismatch) =
+        super::selection::select_backends_to_search(&all, None, true);
     let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
     assert_eq!(names, vec!["flatpak".to_string()]);
     assert!(unknown.is_empty());
@@ -124,7 +125,8 @@ fn select_backends_local_mode_deduplicates_arch_family() {
         },
     );
 
-    let (selected, unknown, unsupported, os_mismatch) = select_backends_to_search(&all, None, true);
+    let (selected, unknown, unsupported, os_mismatch) =
+        super::selection::select_backends_to_search(&all, None, true);
     let names: Vec<_> = selected.iter().map(|b| b.name().to_string()).collect();
     assert_eq!(names, vec!["aur".to_string(), "flatpak".to_string()]);
     assert!(unknown.is_empty());
@@ -184,13 +186,17 @@ fn selection_warnings_are_quiet_in_auto_mode_without_verbose() {
         format: None,
         output_version: None,
     };
-    assert!(!should_emit_selection_warning(&auto_quiet));
+    assert!(!super::selection::should_emit_selection_warning(
+        &auto_quiet
+    ));
 
     let explicit_backend = SearchOptions {
         backends: Some(vec!["aur".to_string()]),
         ..auto_quiet
     };
-    assert!(should_emit_selection_warning(&explicit_backend));
+    assert!(super::selection::should_emit_selection_warning(
+        &explicit_backend
+    ));
 }
 
 #[test]
