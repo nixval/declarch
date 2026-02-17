@@ -31,6 +31,11 @@ if [[ -z "${VERSION}" ]]; then
   exit 1
 fi
 
+if [[ -x "${REPO_ROOT}/scripts/check_release_consistency.sh" ]]; then
+  echo -e "${YELLOW}[preflight] Checking release consistency...${NC}"
+  "${REPO_ROOT}/scripts/check_release_consistency.sh" --tag "v${VERSION}" --strict
+fi
+
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo -e "${RED}Error: required command not found: $1${NC}"

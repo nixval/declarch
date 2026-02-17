@@ -154,6 +154,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Release consistency guard
+        run: |
+          TAG="${{ github.event.inputs.release_tag || github.ref_name }}"
+          scripts/check_release_consistency.sh --tag "$TAG" --strict
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:

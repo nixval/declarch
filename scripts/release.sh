@@ -47,6 +47,11 @@ fi
 # Update Cargo.toml
 echo "📝 Updating Cargo.toml..."
 sed_in_place "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+sed_in_place "s/^pkgver=.*/pkgver=${VERSION}/" .aur/templates/PKGBUILD
+
+# Release consistency guards (Cargo/tag/AUR template)
+echo "🔎 Checking release consistency..."
+scripts/check_release_consistency.sh --tag "v$VERSION" --strict --check-aur-remote
 
 # Run checks
 echo "🔍 Running tests..."
@@ -78,6 +83,7 @@ fi
 # Commit changes
 echo "💾 Committing changes..."
 git add Cargo.toml
+git add .aur/templates/PKGBUILD
 git commit -m "chore: prepare release $VERSION"
 
 echo "📊 Summary of changes:"
