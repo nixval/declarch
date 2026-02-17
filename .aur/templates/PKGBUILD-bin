@@ -1,7 +1,7 @@
-# Maintainer: nixval <nicovaliantoku@gmail.com>
+# Contact: nixval <nicovaliantoku@gmail.com>
 
 pkgname=declarch-bin
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc="Universal declarative package manager - unify AUR, flatpak, npm, cargo, pip, and custom backends (pre-built binary)"
 arch=('x86_64')
