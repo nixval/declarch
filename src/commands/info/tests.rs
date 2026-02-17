@@ -1,4 +1,4 @@
-use super::collect_state_signature_duplicates;
+use super::diagnostics;
 use crate::core::types::Backend;
 use crate::state::types::{PackageState, State};
 use chrono::Utc;
@@ -35,7 +35,7 @@ fn state_signature_duplicates_detected() {
         .packages
         .insert("aur:ripgrep".to_string(), pkg("aur", "ripgrep"));
 
-    let duplicates = collect_state_signature_duplicates(&state);
+    let duplicates = diagnostics::collect_state_signature_duplicates(&state);
     assert_eq!(duplicates.len(), 1);
     assert_eq!(duplicates[0].0, "aur:bat");
     assert_eq!(duplicates[0].1.len(), 2);
@@ -51,6 +51,6 @@ fn state_signature_duplicates_empty_when_clean() {
         .packages
         .insert("aur:ripgrep".to_string(), pkg("aur", "ripgrep"));
 
-    let duplicates = collect_state_signature_duplicates(&state);
+    let duplicates = diagnostics::collect_state_signature_duplicates(&state);
     assert!(duplicates.is_empty());
 }
