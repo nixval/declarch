@@ -1,4 +1,3 @@
-
 #[test]
 fn test_offset_to_line_col() {
     use super::offset_to_line_col;
