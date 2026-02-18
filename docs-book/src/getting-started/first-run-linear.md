@@ -30,6 +30,7 @@ Use explicit backend prefixes (recommended for beginners):
 ```bash
 declarch install aur:bat aur:fd aur:ripgrep
 declarch install npm:typescript
+// check it at `decl edit others`
 ```
 
 Alternative: use one backend for all packages in a command:

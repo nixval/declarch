@@ -14,13 +14,7 @@
 
 ## Daily Commands
 
-- [Command Overview](./commands/index.md)
-- [init](./commands/init.md)
-- [install](./commands/install.md)
-- [sync](./commands/sync.md)
-- [search](./commands/search.md)
-- [info](./commands/info.md)
-- [lint](./commands/lint.md)
+- [Commands](./getting-started/commands.md)
 
 ## Configuration (Beginner)
 
@@ -30,10 +24,7 @@
 
 ## Examples
 
-- [Minimal Setup](./examples/minimal.md)
-- [Desktop Environment](./examples/desktop.md)
-- [Development Setup](./examples/development.md)
-- [Modular Setup](./examples/modular.md)
+- [Examples](./getting-started/examples.md)
 
 ## Advanced
 
@@ -45,7 +36,5 @@
 - [Version Pinning (Planned)](./advanced/version-pinning.md)
 - [Integration Examples](./advanced/integration-examples.md)
 - [MCP Setup (Technical)](./advanced/mcp-setup.md)
-- [edit](./commands/edit.md)
-- [switch](./commands/switch.md)
 
 [Cross-Distro Support](./cross-distro-support.md)

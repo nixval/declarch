@@ -1,6 +1,5 @@
 # Basic Concepts
 
-This page is beginner-first.
 
 ## 1) Declarch is a wrapper
 
@@ -36,7 +35,7 @@ If you copy your config to another machine (laptop, VPS, etc), it should still w
 declarch sync
 ```
 
-No `host` or `profile` required.
+No `host` or `profile` required. but if you want specify host and profile you can configure it.
 
 ## 5) Backend configs can evolve
 
@@ -55,9 +54,23 @@ Use small files by context:
 
 If you need machine-specific extras, you can opt in:
 
+```kdl
+profile "work" {
+    pkg {
+        npm { @angular/cli }
+    }
+}
+
+host "laptop-1" {
+    pkg {
+        flatpak { com.discordapp.Discord }
+    }
+}
+
+
 ```bash
-declarch sync --profile desktop
-declarch sync --host vps-1
+declarch sync --profile work
+declarch sync --host laptop-1
 ```
 
 If you do not pass those flags, declarch uses your normal default config only.

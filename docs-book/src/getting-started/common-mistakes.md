@@ -37,12 +37,14 @@ Symptom:
 Fix:
 
 ```bash
-command -v <binary>
+declarch info <nameofthebackend>
+// example
+declarch info aur
 ```
 
 Install missing binary or temporarily remove/disable that backend.
 
-## 4) Editing KDL manually without validation
+## 4) Editing KDL without validation
 
 Symptom:
 
@@ -63,7 +65,7 @@ Symptom:
 Fix:
 
 ```bash
-declarch info --doctor
+declarch info --doctor -v
 ```
 
 Use the reported paths as source of truth.

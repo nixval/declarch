@@ -1,6 +1,6 @@
 # Config Progression (Minimal -> Advanced)
 
-This page shows a practical progression so beginners can start small and scale safely.
+This page shows a practical progression for you to start small and scale safely.
 
 ## Stage 1: Minimal
 
