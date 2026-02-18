@@ -1,4 +1,5 @@
 mod command_exec;
+mod runtime;
 mod search_parsing;
 
 use crate::backends::config::BackendConfig;
@@ -9,9 +10,7 @@ use crate::error::{DeclarchError, Result};
 use crate::packages::traits::{PackageManager, PackageSearchResult};
 use crate::ui;
 use crate::utils::sanitize;
-use command_exec::{run_command_with_timeout, run_interactive_command_with_timeout};
 use std::collections::HashMap;
-use std::process::Command;
 use std::time::Duration;
 
 /// Default timeout for backend commands (5 minutes)
@@ -51,93 +50,6 @@ impl GenericManager {
             backend_type,
         }
     }
-
-    /// Get the actual binary to use (first available from alternatives)
-    /// Handles fallback if primary binary not available and fallback configured
-    fn get_binary(&self) -> Result<String> {
-        // Try primary binary first
-        if let Some(bin) = self.config.binary.find_available() {
-            return Ok(bin);
-        }
-
-        // If primary not available and fallback configured, try fallback
-        if let Some(fallback_name) = &self.config.fallback {
-            // Load fallback backend config
-            let all_backends = crate::backends::load_all_backends_unified().map_err(|e| {
-                DeclarchError::PackageManagerError(format!("Failed to load backend configs: {}", e))
-            })?;
-
-            if let Some(fallback_config) = all_backends.get(fallback_name)
-                && let Some(fallback_bin) = fallback_config.binary.find_available()
-            {
-                return Ok(fallback_bin);
-            }
-        }
-
-        // Neither primary nor fallback available
-        Err(DeclarchError::PackageManagerError(format!(
-            "{} not found. Please install {} first.",
-            self.config.binary.primary(),
-            self.config.name
-        )))
-    }
-
-    /// Build command with optional sudo
-    /// Uses the resolved binary (respecting fallback if needed)
-    fn build_command(&self, cmd_str: &str, mode: CommandMode) -> Result<Command> {
-        let binary = self.get_binary()?;
-
-        // Replace common placeholders
-        let cmd_str = self.replace_common_placeholders(cmd_str, &binary);
-
-        let use_sudo = self.config.needs_sudo && matches!(mode, CommandMode::Mutating);
-        let mut cmd = crate::utils::platform::build_shell_command(&cmd_str, use_sudo)?;
-
-        // Apply configured environment variables to all backend commands.
-        if let Some(env_vars) = &self.config.preinstall_env {
-            for (key, value) in env_vars {
-                cmd.env(key, value);
-            }
-        }
-
-        Ok(cmd)
-    }
-
-    /// Format package list for command
-    ///
-    /// SECURITY: Each package name is shell-escaped to prevent injection attacks.
-    /// Even though packages are validated before calling this function, we add
-    /// an extra layer of protection through proper escaping.
-    fn format_packages(&self, packages: &[String]) -> String {
-        packages
-            .iter()
-            .map(|p| sanitize::shell_escape(p))
-            .collect::<Vec<_>>()
-            .join(" ")
-    }
-
-    /// Format repository/source list for command template usage.
-    /// Each source is shell-escaped to prevent injection.
-    fn format_sources(&self) -> String {
-        self.config
-            .package_sources
-            .as_ref()
-            .map(|sources| {
-                sources
-                    .iter()
-                    .map(|s| sanitize::shell_escape(s))
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            })
-            .unwrap_or_default()
-    }
-
-    /// Replace placeholders that are common across all command templates.
-    fn replace_common_placeholders(&self, template: &str, binary: &str) -> String {
-        template
-            .replace("{binary}", binary)
-            .replace("{repos}", &self.format_sources())
-    }
 }
 
 impl PackageManager for GenericManager {
@@ -157,12 +69,7 @@ impl PackageManager for GenericManager {
         let cmd_str = list_cmd.clone();
         let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
 
-        let output = run_command_with_timeout(&mut cmd, DEFAULT_COMMAND_TIMEOUT).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: cmd_str.clone(),
-                reason: e.to_string(),
-            }
-        })?;
+        let output = self.run_output_command(&mut cmd, &cmd_str, DEFAULT_COMMAND_TIMEOUT)?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -199,12 +106,8 @@ impl PackageManager for GenericManager {
 
         // Use interactive timeout function (5 minute timeout for install)
         let timeout = Duration::from_secs(300);
-        let status = run_interactive_command_with_timeout(&mut cmd, timeout).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: format!("install: {}", cmd_str),
-                reason: e.to_string(),
-            }
-        })?;
+        let status =
+            self.run_interactive_status(&mut cmd, &format!("install: {}", cmd_str), timeout)?;
 
         if !status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -246,12 +149,8 @@ impl PackageManager for GenericManager {
 
         // Use interactive timeout function (5 minute timeout for remove)
         let timeout = Duration::from_secs(300);
-        let status = run_interactive_command_with_timeout(&mut cmd, timeout).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: format!("remove: {}", cmd_str),
-                reason: e.to_string(),
-            }
-        })?;
+        let status =
+            self.run_interactive_status(&mut cmd, &format!("remove: {}", cmd_str), timeout)?;
 
         if !status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -306,12 +205,7 @@ impl PackageManager for GenericManager {
         let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
 
         // Use shorter timeout for search (30 seconds)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30)).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: cmd_str.clone(),
-                reason: e.to_string(),
-            }
-        })?;
+        let output = self.run_output_command(&mut cmd, &cmd_str, Duration::from_secs(30))?;
 
         if !output.status.success() {
             return Ok(Vec::new());
@@ -339,12 +233,7 @@ impl PackageManager for GenericManager {
         ui::info(&format!("Updating {} package index...", self.config.name));
 
         // Use standard timeout for update (2 minutes)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(120)).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: cmd_str.clone(),
-                reason: e.to_string(),
-            }
-        })?;
+        let output = self.run_output_command(&mut cmd, &cmd_str, Duration::from_secs(120))?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -375,12 +264,7 @@ impl PackageManager for GenericManager {
         ui::info(&format!("Cleaning {} cache...", self.config.name));
 
         // Use standard timeout for cache clean (5 minutes - can be slow)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(300)).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: cmd_str.clone(),
-                reason: e.to_string(),
-            }
-        })?;
+        let output = self.run_output_command(&mut cmd, &cmd_str, Duration::from_secs(300))?;
 
         if !output.status.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -412,11 +296,7 @@ impl PackageManager for GenericManager {
         ui::info(&format!("Upgrading {} packages...", self.config.name));
 
         // Use longer timeout for upgrade (10 minutes - can be slow)
-        let output = run_interactive_command_with_timeout(&mut cmd, Duration::from_secs(600))
-            .map_err(|e| DeclarchError::SystemCommandFailed {
-                command: cmd_str.clone(),
-                reason: e.to_string(),
-            })?;
+        let output = self.run_interactive_status(&mut cmd, &cmd_str, Duration::from_secs(600))?;
 
         if !output.success() {
             return Err(DeclarchError::PackageManagerError(format!(
@@ -449,12 +329,7 @@ impl PackageManager for GenericManager {
         let mut cmd = self.build_command(&cmd_str, CommandMode::ReadOnly)?;
 
         // Use shorter timeout for search (30 seconds)
-        let output = run_command_with_timeout(&mut cmd, Duration::from_secs(30)).map_err(|e| {
-            DeclarchError::SystemCommandFailed {
-                command: cmd_str.clone(),
-                reason: e.to_string(),
-            }
-        })?;
+        let output = self.run_output_command(&mut cmd, &cmd_str, Duration::from_secs(30))?;
 
         if !output.status.success() {
             return Ok(Vec::new());
