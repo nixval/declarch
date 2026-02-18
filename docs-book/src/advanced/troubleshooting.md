@@ -50,7 +50,7 @@ Actions:
 Verify with:
 
 ```bash
-command -v yarn
+declarch info yarn -v
 ```
 
 ## 3) Parse errors (KDL)
@@ -135,9 +135,6 @@ declarch -v lint --mode validate
 declarch -v info --doctor
 declarch -v --dry-run sync
 ```
-
-Use `-v` when you need backend-level diagnostics (selected backend, fallback reason, and command-capability detail).  
-Without `-v`, declarch intentionally keeps output concise for beginner users.
 
 Issue tracker:
 - https://github.com/nixval/declarch/issues

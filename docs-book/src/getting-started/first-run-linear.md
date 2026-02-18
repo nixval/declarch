@@ -25,7 +25,24 @@ declarch info --doctor
 
 ## 3) Add packages
 
-Use explicit backend prefixes (recommended for beginners):
+Declarative-first path (recommended):
+
+```kdl
+// ~/.config/declarch/modules/base.kdl
+pkg {
+    aur { bat fd ripgrep }
+    npm { typescript }
+}
+```
+
+Then apply with preview:
+
+```bash
+declarch --dry-run sync
+declarch sync
+```
+
+Direct install shortcut (still valid):
 
 ```bash
 declarch install aur:bat aur:fd aur:ripgrep

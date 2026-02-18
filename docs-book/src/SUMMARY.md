@@ -34,6 +34,7 @@
 - [Remote Init](./advanced/remote-init.md)
 - [Troubleshooting](./advanced/troubleshooting.md)
 - [Version Pinning (Planned)](./advanced/version-pinning.md)
+- [Policy, Hooks, and Editor Behavior](./advanced/policy-hooks-editor.md)
 - [Integration Examples](./advanced/integration-examples.md)
 - [MCP Setup (Technical)](./advanced/mcp-setup.md)
 

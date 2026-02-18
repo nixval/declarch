@@ -1,5 +1,17 @@
 # Quick Start
 
+## 0) Understand the flow first (declarative)
+
+Declarch works best when you treat KDL config as source of truth.
+
+1. Declare packages in module files.
+2. Preview with dry-run.
+3. Apply with sync.
+
+```bash
+declarch --dry-run sync
+declarch sync
+```
 
 ## 1) Initialize
 
@@ -26,28 +38,35 @@ declarch info --doctor -v
 ## 2) Adopt backend(s) first
 
 ```bash
-`````bash
-decl init --backend aur paru yay pacman // for Arch distro base
-decl init --backend nala apt // for Debian/ubuntu distro base
-decl init --backend dnf5 // for Red Hat distro base
-decl init --backend zypper // for SUSE distro base
-decl init --backend brew // for macOS
+# Arch-based
+declarch init --backend aur,paru,yay,pacman
 
-// or you can custom it based on package manager preference
-// I already manage it at nixval/package-manager
-// or see the list at `decl init --list backend`
-// then adopt it `decl init pnpm npm bun soar flatpak`, etc
-````
+# Debian/Ubuntu
+declarch init --backend nala,apt
 
-## 3) Add packages
+# Fedora/RHEL
+declarch init --backend dnf5
 
-### Declaratively config
+# SUSE
+declarch init --backend zypper
 
-add packages inside pkg { <backendname> { <yourpackages> } }
-// ~/.config/declarch/modules/mydotfiles.kdl
+# macOS
+declarch init --backend brew
+
+# discover options from registry
+declarch init --list backends
+declarch init --list modules
+```
+
+## 3) Add packages (declarative first)
+
+Example module file (`~/.config/declarch/modules/mydotfiles.kdl`):
+
+```kdl
 meta {
     title "My dotfiles"
 }
+
 pkg {
     aur { hyprland waybar }
     flatpak { firefox }
@@ -57,33 +76,34 @@ pkg {
         oh-my-opencode
     }
 }
-
-```bash
-decl edit // will edit declarch.kdl
-decl edit mydotfiles --create // will create new file and editted directly
-decl edit mydotfiles // will edit ./modules/mydotfiles.kdl
-
-// then just do `decl sync`
-decl sync --dry-run // if not sure yet
-decl lint --fix // if something error syntax happen
-decl sync prune // if there some packages that deleted from configuration
-decl sync // install what you type in config
 ```
 
-### Direct install
+Edit flow:
+
+```bash
+declarch edit
+declarch edit mydotfiles --create
+declarch edit mydotfiles
+```
+
+Then:
+
+```bash
+declarch --dry-run sync
+declarch lint --fix
+declarch sync prune
+declarch sync
+```
+
+## 4) Direct install (optional shortcut)
+
 ```bash
 declarch install aur:bat aur:fzf aur:ripgrep
 declarch install npm:typescript
 declarch install bat fzf ripgrep --backend aur
-// this will automatically written in ./modules/others.kdl
 ```
 
-## 4) Preview and apply
-
-```bash
-declarch --dry-run sync
-declarch sync
-```
+This writes package entries to `modules/others.kdl` automatically.
 
 ## 5) Add more backends when needed
 
