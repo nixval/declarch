@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "command": "search",
+  "ok": true,
+  "data": {
+    "query": "firefox",
+    "local": false,
+    "requested_backends": ["aur", "missing"],
+    "total_matches": 1,
+    "shown_results": 1,
+    "results": [
+      {
+        "backend": "aur",
+        "name": "firefox",
+        "version": "132.0",
+        "description": "Web browser",
+        "installed": false
+      }
+    ]
+  },
+  "warnings": [
+    "Unknown backend(s): missing"
+  ],
+  "errors": [],
+  "meta": {
+    "generated_at": "2026-02-18T00:00:00Z"
+  }
+}
