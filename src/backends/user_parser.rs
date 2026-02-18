@@ -4,12 +4,14 @@
 //! allowing users to extend declarch with custom package managers.
 
 mod imports;
+mod parse_utils;
 mod validation;
 
 use crate::backends::config::{BackendConfig, BinarySpecifier, OutputFormat};
 use crate::error::{DeclarchError, Result};
 use imports::{collect_import_backends, collect_imports_block_backends};
 use kdl::{KdlDocument, KdlNode};
+use parse_utils::{get_entry_string, parse_bool, parse_env, parse_supported_os};
 use std::path::Path;
 use validation::validate_backend_config;
 
@@ -141,54 +143,6 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     };
 
     Ok(())
-}
-
-fn parse_supported_os(node: &KdlNode, config: &mut BackendConfig) {
-    let mut values: Vec<String> = Vec::new();
-
-    // Inline entries: platforms "linux" "macos"
-    for entry in node.entries() {
-        if entry.name().is_none()
-            && let Some(val) = entry.value().as_string()
-        {
-            values.push(val.to_lowercase());
-        }
-    }
-
-    // Child nodes: platforms { linux macos } or platforms { "linux" "macos" }
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_name = child.name().value();
-            if !child_name.is_empty() {
-                values.push(child_name.to_lowercase());
-            }
-            for entry in child.entries() {
-                if let Some(val) = entry.value().as_string() {
-                    values.push(val.to_lowercase());
-                }
-            }
-        }
-    }
-
-    values.sort();
-    values.dedup();
-    if !values.is_empty() {
-        config.supported_os = Some(values);
-    }
-}
-
-/// Get string value from KDL entry, handling both quoted strings and bare words
-fn get_entry_string(entry: &kdl::KdlEntry) -> Option<String> {
-    // Try as string first
-    if let Some(s) = entry.value().as_string() {
-        return Some(s.to_string());
-    }
-    // Fallback: convert value to string (handles bare words/identifiers)
-    let val_str = entry.value().to_string();
-    if !val_str.is_empty() {
-        return Some(val_str);
-    }
-    None
 }
 
 /// Parse list command with output format
@@ -828,61 +782,6 @@ fn parse_fallback(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         .first()
         .and_then(|entry| entry.value().as_string())
         .map(|s| s.to_string());
-    Ok(())
-}
-
-/// Parse boolean value
-/// Accepts both boolean literals (true/false) and strings ("true"/"false")
-fn parse_bool(node: &KdlNode) -> Result<bool> {
-    let entry = node.entries().first();
-
-    // Try as boolean literal first
-    if let Some(val) = entry.and_then(|e| e.value().as_bool()) {
-        return Ok(val);
-    }
-
-    // Try as string "true" or "false"
-    if let Some(s) = entry.and_then(|e| e.value().as_string()) {
-        match s.to_lowercase().as_str() {
-            "true" => return Ok(true),
-            "false" => return Ok(false),
-            _ => {}
-        }
-    }
-
-    Err(DeclarchError::Other(
-        "Boolean value required. Usage: needs_sudo true or needs_sudo \"true\"".to_string(),
-    ))
-}
-
-/// Parse environment variables
-fn parse_env(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    let mut env_map = std::collections::HashMap::new();
-
-    for entry in node.entries() {
-        // Handle named arguments (properties): env KEY="value"
-        if let Some(name) = entry.name() {
-            let key = name.value();
-            if let Some(value) = entry.value().as_string() {
-                env_map.insert(key.to_string(), value.to_string());
-            }
-        } else if let Some(s) = entry.value().as_string() {
-            // Handle string arguments with "KEY=VALUE" format
-            if let Some((key, value)) = s.split_once('=') {
-                env_map.insert(key.to_string(), value.to_string());
-            } else {
-                return Err(DeclarchError::Other(format!(
-                    "Environment variable must be in format KEY=VALUE or use named argument KEY=\"value\", got: {}",
-                    s
-                )));
-            }
-        }
-    }
-
-    if !env_map.is_empty() {
-        config.preinstall_env = Some(env_map);
-    }
-
     Ok(())
 }
 
