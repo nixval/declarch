@@ -25,10 +25,10 @@ Status legend:
 
 ## C. Machine Output Contract v1 Hardening
 
-- [~] Update kontrak docs agar mencakup command yang sudah support v1.
-- [ ] Tambah contoh untuk `info --list` v1 envelope.
-- [ ] Tambah contoh warning/error envelope untuk `search` dan `sync` dry-run.
-- [ ] Tambah test validasi struktur envelope (`version/command/ok/data/warnings/errors/meta`).
+- [x] Update kontrak docs agar mencakup command yang sudah support v1.
+- [x] Tambah contoh untuk `info --list` v1 envelope.
+- [x] Tambah contoh warning/error envelope untuk `search` dan `sync` dry-run.
+- [x] Tambah test validasi struktur envelope (`version/command/ok/data/warnings/errors/meta`).
 
 ## D. Module-Level Regression Reinforcement
 
