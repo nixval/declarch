@@ -1,5 +1,6 @@
 mod backup_ops;
 mod locking;
+mod migration;
 
 use crate::error::{DeclarchError, Result};
 use crate::project_identity;
@@ -8,12 +9,13 @@ use crate::ui;
 use crate::utils::paths;
 use backup_ops::{restore_from_backup, rotate_backups};
 pub use locking::{StateLock, acquire_lock};
+use migration::{migrate_state, sanitize_state_in_place};
 use std::fs::{self};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const CURRENT_STATE_SCHEMA_VERSION: u8 = 3;
+pub(crate) const CURRENT_STATE_SCHEMA_VERSION: u8 = 3;
 
 #[derive(Debug, Clone, Default)]
 pub struct StateRepairReport {
@@ -88,53 +90,6 @@ pub fn repair_state_packages() -> Result<StateRepairReport> {
     Ok(report)
 }
 
-fn sanitize_state_in_place(state: &mut State) -> StateRepairReport {
-    use crate::core::resolver;
-    use crate::core::types::PackageId;
-    use std::collections::{HashMap, HashSet};
-
-    let total_before = state.packages.len();
-    let mut report = StateRepairReport {
-        total_before,
-        ..Default::default()
-    };
-
-    let mut seen_signatures: HashSet<String> = HashSet::new();
-    let mut repaired: HashMap<String, crate::state::types::PackageState> = HashMap::new();
-
-    for (old_key, pkg_state) in &state.packages {
-        if pkg_state.config_name.trim().is_empty() {
-            report.removed_empty_name += 1;
-            continue;
-        }
-
-        let signature = format!("{}:{}", pkg_state.backend, pkg_state.config_name);
-        if !seen_signatures.insert(signature) {
-            report.removed_duplicates += 1;
-            continue;
-        }
-
-        let mut normalized = pkg_state.clone();
-        if normalized.provides_name.trim().is_empty() {
-            normalized.provides_name = normalized.config_name.clone();
-            report.normalized_fields += 1;
-        }
-
-        let canonical_key = resolver::make_state_key(&PackageId {
-            name: normalized.config_name.clone(),
-            backend: normalized.backend.clone(),
-        });
-        if &canonical_key != old_key {
-            report.rekeyed_entries += 1;
-        }
-        repaired.insert(canonical_key, normalized);
-    }
-
-    report.total_after = repaired.len();
-    state.packages = repaired;
-    report
-}
-
 fn pkg_state_timestamp(dt: &chrono::DateTime<chrono::Utc>) -> Result<SystemTime> {
     let secs = dt.timestamp() as u64;
     Ok(UNIX_EPOCH + std::time::Duration::from_secs(secs))
@@ -154,70 +109,6 @@ pub fn get_state_path() -> Result<PathBuf> {
     }
 
     Ok(state_file)
-}
-
-/// Migrate state to fix duplicate keys and format issues
-/// Returns true if migration was performed
-fn migrate_state(state: &mut crate::state::types::State) -> Result<bool> {
-    use crate::core::resolver;
-    use std::collections::HashMap;
-
-    let mut migrated = false;
-    let mut new_packages: HashMap<String, crate::state::types::PackageState> = HashMap::new();
-
-    // Track package signatures we've seen to detect duplicates
-    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-
-    for pkg_state in state.packages.values() {
-        // Build the canonical key using current format
-        let canonical_id = crate::core::types::PackageId {
-            name: pkg_state.config_name.clone(),
-            backend: pkg_state.backend.clone(),
-        };
-        let canonical_key = resolver::make_state_key(&canonical_id);
-
-        // Check if we've already seen this package
-        let signature = format!("{}:{}", pkg_state.backend, pkg_state.config_name);
-        if seen.contains(&signature) {
-            // Duplicate found - skip it
-            migrated = true;
-            continue;
-        }
-
-        seen.insert(signature);
-        new_packages.insert(canonical_key, pkg_state.clone());
-    }
-
-    if migrate_state_schema(state) {
-        migrated = true;
-    }
-
-    if migrated {
-        state.packages = new_packages;
-    }
-
-    Ok(migrated)
-}
-
-fn migrate_state_schema(state: &mut crate::state::types::State) -> bool {
-    let mut changed = false;
-
-    if state.meta.schema_version < CURRENT_STATE_SCHEMA_VERSION {
-        state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
-        changed = true;
-    }
-
-    if state.meta.state_revision.is_none() {
-        state.meta.state_revision = Some(1);
-        changed = true;
-    }
-
-    if state.meta.generator.is_none() {
-        state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
-        changed = true;
-    }
-
-    changed
 }
 
 fn load_state_internal(strict_recovery: bool) -> Result<State> {
