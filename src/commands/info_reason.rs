@@ -9,7 +9,12 @@ use crate::utils::paths;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
+mod presentation;
 mod query_helpers;
+use presentation::{
+    render_backend_missing_suggestions, render_context_verbose, render_install_remove_reason_block,
+    show_active_context,
+};
 use query_helpers::{
     load_config_with_modules, looks_like_module_query, parse_query, resolve_module_path,
 };
@@ -49,13 +54,7 @@ pub fn run(options: InfoReasonOptions) -> Result<()> {
     show_active_context(&options, &config);
 
     if options.verbose {
-        output::header("Verbose Context");
-        output::keyval("Config file", &config_path.display().to_string());
-        output::keyval("Declared packages", &config.packages.len().to_string());
-        output::keyval(
-            "Known backends",
-            &load_known_backends(&config).len().to_string(),
-        );
+        render_context_verbose(&config_path, &config);
     }
 
     if let Some(target) = options.target {
@@ -163,27 +162,8 @@ fn explain_sync_plan(config: &MergedConfig) -> Result<()> {
         return Ok(());
     }
 
-    if !to_install.is_empty() {
-        output::separator();
-        output::info("Why these will be installed:");
-        for pkg in to_install.iter().take(15) {
-            println!("  + {}", pkg);
-        }
-        if to_install.len() > 15 {
-            println!("  ... and {} more", to_install.len() - 15);
-        }
-    }
-
-    if !to_remove.is_empty() {
-        output::separator();
-        output::info("Why these will be removed:");
-        for pkg in to_remove.iter().take(15) {
-            println!("  - {}", pkg);
-        }
-        if to_remove.len() > 15 {
-            println!("  ... and {} more", to_remove.len() - 15);
-        }
-    }
+    render_install_remove_reason_block("installed", '+', &to_install);
+    render_install_remove_reason_block("removed", '-', &to_remove);
 
     Ok(())
 }
@@ -220,33 +200,7 @@ fn explain_query(query: &str, config: &MergedConfig) -> Result<()> {
         }
 
         output::warning(&format!("Nothing matched '{}'.", query));
-        output::info("Try one of these:");
-        output::indent(
-            &format!("• {}", project_identity::cli_with("info <package-name>")),
-            1,
-        );
-        output::indent(
-            &format!(
-                "• {}",
-                project_identity::cli_with("info <backend>:<package>")
-            ),
-            1,
-        );
-        output::indent(
-            &format!(
-                "• {}",
-                project_identity::cli_with("info backend:<backend-name>")
-            ),
-            1,
-        );
-        output::indent(
-            &format!("• {}", project_identity::cli_with("info <module-name>")),
-            1,
-        );
-        output::indent(
-            &format!("• {}", project_identity::cli_with("info --plan")),
-            1,
-        );
+        render_backend_missing_suggestions();
         return Err(DeclarchError::TargetNotFound(query.to_string()));
     }
 
@@ -417,27 +371,6 @@ fn load_known_backends(
         backends.insert(backend.name.to_lowercase(), backend.clone());
     }
     backends
-}
-
-fn show_active_context(options: &InfoReasonOptions, config: &MergedConfig) {
-    output::header("Active Context");
-
-    output::keyval(
-        "Profile",
-        options.profile.as_deref().unwrap_or("(default only)"),
-    );
-    output::keyval("Host", options.host.as_deref().unwrap_or("(default only)"));
-
-    if options.modules.is_empty() {
-        output::keyval("Extra modules", "none");
-    } else {
-        output::keyval("Extra modules", &options.modules.join(", "));
-    }
-
-    output::keyval(
-        "Backends in config",
-        &config.get_backends().len().to_string(),
-    );
 }
 
 #[cfg(test)]
