@@ -45,18 +45,61 @@ pub(super) fn display_hooks(hooks: &[&LifecycleAction], title: &str, warn_mode: 
     }
 
     for hook in hooks {
-        let sudo_marker = matches!(hook.action_type, ActionType::Root);
-        let package_info = if let Some(pkg) = &hook.package {
-            format!(" [{}]", pkg.cyan())
-        } else {
-            String::new()
+        println!("{}", render_hook_line(hook));
+    }
+}
+
+pub(super) fn render_hook_line(hook: &LifecycleAction) -> String {
+    let sudo_marker = matches!(hook.action_type, ActionType::Root);
+    let package_info = if let Some(pkg) = &hook.package {
+        format!(" [{}]", pkg.cyan())
+    } else {
+        String::new()
+    };
+    let safe_display = sanitize::sanitize_for_display(&hook.command);
+    format!(
+        "  {} {}{}",
+        if sudo_marker { "🔒" } else { "→" },
+        safe_display.cyan(),
+        package_info
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_hook_line;
+    use crate::config::kdl::{ActionType, ErrorBehavior, LifecycleAction, LifecyclePhase};
+
+    #[test]
+    fn render_hook_line_uses_root_marker_and_package_tag() {
+        let hook = LifecycleAction {
+            command: "echo secure".to_string(),
+            action_type: ActionType::Root,
+            phase: LifecyclePhase::PreSync,
+            package: Some("hyprland".to_string()),
+            conditions: vec![],
+            error_behavior: ErrorBehavior::Warn,
         };
-        let safe_display = sanitize::sanitize_for_display(&hook.command);
-        println!(
-            "  {} {}{}",
-            if sudo_marker { "🔒" } else { "→" },
-            safe_display.cyan(),
-            package_info
-        );
+
+        let line = render_hook_line(&hook);
+        assert!(line.contains("🔒"));
+        assert!(line.contains("echo secure"));
+        assert!(line.contains("hyprland"));
+    }
+
+    #[test]
+    fn render_hook_line_truncates_unsafe_long_display() {
+        let hook = LifecycleAction {
+            command: "x".repeat(220),
+            action_type: ActionType::User,
+            phase: LifecyclePhase::PreSync,
+            package: None,
+            conditions: vec![],
+            error_behavior: ErrorBehavior::Warn,
+        };
+
+        let line = render_hook_line(&hook);
+        assert!(line.contains("→"));
+        assert!(line.contains("..."));
     }
 }

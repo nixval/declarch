@@ -109,3 +109,51 @@ fn migrate_state_schema(state: &mut State) -> bool {
 
     changed
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::types::Backend;
+    use chrono::Utc;
+
+    #[test]
+    fn migrate_state_deduplicates_by_backend_and_config_name() {
+        let mut state = State::default();
+        let pkg = PackageState {
+            backend: Backend::from("aur"),
+            config_name: "bat".to_string(),
+            provides_name: "bat".to_string(),
+            actual_package_name: None,
+            installed_at: Utc::now(),
+            version: Some("0.25.0".to_string()),
+            install_reason: None,
+            source_module: None,
+            last_seen_at: None,
+            backend_meta: None,
+        };
+        state.packages.insert("aur:bat".to_string(), pkg.clone());
+        state.packages.insert("wrong:key".to_string(), pkg);
+
+        let migrated = migrate_state(&mut state).expect("migration should succeed");
+        assert!(migrated);
+        assert_eq!(state.packages.len(), 1);
+        assert!(state.packages.contains_key("aur:bat"));
+    }
+
+    #[test]
+    fn migrate_state_fills_schema_metadata_defaults() {
+        let mut state = State::default();
+        state.meta.schema_version = 0;
+        state.meta.state_revision = None;
+        state.meta.generator = None;
+
+        let migrated = migrate_state(&mut state).expect("migration should succeed");
+        assert!(migrated);
+        assert_eq!(state.meta.schema_version, CURRENT_STATE_SCHEMA_VERSION);
+        assert_eq!(state.meta.state_revision, Some(1));
+        assert_eq!(
+            state.meta.generator.as_deref(),
+            Some(project_identity::STABLE_PROJECT_ID)
+        );
+    }
+}

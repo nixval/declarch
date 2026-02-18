@@ -114,3 +114,110 @@ pub(super) fn emit_variant_transition_error(variant_mismatches: &[VariantMismatc
         project_identity::cli_with("switch")
     )))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::loader::MergedConfig;
+    use crate::core::resolver::Transaction;
+    use crate::core::types::{Backend, PackageId, PackageMetadata};
+    use crate::state::types::{PackageState, State};
+    use chrono::Utc;
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    #[test]
+    fn detects_variant_transition_when_state_has_no_actual_variant() {
+        let mut config = MergedConfig::default();
+        let declared = PackageId {
+            name: "hyprland".to_string(),
+            backend: Backend::from("aur"),
+        };
+        config
+            .packages
+            .insert(declared.clone(), vec![PathBuf::from("/tmp/root.kdl")]);
+
+        let mut installed_snapshot: InstalledSnapshot = HashMap::new();
+        installed_snapshot.insert(
+            PackageId {
+                name: "hyprland-git".to_string(),
+                backend: Backend::from("aur"),
+            },
+            PackageMetadata {
+                version: Some("1.0".to_string()),
+                variant: None,
+                installed_at: Utc::now(),
+                source_file: None,
+            },
+        );
+
+        let tx = Transaction {
+            to_install: Vec::new(),
+            to_prune: Vec::new(),
+            to_adopt: Vec::new(),
+            to_update_project_metadata: Vec::new(),
+        };
+
+        let state = State::default();
+        let mismatches =
+            collect_variant_mismatches(&config, &installed_snapshot, &state, &tx, &SyncTarget::All);
+
+        assert_eq!(mismatches.len(), 1);
+        assert_eq!(mismatches[0].0, "hyprland");
+        assert_eq!(mismatches[0].1, "hyprland-git");
+    }
+
+    #[test]
+    fn skips_variant_transition_when_state_tracks_actual_variant() {
+        let mut config = MergedConfig::default();
+        let declared = PackageId {
+            name: "hyprland".to_string(),
+            backend: Backend::from("aur"),
+        };
+        config
+            .packages
+            .insert(declared.clone(), vec![PathBuf::from("/tmp/root.kdl")]);
+
+        let mut installed_snapshot: InstalledSnapshot = HashMap::new();
+        installed_snapshot.insert(
+            PackageId {
+                name: "hyprland-git".to_string(),
+                backend: Backend::from("aur"),
+            },
+            PackageMetadata {
+                version: Some("1.0".to_string()),
+                variant: None,
+                installed_at: Utc::now(),
+                source_file: None,
+            },
+        );
+
+        let mut state = State::default();
+        state.packages.insert(
+            crate::core::resolver::make_state_key(&declared),
+            PackageState {
+                backend: Backend::from("aur"),
+                config_name: "hyprland".to_string(),
+                provides_name: "hyprland".to_string(),
+                actual_package_name: Some("hyprland-git".to_string()),
+                installed_at: Utc::now(),
+                version: Some("1.0".to_string()),
+                install_reason: None,
+                source_module: None,
+                last_seen_at: None,
+                backend_meta: None,
+            },
+        );
+
+        let tx = Transaction {
+            to_install: Vec::new(),
+            to_prune: Vec::new(),
+            to_adopt: Vec::new(),
+            to_update_project_metadata: Vec::new(),
+        };
+
+        let mismatches =
+            collect_variant_mismatches(&config, &installed_snapshot, &state, &tx, &SyncTarget::All);
+        assert!(mismatches.is_empty());
+    }
+}

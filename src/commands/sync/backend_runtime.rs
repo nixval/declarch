@@ -163,3 +163,6 @@ pub(super) fn execute_backend_updates(managers: &ManagerMap, verbose: bool) -> R
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
