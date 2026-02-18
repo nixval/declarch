@@ -1,3 +1,4 @@
+mod security;
 mod url_builders;
 
 use crate::constants::{CONFIG_EXTENSION, PROJECT_NAME};
@@ -5,7 +6,11 @@ use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::ui as output;
 use reqwest::blocking::Client;
-use std::net::{IpAddr, ToSocketAddrs};
+use security::validate_url;
+#[cfg(test)]
+use security::{first_private_ip, is_private_address};
+#[cfg(test)]
+use std::net::IpAddr;
 use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
@@ -15,11 +20,6 @@ static DEFAULT_REGISTRY: LazyLock<String> = LazyLock::new(project_identity::regi
 static BACKENDS_REGISTRY: LazyLock<String> =
     LazyLock::new(|| format!("{}/backends", *DEFAULT_REGISTRY));
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-
-/// Secure scheme allowed by default.
-const SECURE_SCHEME: &str = "https";
-/// Optional insecure scheme. Only allowed with explicit opt-in.
-const INSECURE_SCHEME: &str = "http";
 
 /// Fetch module content from remote repository
 ///
@@ -165,67 +165,6 @@ fn fetch_url(client: &Client, url: &str) -> Result<String> {
     }
 }
 
-/// Validate URL to prevent SSRF attacks
-fn validate_url(url_str: &str) -> Result<()> {
-    // Parse URL to validate scheme
-    let parsed = reqwest::Url::parse(url_str)
-        .map_err(|_| DeclarchError::RemoteFetchError(format!("Invalid URL: {}", url_str)))?;
-
-    // Check scheme policy (HTTPS by default, HTTP opt-in only).
-    let scheme = parsed.scheme();
-    if !is_allowed_scheme(scheme) {
-        let insecure_key = project_identity::env_key("ALLOW_INSECURE_HTTP");
-        return Err(DeclarchError::RemoteFetchError(format!(
-            "URL scheme '{}' is blocked. Allowed by default: https. To allow http explicitly set {}=1.",
-            scheme, insecure_key
-        )));
-    }
-
-    // Prevent access to localhost/private networks (basic check)
-    let host = parsed.host_str().ok_or_else(|| {
-        DeclarchError::RemoteFetchError(format!("URL must include a valid host: {}", url_str))
-    })?;
-    if is_private_address(host) {
-        return Err(DeclarchError::RemoteFetchError(format!(
-            "Access to private addresses is not allowed: {}",
-            host
-        )));
-    }
-
-    // Resolve hostname to prevent DNS-based SSRF bypasses where a public-looking
-    // hostname resolves to private/local addresses.
-    let port = parsed.port_or_known_default().unwrap_or(443);
-    let resolved = resolve_host_addresses(host, port).map_err(|e| {
-        DeclarchError::RemoteFetchError(format!("Failed to resolve host '{}': {}", host, e))
-    })?;
-    if resolved.is_empty() {
-        return Err(DeclarchError::RemoteFetchError(format!(
-            "Failed to resolve host '{}': no addresses returned",
-            host
-        )));
-    }
-    if let Some(private_ip) = first_private_ip(&resolved) {
-        return Err(DeclarchError::RemoteFetchError(format!(
-            "Access to private addresses is not allowed: {} -> {}",
-            host, private_ip
-        )));
-    }
-
-    Ok(())
-}
-
-fn is_allowed_scheme(scheme: &str) -> bool {
-    if scheme == SECURE_SCHEME {
-        return true;
-    }
-
-    if scheme == INSECURE_SCHEME {
-        return project_identity::env_get("ALLOW_INSECURE_HTTP").unwrap_or_default() == "1";
-    }
-
-    false
-}
-
 fn format_fetch_failure(url: &str, reason: &str) -> String {
     format!("- {} => {}", url, reason)
 }
@@ -245,44 +184,6 @@ fn format_failure_summary(failures: &[String]) -> String {
         out.push_str(&format!("\n  ... and {} more", failures.len() - 3));
     }
     out
-}
-
-fn resolve_host_addresses(host: &str, port: u16) -> std::io::Result<Vec<IpAddr>> {
-    (host, port)
-        .to_socket_addrs()
-        .map(|iter| iter.map(|sa| sa.ip()).collect())
-}
-
-fn first_private_ip(addrs: &[IpAddr]) -> Option<IpAddr> {
-    addrs.iter().copied().find(|ip| is_private_ip(*ip))
-}
-
-fn is_private_ip(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(ipv4) => {
-            ipv4.is_private() || ipv4.is_loopback() || ipv4.is_link_local() || ipv4.is_unspecified()
-        }
-        IpAddr::V6(ipv6) => {
-            ipv6.is_loopback()
-                || ipv6.is_unique_local()
-                || ipv6.is_unicast_link_local()
-                || ipv6.is_unspecified()
-        }
-    }
-}
-
-/// Check if hostname is a private/local address
-fn is_private_address(host: &str) -> bool {
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        return is_private_ip(ip);
-    }
-
-    // Check for localhost variants
-    if host.eq_ignore_ascii_case("localhost") {
-        return true;
-    }
-
-    false
 }
 
 #[cfg(test)]
