@@ -3,6 +3,7 @@ use crate::utils::update_check::InstallOwner;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::process::Command;
 
 pub(super) fn detect_install_owner() -> InstallOwner {
