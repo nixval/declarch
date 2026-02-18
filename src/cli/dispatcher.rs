@@ -3,6 +3,7 @@
 //! Routes CLI commands to their appropriate handlers.
 
 mod output_contract;
+mod utils;
 
 use crate::cli::args::{Cli, Command, InfoListScope, LintMode, SyncCommand};
 use crate::commands;
@@ -10,6 +11,7 @@ use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::ui as output;
 use output_contract::validate_machine_output_contract;
+use utils::{list_to_optional_vec, map_lint_mode, parse_limit_option};
 
 /// Dispatch the parsed CLI command to the appropriate handler
 pub fn dispatch(args: &Cli) -> Result<()> {
@@ -462,36 +464,6 @@ fn handle_lint_command(
         host: host.clone(),
         modules: modules.to_vec(),
     })
-}
-
-fn map_lint_mode(mode: &LintMode) -> commands::lint::LintMode {
-    match mode {
-        LintMode::All => commands::lint::LintMode::All,
-        LintMode::Validate => commands::lint::LintMode::Validate,
-        LintMode::Duplicates => commands::lint::LintMode::Duplicates,
-        LintMode::Conflicts => commands::lint::LintMode::Conflicts,
-    }
-}
-
-fn list_to_optional_vec(values: &[String]) -> Option<Vec<String>> {
-    if values.is_empty() {
-        None
-    } else {
-        Some(values.to_vec())
-    }
-}
-
-fn parse_limit_option(limit: Option<&str>) -> Result<Option<usize>> {
-    match limit {
-        None => Ok(Some(10)),
-        Some("all") | Some("0") => Ok(None),
-        Some(raw) => raw.parse::<usize>().map(Some).map_err(|_| {
-            DeclarchError::Other(format!(
-                "Invalid --limit value '{}'. Use a non-negative integer, 0, or 'all'.",
-                raw
-            ))
-        }),
-    }
 }
 
 #[cfg(test)]
