@@ -37,6 +37,7 @@ If your change affects behavior, CLI UX, defaults, safety policy, or troubleshoo
 - [Full Documentation](https://nixval.github.io/declarch/)
 - [Configuration Reference](https://nixval.github.io/declarch/configuration/kdl-syntax.html)
 - [Command Reference](https://nixval.github.io/declarch/commands/)
+- [Internal Architecture Map](docs/architecture/module-boundaries.md)
 
 ## License
 
