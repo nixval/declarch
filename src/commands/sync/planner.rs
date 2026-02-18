@@ -4,18 +4,19 @@
 
 mod filtering;
 mod presentation;
+mod variant_transition;
 
 use super::{InstalledSnapshot, ManagerMap, SyncOptions};
 use crate::config::loader;
 use crate::core::{resolver, types::SyncTarget};
-use crate::error::{DeclarchError, Result};
-use crate::project_identity;
+use crate::error::Result;
 use crate::state::types::State;
 use crate::ui as output;
 use chrono::Utc;
 use colored::Colorize;
 use filtering::resolve_filtered_transaction;
 use presentation::{display_dry_run_details_impl, display_transaction_plan_impl};
+use variant_transition::{collect_variant_mismatches, emit_variant_transition_error};
 
 /// Create transaction from current state and desired config
 /// This is a wrapper that calls resolve_and_filter_packages
@@ -49,108 +50,10 @@ pub fn check_variant_transitions(
     sync_target: &SyncTarget,
     options: &SyncOptions,
 ) -> Result<()> {
-    use crate::core::matcher::PackageMatcher;
-    use crate::core::types::Backend;
-    use std::collections::HashSet;
-
-    let matcher = PackageMatcher::new();
-    // Store (config_name, installed_name, backend) for each mismatch
-    let mut variant_mismatches: Vec<(String, String, Backend)> = Vec::new();
-
-    // Only check for variant transitions in full sync or when targeting specific backends
-    if matches!(sync_target, SyncTarget::All | SyncTarget::Backend(_)) {
-        // Re-filter packages for variant checking
-        let available_backends: HashSet<Backend> = installed_snapshot
-            .keys()
-            .map(|pkg_id| pkg_id.backend.clone())
-            .collect();
-
-        for pkg_id in config
-            .packages
-            .keys()
-            .filter(|pkg_id| available_backends.contains(&pkg_id.backend))
-        {
-            // Skip if this package is already in transaction to install
-            if tx.to_install.iter().any(|p| p.name == pkg_id.name) {
-                continue;
-            }
-
-            // Check if there's a variant of this package installed
-            if let Some(matched_id) = matcher.find_package(pkg_id, installed_snapshot) {
-                // If matched name is different from config name, it's a variant
-                if matched_id.name != pkg_id.name {
-                    // Check if this variant is NOT already tracked in state
-                    let state_key = resolver::make_state_key(pkg_id);
-                    let state_pkg = state.packages.get(&state_key);
-
-                    // Only report if not tracked (means user might have manually changed it)
-                    if state_pkg.is_none()
-                        || state_pkg
-                            .and_then(|s| s.actual_package_name.as_ref())
-                            .map(|n| n != &matched_id.name)
-                            .unwrap_or(false)
-                    {
-                        variant_mismatches.push((
-                            pkg_id.name.clone(),
-                            matched_id.name,
-                            pkg_id.backend.clone(),
-                        ));
-                    }
-                }
-            }
-        }
-    }
-
-    // If variant mismatches found, error with helpful message
+    let variant_mismatches =
+        collect_variant_mismatches(config, installed_snapshot, state, tx, sync_target);
     if !variant_mismatches.is_empty() && !options.force {
-        output::separator();
-        output::error("Variant transition detected!");
-        println!("\nThe following packages have different variants installed:\n");
-
-        for (config_name, installed_name, backend) in &variant_mismatches {
-            println!(
-                "  [{}] {}  →  {}",
-                backend.to_string().dimmed(),
-                config_name.cyan().bold(),
-                installed_name.yellow().bold()
-            );
-        }
-
-        println!(
-            "\n{}",
-            "This requires explicit transition to avoid unintended changes.".dimmed()
-        );
-        println!("\n{}", "To resolve this:".bold());
-        println!("  1. For each package, run:");
-        for (config_name, installed_name, backend) in &variant_mismatches {
-            let backend_prefix = format!("{}:", backend);
-            println!(
-                "     {}",
-                project_identity::cli_with(&format!(
-                    "switch {}{} {}{}",
-                    backend_prefix, installed_name, backend_prefix, config_name
-                ))
-                .bold()
-            );
-        }
-        println!("\n  2. Or, update your config to match the installed variant:");
-        for (config_name, installed_name, backend) in &variant_mismatches {
-            println!(
-                "       pkg {{ {} {{ {} }} }}  (was: {})",
-                backend.to_string().cyan(),
-                installed_name.yellow(),
-                config_name.dimmed()
-            );
-        }
-        println!(
-            "\n  3. Use {} to bypass this check (not recommended)",
-            "--force".yellow().bold()
-        );
-
-        return Err(DeclarchError::Other(format!(
-            "Variant transition required. Use '{}' or update your config.",
-            project_identity::cli_with("switch")
-        )));
+        return emit_variant_transition_error(&variant_mismatches);
     }
 
     Ok(())
