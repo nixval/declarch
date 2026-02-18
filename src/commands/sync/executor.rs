@@ -3,6 +3,7 @@
 //! Installs, adopts, and prunes packages based on transaction plan.
 
 mod retry;
+mod snapshot;
 
 use super::variants::resolve_installed_package_name;
 use super::{InstalledSnapshot, ManagerMap, SyncOptions};
@@ -13,48 +14,19 @@ use crate::config::loader;
 use crate::constants::{BACKEND_OPERATION_MAX_RETRIES, BACKEND_RETRY_DELAY_MS, CRITICAL_PACKAGES};
 use crate::core::{
     resolver,
-    types::{Backend, PackageId, PackageMetadata},
+    types::{Backend, PackageId},
 };
 use crate::error::Result;
-use crate::packages::PackageManager;
 use crate::ui as output;
 use colored::Colorize;
-use rayon::prelude::*;
 use retry::execute_with_retry;
+use snapshot::build_installed_snapshot;
 use std::collections::{HashMap, HashSet};
 
 /// Maximum retry attempts for failed backend operations
 const MAX_RETRIES: u32 = BACKEND_OPERATION_MAX_RETRIES;
 /// Delay between retries (in milliseconds)
 const RETRY_DELAY_MS: u64 = BACKEND_RETRY_DELAY_MS;
-
-fn list_installed_for_backend(
-    backend: &Backend,
-    mgr: &dyn PackageManager,
-) -> Option<Result<Vec<(PackageId, PackageMetadata)>>> {
-    if !mgr.is_available() {
-        return None;
-    }
-    match mgr.list_installed() {
-        Ok(packages) => {
-            let packages_with_backend: Vec<_> = packages
-                .into_iter()
-                .map(|(name, meta)| {
-                    let id = PackageId {
-                        name,
-                        backend: backend.clone(),
-                    };
-                    (id, meta)
-                })
-                .collect();
-            Some(Ok(packages_with_backend))
-        }
-        Err(e) => {
-            output::warning(&format!("Failed to list packages for {}: {}", backend, e));
-            Some(Err(e))
-        }
-    }
-}
 
 /// Execute transaction (install, adopt, prune)
 pub fn execute_transaction(
@@ -64,22 +36,7 @@ pub fn execute_transaction(
     options: &SyncOptions,
     hooks_enabled: bool,
 ) -> Result<Vec<PackageId>> {
-    // Build initial snapshot from managers.
-    // Use parallel listing only when multiple backends exist to avoid Rayon overhead for small N.
-    let backend_results: Vec<Vec<(PackageId, PackageMetadata)>> = if managers.len() <= 1 {
-        managers
-            .iter()
-            .filter_map(|(backend, mgr)| list_installed_for_backend(backend, mgr.as_ref()))
-            .collect::<Result<Vec<_>>>()?
-    } else {
-        managers
-            .par_iter()
-            .filter_map(|(backend, mgr)| list_installed_for_backend(backend, mgr.as_ref()))
-            .collect::<Result<Vec<_>>>()?
-    };
-    let installed_snapshot: InstalledSnapshot = backend_results.into_iter().flatten().collect();
-
-    let mut installed_snapshot = installed_snapshot;
+    let mut installed_snapshot = build_installed_snapshot(managers)?;
 
     // Execute installations
     let successfully_installed = execute_installations(
