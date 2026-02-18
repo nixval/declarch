@@ -2,23 +2,21 @@
 //!
 //! Installs, adopts, and prunes packages based on transaction plan.
 
+mod prune;
 mod retry;
 mod snapshot;
 
-use super::variants::resolve_installed_package_name;
 use super::{InstalledSnapshot, ManagerMap, SyncOptions};
-use crate::commands::sync::hooks::{
-    execute_post_install, execute_post_remove, execute_pre_install, execute_pre_remove,
-};
+use crate::commands::sync::hooks::{execute_post_install, execute_pre_install};
 use crate::config::loader;
-use crate::constants::{BACKEND_OPERATION_MAX_RETRIES, BACKEND_RETRY_DELAY_MS, CRITICAL_PACKAGES};
+use crate::constants::{BACKEND_OPERATION_MAX_RETRIES, BACKEND_RETRY_DELAY_MS};
 use crate::core::{
     resolver,
     types::{Backend, PackageId},
 };
 use crate::error::Result;
 use crate::ui as output;
-use colored::Colorize;
+use prune::execute_pruning;
 use retry::execute_with_retry;
 use snapshot::build_installed_snapshot;
 use std::collections::{HashMap, HashSet};
@@ -195,139 +193,4 @@ fn execute_installations(
     }
 
     Ok(successfully_installed)
-}
-
-/// Execute package pruning with safety checks
-fn execute_pruning(
-    config: &loader::MergedConfig,
-    tx: &resolver::Transaction,
-    managers: &ManagerMap,
-    options: &SyncOptions,
-    hooks_enabled: bool,
-    installed_snapshot: &InstalledSnapshot,
-) -> Result<()> {
-    let orphan_strategy = config
-        .policy
-        .as_ref()
-        .and_then(|p| p.orphans.clone())
-        .unwrap_or_else(|| "remove".to_string())
-        .to_lowercase();
-
-    if orphan_strategy == "keep" {
-        output::info("Skipping orphan removal (policy.orphans = \"keep\")");
-        return Ok(());
-    }
-
-    if orphan_strategy == "ask"
-        && !options.yes
-        && !output::prompt_yes_no("Policy requests confirmation for orphan removal. Continue?")
-    {
-        output::info("Skipping orphan removal");
-        return Ok(());
-    }
-
-    // Build protected list - collect all actual installed package names from config
-    let mut protected_physical_names: Vec<String> = Vec::new();
-
-    for pkg in config.packages.keys() {
-        // Skip if user excluded this package
-        if config.excludes.contains(&pkg.name) {
-            continue;
-        }
-
-        let real_name = resolve_installed_package_name(pkg, installed_snapshot);
-        protected_physical_names.push(real_name);
-    }
-
-    // Build removal list
-    let mut removes: HashMap<Backend, Vec<String>> = HashMap::new();
-    let mut remove_hooks: HashMap<Backend, Vec<(String, String)>> = HashMap::new();
-    let policy_protected: HashSet<String> = config
-        .policy
-        .as_ref()
-        .map(|p| p.protected.iter().cloned().collect())
-        .unwrap_or_default();
-
-    for pkg in tx.to_prune.iter() {
-        // 1. GHOST MODE (Static Check) - Skip critical packages
-        if CRITICAL_PACKAGES.contains(&pkg.name.as_str()) || policy_protected.contains(&pkg.name) {
-            continue;
-        }
-
-        execute_pre_remove(
-            &config.lifecycle_actions,
-            &pkg.name,
-            hooks_enabled,
-            options.dry_run,
-        )?;
-
-        // 2. REAL ID RESOLUTION (using helper function)
-        let real_name = resolve_installed_package_name(pkg, installed_snapshot);
-
-        // 3. FRATRICIDE CHECK (Dynamic Runtime Check) - Don't remove if protected
-        if protected_physical_names.contains(&real_name) {
-            println!(
-                "  ℹ Keeping physical package '{}' (claimed by active config)",
-                real_name.dimmed()
-            );
-            continue;
-        }
-
-        removes
-            .entry(pkg.backend.clone())
-            .or_default()
-            .push(real_name.clone());
-        remove_hooks
-            .entry(pkg.backend.clone())
-            .or_default()
-            .push((real_name, pkg.name.clone()));
-    }
-
-    // Execute removals
-    for (backend, pkgs) in removes {
-        if !pkgs.is_empty()
-            && let Some(mgr) = managers.get(&backend)
-        {
-            output::info(&format!("Removing {} packages...", backend));
-            match mgr.remove(&pkgs) {
-                Ok(()) => {
-                    if let Some(hook_entries) = remove_hooks.get(&backend) {
-                        for (_, config_name) in hook_entries {
-                            execute_post_remove(
-                                &config.lifecycle_actions,
-                                config_name,
-                                hooks_enabled,
-                                options.dry_run,
-                            )?;
-                        }
-                    } else {
-                        for pkg_name in &pkgs {
-                            execute_post_remove(
-                                &config.lifecycle_actions,
-                                pkg_name,
-                                hooks_enabled,
-                                options.dry_run,
-                            )?;
-                        }
-                    }
-                }
-                Err(e) => {
-                    // Check if this is a "not supported" error
-                    let error_msg = format!("{}", e);
-                    if error_msg.contains("does not support removing") {
-                        output::warning(&format!(
-                            "Cannot remove {} package(s) - backend '{}' does not support removal",
-                            pkgs.len(),
-                            backend
-                        ));
-                        output::info(&format!("Packages not removed: {}", pkgs.join(", ")));
-                    } else {
-                        return Err(e);
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(())
 }
