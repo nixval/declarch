@@ -3,15 +3,15 @@ use super::{cache_policy, fetcher, owner_detection, versioning};
 
 #[test]
 fn compare_versions_works_for_semver() {
-    assert!(compare_versions("0.8.2", "0.8.1").is_gt());
-    assert!(compare_versions("0.8.1", "0.8.1").is_eq());
-    assert!(compare_versions("0.8.0", "0.8.1").is_lt());
+    assert!(compare_versions("0.8.3", "0.8.2").is_gt());
+    assert!(compare_versions("0.8.2", "0.8.2").is_eq());
+    assert!(compare_versions("0.8.2", "0.8.3").is_lt());
 }
 
 #[test]
 fn parses_prefixed_versions() {
-    assert_eq!(versioning::version_tuple("v0.8.1"), Some((0, 8, 1)));
-    assert_eq!(versioning::version_tuple("0.8.1-beta.1"), Some((0, 8, 1)));
+    assert_eq!(versioning::version_tuple("v0.8.2"), Some((0, 8, 2)));
+    assert_eq!(versioning::version_tuple("0.8.2-beta.1"), Some((0, 8, 2)));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn invalid_release_payload_returns_none() {
 fn stale_cache_prefers_new_fetch_result() {
     let stale_cache = cache_policy::UpdateCache {
         checked_at_unix: 100,
-        latest_version: "0.8.0".to_string(),
+        latest_version: "0.8.2".to_string(),
     };
 
     let picked = cache_policy::pick_latest_version(200, 24, Some(&stale_cache), Some("0.9.0"));

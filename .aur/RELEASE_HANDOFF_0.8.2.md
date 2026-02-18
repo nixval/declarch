@@ -29,7 +29,7 @@ This file summarizes the implementation work completed on branch `feat/0.8.2-fea
 - `cargo fmt`
 - `cargo test --all-targets --quiet`
 - `./scripts/check_identity_literals.sh`
-- `./scripts/check_release_consistency.sh --strict --tag v0.8.1`
+- `./scripts/check_release_consistency.sh --strict --tag v0.8.2`
 
 ## Quick Reviewer Checklist
 

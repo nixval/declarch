@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage:
 #   ./.aur/scripts/publish-declarch.sh [version]
 # Example:
-#   ./.aur/scripts/publish-declarch.sh 0.8.1
+#   ./.aur/scripts/publish-declarch.sh 0.8.2
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag destination (e.g. v0.8.0)"
+        description: "Release tag destination (e.g. v0.8.2)"
         required: true
         type: string
       source_ref:
-        description: "Git ref to build from (e.g. main, v0.8.0)"
+        description: "Git ref to build from (e.g. main, v0.8.2)"
         required: true
         default: "main"
         type: string
@@ -43,6 +43,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
         with:
           ref: ${{ github.event.inputs.source_ref || github.ref }}
 

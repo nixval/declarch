@@ -10,8 +10,8 @@ set -euo pipefail
 #
 # Usage:
 #   scripts/check_release_consistency.sh
-#   scripts/check_release_consistency.sh --tag v0.8.1
-#   scripts/check_release_consistency.sh --tag 0.8.1 --strict --check-aur-remote
+#   scripts/check_release_consistency.sh --tag v0.8.2
+#   scripts/check_release_consistency.sh --tag 0.8.2 --strict --check-aur-remote
 
 STRICT=0
 CHECK_AUR_REMOTE=0
