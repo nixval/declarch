@@ -67,7 +67,7 @@ Minimum untuk klaim >= 9.5:
 - [x] Semua item section C wajib hijau.
 - [x] Minimal 80% item section D hijau.
 - [x] Minimal 1 parity suite pada section B hijau.
-- [ ] Tidak ada TODO blocker tersisa di command surface (`sync/search/lint/info`).
+- [x] Tidak ada TODO blocker tersisa di command surface (`sync/search/lint/info`).
 
 ## Commands
 
