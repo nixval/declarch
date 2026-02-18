@@ -1,4 +1,5 @@
 mod backup_ops;
+mod load_recovery;
 mod locking;
 mod migration;
 
@@ -7,9 +8,10 @@ use crate::project_identity;
 use crate::state::types::State;
 use crate::ui;
 use crate::utils::paths;
-use backup_ops::{restore_from_backup, rotate_backups};
+use backup_ops::rotate_backups;
+use load_recovery::load_state_from_path;
 pub use locking::{StateLock, acquire_lock};
-use migration::{migrate_state, sanitize_state_in_place};
+use migration::sanitize_state_in_place;
 use std::fs::{self};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -114,93 +116,6 @@ pub fn get_state_path() -> Result<PathBuf> {
 fn load_state_internal(strict_recovery: bool) -> Result<State> {
     let path = get_state_path()?;
     load_state_from_path(&path, strict_recovery)
-}
-
-fn load_state_from_path(path: &Path, strict_recovery: bool) -> Result<State> {
-    let path = path.to_path_buf();
-
-    if !path.exists() {
-        return Ok(State::default());
-    }
-
-    // Try to load the main state file
-    let content = fs::read_to_string(&path);
-    let state = match content {
-        Ok(content) => {
-            match serde_json::from_str::<State>(&content) {
-                Ok(mut state) => {
-                    // Validate integrity
-                    let issues = validate_state_integrity(&state);
-                    if !issues.is_empty() {
-                        ui::warning("State integrity issues detected:");
-                        for issue in &issues {
-                            ui::indent(&format!("• {}", issue), 2);
-                        }
-                    }
-
-                    // Migrate state to fix duplicate keys from old format
-                    if migrate_state(&mut state)? {
-                        ui::info("State migrated to fix duplicate keys");
-                        // Save migrated state
-                        let _ = save_state(&state);
-                    }
-                    return Ok(state);
-                }
-                Err(e) => {
-                    ui::error(&format!("State file corrupted: {}", e));
-                    ui::info("Attempting to restore from backup...");
-                    // Main state file is corrupted, try to restore from backup
-                    match restore_from_backup(&path)? {
-                        Some(state) => {
-                            ui::success("State restored from backup successfully");
-                            state
-                        }
-                        None => {
-                            ui::warning("Failed to restore from backup: no valid backup found");
-                            if strict_recovery {
-                                return Err(DeclarchError::Other(format!(
-                                    "State file is corrupted and backup restore failed (strict mode).\n\
-                                     File: {}\n\
-                                     Hint: run `{}`, inspect state backups, then retry.",
-                                    path.display(),
-                                    project_identity::cli_with("info --doctor")
-                                )));
-                            }
-                            ui::info("Using default state");
-                            State::default()
-                        }
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            ui::error(&format!("Failed to read state file: {}", e));
-            ui::info("Attempting to restore from backup...");
-            // Failed to read state file, try to restore from backup
-            match restore_from_backup(&path)? {
-                Some(state) => {
-                    ui::success("State restored from backup successfully");
-                    state
-                }
-                None => {
-                    ui::warning("Failed to restore from backup: no valid backup found");
-                    if strict_recovery {
-                        return Err(DeclarchError::Other(format!(
-                            "State file cannot be read and backup restore failed (strict mode).\n\
-                             File: {}\n\
-                             Hint: run `{}`, inspect file permissions/state path, then retry.",
-                            path.display(),
-                            project_identity::cli_with("info --doctor")
-                        )));
-                    }
-                    ui::info("Using default state");
-                    State::default()
-                }
-            }
-        }
-    };
-
-    Ok(state)
 }
 
 pub fn load_state() -> Result<State> {
