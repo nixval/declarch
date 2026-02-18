@@ -107,3 +107,39 @@ fn load_state_strict_restores_from_backup_when_available() {
     let loaded = load_state_from_path(&path, true).expect("strict mode should recover");
     assert!(loaded.packages.is_empty());
 }
+
+#[test]
+fn load_state_strict_uses_next_backup_when_first_is_invalid() {
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("state.json");
+    fs::write(&path, "{broken json").expect("write corrupted state");
+
+    let bad_backup = dir.path().join("state.json.bak.1");
+    fs::write(&bad_backup, "{invalid").expect("write invalid first backup");
+
+    let good_backup = dir.path().join("state.json.bak.2");
+    let mut state = State::default();
+    state.packages.insert(
+        "aur:bat".to_string(),
+        PackageState {
+            backend: Backend::from("aur"),
+            config_name: "bat".to_string(),
+            provides_name: "bat".to_string(),
+            actual_package_name: None,
+            installed_at: Utc::now(),
+            version: Some("1.0".to_string()),
+            install_reason: None,
+            source_module: None,
+            last_seen_at: None,
+            backend_meta: None,
+        },
+    );
+    fs::write(
+        &good_backup,
+        serde_json::to_string(&state).expect("serialize backup"),
+    )
+    .expect("write second backup");
+
+    let loaded = load_state_from_path(&path, true).expect("strict should use .bak.2");
+    assert!(loaded.packages.contains_key("aur:bat"));
+}

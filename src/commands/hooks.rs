@@ -203,3 +203,42 @@ pub fn execute_post_remove(
         dry_run,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::execute_hooks;
+    use crate::config::kdl::{ActionType, ErrorBehavior, LifecycleAction, LifecyclePhase};
+
+    fn hook(command: &str, error_behavior: ErrorBehavior) -> LifecycleAction {
+        LifecycleAction {
+            command: command.to_string(),
+            action_type: ActionType::User,
+            phase: LifecyclePhase::PreSync,
+            package: None,
+            conditions: vec![],
+            error_behavior,
+        }
+    }
+
+    #[test]
+    fn execute_hooks_dry_run_skips_execution_errors() {
+        let h = hook(
+            "nonexistent-command-that-would-fail",
+            ErrorBehavior::Required,
+        );
+        let refs = vec![&h];
+        let res = execute_hooks(&refs, "PreSync", true, true);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn execute_hooks_required_failure_propagates_error() {
+        let h = hook(
+            "nonexistent-command-that-will-fail",
+            ErrorBehavior::Required,
+        );
+        let refs = vec![&h];
+        let res = execute_hooks(&refs, "PreSync", true, false);
+        assert!(res.is_err());
+    }
+}

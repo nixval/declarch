@@ -131,3 +131,123 @@ pub(super) fn execute_pruning(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::PackageId;
+    use crate::packages::traits::PackageManager;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct MockManager {
+        backend: Backend,
+        remove_calls: AtomicUsize,
+        remove_error: Option<String>,
+    }
+
+    impl PackageManager for MockManager {
+        fn backend_type(&self) -> Backend {
+            self.backend.clone()
+        }
+
+        fn list_installed(&self) -> Result<HashMap<String, crate::core::types::PackageMetadata>> {
+            Ok(HashMap::new())
+        }
+
+        fn install(&self, _packages: &[String]) -> Result<()> {
+            Ok(())
+        }
+
+        fn remove(&self, _packages: &[String]) -> Result<()> {
+            self.remove_calls.fetch_add(1, Ordering::SeqCst);
+            if let Some(msg) = &self.remove_error {
+                return Err(crate::error::DeclarchError::PackageManagerError(
+                    msg.clone(),
+                ));
+            }
+            Ok(())
+        }
+
+        fn is_available(&self) -> bool {
+            true
+        }
+
+        fn get_required_by(&self, _package: &str) -> Result<Vec<String>> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn base_options() -> SyncOptions {
+        SyncOptions {
+            dry_run: false,
+            prune: true,
+            update: false,
+            verbose: false,
+            yes: true,
+            force: false,
+            target: None,
+            noconfirm: false,
+            hooks: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+            diff: false,
+            format: None,
+            output_version: None,
+        }
+    }
+
+    #[test]
+    fn prune_skips_when_policy_orphans_keep() {
+        let mut config = loader::MergedConfig::default();
+        config.policy = Some(crate::config::kdl::PolicyConfig {
+            orphans: Some("keep".to_string()),
+            ..Default::default()
+        });
+        let tx = resolver::Transaction {
+            to_install: Vec::new(),
+            to_prune: vec![PackageId {
+                name: "bat".to_string(),
+                backend: Backend::from("aur"),
+            }],
+            to_adopt: Vec::new(),
+            to_update_project_metadata: Vec::new(),
+        };
+        let managers: ManagerMap = HashMap::new();
+        let snapshot = InstalledSnapshot::new();
+
+        let out = execute_pruning(&config, &tx, &managers, &base_options(), false, &snapshot);
+        assert!(out.is_ok());
+    }
+
+    #[test]
+    fn prune_ignores_backends_without_remove_support() {
+        let mut config = loader::MergedConfig::default();
+        config.policy = Some(crate::config::kdl::PolicyConfig {
+            orphans: Some("remove".to_string()),
+            ..Default::default()
+        });
+        let backend = Backend::from("aur");
+        let tx = resolver::Transaction {
+            to_install: Vec::new(),
+            to_prune: vec![PackageId {
+                name: "bat".to_string(),
+                backend: backend.clone(),
+            }],
+            to_adopt: Vec::new(),
+            to_update_project_metadata: Vec::new(),
+        };
+
+        let manager = MockManager {
+            backend: backend.clone(),
+            remove_calls: AtomicUsize::new(0),
+            remove_error: Some("backend does not support removing".to_string()),
+        };
+        let mut managers: ManagerMap = HashMap::new();
+        managers.insert(backend, Box::new(manager));
+        let snapshot = InstalledSnapshot::new();
+
+        let out = execute_pruning(&config, &tx, &managers, &base_options(), false, &snapshot);
+        assert!(out.is_ok());
+    }
+}

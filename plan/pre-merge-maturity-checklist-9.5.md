@@ -16,12 +16,13 @@ Status legend:
 
 ## B. Behavior Parity (No Unexpected Behavior Change)
 
-- [ ] Tambah golden/snapshot test untuk command surface utama:
-  - [ ] `sync` (`dry-run`, `prune`, `update`)
-  - [ ] `search` (with/without backend filter, local mode)
-  - [ ] `lint` (`all`, `validate`, strict mode)
-  - [ ] `info` + `info --list`
-- [ ] Tambah parity assertions untuk pesan error utama yang bersifat user-facing.
+- [~] Tambah golden/snapshot test untuk command surface utama:
+  - [x] parity suite minimum (CLI output-contract validation path)
+  - [ ] `sync` (`dry-run`, `prune`, `update`) golden snapshot
+  - [ ] `search` (with/without backend filter, local mode) golden snapshot
+  - [ ] `lint` (`all`, `validate`, strict mode) golden snapshot
+  - [ ] `info` + `info --list` golden snapshot
+- [x] Tambah parity assertions untuk pesan error utama yang bersifat user-facing.
 
 ## C. Machine Output Contract v1 Hardening
 
@@ -38,34 +39,34 @@ Status legend:
 
 ### D2. Sync runtime critical paths
 - [x] Tambah test untuk `executor/retry.rs`
-- [ ] Tambah test branch untuk `executor/install_ops.rs`
-- [ ] Tambah test branch untuk `executor/prune.rs`
-- [ ] Tambah test branch untuk `planner/filtering.rs`
+- [x] Tambah test branch untuk `executor/install_ops.rs`
+- [x] Tambah test branch untuk `executor/prune.rs`
+- [x] Tambah test branch untuk `planner/filtering.rs`
 
 ### D3. Hook safety
 - [x] Ekstrak validasi command hook agar testable.
 - [x] Tambah test validasi command hook (unsafe chars, sudo, traversal).
-- [ ] Tambah test dry-run path dan required-hook failure path.
+- [x] Tambah test dry-run path dan required-hook failure path.
 
 ## E. State Reliability
 
 - [x] Test migration edge case (dedup + metadata normalization).
-- [ ] Tambah test lock contention scenario (write path).
-- [ ] Tambah test backup-restore fallback berlapis (lebih dari 1 backup file).
+- [x] Tambah test lock contention scenario (write path).
+- [x] Tambah test backup-restore fallback berlapis (lebih dari 1 backup file).
 
 ## F. Release/Operational Readiness
 
 - [x] Tambah script gate pre-merge terpusat (`scripts/maturity_premerge_gate.sh`).
-- [ ] Integrasikan script gate ke workflow CI release branch.
-- [ ] Tambah runbook singkat kapan merge harus diblokir walau test hijau.
+- [x] Integrasikan script gate ke workflow CI release branch.
+- [x] Tambah runbook singkat kapan merge harus diblokir walau test hijau.
 
 ## G. Final Merge Criteria (Score Gate)
 
 Minimum untuk klaim >= 9.5:
-- [ ] Semua item section A wajib hijau.
-- [ ] Semua item section C wajib hijau.
-- [ ] Minimal 80% item section D hijau.
-- [ ] Minimal 1 parity suite pada section B hijau.
+- [x] Semua item section A wajib hijau.
+- [x] Semua item section C wajib hijau.
+- [x] Minimal 80% item section D hijau.
+- [x] Minimal 1 parity suite pada section B hijau.
 - [ ] Tidak ada TODO blocker tersisa di command surface (`sync/search/lint/info`).
 
 ## Commands

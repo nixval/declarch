@@ -134,3 +134,136 @@ pub(super) fn execute_installations(
 
     Ok(successfully_installed)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::PackageMetadata;
+    use crate::packages::traits::PackageManager;
+    use chrono::Utc;
+    use std::sync::Mutex;
+
+    struct MockManager {
+        backend: Backend,
+        available: bool,
+        install_ok: bool,
+        installed_sequence: Mutex<Vec<HashMap<String, PackageMetadata>>>,
+    }
+
+    impl PackageManager for MockManager {
+        fn backend_type(&self) -> Backend {
+            self.backend.clone()
+        }
+
+        fn list_installed(&self) -> Result<HashMap<String, PackageMetadata>> {
+            let mut guard = self
+                .installed_sequence
+                .lock()
+                .expect("lock installed sequence");
+            if guard.is_empty() {
+                Ok(HashMap::new())
+            } else {
+                Ok(guard.remove(0))
+            }
+        }
+
+        fn install(&self, _packages: &[String]) -> Result<()> {
+            if self.install_ok {
+                Ok(())
+            } else {
+                Err(crate::error::DeclarchError::Other(
+                    "install failed".to_string(),
+                ))
+            }
+        }
+
+        fn remove(&self, _packages: &[String]) -> Result<()> {
+            Ok(())
+        }
+
+        fn is_available(&self) -> bool {
+            self.available
+        }
+
+        fn get_required_by(&self, _package: &str) -> Result<Vec<String>> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn base_options() -> SyncOptions {
+        SyncOptions {
+            dry_run: false,
+            prune: false,
+            update: false,
+            verbose: false,
+            yes: true,
+            force: false,
+            target: None,
+            noconfirm: false,
+            hooks: false,
+            profile: None,
+            host: None,
+            modules: Vec::new(),
+            diff: false,
+            format: None,
+            output_version: None,
+        }
+    }
+
+    fn package_meta() -> PackageMetadata {
+        PackageMetadata {
+            version: Some("1.0".to_string()),
+            variant: None,
+            installed_at: Utc::now(),
+            source_file: None,
+        }
+    }
+
+    #[test]
+    fn execute_installations_marks_newly_installed_packages() {
+        let backend = Backend::from("aur");
+        let pkg = PackageId {
+            name: "bat".to_string(),
+            backend: backend.clone(),
+        };
+
+        let tx = resolver::Transaction {
+            to_install: vec![pkg.clone()],
+            to_prune: Vec::new(),
+            to_adopt: Vec::new(),
+            to_update_project_metadata: Vec::new(),
+        };
+
+        let mut pre = HashMap::new();
+        pre.insert("ripgrep".to_string(), package_meta());
+        let mut post = HashMap::new();
+        post.insert("ripgrep".to_string(), package_meta());
+        post.insert("bat".to_string(), package_meta());
+
+        let mut managers: ManagerMap = HashMap::new();
+        managers.insert(
+            backend.clone(),
+            Box::new(MockManager {
+                backend: backend.clone(),
+                available: true,
+                install_ok: true,
+                installed_sequence: Mutex::new(vec![pre, post]),
+            }),
+        );
+
+        let config = loader::MergedConfig::default();
+        let mut installed_snapshot = InstalledSnapshot::new();
+        let installed = execute_installations(
+            &tx,
+            &managers,
+            &config,
+            &base_options(),
+            false,
+            &mut installed_snapshot,
+        )
+        .expect("installations should succeed");
+
+        assert_eq!(installed.len(), 1);
+        assert_eq!(installed[0].name, "bat");
+    }
+}

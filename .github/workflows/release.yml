@@ -159,6 +159,9 @@ jobs:
           TAG="${{ github.event.inputs.release_tag || github.ref_name }}"
           scripts/check_release_consistency.sh --tag "$TAG" --strict
 
+      - name: Maturity pre-merge gate
+        run: scripts/maturity_premerge_gate.sh
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:

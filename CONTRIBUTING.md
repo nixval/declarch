@@ -38,6 +38,7 @@ If your change affects behavior, CLI UX, defaults, safety policy, or troubleshoo
 - [Configuration Reference](https://nixval.github.io/declarch/configuration/kdl-syntax.html)
 - [Command Reference](https://nixval.github.io/declarch/commands/)
 - [Internal Architecture Map](docs/architecture/module-boundaries.md)
+- [Pre-Merge Blockers Runbook](docs/architecture/pre-merge-blockers.md)
 
 ## License
 

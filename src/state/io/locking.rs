@@ -22,6 +22,10 @@ impl Drop for StateLock {
 
 pub fn acquire_lock() -> Result<StateLock> {
     let path = super::get_state_path()?;
+    acquire_lock_for_state_path(path)
+}
+
+fn acquire_lock_for_state_path(path: PathBuf) -> Result<StateLock> {
     let dir = path
         .parent()
         .ok_or_else(|| DeclarchError::Other("Could not determine state directory".into()))?;
@@ -86,4 +90,22 @@ pub fn acquire_lock() -> Result<StateLock> {
         _file: lock_file,
         path: lock_path,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::acquire_lock_for_state_path;
+    use tempfile::tempdir;
+
+    #[test]
+    fn lock_contention_returns_error() {
+        let dir = tempdir().expect("tempdir");
+        let state_path = dir.path().join("state.json");
+
+        let _lock = acquire_lock_for_state_path(state_path.clone()).expect("first lock");
+        match acquire_lock_for_state_path(state_path) {
+            Ok(_) => panic!("second lock should fail"),
+            Err(err) => assert!(err.to_string().contains("currently running")),
+        }
+    }
 }

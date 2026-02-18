@@ -45,3 +45,50 @@ fn test_init_dry_run() {
         .failure()
         .stderr(predicate::str::contains("Usage: declarch"));
 }
+
+#[test]
+fn output_contract_rejects_unsupported_sync_machine_mode() {
+    let mut cmd = declarch();
+    cmd.args(["sync", "--format", "json", "--output-version", "v1"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "does not support --output-version v1 yet",
+        ));
+}
+
+#[test]
+fn output_contract_requires_structured_format() {
+    let mut cmd = declarch();
+    cmd.args([
+        "search",
+        "firefox",
+        "--format",
+        "table",
+        "--output-version",
+        "v1",
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains(
+        "--output-version v1 requires --format json|yaml",
+    ));
+}
+
+#[test]
+fn output_contract_rejects_unsupported_version() {
+    let mut cmd = declarch();
+    cmd.args([
+        "search",
+        "firefox",
+        "--format",
+        "json",
+        "--output-version",
+        "v2",
+    ])
+    .assert()
+    .failure()
+    .stderr(predicate::str::contains(
+        "Unsupported output contract version",
+    ));
+}
