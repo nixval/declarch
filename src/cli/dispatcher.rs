@@ -2,11 +2,14 @@
 //!
 //! Routes CLI commands to their appropriate handlers.
 
+mod output_contract;
+
 use crate::cli::args::{Cli, Command, InfoListScope, LintMode, SyncCommand};
 use crate::commands;
 use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::ui as output;
+use output_contract::validate_machine_output_contract;
 
 /// Dispatch the parsed CLI command to the appropriate handler
 pub fn dispatch(args: &Cli) -> Result<()> {
@@ -488,60 +491,6 @@ fn parse_limit_option(limit: Option<&str>) -> Result<Option<usize>> {
                 raw
             ))
         }),
-    }
-}
-
-fn validate_machine_output_contract(args: &Cli) -> Result<()> {
-    if let Some(version) = args.global.output_version.as_deref() {
-        if version != "v1" {
-            return Err(DeclarchError::Other(format!(
-                "Unsupported output contract version '{}'. Supported: v1",
-                version
-            )));
-        }
-
-        match args.global.format.as_deref() {
-            Some("json") | Some("yaml") => {}
-            Some(other) => {
-                return Err(DeclarchError::Other(format!(
-                    "--output-version v1 requires --format json|yaml (got '{}')",
-                    other
-                )));
-            }
-            None => {
-                output::warning(
-                    "--output-version v1 is set without --format; output remains human-oriented.",
-                );
-            }
-        }
-
-        if !supports_v1_contract(args) {
-            return Err(DeclarchError::Other(format!(
-                "This command does not support --output-version v1 yet.\nSupported now: `{}`, `{}`, `{}`, `{}`, `{}`.",
-                project_identity::cli_with("info"),
-                project_identity::cli_with("info --list"),
-                project_identity::cli_with("lint"),
-                project_identity::cli_with("search"),
-                project_identity::cli_with("--dry-run sync"),
-            )));
-        }
-    }
-
-    Ok(())
-}
-
-fn supports_v1_contract(args: &Cli) -> bool {
-    match &args.command {
-        Some(Command::Lint { .. }) => true,
-        Some(Command::Search { .. }) => true,
-        Some(Command::Sync { command: None, .. }) => args.global.dry_run,
-        Some(Command::Info {
-            doctor,
-            plan,
-            query,
-            ..
-        }) => !*doctor && !*plan && query.is_none(),
-        _ => false,
     }
 }
 
