@@ -3,11 +3,13 @@
 //! This module provides functionality to programmatically edit KDL configuration files.
 //! It's used by the `install` command to add packages to config files.
 
+mod backup_ops;
 mod package_spec;
 
 use crate::constants::CONFIG_EXTENSION;
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths;
+pub use backup_ops::{backup_kdl_file, restore_from_backup};
 use kdl::{KdlDocument, KdlNode};
 #[cfg(test)]
 use package_spec::is_valid_backend;
@@ -377,55 +379,6 @@ impl ConfigEditor {
 
         Ok((updated_content, vec![package.to_string()]))
     }
-}
-
-/// Create a backup of a KDL file before modification
-pub fn backup_kdl_file(file_path: &Path) -> Result<PathBuf> {
-    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-    let backup_path = file_path.with_extension(format!("kdl.bak.{}", timestamp));
-
-    fs::copy(file_path, &backup_path).map_err(|e| {
-        DeclarchError::Other(format!("Failed to backup {}: {}", file_path.display(), e))
-    })?;
-
-    Ok(backup_path)
-}
-
-/// Restore a KDL file from backup and clean up the backup file
-pub fn restore_from_backup(backup_path: &Path) -> Result<()> {
-    // Extract original path from backup path
-    // Backup format: "filename.kdl.bak.TIMESTAMP.kdl" → "filename.kdl"
-    let file_name = backup_path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| DeclarchError::Other("Invalid backup path".to_string()))?;
-
-    // Remove ".bak.TIMESTAMP.kdl" suffix to get original name
-    // Pattern: "others.kdl.bak.20260129_204156.kdl" → "others.kdl"
-    let original_name = file_name
-        .split(".kdl.bak.")
-        .next()
-        .ok_or_else(|| DeclarchError::Other("Invalid backup filename format".to_string()))?
-        .to_string()
-        + ".kdl";
-
-    let original_path = backup_path
-        .parent()
-        .ok_or_else(|| DeclarchError::Other("Cannot determine parent directory".to_string()))?
-        .join(original_name);
-
-    fs::copy(backup_path, &original_path).map_err(|e| {
-        DeclarchError::Other(format!(
-            "Failed to restore {}: {}",
-            original_path.display(),
-            e
-        ))
-    })?;
-
-    // Clean up backup file
-    let _ = fs::remove_file(backup_path);
-
-    Ok(())
 }
 
 #[cfg(test)]
