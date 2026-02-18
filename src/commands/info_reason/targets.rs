@@ -34,7 +34,7 @@ pub(super) fn explain_target(target: &str, config: &MergedConfig) -> Result<()> 
             );
             Ok(())
         }
-        "sync-plan" => super::explain_sync_plan(config),
+        "sync-plan" => super::sync_plan::explain_sync_plan(config),
         t if t.starts_with("backend:") => {
             let backend_name = t.trim_start_matches("backend:").trim();
             if backend_name.is_empty() {
