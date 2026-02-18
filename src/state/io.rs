@@ -2,19 +2,17 @@ mod backup_ops;
 mod load_recovery;
 mod locking;
 mod migration;
+mod persist;
 
 use crate::error::{DeclarchError, Result};
-use crate::project_identity;
 use crate::state::types::State;
-use crate::ui;
 use crate::utils::paths;
-use backup_ops::rotate_backups;
 use load_recovery::load_state_from_path;
 pub use locking::{StateLock, acquire_lock};
 use migration::sanitize_state_in_place;
+use persist::prepare_and_write_state;
 use std::fs::{self};
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) const CURRENT_STATE_SCHEMA_VERSION: u8 = 3;
@@ -130,61 +128,9 @@ pub fn load_state_strict() -> Result<State> {
     load_state_internal(true)
 }
 
-fn normalize_state_for_persist(state: &State) -> State {
-    let mut state = state.clone();
-    state.meta.schema_version = CURRENT_STATE_SCHEMA_VERSION;
-    state.meta.state_revision = Some(state.meta.state_revision.unwrap_or(0) + 1);
-    if state.meta.generator.is_none() {
-        state.meta.generator = Some(project_identity::STABLE_PROJECT_ID.to_string());
-    }
-    state
-}
-
-fn write_state_atomically(path: &Path, state: &State, sync_dir_after_write: bool) -> Result<()> {
-    let dir = path.parent().ok_or_else(|| {
-        DeclarchError::PathError(format!(
-            "Invalid state path (no parent directory): {}",
-            path.display()
-        ))
-    })?;
-
-    rotate_backups(dir, path)?;
-
-    let content = serde_json::to_string_pretty(&state)
-        .map_err(|e| DeclarchError::SerializationError(format!("State serialization: {}", e)))?;
-
-    let _: State = serde_json::from_str(&content)
-        .map_err(|e| DeclarchError::SerializationError(format!("Invalid JSON generated: {}", e)))?;
-
-    let tmp_path = dir.join("state.tmp");
-    let mut tmp_file = fs::File::create(&tmp_path).map_err(|e| DeclarchError::IoError {
-        path: tmp_path.clone(),
-        source: e,
-    })?;
-
-    tmp_file.write_all(content.as_bytes())?;
-    tmp_file.sync_all()?;
-    drop(tmp_file);
-
-    fs::rename(&tmp_path, path).map_err(|e| DeclarchError::IoError {
-        path: path.to_path_buf(),
-        source: e,
-    })?;
-
-    if sync_dir_after_write
-        && let Ok(dir_file) = fs::File::open(dir)
-        && let Err(e) = dir_file.sync_all()
-    {
-        ui::warning(&format!("Failed to sync state directory: {}", e));
-    }
-
-    Ok(())
-}
-
 pub fn save_state(state: &State) -> Result<()> {
-    let state = normalize_state_for_persist(state);
     let path = get_state_path()?;
-    write_state_atomically(&path, &state, false)?;
+    prepare_and_write_state(state, &path, false)?;
 
     Ok(())
 }
@@ -195,9 +141,8 @@ pub fn save_state(state: &State) -> Result<()> {
 /// IMPORTANT: The lock is acquired at the START of the sync operation (not just during save)
 /// to prevent concurrent modifications. Use `acquire_lock()` at the beginning of sync.
 pub fn save_state_locked(state: &State, _lock: &StateLock) -> Result<()> {
-    let state = normalize_state_for_persist(state);
     let path = get_state_path()?;
-    write_state_atomically(&path, &state, true)?;
+    prepare_and_write_state(state, &path, true)?;
 
     // Lock is released when StateLock is dropped (RAII)
     Ok(())
