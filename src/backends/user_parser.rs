@@ -3,12 +3,17 @@
 //! Parses backend definitions from KDL configuration files,
 //! allowing users to extend declarch with custom package managers.
 
+mod command_fields;
 mod imports;
 mod parse_utils;
 mod validation;
 
 use crate::backends::config::{BackendConfig, BinarySpecifier, OutputFormat};
 use crate::error::{DeclarchError, Result};
+use command_fields::{
+    parse_cache_clean_cmd, parse_fallback, parse_install_cmd, parse_noconfirm, parse_remove_cmd,
+    parse_update_cmd, parse_upgrade_cmd,
+};
 use imports::{collect_import_backends, collect_imports_block_backends};
 use kdl::{KdlDocument, KdlNode};
 use parse_utils::{get_entry_string, parse_bool, parse_env, parse_supported_os};
@@ -361,111 +366,6 @@ fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
     Ok(())
 }
 
-/// Parse install command
-fn parse_install_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.install_cmd = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| {
-            DeclarchError::Other("Install command required. Usage: install \"command\"".to_string())
-        })?
-        .to_string();
-
-    Ok(())
-}
-
-/// Parse remove command
-/// Accepts "-" as sentinel value to explicitly disable (no warning)
-fn parse_remove_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    let cmd = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| {
-            DeclarchError::Other("Remove command required. Usage: remove \"command\"".to_string())
-        })?
-        .to_string();
-
-    // "-" means explicitly disabled (no warning)
-    if cmd != "-" {
-        config.remove_cmd = Some(cmd);
-    }
-    Ok(())
-}
-
-/// Parse update command
-/// Format: update "command" or update "-" to disable
-/// Example: update "apt update"
-fn parse_update_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    let cmd = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| {
-            DeclarchError::Other("Update command required. Usage: update \"command\"".to_string())
-        })?
-        .to_string();
-
-    // "-" means explicitly disabled (no warning)
-    if cmd != "-" {
-        config.update_cmd = Some(cmd);
-    }
-    Ok(())
-}
-
-/// Parse cache clean command
-/// Format: cache_clean "command" or cache_clean "-" to disable
-/// Example: cache_clean "npm cache clean --force"
-fn parse_cache_clean_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    let cmd = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| {
-            DeclarchError::Other(
-                "Cache clean command required. Usage: cache_clean \"command\"".to_string(),
-            )
-        })?
-        .to_string();
-
-    // "-" means explicitly disabled (no warning)
-    if cmd != "-" {
-        config.cache_clean_cmd = Some(cmd);
-    }
-    Ok(())
-}
-
-/// Parse upgrade command
-/// Format: upgrade "command" or upgrade "-" to disable
-/// Example: upgrade "paru -Syu"
-fn parse_upgrade_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    let cmd = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .ok_or_else(|| {
-            DeclarchError::Other("Upgrade command required. Usage: upgrade \"command\"".to_string())
-        })?
-        .to_string();
-
-    // "-" means explicitly disabled (no warning)
-    if cmd != "-" {
-        config.upgrade_cmd = Some(cmd);
-    }
-    Ok(())
-}
-
-/// Parse noconfirm flag
-fn parse_noconfirm(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.noconfirm_flag = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .map(|s| s.to_string());
-    Ok(())
-}
-
 /// Parse search command with output format
 /// Accepts "-" as sentinel value to explicitly disable (no warning)
 fn parse_search_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
@@ -772,16 +672,6 @@ fn parse_search_local_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<
         }
     }
 
-    Ok(())
-}
-
-/// Parse fallback backend
-fn parse_fallback(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    config.fallback = node
-        .entries()
-        .first()
-        .and_then(|entry| entry.value().as_string())
-        .map(|s| s.to_string());
     Ok(())
 }
 
