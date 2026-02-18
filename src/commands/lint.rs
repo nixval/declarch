@@ -133,53 +133,13 @@ pub fn run(options: LintOptions) -> Result<()> {
         apply_safe_fixes(&lint_files)?;
     }
 
-    if options.repair_state {
-        let report = crate::state::io::repair_state_packages()?;
-        if !machine_mode {
-            output::header("State Repair");
-            output::keyval("Entries before", &report.total_before.to_string());
-            output::keyval("Entries after", &report.total_after.to_string());
-            output::keyval(
-                "Removed (empty name)",
-                &report.removed_empty_name.to_string(),
-            );
-            output::keyval(
-                "Removed (duplicates)",
-                &report.removed_duplicates.to_string(),
-            );
-            output::keyval("Rekeyed entries", &report.rekeyed_entries.to_string());
-            output::keyval("Normalized fields", &report.normalized_fields.to_string());
-        }
-    }
+    maybe_repair_state(options.repair_state, machine_mode)?;
 
     if options.diff && !machine_mode {
         show_diff(&merged)?;
     }
 
-    let mut issues = Vec::new();
-
-    match options.mode {
-        LintMode::All => {
-            collect_duplicate_issues(&merged, options.backend.as_deref(), &mut issues);
-            collect_conflict_issues(&merged, options.backend.as_deref(), &mut issues);
-            collect_misc_merged_issues(&merged, &mut issues);
-            for file in &lint_files {
-                collect_file_issues(file, &mut issues)?;
-            }
-            collect_state_issues(&mut issues)?;
-        }
-        LintMode::Validate => {
-            for file in &lint_files {
-                collect_file_issues(file, &mut issues)?;
-            }
-        }
-        LintMode::Duplicates => {
-            collect_duplicate_issues(&merged, options.backend.as_deref(), &mut issues);
-        }
-        LintMode::Conflicts => {
-            collect_conflict_issues(&merged, options.backend.as_deref(), &mut issues);
-        }
-    }
+    let issues = collect_issues_for_mode(&options, &merged, &lint_files)?;
 
     let (warn_count, err_count) = if machine_mode {
         count_issues(&issues)
@@ -258,4 +218,61 @@ pub fn run(options: LintOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn maybe_repair_state(repair_state: bool, machine_mode: bool) -> Result<()> {
+    if !repair_state {
+        return Ok(());
+    }
+
+    let report = crate::state::io::repair_state_packages()?;
+    if !machine_mode {
+        output::header("State Repair");
+        output::keyval("Entries before", &report.total_before.to_string());
+        output::keyval("Entries after", &report.total_after.to_string());
+        output::keyval(
+            "Removed (empty name)",
+            &report.removed_empty_name.to_string(),
+        );
+        output::keyval(
+            "Removed (duplicates)",
+            &report.removed_duplicates.to_string(),
+        );
+        output::keyval("Rekeyed entries", &report.rekeyed_entries.to_string());
+        output::keyval("Normalized fields", &report.normalized_fields.to_string());
+    }
+    Ok(())
+}
+
+fn collect_issues_for_mode(
+    options: &LintOptions,
+    merged: &loader::MergedConfig,
+    lint_files: &[PathBuf],
+) -> Result<Vec<LintIssue>> {
+    let mut issues = Vec::new();
+
+    match options.mode {
+        LintMode::All => {
+            collect_duplicate_issues(merged, options.backend.as_deref(), &mut issues);
+            collect_conflict_issues(merged, options.backend.as_deref(), &mut issues);
+            collect_misc_merged_issues(merged, &mut issues);
+            for file in lint_files {
+                collect_file_issues(file, &mut issues)?;
+            }
+            collect_state_issues(&mut issues)?;
+        }
+        LintMode::Validate => {
+            for file in lint_files {
+                collect_file_issues(file, &mut issues)?;
+            }
+        }
+        LintMode::Duplicates => {
+            collect_duplicate_issues(merged, options.backend.as_deref(), &mut issues);
+        }
+        LintMode::Conflicts => {
+            collect_conflict_issues(merged, options.backend.as_deref(), &mut issues);
+        }
+    }
+
+    Ok(issues)
 }

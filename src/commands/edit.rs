@@ -8,6 +8,7 @@ use crate::utils::paths;
 use colored::Colorize;
 use file_ops::{create_backup, create_module_from_template, format_kdl_file, validate_file_only};
 use kdl::KdlDocument;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use targeting::resolve_target_path;
 use which;
@@ -36,14 +37,7 @@ pub fn run(options: EditOptions) -> Result<()> {
         )));
     }
 
-    // Determine which file to edit
-    let file_to_edit = if let Some(target) = options.target {
-        // User specified a target (module path or filename)
-        resolve_target_path(&config_dir, &target)?
-    } else {
-        // No target specified, edit root config
-        paths::config_file()?
-    };
+    let file_to_edit = resolve_file_to_edit(&options, &config_dir)?;
 
     // Handle --create: Create new module from template if it doesn't exist
     if options.create && !file_to_edit.exists() {
@@ -71,31 +65,7 @@ pub fn run(options: EditOptions) -> Result<()> {
 
     // Handle preview mode (like cat)
     if options.preview {
-        output::header("Preview Configuration");
-        output::info(&format!(
-            "File: {}",
-            file_to_edit.display().to_string().cyan()
-        ));
-        println!();
-
-        let content = std::fs::read_to_string(&file_to_edit)?;
-
-        if options.number {
-            // Show with line numbers
-            for (line_num, line) in content.lines().enumerate() {
-                println!("{:4} │ {}", line_num + 1, line);
-            }
-        } else {
-            // Plain output
-            print!("{}", content);
-            // Ensure trailing newline
-            if !content.ends_with('\n') {
-                println!();
-            }
-        }
-
-        println!();
-        output::success(&format!("{} lines", content.lines().count()));
+        show_preview(&file_to_edit, options.number)?;
         return Ok(());
     }
 
@@ -155,11 +125,47 @@ pub fn run(options: EditOptions) -> Result<()> {
         )));
     }
 
-    // Verify syntax after editing
-    output::info("Verifying configuration syntax...");
-    let content = std::fs::read_to_string(&file_to_edit)?;
+    verify_syntax_after_edit(&file_to_edit)?;
 
-    // Simple KDL syntax check
+    Ok(())
+}
+
+fn resolve_file_to_edit(options: &EditOptions, config_dir: &Path) -> Result<PathBuf> {
+    if let Some(target) = options.target.as_deref() {
+        resolve_target_path(config_dir, target)
+    } else {
+        paths::config_file()
+    }
+}
+
+fn show_preview(file_to_edit: &Path, number_lines: bool) -> Result<()> {
+    output::header("Preview Configuration");
+    output::info(&format!(
+        "File: {}",
+        file_to_edit.display().to_string().cyan()
+    ));
+    println!();
+
+    let content = std::fs::read_to_string(file_to_edit)?;
+    if number_lines {
+        for (line_num, line) in content.lines().enumerate() {
+            println!("{:4} │ {}", line_num + 1, line);
+        }
+    } else {
+        print!("{}", content);
+        if !content.ends_with('\n') {
+            println!();
+        }
+    }
+
+    println!();
+    output::success(&format!("{} lines", content.lines().count()));
+    Ok(())
+}
+
+fn verify_syntax_after_edit(file_to_edit: &Path) -> Result<()> {
+    output::info("Verifying configuration syntax...");
+    let content = std::fs::read_to_string(file_to_edit)?;
     if let Err(e) = content.parse::<KdlDocument>() {
         output::warning("KDL syntax error detected!");
         output::warning(&format!("  {}", e));
@@ -170,7 +176,6 @@ pub fn run(options: EditOptions) -> Result<()> {
     } else {
         output::success("Configuration syntax is valid!");
     }
-
     Ok(())
 }
 

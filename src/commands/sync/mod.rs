@@ -96,9 +96,7 @@ pub struct SyncOptions {
 }
 
 pub fn run(options: SyncOptions) -> Result<()> {
-    let machine_preview_mode = options.dry_run
-        && matches!(options.output_version.as_deref(), Some("v1"))
-        && matches!(options.format.as_deref(), Some("json" | "yaml"));
+    let machine_preview_mode = is_machine_preview_mode(&options);
 
     // Acquire exclusive lock at the very beginning to prevent concurrent sync
     // Lock is held until this function returns (RAII pattern)
@@ -131,15 +129,7 @@ pub fn run(options: SyncOptions) -> Result<()> {
         host: options.host.clone(),
     };
 
-    let mut config = if !options.modules.is_empty() {
-        if options.modules.len() == 1 && options.target.is_none() {
-            load_single_module(&config_path, &options.modules[0], &selectors)?
-        } else {
-            load_config_with_modules(&config_path, &options.modules, &selectors, options.verbose)?
-        }
-    } else {
-        loader::load_root_config_with_selectors(&config_path, &selectors)?
-    };
+    let mut config = load_sync_config(&options, &config_path, &selectors)?;
     if options.verbose {
         output::verbose(&format!("Config file: {}", config_path.display()));
         output::verbose(&format!(
@@ -313,6 +303,28 @@ pub fn run(options: SyncOptions) -> Result<()> {
     execute_on_success(&config.lifecycle_actions, hooks_enabled, options.dry_run)?;
 
     Ok(())
+}
+
+fn is_machine_preview_mode(options: &SyncOptions) -> bool {
+    options.dry_run
+        && matches!(options.output_version.as_deref(), Some("v1"))
+        && matches!(options.format.as_deref(), Some("json" | "yaml"))
+}
+
+fn load_sync_config(
+    options: &SyncOptions,
+    config_path: &std::path::Path,
+    selectors: &loader::LoadSelectors,
+) -> Result<loader::MergedConfig> {
+    if options.modules.is_empty() {
+        return loader::load_root_config_with_selectors(config_path, selectors);
+    }
+
+    if options.modules.len() == 1 && options.target.is_none() {
+        load_single_module(config_path, &options.modules[0], selectors)
+    } else {
+        load_config_with_modules(config_path, &options.modules, selectors, options.verbose)
+    }
 }
 
 #[cfg(test)]

@@ -110,34 +110,12 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Get backends to search
     let (backends_to_search, selection_warnings) =
         get_backends_to_search(&updated_options, &backend_configs, machine_mode)?;
-    if options.verbose && !machine_mode {
-        let mode = if options.local {
-            "local installed search"
-        } else {
-            "repository search"
-        };
-        let requested = updated_options
-            .backends
-            .as_ref()
-            .map(|b| b.join(", "))
-            .unwrap_or_else(|| "(auto)".to_string());
-        let selected = backends_to_search
-            .iter()
-            .map(|b| b.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-        output::verbose(&format!("Search mode: {}", mode));
-        output::verbose(&format!("Requested backends: {}", requested));
-        output::verbose(&format!(
-            "Selected backends ({}): {}",
-            backends_to_search.len(),
-            if selected.is_empty() {
-                "(none)".to_string()
-            } else {
-                selected
-            }
-        ));
-    }
+    log_backend_selection_verbose(
+        &options,
+        &updated_options,
+        machine_mode,
+        &backends_to_search,
+    );
 
     if backends_to_search.is_empty() {
         if machine_mode {
@@ -361,6 +339,44 @@ pub fn run(options: SearchOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn log_backend_selection_verbose(
+    options: &SearchOptions,
+    updated_options: &SearchOptions,
+    machine_mode: bool,
+    backends_to_search: &[crate::core::types::Backend],
+) {
+    if !options.verbose || machine_mode {
+        return;
+    }
+
+    let mode = if options.local {
+        "local installed search"
+    } else {
+        "repository search"
+    };
+    let requested = updated_options
+        .backends
+        .as_ref()
+        .map(|b| b.join(", "))
+        .unwrap_or_else(|| "(auto)".to_string());
+    let selected = backends_to_search
+        .iter()
+        .map(|b| b.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    output::verbose(&format!("Search mode: {}", mode));
+    output::verbose(&format!("Requested backends: {}", requested));
+    output::verbose(&format!(
+        "Selected backends ({}): {}",
+        backends_to_search.len(),
+        if selected.is_empty() {
+            "(none)".to_string()
+        } else {
+            selected
+        }
+    ));
 }
 
 #[cfg(test)]
