@@ -1,8 +1,11 @@
+mod backup_ops;
+
 use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::state::types::State;
 use crate::ui;
 use crate::utils::paths;
+use backup_ops::{restore_from_backup, rotate_backups};
 use fs2::FileExt;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -409,80 +412,6 @@ pub fn load_state() -> Result<State> {
 /// and backup restore also fails. This is intended for high-risk mutating flows.
 pub fn load_state_strict() -> Result<State> {
     load_state_internal(true)
-}
-
-/// Attempt to restore state from the most recent backup
-fn restore_from_backup(state_path: &PathBuf) -> Result<Option<State>> {
-    let dir = state_path.parent().ok_or_else(|| {
-        DeclarchError::PathError(format!(
-            "Invalid state path (no parent directory): {}",
-            state_path.display()
-        ))
-    })?;
-
-    // Try backups in reverse order (most recent first)
-    for i in 1..=3 {
-        let backup_path = dir.join(format!("state.json.bak.{}", i));
-        if backup_path.exists() {
-            let content = fs::read_to_string(&backup_path).map_err(|e| DeclarchError::IoError {
-                path: backup_path.clone(),
-                source: e,
-            })?;
-
-            match serde_json::from_str::<State>(&content) {
-                Ok(state) => {
-                    // Successfully restored from backup, restore the main file
-                    let _ = fs::copy(&backup_path, state_path);
-                    return Ok(Some(state));
-                }
-                Err(_) => continue,
-            }
-        }
-    }
-
-    // All backups failed or don't exist
-    Ok(None)
-}
-
-/// Rotate backup files, keeping last 3 versions
-///
-/// # Errors
-/// Returns an error only if the initial backup copy fails. Rotation failures
-/// are logged as warnings but don't prevent the operation from continuing.
-fn rotate_backups(dir: &Path, path: &Path) -> Result<()> {
-    // --- ROTATING BACKUP LOGIC (Keep last 3 versions) ---
-    // Shift: .bak.2 -> .bak.3
-    // Shift: .bak.1 -> .bak.2
-    // Copy:  current -> .bak.1
-
-    if path.exists() {
-        let max_backups = 3;
-        for i in (1..max_backups).rev() {
-            let old_bak = dir.join(format!("state.json.bak.{}", i));
-            let new_bak = dir.join(format!("state.json.bak.{}", i + 1));
-            if old_bak.exists()
-                && let Err(e) = fs::rename(&old_bak, &new_bak)
-            {
-                ui::warning(&format!(
-                    "Failed to rotate backup {} -> {}: {}",
-                    old_bak.display(),
-                    new_bak.display(),
-                    e
-                ));
-            }
-        }
-
-        let first_bak = dir.join("state.json.bak.1");
-        if let Err(e) = fs::copy(path, &first_bak) {
-            return Err(DeclarchError::IoError {
-                path: first_bak,
-                source: e,
-            });
-        }
-    }
-    // ----------------------------------------------------
-
-    Ok(())
 }
 
 fn normalize_state_for_persist(state: &State) -> State {
