@@ -9,6 +9,7 @@ mod matching;
 mod render;
 mod reporting;
 mod selection;
+mod setup;
 
 use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
@@ -19,7 +20,6 @@ use crate::error::Result;
 use crate::project_identity;
 use crate::state;
 use crate::ui as output;
-use crate::utils::sanitize::validate_search_query;
 use colored::Colorize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -38,6 +38,7 @@ use matching::{
 use render::{display_backend_results, sorted_backend_keys};
 use reporting::{emit_machine_report, emit_no_backends_report, show_human_summary};
 use selection::get_backends_to_search;
+use setup::normalize_search_request;
 
 /// Maximum time to wait for a backend to respond (seconds)
 const BACKEND_TIMEOUT_SECONDS: u64 = SEARCH_BACKEND_TIMEOUT_SECS;
@@ -79,31 +80,7 @@ pub fn run(options: SearchOptions) -> Result<()> {
     // Load state to check installed packages
     let state = state::io::load_state()?;
 
-    // Parse "backend:query" syntax
-    let (backend_from_query, actual_query) = parse_backend_query(&options.query);
-    validate_search_query(&actual_query)?;
-
-    // Merge backend_from_query with options.backends
-    let final_backends = if let Some(backend) = backend_from_query {
-        Some(vec![backend])
-    } else {
-        options.backends.clone()
-    };
-
-    // Create updated options for internal use
-    let updated_options = SearchOptions {
-        query: actual_query.clone(),
-        backends: final_backends,
-        limit: options.limit,
-        installed_only: options.installed_only,
-        available_only: options.available_only,
-        local: options.local,
-        verbose: options.verbose,
-        format: options.format.clone(),
-        output_version: options.output_version.clone(),
-    };
-    let machine_mode = matches!(options.output_version.as_deref(), Some("v1"))
-        && matches!(options.format.as_deref(), Some("json" | "yaml"));
+    let (updated_options, actual_query, machine_mode) = normalize_search_request(&options)?;
 
     if updated_options.installed_only && !updated_options.local {
         return run_managed_installed_search(&actual_query, &state, &updated_options, machine_mode);
