@@ -4,6 +4,7 @@
 //! It's used by the `install` command to add packages to config files.
 
 mod backup_ops;
+mod formatting;
 mod package_spec;
 
 use crate::constants::CONFIG_EXTENSION;
@@ -299,83 +300,8 @@ impl ConfigEditor {
             }
         }
 
-        // Generate KDL from modified AST
-        let mut updated_content = doc.to_string();
-
-        // Fix formatting issues from KDL library output
-        // Problem 1: Add space before opening braces
-        updated_content = updated_content.replace("pkg{", "pkg {");
-
-        // Fix backend blocks - detect any word followed by newline that should be a block
-        // Pattern: word\n or word\r\n followed by indented content or opening brace
-        // This handles any backend name without hardcoding
-        let backend_block_re = regex::Regex::new(r"(?m)^([a-zA-Z][a-zA-Z0-9_-]*)\s*\r?\n\s*\{")
-            .map_err(|e| {
-                crate::error::DeclarchError::ConfigError(format!("Invalid regex: {}", e))
-            })?;
-
-        updated_content = backend_block_re
-            .replace_all(&updated_content, |caps: &regex::Captures| {
-                format!("{} {{", &caps[1])
-            })
-            .to_string();
-
-        // Problem 2: Add newlines between nodes (e.g., "}pkg" should be "}\npkg")
-        // This happens when KDL library outputs multiple nodes without separation
-        updated_content = updated_content
-            .replace("}pkg", "}\npkg")
-            .replace("}meta", "}\nmeta")
-            .replace("}imports", "}\nimports")
-            .replace("}hooks", "}\nhooks");
-
-        // Problem 3: Add proper indentation for packages inside blocks
-        let lines: Vec<&str> = updated_content.lines().collect();
-        let mut formatted_lines = Vec::new();
-        let mut in_packages_block = false;
-
-        for line in lines {
-            let trimmed = line.trim();
-
-            // Check if we're entering a pkg block
-            if trimmed.starts_with("pkg") && trimmed.contains('{') {
-                in_packages_block = true;
-                // Preserve comments before the opening brace
-                if line.contains("//") {
-                    formatted_lines.push(line.to_string());
-                } else {
-                    formatted_lines.push(trimmed.to_string());
-                }
-                continue;
-            }
-
-            // Check if we're exiting a block
-            if trimmed == "}" {
-                in_packages_block = false;
-                formatted_lines.push(trimmed.to_string());
-                continue;
-            }
-
-            // Add indentation for package names inside packages blocks
-            if in_packages_block && !trimmed.is_empty() {
-                if trimmed.starts_with("//") {
-                    // Keep comments as-is
-                    formatted_lines.push(format!("  {}", trimmed));
-                } else {
-                    // Indent package names
-                    formatted_lines.push(format!("  {}", trimmed));
-                }
-                continue;
-            }
-
-            // Keep other lines as-is
-            if !trimmed.is_empty() {
-                formatted_lines.push(trimmed.to_string());
-            } else {
-                formatted_lines.push(String::new());
-            }
-        }
-
-        updated_content = formatted_lines.join("\n");
+        // Generate KDL from modified AST and normalize formatting.
+        let updated_content = formatting::normalize_kdl_output(doc.to_string())?;
 
         Ok((updated_content, vec![package.to_string()]))
     }
