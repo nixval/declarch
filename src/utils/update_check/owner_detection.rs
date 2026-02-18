@@ -82,6 +82,7 @@ fn install_marker_path() -> Option<PathBuf> {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn is_owned_by_pacman(exe_path: Option<&Path>) -> bool {
     let Some(path) = exe_path else {
         return false;

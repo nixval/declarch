@@ -73,19 +73,18 @@ pub fn run(options: SelfUpdateOptions) -> Result<()> {
             "Update to {} has been started in the background. Open a new terminal after it finishes.",
             target
         ));
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
     {
         perform_self_update_unix(&target)?;
+        output::success(&format!(
+            "{} updated successfully.",
+            project_identity::BINARY_NAME
+        ));
+        Ok(())
     }
-
-    output::success(&format!(
-        "{} updated successfully.",
-        project_identity::BINARY_NAME
-    ));
-    Ok(())
 }
 
 #[cfg(target_os = "windows")]
