@@ -5,11 +5,14 @@
 
 mod command_fields;
 mod imports;
+mod list_fields;
 mod parse_utils;
 mod search_fields;
 mod validation;
 
-use crate::backends::config::{BackendConfig, BinarySpecifier, OutputFormat};
+#[cfg(test)]
+use crate::backends::config::OutputFormat;
+use crate::backends::config::{BackendConfig, BinarySpecifier};
 use crate::error::{DeclarchError, Result};
 use command_fields::{
     parse_cache_clean_cmd, parse_fallback, parse_install_cmd, parse_noconfirm, parse_remove_cmd,
@@ -17,7 +20,8 @@ use command_fields::{
 };
 use imports::{collect_import_backends, collect_imports_block_backends};
 use kdl::{KdlDocument, KdlNode};
-use parse_utils::{get_entry_string, parse_bool, parse_env, parse_supported_os};
+use list_fields::parse_list_cmd;
+use parse_utils::{parse_bool, parse_env, parse_supported_os};
 use search_fields::{parse_search_cmd, parse_search_local_cmd};
 use std::path::Path;
 use validation::validate_backend_config;
@@ -148,222 +152,6 @@ fn parse_binary(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
         1 => BinarySpecifier::Single(values[0].to_string()),
         _ => BinarySpecifier::Multiple(values),
     };
-
-    Ok(())
-}
-
-/// Parse list command with output format
-/// Accepts "-" as sentinel value to explicitly disable (no warning)
-fn parse_list_cmd(node: &KdlNode, config: &mut BackendConfig) -> Result<()> {
-    // Extract command from argument
-    let cmd = node
-        .entries()
-        .first()
-        .and_then(get_entry_string)
-        .ok_or_else(|| {
-            DeclarchError::Other(
-                "List command required. Usage: list \"command\" { ... }".to_string(),
-            )
-        })?;
-
-    // "-" means explicitly disabled (no warning)
-    if cmd != "-" {
-        config.list_cmd = Some(cmd.to_string());
-    }
-
-    // Parse output format from children
-    if let Some(children) = node.children() {
-        for child in children.nodes() {
-            let child_name = child.name().value();
-            match child_name {
-                "format" => {
-                    let format_str = child
-                        .entries()
-                        .first()
-                        .and_then(get_entry_string)
-                        .ok_or_else(|| {
-                            DeclarchError::Other(
-                                "Format value required. Usage: format json|whitespace|tsv|regex"
-                                    .to_string(),
-                            )
-                        })?;
-
-                    config.list_format = match format_str.as_str() {
-                        "json" => OutputFormat::Json,
-                        "json_lines" | "jsonl" | "ndjson" => OutputFormat::JsonLines,
-                        "npm_json" => OutputFormat::NpmJson,
-                        "json_object_keys" => OutputFormat::JsonObjectKeys,
-                        "whitespace" => OutputFormat::SplitWhitespace,
-                        "tsv" => OutputFormat::TabSeparated,
-                        "regex" => OutputFormat::Regex,
-                        _ => {
-                            return Err(DeclarchError::Other(format!(
-                                "Unknown format '{}'. Valid: json, json_lines, npm_json, json_object_keys, whitespace, tsv, regex",
-                                format_str
-                            )));
-                        }
-                    };
-                }
-                "json_path" => {
-                    config.list_json_path = child.entries().first().and_then(get_entry_string);
-                }
-                "name_key" => {
-                    config.list_name_key = child.entries().first().and_then(get_entry_string);
-                }
-                "version_key" => {
-                    config.list_version_key = child.entries().first().and_then(get_entry_string);
-                }
-                // Nested json block: json { path "..." name_key "..." version_key "..." }
-                "json" => {
-                    if let Some(json_children) = child.children() {
-                        for json_child in json_children.nodes() {
-                            match json_child.name().value() {
-                                "path" => {
-                                    config.list_json_path = json_child
-                                        .entries()
-                                        .first()
-                                        .and_then(|entry| entry.value().as_string())
-                                        .map(|s| s.to_string());
-                                }
-                                "name_key" => {
-                                    config.list_name_key = json_child
-                                        .entries()
-                                        .first()
-                                        .and_then(|entry| entry.value().as_string())
-                                        .map(|s| s.to_string());
-                                }
-                                "version_key" => {
-                                    config.list_version_key = json_child
-                                        .entries()
-                                        .first()
-                                        .and_then(|entry| entry.value().as_string())
-                                        .map(|s| s.to_string());
-                                }
-                                "desc_key" => {
-                                    // Store somewhere if needed for search
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                "name_col" => {
-                    config.list_name_col = child.entries().first().and_then(|entry| {
-                        // Try as string first, then as integer representation
-                        entry
-                            .value()
-                            .as_string()
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .or_else(|| {
-                                // Convert value to string and parse
-                                let val_str = entry.value().to_string();
-                                val_str.parse::<usize>().ok()
-                            })
-                    });
-                }
-                "version_col" => {
-                    config.list_version_col = child.entries().first().and_then(|entry| {
-                        entry
-                            .value()
-                            .as_string()
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .or_else(|| {
-                                let val_str = entry.value().to_string();
-                                val_str.parse::<usize>().ok()
-                            })
-                    });
-                }
-                // Handle nested regex block: regex { pattern "..." name_group 1 }
-                "regex" => {
-                    // Check if regex has children (nested format)
-                    if let Some(regex_children) = child.children() {
-                        for regex_child in regex_children.nodes() {
-                            match regex_child.name().value() {
-                                "pattern" => {
-                                    config.list_regex = regex_child
-                                        .entries()
-                                        .first()
-                                        .and_then(|entry| entry.value().as_string())
-                                        .map(|s| s.to_string());
-                                }
-                                "name_group" => {
-                                    config.list_regex_name_group =
-                                        regex_child.entries().first().and_then(|entry| {
-                                            entry
-                                                .value()
-                                                .as_string()
-                                                .and_then(|s| s.parse::<usize>().ok())
-                                                .or_else(|| {
-                                                    let val_str = entry.value().to_string();
-                                                    val_str.parse::<usize>().ok()
-                                                })
-                                        });
-                                }
-                                "version_group" => {
-                                    config.list_regex_version_group =
-                                        regex_child.entries().first().and_then(|entry| {
-                                            entry
-                                                .value()
-                                                .as_string()
-                                                .and_then(|s| s.parse::<usize>().ok())
-                                                .or_else(|| {
-                                                    let val_str = entry.value().to_string();
-                                                    val_str.parse::<usize>().ok()
-                                                })
-                                        });
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    // Also support flat format: regex "pattern"
-                    if config.list_regex.is_none()
-                        && let Some(pattern) = child
-                            .entries()
-                            .first()
-                            .and_then(|entry| entry.value().as_string())
-                    {
-                        config.list_regex = Some(pattern.to_string());
-                    }
-                }
-                // Flat format (legacy support)
-                "pattern" | "regex_pat" | "myregex" => {
-                    config.list_regex = child
-                        .entries()
-                        .first()
-                        .and_then(|entry| entry.value().as_string())
-                        .map(|s| s.to_string());
-                }
-                "name_group" => {
-                    config.list_regex_name_group = child.entries().first().and_then(|entry| {
-                        entry
-                            .value()
-                            .as_string()
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .or_else(|| {
-                                let val_str = entry.value().to_string();
-                                val_str.parse::<usize>().ok()
-                            })
-                    });
-                }
-                "version_group" => {
-                    config.list_regex_version_group = child.entries().first().and_then(|entry| {
-                        entry
-                            .value()
-                            .as_string()
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .or_else(|| {
-                                let val_str = entry.value().to_string();
-                                val_str.parse::<usize>().ok()
-                            })
-                    });
-                }
-                _ => {
-                    // Ignore unknown fields in list block
-                }
-            }
-        }
-    }
 
     Ok(())
 }
