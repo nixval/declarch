@@ -6,6 +6,7 @@
 mod backend_runtime;
 mod managed;
 mod matching;
+mod preface;
 mod render;
 mod reporting;
 mod selection;
@@ -15,12 +16,12 @@ use crate::commands::runtime_overrides::{
     apply_runtime_backend_overrides, load_runtime_config_for_command,
 };
 use crate::constants::SEARCH_BACKEND_TIMEOUT_SECS;
+#[cfg(test)]
 use crate::core::types::Backend;
 use crate::error::Result;
 use crate::project_identity;
 use crate::state;
 use crate::ui as output;
-use colored::Colorize;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -35,7 +36,8 @@ use matching::{
     canonical_backend_group, is_installed_result, mark_installed, parse_backend_query,
     should_show_backend_error,
 };
-use render::{display_backend_results, sorted_backend_keys};
+use preface::{append_managed_machine_hits, render_human_managed_preface};
+use render::display_backend_results;
 use reporting::{emit_machine_report, emit_no_backends_report, show_human_summary};
 use selection::get_backends_to_search;
 use setup::normalize_search_request;
@@ -230,51 +232,21 @@ pub fn run(options: SearchOptions) -> Result<()> {
     let mut has_results = false;
     let mut machine_results: Vec<SearchResultOut> = Vec::new();
     let mut machine_warnings = selection_warnings;
-    if include_managed_hits {
-        for backend in sorted_backend_keys(&managed_hits) {
-            if let Some(results) = managed_hits.get(&backend) {
-                total_found += results.len();
-                if machine_mode {
-                    for result in results {
-                        machine_results.push(SearchResultOut {
-                            backend: backend.clone(),
-                            name: result.name.clone(),
-                            version: result.version.clone(),
-                            description: None,
-                            installed: true,
-                        });
-                    }
-                    has_results = has_results || !results.is_empty();
-                }
-            }
-        }
-    }
-
-    // Print initial message
+    append_managed_machine_hits(
+        include_managed_hits,
+        &managed_hits,
+        &mut total_found,
+        &mut has_results,
+        &mut machine_results,
+    );
     if !machine_mode {
-        println!();
-        output::info(&format!(
-            "Searching for '{}' (streaming results)...",
-            actual_query.cyan()
-        ));
-        println!();
-        if include_managed_hits {
-            for backend in sorted_backend_keys(&managed_hits) {
-                if let Some(results) = managed_hits.remove(&backend)
-                    && !results.is_empty()
-                {
-                    has_results = true;
-                    let backend_display = Backend::from(format!("managed/{}", backend));
-                    let marked_results = mark_installed(results, &state, true);
-                    display_backend_results(
-                        &backend_display,
-                        &marked_results,
-                        marked_results.len(),
-                        None,
-                    );
-                }
-            }
-        }
+        render_human_managed_preface(
+            include_managed_hits,
+            &mut managed_hits,
+            &state,
+            &actual_query,
+            &mut has_results,
+        );
     }
 
     // Receive results with timeout
