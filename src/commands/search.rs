@@ -7,6 +7,7 @@ mod backend_runtime;
 mod managed;
 mod matching;
 mod render;
+mod reporting;
 mod selection;
 
 use crate::commands::runtime_overrides::{
@@ -18,7 +19,6 @@ use crate::error::Result;
 use crate::project_identity;
 use crate::state;
 use crate::ui as output;
-use crate::utils::machine_output;
 use crate::utils::sanitize::validate_search_query;
 use colored::Colorize;
 use serde::Serialize;
@@ -36,6 +36,7 @@ use matching::{
     should_show_backend_error,
 };
 use render::{display_backend_results, sorted_backend_keys};
+use reporting::{emit_machine_report, emit_no_backends_report, show_human_summary};
 use selection::get_backends_to_search;
 
 /// Maximum time to wait for a backend to respond (seconds)
@@ -161,19 +162,11 @@ pub fn run(options: SearchOptions) -> Result<()> {
 
     if backends_to_search.is_empty() {
         if machine_mode {
-            let report = SearchReportOut {
-                query: actual_query.clone(),
-                local: options.local,
-                requested_backends: updated_options.backends.clone(),
-                total_matches: 0,
-                shown_results: 0,
-                results: Vec::new(),
-            };
-            machine_output::emit_v1(
-                "search",
-                report,
+            emit_no_backends_report(
+                &actual_query,
+                options.local,
+                updated_options.backends.clone(),
                 selection_warnings,
-                Vec::new(),
                 options.format.as_deref().unwrap_or("json"),
             )?;
         } else {
@@ -405,39 +398,17 @@ pub fn run(options: SearchOptions) -> Result<()> {
     }
 
     if machine_mode {
-        let report = SearchReportOut {
-            query: actual_query.clone(),
-            local: options.local,
-            requested_backends: updated_options.backends.clone(),
-            total_matches: total_found,
-            shown_results: machine_results.len(),
-            results: machine_results,
-        };
-        machine_output::emit_v1(
-            "search",
-            report,
+        emit_machine_report(
+            &actual_query,
+            options.local,
+            updated_options.backends.clone(),
+            total_found,
+            machine_results,
             machine_warnings,
-            Vec::new(),
             options.format.as_deref().unwrap_or("json"),
         )?;
     } else {
-        // Summary
-        println!();
-        if has_results {
-            if let Some(limit) = effective_limit
-                && total_found > limit
-            {
-                output::info(&format!(
-                    "Showing limited results. Use --limit 0 for all {} matches.",
-                    total_found
-                ));
-            }
-        } else {
-            output::info(&format!(
-                "No packages found matching '{}'",
-                actual_query.cyan()
-            ));
-        }
+        show_human_summary(has_results, total_found, effective_limit, &actual_query);
     }
 
     Ok(())
