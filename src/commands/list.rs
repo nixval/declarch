@@ -1,4 +1,5 @@
 mod filters;
+mod output_formats;
 mod unmanaged_output;
 
 use crate::config::loader;
@@ -7,10 +8,10 @@ use crate::error::Result;
 use crate::project_identity;
 use crate::state;
 use crate::ui as output;
-use crate::utils::machine_output;
 use crate::utils::paths;
 use colored::Colorize;
 use filters::{find_orphans, find_synced};
+use output_formats::{output_json, output_yaml};
 use std::collections::HashMap;
 use std::str::FromStr;
 use unmanaged_output::emit_unmanaged_output;
@@ -212,33 +213,4 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
             project_identity::cli_with("sync prune")
         ));
     }
-}
-
-/// Output packages as JSON
-fn output_json(
-    packages: &[&state::types::PackageState],
-    output_version: Option<&str>,
-) -> Result<()> {
-    if output_version == Some("v1") {
-        return machine_output::emit_v1("info --list", packages, Vec::new(), Vec::new(), "json");
-    }
-
-    let json = serde_json::to_string_pretty(packages)?;
-    println!("{}", json);
-    Ok(())
-}
-
-/// Output packages as YAML
-fn output_yaml(
-    packages: &[&state::types::PackageState],
-    output_version: Option<&str>,
-) -> Result<()> {
-    if output_version == Some("v1") {
-        return machine_output::emit_v1("info --list", packages, Vec::new(), Vec::new(), "yaml");
-    }
-
-    let json_value = serde_json::to_value(packages)?;
-    let yaml = serde_yml::to_string(&json_value)?;
-    println!("{}", yaml);
-    Ok(())
 }
