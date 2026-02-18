@@ -16,12 +16,12 @@ Status legend:
 
 ## B. Behavior Parity (No Unexpected Behavior Change)
 
-- [~] Tambah golden/snapshot test untuk command surface utama:
+- [x] Tambah golden/snapshot test untuk command surface utama:
   - [x] parity suite minimum (CLI output-contract validation path)
-  - [ ] `sync` (`dry-run`, `prune`, `update`) golden snapshot
-  - [ ] `search` (with/without backend filter, local mode) golden snapshot
-  - [ ] `lint` (`all`, `validate`, strict mode) golden snapshot
-  - [ ] `info` + `info --list` golden snapshot
+  - [x] `sync` (`dry-run`, `prune`, `update`) golden snapshot
+  - [x] `search` (with/without backend filter, local mode) golden snapshot
+  - [x] `lint` (`all`, `validate`, strict mode) golden snapshot
+  - [x] `info` + `info --list` golden snapshot
 - [x] Tambah parity assertions untuk pesan error utama yang bersifat user-facing.
 
 ## C. Machine Output Contract v1 Hardening
