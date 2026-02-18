@@ -1,6 +1,6 @@
 use crate::config::loader::{self, LoadSelectors, MergedConfig};
 use crate::core::resolver;
-use crate::core::types::{Backend, PackageId};
+use crate::core::types::PackageId;
 use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::state;
@@ -9,8 +9,10 @@ use crate::utils::paths;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
+mod matching;
 mod presentation;
 mod query_helpers;
+use matching::{find_matches, load_known_backends};
 use presentation::{
     render_backend_missing_suggestions, render_context_verbose, render_install_remove_reason_block,
     show_active_context,
@@ -335,42 +337,6 @@ fn explain_backend(
     output::keyval("Packages using backend", &referenced_count.to_string());
 
     Ok(())
-}
-
-fn find_matches(
-    config: &MergedConfig,
-    backend_filter: Option<&Backend>,
-    needle: &str,
-    exact: bool,
-) -> Vec<PackageId> {
-    let needle_lower = needle.to_lowercase();
-
-    let mut matches: Vec<_> = config
-        .packages
-        .keys()
-        .filter(|pkg| backend_filter.is_none_or(|b| pkg.backend == *b))
-        .filter(|pkg| {
-            if exact {
-                pkg.name.eq_ignore_ascii_case(needle)
-            } else {
-                pkg.name.to_lowercase().contains(&needle_lower)
-            }
-        })
-        .cloned()
-        .collect();
-
-    matches.sort_by_key(|a| a.to_string());
-    matches
-}
-
-fn load_known_backends(
-    config: &MergedConfig,
-) -> HashMap<String, crate::backends::config::BackendConfig> {
-    let mut backends = crate::backends::load_all_backends_unified().unwrap_or_default();
-    for backend in &config.backends {
-        backends.insert(backend.name.to_lowercase(), backend.clone());
-    }
-    backends
 }
 
 #[cfg(test)]

@@ -30,7 +30,9 @@ pub(super) fn render_context_verbose(config_path: &Path, config: &MergedConfig) 
     output::keyval("Declared packages", &config.packages.len().to_string());
     output::keyval(
         "Known backends",
-        &super::load_known_backends(config).len().to_string(),
+        &super::matching::load_known_backends(config)
+            .len()
+            .to_string(),
     );
 }
 
