@@ -40,3 +40,47 @@ where
         ))
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::execute_with_retry;
+    use crate::error::DeclarchError;
+
+    #[test]
+    fn retry_succeeds_before_max_attempts() {
+        let mut attempts = 0u32;
+        let result = execute_with_retry(
+            || {
+                attempts += 1;
+                if attempts < 3 {
+                    Err(DeclarchError::Other("temporary".to_string()))
+                } else {
+                    Ok(())
+                }
+            },
+            "op",
+            3,
+            0,
+        );
+        assert!(result.is_ok());
+        assert_eq!(attempts, 3);
+    }
+
+    #[test]
+    fn retry_returns_last_error_when_all_attempts_fail() {
+        let mut attempts = 0u32;
+        let result = execute_with_retry(
+            || {
+                attempts += 1;
+                Err(DeclarchError::Other(format!("fail-{attempts}")))
+            },
+            "op",
+            2,
+            0,
+        )
+        .expect_err("should fail");
+
+        assert_eq!(attempts, 2);
+        assert!(result.to_string().contains("fail-2"));
+    }
+}

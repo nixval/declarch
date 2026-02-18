@@ -403,3 +403,50 @@ fn parse_packages_node_legacy(node: &KdlNode, config: &mut RawConfig) -> Result<
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{map_node_into_config, parse_backend_options};
+    use crate::config::kdl_modules::types::RawConfig;
+    use kdl::KdlDocument;
+    use std::collections::HashMap;
+
+    fn first_node(input: &str) -> kdl::KdlNode {
+        let doc: KdlDocument = input.parse().expect("kdl should parse");
+        doc.nodes().first().expect("node exists").clone()
+    }
+
+    #[test]
+    fn backend_options_accepts_children_and_kv_entries() {
+        let node = first_node(
+            r#"
+options:paru "color=always" {
+  noconfirm "true"
+}
+"#,
+        );
+        let mut options: HashMap<String, HashMap<String, String>> = HashMap::new();
+        parse_backend_options(&node, &mut options).expect("parse options");
+
+        let paru = options.get("paru").expect("paru options should exist");
+        assert_eq!(paru.get("color").map(String::as_str), Some("always"));
+        assert_eq!(paru.get("noconfirm").map(String::as_str), Some("true"));
+    }
+
+    #[test]
+    fn mcp_policy_deduplicates_allow_tools() {
+        let node = first_node(
+            r#"
+mcp {
+  mode "write-enabled"
+  allow-tools "declarch_sync_apply" "declarch_sync_apply"
+}
+"#,
+        );
+        let mut cfg = RawConfig::default();
+        map_node_into_config(&node, &mut cfg).expect("map node");
+        assert_eq!(cfg.mcp.mode.as_deref(), Some("write-enabled"));
+        assert_eq!(cfg.mcp.allow_tools.len(), 1);
+        assert_eq!(cfg.mcp.allow_tools[0], "declarch_sync_apply");
+    }
+}
