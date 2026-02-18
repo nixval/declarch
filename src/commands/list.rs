@@ -1,4 +1,5 @@
 mod filters;
+mod unmanaged_output;
 
 use crate::config::loader;
 use crate::core::types::Backend;
@@ -12,6 +13,7 @@ use colored::Colorize;
 use filters::{find_orphans, find_synced};
 use std::collections::HashMap;
 use std::str::FromStr;
+use unmanaged_output::emit_unmanaged_output;
 
 /// Options for the list command
 pub struct ListOptions {
@@ -24,7 +26,7 @@ pub struct ListOptions {
 }
 
 #[derive(serde::Serialize)]
-struct UnmanagedPackageOut {
+pub(super) struct UnmanagedPackageOut {
     backend: String,
     name: String,
     version: Option<String>,
@@ -151,59 +153,7 @@ fn run_unmanaged_list(options: ListOptions) -> Result<()> {
     out.sort_by(|a, b| a.backend.cmp(&b.backend).then(a.name.cmp(&b.name)));
     out.dedup_by(|a, b| a.backend == b.backend && a.name == b.name);
 
-    let format_str = options.format.as_deref().unwrap_or("table");
-    match format_str {
-        "json" => {
-            if options.output_version.as_deref() == Some("v1") {
-                machine_output::emit_v1("info --list", &out, Vec::new(), Vec::new(), "json")?;
-            } else {
-                println!("{}", serde_json::to_string_pretty(&out)?);
-            }
-            Ok(())
-        }
-        "yaml" => {
-            if options.output_version.as_deref() == Some("v1") {
-                machine_output::emit_v1("info --list", &out, Vec::new(), Vec::new(), "yaml")?;
-            } else {
-                let yaml = serde_yml::to_string(&serde_json::to_value(&out)?)?;
-                println!("{}", yaml);
-            }
-            Ok(())
-        }
-        _ => {
-            if out.is_empty() {
-                output::info("No unmanaged installed packages found");
-                return Ok(());
-            }
-            output::header(&format!("Unmanaged Installed Packages ({})", out.len()));
-            let mut by_backend: HashMap<String, Vec<&UnmanagedPackageOut>> = HashMap::new();
-            for item in &out {
-                by_backend
-                    .entry(item.backend.clone())
-                    .or_default()
-                    .push(item);
-            }
-            let mut keys: Vec<_> = by_backend.keys().cloned().collect();
-            keys.sort();
-            for backend in keys {
-                println!();
-                println!("{}", format!("Backend: {}", backend).bold().cyan());
-                if let Some(pkgs) = by_backend.get(&backend) {
-                    for pkg in pkgs {
-                        println!(
-                            "  {} {:<30} {:>10}",
-                            "•".yellow(),
-                            pkg.name,
-                            pkg.version.as_deref().unwrap_or("-").dimmed()
-                        );
-                    }
-                }
-            }
-            println!();
-            output::info("Tip: add needed packages into your config to adopt them.");
-            Ok(())
-        }
-    }
+    emit_unmanaged_output(&out, &options)
 }
 
 /// Display packages with formatting
