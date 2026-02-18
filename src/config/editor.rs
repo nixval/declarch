@@ -4,6 +4,7 @@
 //! It's used by the `install` command to add packages to config files.
 
 mod backup_ops;
+mod default_backend;
 mod formatting;
 mod package_spec;
 
@@ -11,45 +12,13 @@ use crate::constants::CONFIG_EXTENSION;
 use crate::error::{DeclarchError, Result};
 use crate::utils::paths;
 pub use backup_ops::{backup_kdl_file, restore_from_backup};
+use default_backend::detect_default_backend;
 use kdl::{KdlDocument, KdlNode};
 #[cfg(test)]
 use package_spec::is_valid_backend;
 pub use package_spec::parse_package_string;
 use std::fs;
-use std::path::{Path, PathBuf};
-
-/// Detect the default backend based on the Linux distribution
-fn detect_default_backend() -> &'static str {
-    // Check /etc/os-release for distro identification
-    if let Ok(content) = fs::read_to_string("/etc/os-release") {
-        let id = content
-            .lines()
-            .find(|line| line.starts_with("ID="))
-            .and_then(|line| line.strip_prefix("ID="))
-            .map(|s| s.trim_matches('"'));
-
-        match id {
-            Some("debian") | Some("ubuntu") | Some("linuxmint") | Some("pop") => "apt",
-            Some("fedora") | Some("rhel") | Some("centos") | Some("rocky") | Some("almalinux") => {
-                "dnf"
-            }
-            Some("opensuse") | Some("opensuse-tumbleweed") | Some("suse") => "zypper",
-            Some("arch") | Some("manjaro") | Some("endeavouros") | Some("cachyos") => "aur",
-            _ => "aur", // Default to aur for unknown distros (most likely Arch-based)
-        }
-    } else {
-        // Fallback: check if pacman exists
-        if Path::new("/usr/bin/pacman").exists() {
-            "aur"
-        } else if Path::new("/usr/bin/apt").exists() {
-            "apt"
-        } else if Path::new("/usr/bin/dnf").exists() {
-            "dnf"
-        } else {
-            "aur" // Ultimate fallback
-        }
-    }
-}
+use std::path::PathBuf;
 
 /// Result of editing a config file
 #[derive(Debug)]
