@@ -186,6 +186,10 @@ jobs:
             base="$(basename "$file")"
             echo "${sum}  ${base}" >> artifacts/checksums.txt
           done < <(find artifacts -type f -name '${{ env.ASSET_PREFIX }}-*' -print0 | sort -z)
+          if [[ ! -s artifacts/checksums.txt ]]; then
+            echo "ERROR: checksums.txt is empty"
+            exit 1
+          fi
 
           if gh release view "${TAG}" &>/dev/null; then
             echo "Release ${TAG} already exists, uploading artifacts..."
@@ -197,6 +201,29 @@ jobs:
               --notes-file CHANGELOG.md
             gh release upload "${TAG}" artifacts/*/${{ env.ASSET_PREFIX }}-* artifacts/checksums.txt
           fi
+
+          expected_assets=(
+            "${{ env.ASSET_PREFIX }}-x86_64-unknown-linux-gnu.tar.gz"
+            "${{ env.ASSET_PREFIX }}-aarch64-unknown-linux-gnu.tar.gz"
+            "${{ env.ASSET_PREFIX }}-x86_64-apple-darwin.tar.gz"
+            "${{ env.ASSET_PREFIX }}-aarch64-apple-darwin.tar.gz"
+            "${{ env.ASSET_PREFIX }}-x86_64-pc-windows-msvc.zip"
+            "checksums.txt"
+          )
+          assets_list="$(gh release view "${TAG}" --json assets --jq '.assets[].name')"
+          missing=()
+          for asset in "${expected_assets[@]}"; do
+            if ! grep -Fxq "${asset}" <<< "${assets_list}"; then
+              missing+=("${asset}")
+            fi
+          done
+          if ((${#missing[@]} > 0)); then
+            echo "ERROR: missing release assets: ${missing[*]}"
+            echo "Current assets:"
+            printf '%s\n' "${assets_list}"
+            exit 1
+          fi
+          echo "Release assets verified."
 
       - name: Publish info
         run: |

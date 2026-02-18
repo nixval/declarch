@@ -27,6 +27,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-lint:
+    name: Workflow Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate GitHub workflow syntax
+        uses: rhysd/actionlint@v1
+
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
