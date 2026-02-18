@@ -5,18 +5,17 @@
 mod filtering;
 mod presentation;
 mod variant_transition;
+mod warnings;
 
 use super::{InstalledSnapshot, ManagerMap, SyncOptions};
 use crate::config::loader;
 use crate::core::{resolver, types::SyncTarget};
 use crate::error::Result;
 use crate::state::types::State;
-use crate::ui as output;
-use chrono::Utc;
-use colored::Colorize;
 use filtering::resolve_filtered_transaction;
 use presentation::{display_dry_run_details_impl, display_transaction_plan_impl};
 use variant_transition::{collect_variant_mismatches, emit_variant_transition_error};
+use warnings::warn_partial_upgrade_impl;
 
 /// Create transaction from current state and desired config
 /// This is a wrapper that calls resolve_and_filter_packages
@@ -61,28 +60,7 @@ pub fn check_variant_transitions(
 
 /// Warn about partial upgrades when system hasn't been updated recently
 pub fn warn_partial_upgrade(state: &State, tx: &resolver::Transaction, options: &SyncOptions) {
-    if !options.update && !tx.to_install.is_empty() {
-        let should_warn = match state.meta.last_update {
-            Some(last) => Utc::now().signed_duration_since(last).num_hours() > 24,
-            None => true,
-        };
-
-        if should_warn {
-            let time_str = state
-                .meta
-                .last_update
-                .map(|t| format!("{}h ago", Utc::now().signed_duration_since(t).num_hours()))
-                .unwrap_or("unknown".to_string());
-
-            output::separator();
-            println!(
-                "{} Last system update: {}. Use {} to refresh.",
-                "⚠ Partial Upgrade Risk:".yellow().bold(),
-                time_str.white(),
-                "--update".bold()
-            );
-        }
-    }
+    warn_partial_upgrade_impl(state, tx, options);
 }
 
 /// Display the transaction plan to the user with backend grouping
