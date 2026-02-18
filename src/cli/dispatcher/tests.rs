@@ -1,4 +1,5 @@
-use super::{parse_limit_option, validate_machine_output_contract};
+use super::normalization::parse_limit_option;
+use super::output_contract::validate_machine_output_contract;
 use crate::cli::args::{Cli, GlobalFlags};
 
 fn base_cli() -> Cli {
