@@ -10,9 +10,12 @@ use crate::error::{DeclarchError, Result};
 use crate::project_identity;
 use crate::ui as output;
 use crate::utils::{paths, remote};
+use presentation::print_backend_meta;
 use regex::Regex;
 use std::fs;
 use std::path::Path;
+
+mod presentation;
 
 /// Initialize a new backend configuration file
 pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
@@ -90,35 +93,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     // Parse and display meta information
     if let Ok(meta) = extract_backend_meta(&backend_content) {
-        println!();
-        if !meta.title.is_empty() && meta.title != "-" {
-            println!("  Title:       {}", meta.title);
-        }
-        if !meta.description.is_empty() && meta.description != "-" {
-            println!("  Description: {}", meta.description);
-        }
-        if !meta.maintainers.is_empty() {
-            println!("  Maintainer:  {}", meta.maintainers.join(", "));
-        } else if let Some(author) = &meta.author
-            && author != "-"
-        {
-            println!("  Author:      {}", author);
-        }
-        if !meta.homepage.is_empty() && meta.homepage != "-" {
-            println!("  Homepage:    {}", meta.homepage);
-        }
-        if let Some(guide) = &meta.installation_guide
-            && guide != "-"
-        {
-            println!("  Install:     {}", guide);
-        }
-        if !meta.platforms.is_empty() {
-            println!("  Platforms:   {}", meta.platforms.join(", "));
-        }
-        if !meta.requires.is_empty() {
-            println!("  Requires:    {}", meta.requires.join(", "));
-        }
-        println!();
+        print_backend_meta(&meta);
     }
 
     // Check if file already exists
