@@ -1,4 +1,5 @@
 mod file_ops;
+mod targeting;
 
 use crate::error::{DeclarchError, Result};
 use crate::project_identity;
@@ -7,8 +8,8 @@ use crate::utils::paths;
 use colored::Colorize;
 use file_ops::{create_backup, create_module_from_template, format_kdl_file, validate_file_only};
 use kdl::KdlDocument;
-use std::path::{Component, Path, PathBuf};
 use std::process::Command;
+use targeting::resolve_target_path;
 use which;
 
 #[derive(Debug)]
@@ -168,116 +169,6 @@ pub fn run(options: EditOptions) -> Result<()> {
         ));
     } else {
         output::success("Configuration syntax is valid!");
-    }
-
-    Ok(())
-}
-
-/// Resolve target path to actual file location
-///
-/// Examples:
-/// - "hyprland/niri-nico" → modules/hyprland/niri-nico.kdl
-/// - "declarch" → declarch.kdl
-/// - "modules/hyprland/niri-nico.kdl" → modules/hyprland/niri-nico.kdl
-fn resolve_target_path(config_dir: &Path, target: &str) -> Result<PathBuf> {
-    validate_edit_target(target)?;
-    let target_path = PathBuf::from(target);
-
-    // If target is just a filename (no slashes), check in modules/
-    if target_path.components().count() == 1 {
-        let mut module_path = PathBuf::from("modules").join(&target_path);
-
-        // Add .kdl extension if not present
-        if module_path.extension().is_none() {
-            module_path.set_extension("kdl");
-        }
-
-        let full_path = config_dir.join(&module_path);
-
-        // If exact path exists, use it
-        if full_path.exists() {
-            return Ok(full_path);
-        }
-
-        // Try with category prefix (e.g., "niri-nico" → "hyprland/niri-nico")
-        // Search through all categories
-        let modules_dir = config_dir.join("modules");
-        if modules_dir.exists()
-            && let Ok(entries) = std::fs::read_dir(&modules_dir)
-        {
-            for category_entry in entries {
-                if let Ok(category_entry) = category_entry
-                    && let Ok(file_type) = category_entry.file_type()
-                    && file_type.is_dir()
-                {
-                    let category_name = category_entry.file_name();
-                    let nested_path = config_dir
-                        .join("modules")
-                        .join(&category_name)
-                        .join(&target_path);
-
-                    // Add .kdl extension if needed
-                    let nested_path = if nested_path.extension().is_none() {
-                        let mut p = nested_path.clone();
-                        p.set_extension("kdl");
-                        p
-                    } else {
-                        nested_path
-                    };
-
-                    if nested_path.exists() {
-                        output::info(&format!(
-                            "Found in category: {}",
-                            category_name.to_string_lossy()
-                        ));
-                        return Ok(nested_path);
-                    }
-                }
-            }
-        }
-
-        // Not found
-        return Err(DeclarchError::Other(format!(
-            "Module '{}' not found\n  Tried: {}\n  Hint: Use '{}' to list available modules",
-            target,
-            full_path.display(), // Use full_path which already includes modules/
-            project_identity::cli_with("info")
-        )));
-    }
-
-    // Target has slashes (e.g., "hyprland/niri-nico" or "modules/hyprland/niri-nico")
-    let mut full_path = if target.starts_with("modules/") || target.starts_with("./") {
-        config_dir.join(target)
-    } else {
-        config_dir.join("modules").join(target)
-    };
-
-    // Add .kdl extension if not present
-    if full_path.extension().is_none() {
-        full_path.set_extension("kdl");
-    }
-
-    Ok(full_path)
-}
-
-fn validate_edit_target(target: &str) -> Result<()> {
-    if target.trim().is_empty() {
-        return Err(DeclarchError::Other("Invalid module name".into()));
-    }
-
-    let path = Path::new(target);
-    if path.is_absolute() {
-        return Err(DeclarchError::Other(
-            "Invalid module name: absolute paths are not allowed".into(),
-        ));
-    }
-
-    for component in path.components() {
-        if matches!(component, Component::ParentDir | Component::RootDir) {
-            return Err(DeclarchError::Other(
-                "Invalid module name: path traversal is not allowed".into(),
-            ));
-        }
     }
 
     Ok(())
