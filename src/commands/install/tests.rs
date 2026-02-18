@@ -1,4 +1,5 @@
-use super::{cleanup_install_backups, plan_installs, rollback_install_edits};
+use super::file_ops::rollback_install_edits;
+use super::{cleanup_install_backups, plan_installs};
 use crate::config::editor::{ModuleEdit, backup_kdl_file};
 use std::fs;
 use tempfile::tempdir;

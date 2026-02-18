@@ -2,7 +2,7 @@
 //!
 //! Adds packages to KDL configuration files and auto-syncs the system.
 
-use crate::config::editor::{self, ConfigEditor};
+use crate::config::editor::ConfigEditor;
 use crate::config::loader;
 use crate::core::types::{Backend, PackageId};
 use crate::error::{DeclarchError, Result};
@@ -10,10 +10,12 @@ use crate::packages::get_registry;
 use crate::project_identity;
 use crate::ui as output;
 use crate::utils::paths;
-use file_ops::{cleanup_install_backups, inject_import_to_root, rollback_install_edits};
+use file_ops::cleanup_install_backups;
+use finalize::{finalize_edits, run_auto_sync};
 use planning::plan_installs;
 
 mod file_ops;
+mod finalize;
 mod planning;
 
 /// Options for the install command
@@ -94,12 +96,9 @@ pub fn run(options: InstallOptions) -> Result<()> {
     // Step 2: Initialize config editor
     let editor = ConfigEditor::new();
     let mut all_edits = Vec::new();
-    let mut root_backup: Option<std::path::PathBuf> = None;
     let mut skipped_count = 0;
 
     // Step 3: Add each package to config
-    let mut modified_modules: Vec<String> = Vec::new();
-
     for planned in &planned_installs {
         let pkg_name = &planned.package;
         let backend_str = planned.backend.as_str();
@@ -218,103 +217,27 @@ pub fn run(options: InstallOptions) -> Result<()> {
         output::verbose(&format!("Applied edits: {}", all_edits.len()));
     }
 
-    // Step 3: Show summary of edits
-    let mut files_created = Vec::new();
-    let mut files_updated = Vec::new();
-    let mut all_packages = Vec::new();
-
-    for edit in &all_edits {
-        // Track modified module for selective sync
-        if let Some(module_name) = edit.file_path.file_stem()
-            && let Some(module_str) = module_name.to_str()
-            && !modified_modules.iter().any(|m| m == module_str)
-        {
-            modified_modules.push(module_str.to_string());
-        }
-
-        if edit.created_new_file {
-            files_created.push(edit.file_path.display().to_string());
-
-            // Auto-import new module to declarch.kdl
-            let module_path = edit
-                .file_path
-                .strip_prefix(&paths::config_dir()?)
-                .unwrap_or(&edit.file_path);
-            if root_backup.is_none() {
-                let config_path = paths::config_file()?;
-                if config_path.exists() {
-                    root_backup = Some(editor::backup_kdl_file(&config_path)?);
-                }
-            }
-            inject_import_to_root(module_path)?;
-        } else {
-            files_updated.push(edit.file_path.display().to_string());
-        }
-
-        all_packages.extend(edit.packages_added.iter().cloned());
-    }
+    // Step 3: Finalize edits and inject imports for newly-created modules.
+    let finalize = finalize_edits(&all_edits)?;
 
     // Step 4: Auto-sync (unless --no-sync)
     if !options.no_sync {
-        // Show sync message with package details
-        let _packages_with_backend: Vec<String> =
-            all_packages.iter().map(|p| p.to_string()).collect();
-
-        // Import sync command at top to avoid circular dependency
-        use crate::commands::sync::{self, SyncOptions};
-
-        let sync_result = sync::run(SyncOptions {
-            update: false,
-            prune: false,
-            dry_run: false,
-            verbose: options.verbose,
-            target: None,
-            yes: options.yes,
-            force: false,
-            noconfirm: false,
-            hooks: false,
-            profile: None,
-            host: None,
-            modules: modified_modules.clone(),
-            diff: false,
-            format: None,
-            output_version: None,
-        });
-        if options.verbose {
-            output::verbose(&format!(
-                "Auto-sync modules: {}",
-                if modified_modules.is_empty() {
-                    "(none)".to_string()
-                } else {
-                    modified_modules.join(", ")
-                }
-            ));
-        }
-
-        match sync_result {
-            Ok(()) => {
-                // Keep install transactional even if interruption happens late.
-                if output::is_interrupted() {
-                    rollback_install_edits(&all_edits, root_backup.as_ref());
-                    output::info("Changes rolled back");
-                    return Ok(());
-                }
-            }
-            Err(crate::error::DeclarchError::Interrupted) => {
-                // User cancelled - rollback and show friendly message
-                rollback_install_edits(&all_edits, root_backup.as_ref());
-                output::info("Changes rolled back");
-                return Ok(());
-            }
-            Err(e) => {
-                // Rollback all edits silently
-                rollback_install_edits(&all_edits, root_backup.as_ref());
-                return Err(e);
-            }
-        }
+        run_auto_sync(
+            &finalize.modified_modules,
+            options.verbose,
+            options.yes,
+            &all_edits,
+            finalize.root_backup.as_ref(),
+        )?;
     }
 
-    cleanup_install_backups(&all_edits, root_backup.as_ref());
+    if options.verbose && !finalize.all_packages.is_empty() {
+        output::verbose(&format!(
+            "Packages added: {}",
+            finalize.all_packages.join(", ")
+        ));
+    }
+    cleanup_install_backups(&all_edits, finalize.root_backup.as_ref());
     Ok(())
 }
 
