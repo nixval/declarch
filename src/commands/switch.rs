@@ -2,12 +2,13 @@ use crate::config::types::GlobalConfig;
 use crate::error::{DeclarchError, Result};
 use crate::packages::{PackageManager, create_manager};
 use crate::project_identity;
-use crate::state::{self, types::PackageState};
+use crate::state;
 use crate::ui as output;
-use chrono::Utc;
 use colored::Colorize;
+use state_update::persist_successful_transition;
 use transition::{determine_target, execute_transition};
 
+mod state_update;
 mod transition;
 
 #[derive(Debug)]
@@ -157,42 +158,15 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     match execute_transition(&old_package, &new_package, &backend, &*manager) {
         Ok(()) => {
-            output::info(&format!(
-                "Updating {} state...",
-                project_identity::BINARY_NAME
-            ));
-
-            // Remove old package from state
-            state.packages.remove(&old_state_key);
-
-            // Add new package to state
-            let new_state_key = format!("{}:{}", backend, new_package);
-            let post_transition_installed = manager.list_installed().ok();
-
-            let new_pkg_state = PackageState {
-                backend: backend.clone(),
-                config_name: new_package.clone(),
-                provides_name: new_package.clone(),
-                actual_package_name: None, // Actual system package name, if different
-                installed_at: Utc::now(),
-                version: post_transition_installed
-                    .as_ref()
-                    .and_then(|pkgs| pkgs.get(&new_package))
-                    .or_else(|| installed.get(&new_package))
-                    .and_then(|m| m.version.clone()),
-                install_reason: Some("manual-sync".to_string()),
-                source_module: None,
-                last_seen_at: Some(Utc::now()),
-                backend_meta: None,
-            };
-
-            state.packages.insert(new_state_key, new_pkg_state);
-
-            // Update metadata
-            state.meta.last_sync = Utc::now();
-
-            // Save state with file locking
-            state::io::save_state_locked(&state, &lock)?;
+            persist_successful_transition(
+                &mut state,
+                &lock,
+                &backend,
+                &old_state_key,
+                &new_package,
+                &*manager,
+                &installed,
+            )?;
 
             output::separator();
             output::success(&format!(
