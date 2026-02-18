@@ -1,0 +1,24 @@
+{
+  "version": "v1",
+  "command": "sync",
+  "ok": true,
+  "data": {
+    "dry_run": true,
+    "prune": false,
+    "update": false,
+    "target": "all",
+    "install_count": 1,
+    "remove_count": 0,
+    "adopt_count": 0,
+    "to_install": ["aur:bat"],
+    "to_remove": [],
+    "to_adopt": []
+  },
+  "warnings": [
+    "Partial upgrade risk: last update unknown"
+  ],
+  "errors": [],
+  "meta": {
+    "generated_at": "2026-02-18T00:00:00Z"
+  }
+}

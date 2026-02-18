@@ -11,6 +11,7 @@ pub mod lint;
 pub mod list;
 pub mod runtime_overrides;
 pub mod search;
+pub mod self_update;
 pub mod switch;
 pub mod sync;
 pub mod upgrade;

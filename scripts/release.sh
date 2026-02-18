@@ -2,6 +2,10 @@
 # Automated release script for declarch
 set -e
 
+REPO_SLUG="nixval/declarch"
+BIN_NAME="declarch"
+ASSET_PREFIX="declarch"
+
 sed_in_place() {
     local expr="$1"
     local file="$2"
@@ -43,11 +47,11 @@ fi
 # Update Cargo.toml
 echo "📝 Updating Cargo.toml..."
 sed_in_place "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+sed_in_place "s/^pkgver=.*/pkgver=${VERSION}/" .aur/templates/PKGBUILD
 
-# Update installer scripts
-echo "📝 Updating installers..."
-sed_in_place "s/^VERSION=\".*\"/VERSION=\"$VERSION\"/" install.sh
-sed_in_place "s/\\[string\\]\\$Version = \".*\"/[string]\$Version = \"$VERSION\"/" install.ps1
+# Release consistency guards (Cargo/tag/AUR template)
+echo "🔎 Checking release consistency..."
+scripts/check_release_consistency.sh --tag "v$VERSION" --strict --check-aur-remote
 
 # Run checks
 echo "🔍 Running tests..."
@@ -78,7 +82,8 @@ fi
 
 # Commit changes
 echo "💾 Committing changes..."
-git add Cargo.toml install.sh install.ps1
+git add Cargo.toml
+git add .aur/templates/PKGBUILD
 git commit -m "chore: prepare release $VERSION"
 
 echo "📊 Summary of changes:"
@@ -99,13 +104,13 @@ echo ""
 echo "✅ Release $VERSION prepared!"
 echo ""
 echo "Next steps:"
-echo "  1. Check CI: https://github.com/nixval/declarch/actions"
+echo "  1. Check CI: https://github.com/${REPO_SLUG}/actions"
 echo "  2. Wait for build to complete (~5 minutes)"
-echo "  3. Verify release: https://github.com/nixval/declarch/releases/tag/v$VERSION"
-echo "  4. Test install (Linux/macOS): curl -fsSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh"
-echo "  5. Test install (Windows): irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex"
+echo "  3. Verify release: https://github.com/${REPO_SLUG}/releases/tag/v$VERSION"
+echo "  4. Test install (Linux/macOS): curl -fsSL https://raw.githubusercontent.com/${REPO_SLUG}/main/install.sh | sh"
+echo "  5. Test install (Windows): irm https://raw.githubusercontent.com/${REPO_SLUG}/main/install.ps1 | iex"
 echo ""
 echo "To verify the binary after release:"
-echo "  wget https://github.com/nixval/declarch/releases/download/v$VERSION/declarch-x86_64-unknown-linux-gnu.tar.gz"
-echo "  tar xzf declarch-x86_64-unknown-linux-gnu.tar.gz"
-echo "  ./declarch --version  # Should show $VERSION"
+echo "  wget https://github.com/${REPO_SLUG}/releases/download/v$VERSION/${ASSET_PREFIX}-x86_64-unknown-linux-gnu.tar.gz"
+echo "  tar xzf ${ASSET_PREFIX}-x86_64-unknown-linux-gnu.tar.gz"
+echo "  ./${BIN_NAME} --version  # Should show $VERSION"

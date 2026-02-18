@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage:
 #   ./.aur/scripts/publish-declarch.sh [version]
 # Example:
-#   ./.aur/scripts/publish-declarch.sh 0.8.1
+#   ./.aur/scripts/publish-declarch.sh 0.8.2
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,6 +29,11 @@ fi
 if [[ -z "${VERSION}" ]]; then
   echo -e "${RED}Error: version not provided and not found in Cargo.toml${NC}"
   exit 1
+fi
+
+if [[ -x "${REPO_ROOT}/scripts/check_release_consistency.sh" ]]; then
+  echo -e "${YELLOW}[preflight] Checking release consistency...${NC}"
+  "${REPO_ROOT}/scripts/check_release_consistency.sh" --tag "v${VERSION}" --strict
 fi
 
 require_cmd() {

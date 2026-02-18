@@ -7,11 +7,16 @@
 //! 4. Add import to `declarch.kdl` in `backends { ... }`
 
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use crate::utils::{paths, remote};
-use regex::Regex;
+use presentation::print_backend_meta;
 use std::fs;
-use std::path::Path;
+
+mod meta_parser;
+mod presentation;
+mod root_import;
+pub use root_import::add_backend_to_declarch;
 
 /// Initialize a new backend configuration file
 pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
@@ -50,8 +55,9 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
     }
 
     println!(
-        "fetching '{}' from nixval/declarch-packages",
-        sanitized_name
+        "fetching '{}' from {}",
+        sanitized_name,
+        project_identity::REGISTRY_SLUG
     );
 
     let backend_content = match remote::fetch_backend_content(&sanitized_name) {
@@ -61,8 +67,10 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
                 output::verbose(&format!("Backend fetch error detail: {}", e));
             }
             return Err(DeclarchError::Other(format!(
-                "failed to fetch backend '{}'. Please verify name/network and retry.\nHint: declarch init --list backends\nDetail: {}",
-                sanitized_name, e
+                "failed to fetch backend '{}'. Please verify name/network and retry.\nHint: {}\nDetail: {}",
+                sanitized_name,
+                project_identity::cli_with("init --list backends"),
+                e
             )));
         }
     };
@@ -72,7 +80,10 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         && !force
     {
         output::warning(&format!("{}", e));
-        output::info("The backend may be malformed or incompatible with your declarch version.");
+        output::info(&format!(
+            "The backend may be malformed or incompatible with your {} version.",
+            project_identity::BINARY_NAME
+        ));
         output::info("You can still adopt it with --force, then edit the file manually.");
 
         if !output::prompt_yes_no("Continue with potentially invalid backend") {
@@ -83,35 +94,7 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
 
     // Parse and display meta information
     if let Ok(meta) = extract_backend_meta(&backend_content) {
-        println!();
-        if !meta.title.is_empty() && meta.title != "-" {
-            println!("  Title:       {}", meta.title);
-        }
-        if !meta.description.is_empty() && meta.description != "-" {
-            println!("  Description: {}", meta.description);
-        }
-        if !meta.maintainers.is_empty() {
-            println!("  Maintainer:  {}", meta.maintainers.join(", "));
-        } else if let Some(author) = &meta.author
-            && author != "-"
-        {
-            println!("  Author:      {}", author);
-        }
-        if !meta.homepage.is_empty() && meta.homepage != "-" {
-            println!("  Homepage:    {}", meta.homepage);
-        }
-        if let Some(guide) = &meta.installation_guide
-            && guide != "-"
-        {
-            println!("  Install:     {}", guide);
-        }
-        if !meta.platforms.is_empty() {
-            println!("  Platforms:   {}", meta.platforms.join(", "));
-        }
-        if !meta.requires.is_empty() {
-            println!("  Requires:    {}", meta.requires.join(", "));
-        }
-        println!();
+        print_backend_meta(&meta);
     }
 
     // Check if file already exists
@@ -140,19 +123,20 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         output::verbose(&format!("Backend file written: {}", backend_file.display()));
     }
 
-    // Always import directly to declarch.kdl
-    let declarch_kdl_path = root_dir.join("declarch.kdl");
-    match add_backend_to_declarch(&declarch_kdl_path, &sanitized_name) {
+    // Always import directly to root config file.
+    let root_config_path = root_dir.join(project_identity::CONFIG_FILE_BASENAME);
+    match add_backend_to_declarch(&root_config_path, &sanitized_name) {
         Ok(true) => {
             println!("Backend '{}' adopted.", sanitized_name);
             if output::is_verbose() {
-                output::verbose(&format!("Imported into: {}", declarch_kdl_path.display()));
+                output::verbose(&format!("Imported into: {}", root_config_path.display()));
             }
         }
         Ok(false) => {
             println!(
-                "Backend '{}' fetched. Add to declarch.kdl to use:",
-                sanitized_name
+                "Backend '{}' fetched. Add to {} to use:",
+                sanitized_name,
+                project_identity::CONFIG_FILE_BASENAME
             );
             output::info(&format!("backends {{\"backends/{}.kdl\"}}", sanitized_name));
             if output::is_verbose() {
@@ -162,63 +146,14 @@ pub fn init_backend(backend_name: &str, force: bool) -> Result<()> {
         Err(e) => {
             output::warning(&format!("Could not auto-import: {}", e));
             output::info(&format!(
-                "Add manually to declarch.kdl: backends {{\"backends/{}.kdl\"}}",
-                sanitized_name
+                "Add manually to {}: backends {{\"backends/{}.kdl\"}}",
+                project_identity::CONFIG_FILE_BASENAME,
+                sanitized_name,
             ));
         }
     }
 
     Ok(())
-}
-
-/// Add backend import directly to declarch.kdl
-///
-/// Returns:
-/// - Ok(true): Successfully added (or already present)
-/// - Ok(false): backends {} block not found, manual import needed
-/// - Err: Error during file operation
-pub fn add_backend_to_declarch(declarch_kdl_path: &Path, backend_name: &str) -> Result<bool> {
-    if !declarch_kdl_path.exists() {
-        return Err(DeclarchError::Other(format!(
-            "declarch.kdl not found at {}",
-            declarch_kdl_path.display()
-        )));
-    }
-
-    let content = fs::read_to_string(declarch_kdl_path)?;
-    let import_path = format!("backends/{}.kdl", backend_name);
-
-    // Check if already imported
-    let existing_pattern = format!(r#""{}""#, regex::escape(&import_path));
-    if Regex::new(&existing_pattern)
-        .map(|re| re.is_match(&content))
-        .unwrap_or(false)
-    {
-        return Ok(true);
-    }
-
-    // Look for backends { ... } block
-    let backends_re = Regex::new(r#"(?m)^\s*backends\b"#)
-        .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
-
-    if !backends_re.is_match(&content) {
-        return Ok(false);
-    }
-
-    // Add import in the backends block header line
-    let backends_block_re = Regex::new(r#"(?m)^(\s*backends(?:\s+"[^"]*")?\s*\{)"#)
-        .map_err(|e| DeclarchError::Other(format!("Invalid regex: {}", e)))?;
-
-    let import_line = format!(r#"    "{}""#, import_path);
-
-    let new_content = backends_block_re
-        .replace(&content, |caps: &regex::Captures| {
-            format!("{}\n{}", &caps[0], import_line)
-        })
-        .to_string();
-
-    fs::write(declarch_kdl_path, new_content)?;
-    Ok(true)
 }
 
 /// Backend meta information extracted from KDL
@@ -236,175 +171,8 @@ pub struct BackendMeta {
 
 /// Extract meta information from backend KDL content
 pub fn extract_backend_meta(content: &str) -> Result<BackendMeta> {
-    let doc = kdl::KdlDocument::parse(content)
-        .map_err(|e| DeclarchError::Other(format!("Failed to parse backend KDL: {}", e)))?;
-
-    let mut meta = BackendMeta::default();
-
-    for node in doc.nodes() {
-        if node.name().value() != "backend" {
-            continue;
-        }
-
-        if let Some(children) = node.children() {
-            for child in children.nodes() {
-                if child.name().value() != "meta" {
-                    continue;
-                }
-
-                if let Some(meta_children) = child.children() {
-                    for meta_node in meta_children.nodes() {
-                        let name = meta_node.name().value();
-                        match name {
-                            "title" => {
-                                meta.title = meta_node
-                                    .entries()
-                                    .first()
-                                    .and_then(|e| e.value().as_string())
-                                    .unwrap_or("")
-                                    .to_string();
-                            }
-                            "description" => {
-                                meta.description = meta_node
-                                    .entries()
-                                    .first()
-                                    .and_then(|e| e.value().as_string())
-                                    .unwrap_or("")
-                                    .to_string();
-                            }
-                            "author" => {
-                                meta.author = meta_node
-                                    .entries()
-                                    .first()
-                                    .and_then(|e| e.value().as_string())
-                                    .map(ToString::to_string);
-                            }
-                            // Support canonical and legacy aliases
-                            "kdl-maintainer" | "maintained" | "maintainer" => {
-                                for entry in meta_node.entries() {
-                                    if let Some(val) = entry.value().as_string() {
-                                        meta.maintainers.push(val.to_string());
-                                    }
-                                }
-                            }
-                            "homepage" => {
-                                meta.homepage = meta_node
-                                    .entries()
-                                    .first()
-                                    .and_then(|e| e.value().as_string())
-                                    .unwrap_or("")
-                                    .to_string();
-                            }
-                            "requires" => {
-                                for entry in meta_node.entries() {
-                                    if let Some(val) = entry.value().as_string() {
-                                        meta.requires.push(val.to_string());
-                                    }
-                                }
-                            }
-                            "install-guide" | "installation_guide" => {
-                                meta.installation_guide = meta_node
-                                    .entries()
-                                    .first()
-                                    .and_then(|e| e.value().as_string())
-                                    .map(ToString::to_string);
-                            }
-                            "platforms" => {
-                                for entry in meta_node.entries() {
-                                    if let Some(platform) = entry.value().as_string() {
-                                        meta.platforms.push(platform.to_string());
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-
-        break;
-    }
-
-    meta.maintainers.sort();
-    meta.maintainers.dedup();
-    meta.platforms.sort();
-    meta.platforms.dedup();
-    meta.requires.sort();
-    meta.requires.dedup();
-
-    Ok(meta)
+    meta_parser::extract_backend_meta_impl(content)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
-
-    #[test]
-    fn test_add_backend_to_declarch_success() {
-        let content = r#"meta {
-    title "Host"
-}
-
-backends {
-    "backends/aur.kdl"
-}
-"#;
-
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(content.as_bytes()).unwrap();
-
-        let result = add_backend_to_declarch(temp_file.path(), "flatpak").unwrap();
-        assert!(result);
-
-        let new_content = fs::read_to_string(temp_file.path()).unwrap();
-        assert!(new_content.contains(r#""backends/flatpak.kdl""#));
-        assert!(!new_content.contains(r#"\"backends/flatpak.kdl\""#));
-    }
-
-    #[test]
-    fn test_add_backend_to_declarch_no_block() {
-        let content = r#"meta { title "Host" }"#;
-
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(content.as_bytes()).unwrap();
-
-        let result = add_backend_to_declarch(temp_file.path(), "flatpak").unwrap();
-        assert!(!result);
-    }
-
-    #[test]
-    fn test_extract_backend_meta_maintainer_alias() {
-        let content = r#"
-backend "nala" {
-    meta {
-        title "Nala"
-        maintained "declarch"
-        kdl-maintainer "community-a" "community-b"
-        homepage "https://example.com"
-        install-guide "https://example.com/guide"
-        requires "nala" "apt"
-    }
-    binary "nala"
-    install "{binary} install {packages}"
-}
-"#;
-        let meta = extract_backend_meta(content).unwrap();
-        assert_eq!(meta.title, "Nala");
-        assert_eq!(
-            meta.maintainers,
-            vec![
-                "community-a".to_string(),
-                "community-b".to_string(),
-                "declarch".to_string(),
-            ]
-        );
-        assert_eq!(
-            meta.installation_guide,
-            Some("https://example.com/guide".to_string())
-        );
-        assert_eq!(meta.requires, vec!["apt".to_string(), "nala".to_string()]);
-    }
-}
+mod tests;

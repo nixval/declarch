@@ -17,6 +17,7 @@ use crate::backends::{GenericManager, load_all_backends_unified};
 use crate::config::types::GlobalConfig;
 use crate::core::types::Backend;
 use crate::packages::PackageManager;
+use crate::project_identity;
 use crate::ui;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -67,8 +68,9 @@ impl BackendRegistry {
         // Look up backend config
         let backend_config = self.configs.get(backend_name).ok_or_else(|| {
             format!(
-                "Backend '{}' not found. Run 'declarch init --backend {}'",
-                backend_name, backend_name
+                "Backend '{}' not found. Run '{}'",
+                backend_name,
+                project_identity::cli_with(&format!("init --backend {}", backend_name))
             )
         })?;
 
@@ -119,14 +121,4 @@ pub fn create_manager(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_registry_creation() {
-        let registry = BackendRegistry::new();
-        // May succeed or fail depending on whether backend configs exist
-        // In test environment, likely to be empty
-        assert!(registry.is_ok() || registry.is_err());
-    }
-}
+mod tests;

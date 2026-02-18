@@ -1,3 +1,5 @@
+use crate::project_identity;
+
 /// External URLs and URL patterns
 ///
 /// Centralized URLs for:
@@ -66,7 +68,7 @@ pub struct RemoteUrlBuilder {
 impl Default for RemoteUrlBuilder {
     fn default() -> Self {
         Self {
-            registry: DEFAULT_REGISTRY.to_string(),
+            registry: project_identity::registry_raw_base_url(),
             timeout_secs: 30,
         }
     }
@@ -132,23 +134,31 @@ impl RemoteUrlBuilder {
 
                     // Default registry with variant
                     urls.push(format!(
-                        "{}/modules/{}/{}/declarch-{}.kdl",
+                        "{}/modules/{}/{}/{}-{}.kdl",
                         self.registry.trim_end_matches('/'),
                         repo,
                         variant,
+                        project_identity::RELEASE_ASSET_PREFIX,
                         variant
                     ));
 
                     // GitHub pattern with variant (default branch)
                     urls.push(format!(
-                        "https://raw.githubusercontent.com/{}/{}/main/declarch-{}.kdl",
-                        user, repo, variant
+                        "https://raw.githubusercontent.com/{}/{}/main/{}-{}.kdl",
+                        user,
+                        repo,
+                        project_identity::RELEASE_ASSET_PREFIX,
+                        variant
                     ));
 
                     // GitHub pattern with variant (variant branch)
                     urls.push(format!(
-                        "https://raw.githubusercontent.com/{}/{}/{}/declarch-{}.kdl",
-                        user, repo, variant, variant
+                        "https://raw.githubusercontent.com/{}/{}/{}/{}-{}.kdl",
+                        user,
+                        repo,
+                        variant,
+                        project_identity::RELEASE_ASSET_PREFIX,
+                        variant
                     ));
                 }
             }
@@ -169,8 +179,11 @@ impl RemoteUrlBuilder {
                 let (user, repo) = (parts[0], parts[1]);
 
                 urls.push(format!(
-                    "https://gitlab.com/{}/{}/-/raw/{}/declarch.kdl",
-                    user, repo, "main"
+                    "https://gitlab.com/{}/{}/-/raw/{}/{}",
+                    user,
+                    repo,
+                    "main",
+                    project_identity::CONFIG_FILE_BASENAME
                 ));
             }
         } else {
@@ -181,23 +194,29 @@ impl RemoteUrlBuilder {
 
                 // Default registry
                 urls.push(format!(
-                    "{}/{}/main/declarch.kdl",
+                    "{}/{}/main/{}",
                     self.registry.trim_end_matches('/'),
-                    target
+                    target,
+                    project_identity::CONFIG_FILE_BASENAME
                 ));
 
                 // GitHub pattern (main branch)
                 urls.push(format!(
-                    "https://raw.githubusercontent.com/{}/{}/main/declarch.kdl",
-                    user, repo
+                    "https://raw.githubusercontent.com/{}/{}/main/{}",
+                    user,
+                    repo,
+                    project_identity::CONFIG_FILE_BASENAME
                 ));
 
                 // GitHub pattern (branch)
                 if parts.len() >= 3 {
                     let branch = parts[2];
                     urls.push(format!(
-                        "https://raw.githubusercontent.com/{}/{}/{}/declarch.kdl",
-                        user, repo, branch
+                        "https://raw.githubusercontent.com/{}/{}/{}/{}",
+                        user,
+                        repo,
+                        branch,
+                        project_identity::CONFIG_FILE_BASENAME
                     ));
                 }
             }
@@ -208,35 +227,4 @@ impl RemoteUrlBuilder {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_build_urls_github() {
-        let builder = RemoteUrlBuilder::default();
-        let urls = builder.build_urls("myuser/dotfiles");
-
-        // Check that we get some URL with github.com (from default registry)
-        // OR declarch-packages registry
-        assert!(!urls.is_empty());
-        assert!(urls.iter().any(|u| u.contains("declarch.kdl")));
-    }
-
-    #[test]
-    fn test_build_urls_variant() {
-        let builder = RemoteUrlBuilder::default();
-        let urls = builder.build_urls("hyprland/niri-nico");
-
-        // Check that we get a URL containing variant
-        assert!(urls.iter().any(|u| u.contains("niri-nico")));
-    }
-
-    #[test]
-    fn test_build_urls_direct() {
-        let builder = RemoteUrlBuilder::default();
-        let urls = builder.build_urls("https://example.com/config.kdl");
-
-        assert_eq!(urls.len(), 1);
-        assert_eq!(urls[0], "https://example.com/config.kdl");
-    }
-}
+mod tests;

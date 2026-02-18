@@ -1,14 +1,15 @@
 // Common constants used throughout the codebase
+use crate::project_identity;
 
 /// Configuration file extension
 pub const CONFIG_EXTENSION: &str = "kdl";
 
 /// Project name
-pub const PROJECT_NAME: &str = "declarch";
+pub const PROJECT_NAME: &str = project_identity::BINARY_NAME;
 
 /// Project organization (reverse domain notation)
 pub const PROJECT_QUALIFIER: &str = "com";
-pub const PROJECT_ORG: &str = "declarch";
+pub const PROJECT_ORG: &str = project_identity::STABLE_PROJECT_ID;
 
 /// Default git branch names to check
 pub const DEFAULT_BRANCHES: &[&str] = &["main", "master"];
@@ -17,10 +18,10 @@ pub const DEFAULT_BRANCHES: &[&str] = &["main", "master"];
 pub const CONFIG_DIR_NAME: &str = ".config";
 
 /// Declarch configuration directory name
-pub const DECLARCH_DIR_NAME: &str = "declarch";
+pub const DECLARCH_DIR_NAME: &str = project_identity::CONFIG_DIR_NAME;
 
 /// Default configuration file name
-pub const CONFIG_FILE_NAME: &str = "declarch.kdl";
+pub const CONFIG_FILE_NAME: &str = project_identity::CONFIG_FILE_BASENAME;
 
 /// Modules directory name
 pub const MODULES_DIR_NAME: &str = "modules";

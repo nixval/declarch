@@ -10,6 +10,7 @@ use crate::commands::runtime_overrides::{
 use crate::core::types::Backend;
 use crate::error::Result;
 use crate::packages::traits::PackageManager;
+use crate::project_identity;
 use crate::ui as output;
 use std::collections::HashSet;
 
@@ -32,7 +33,10 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
 
     if all_backends.is_empty() {
         output::warning("No backends configured");
-        output::info("Run 'declarch init --backend <name>' to add a backend");
+        output::info(&format!(
+            "Run '{} init --backend <name>' to add a backend",
+            project_identity::BINARY_NAME
+        ));
         return Ok(());
     }
 
@@ -183,7 +187,10 @@ pub fn run(options: UpgradeOptions) -> Result<()> {
     } else if options.no_sync {
         output::info("Skipping sync (--no-sync flag set)");
         output::warning("State may be out of sync with actual installed packages");
-        output::info("Run 'declarch sync' manually to fix state");
+        output::info(&format!(
+            "Run '{} sync' manually to fix state",
+            project_identity::BINARY_NAME
+        ));
     }
 
     Ok(())

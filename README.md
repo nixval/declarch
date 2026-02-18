@@ -100,6 +100,12 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 macOS support via script is currently **experimental (alpha)**.
 Installer includes lightweight smoke checks after install (`--help`, `info`).
 
+### Install performance note
+
+- Building from source can take longer on first install because Rust dependencies must compile.
+- For faster installs, prefer prebuilt release artifacts (`install.sh`, `install.ps1`, or distro package manager binaries).
+- `cargo install` is still supported, but expect higher initial compile time.
+
 ### Windows (PowerShell, experimental alpha)
 
 ```powershell
@@ -107,6 +113,25 @@ irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
 ```
 
 Installer includes lightweight smoke checks after install (`--help`, `info`).
+
+### Update policy
+
+- If installed from package manager (AUR/Homebrew/etc), update via package manager.
+- If installed via script/manual binary (`curl`/`wget`), use `declarch self-update`.
+
+### Release consistency guard
+
+Before publishing a release or AUR update, run:
+
+```bash
+scripts/check_release_consistency.sh --tag vX.Y.Z --strict
+```
+
+This verifies Cargo version, tag version, and `.aur/templates/PKGBUILD` `pkgver` alignment.
+
+Release docs:
+- `.aur/README.md`
+- `.aur/RELEASE_GUIDE.md`
 
 ## First-time setup
 

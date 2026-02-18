@@ -1,9 +1,10 @@
+use crate::project_identity;
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "declarch",
+    name = project_identity::BINARY_NAME,
     about = "Universal declarative package manager - unify aur, flatpak, npm, nix, cargo, pip, and custom backends under one declarative config(s).",
     version,
     help_template = "{about-with-newline}
@@ -60,24 +61,24 @@ pub struct GlobalFlags {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Initialize declarch configuration
+    /// Initialize configuration
     ///
-    /// With no arguments: Creates root config (~/.config/declarch/declarch.kdl)
+    /// With no arguments: Creates root config file in your config directory
     ///
     /// With SOURCE: Fetches config from remote repository
-    ///   - user/repo              Fetch from GitHub (user/repo/main/declarch.kdl)
-    ///   - user/repo:variant      Fetch specific config variant (declarch-variant.kdl)
+    ///   - user/repo              Fetch from GitHub (user/repo/main/<config>.kdl)
+    ///   - user/repo:variant      Fetch specific config variant (<config>-variant.kdl)
     ///   - user/repo/branch       Fetch from specific branch
     ///   - gitlab.com/user/repo   Fetch from GitLab
-    ///   - https://...            Direct URL to declarch.kdl
+    ///   - https://...            Direct URL to a config .kdl
     ///   - hyprland/niri-nico     Fetch from official registry
     Init {
         /// Config source (GitHub/GitLab repo, URL, or registry module)
         ///
         /// Examples:
-        ///   exampleuser/hyprland1           GitHub: user/repo (fetches declarch.kdl)
-        ///   exampleuser/dotfiles:uwsm       GitHub: user/repo:variant (fetches declarch-uwsm.kdl)
-        ///   exampleuser/dotfiles:minimal    GitHub: user/repo:variant (fetches declarch-minimal.kdl)
+        ///   exampleuser/hyprland1           GitHub: user/repo (fetches root config .kdl)
+        ///   exampleuser/dotfiles:uwsm       GitHub: user/repo:variant (fetches variant config .kdl)
+        ///   exampleuser/dotfiles:minimal    GitHub: user/repo:variant (fetches variant config .kdl)
         ///   hyprwm/hyprland             GitHub: official project config
         ///   exampleuser/hyprland1/develop   GitHub: user/repo/branch
         ///   gitlab.com/user/repo         GitLab repository
@@ -92,13 +93,13 @@ pub enum Command {
 
         /// Create new backend configuration file(s)
         ///
-        /// Creates backend definition files in ~/.config/declarch/backends/
+        /// Creates backend definition files in your config backends directory.
         /// Supports multiple backends via multiple flags
         ///
         /// Examples:
-        ///   declarch init --backend cargo
-        ///   declarch init --backend apt --backend cargo
-        ///   declarch init --backend apt --backend cargo -y
+        ///   <bin> init --backend cargo
+        ///   <bin> init --backend apt --backend cargo
+        ///   <bin> init --backend apt --backend cargo -y
         #[arg(
             long,
             value_name = "NAME",
@@ -120,7 +121,7 @@ pub enum Command {
         #[arg(long, group = "init_target")]
         local: bool,
 
-        /// Restore declarch.kdl from template (overwrite existing)  
+        /// Restore root config file from template (overwrite existing)
         #[arg(long, group = "restore")]
         restore_declarch: bool,
     },
@@ -131,12 +132,12 @@ pub enum Command {
     /// Subcommands provide additional functionality like updating package indices,
     /// upgrading packages, and cleaning caches.
     #[command(after_help = "Most common flow:
-  declarch --dry-run sync
-  declarch sync
+  <bin> --dry-run sync
+  <bin> sync
 
 Other useful commands:
-  declarch sync update
-  declarch sync prune")]
+  <bin> sync update
+  <bin> sync prune")]
     Sync {
         /// Sync only specific package or scope (e.g. "firefox", "backend-name")
         #[arg(long, value_name = "TARGET", help_heading = "Targeting")]
@@ -231,7 +232,7 @@ Other useful commands:
     /// Edit configuration files
     Edit {
         /// Module or config to edit (optional)
-        /// If not provided, edits root declarch.kdl
+        /// If not provided, edits root config file.
         /// If provided, edits specific module (e.g., "hyprland/niri-nico")
         #[arg(value_name = "TARGET")]
         target: Option<String>,
@@ -266,11 +267,11 @@ Other useful commands:
     /// Adds packages to KDL configuration files and automatically syncs the system.
     ///
     /// Common examples:
-    /// - declarch install aur:hyprland
-    /// - declarch install aur:vim aur:nano aur:emacs
-    /// - declarch install soar:bat
-    /// - declarch install bat fzf ripgrep --backend aur
-    /// - declarch install npm:typescript --module development
+    /// - <bin> install aur:hyprland
+    /// - <bin> install aur:vim aur:nano aur:emacs
+    /// - <bin> install soar:bat
+    /// - <bin> install bat fzf ripgrep --backend aur
+    /// - <bin> install npm:typescript --module development
     #[command(verbatim_doc_comment)]
     Install {
         /// Package(s) to install (format: [backend:]package)
@@ -305,11 +306,11 @@ Other useful commands:
     /// Search for packages across all configured backends.
     ///
     /// Examples:
-    ///   declarch search firefox                Search for firefox in all backends
-    ///   declarch search firefox --backends aur   Search in specific backend only
-    ///   declarch search bat --installed-only   Show only installed matches
-    ///   declarch search backend:package        Search in specific backend (alternative syntax)
-    ///   declarch search firefox --local        Search only in installed packages
+    ///   <bin> search firefox                Search for firefox in all backends
+    ///   <bin> search firefox --backends aur   Search in specific backend only
+    ///   <bin> search bat --installed-only   Show only installed matches
+    ///   <bin> search backend:package        Search in specific backend (alternative syntax)
+    ///   <bin> search firefox --local        Search only in installed packages
     Search {
         /// Search query (can use "backend:query" syntax for specific backend)
         #[arg(value_name = "QUERY")]
@@ -331,7 +332,7 @@ Other useful commands:
 
         /// Show only installed packages
         ///
-        /// Uses declarch state tracking (managed/adopted entries),
+        /// Uses managed state tracking (managed/adopted entries),
         /// not raw OS-wide installed package inventory.
         #[arg(long, help_heading = "Filtering")]
         installed_only: bool,
@@ -408,6 +409,18 @@ Other useful commands:
         modules: Vec<String>,
     },
 
+    /// Self-update command (hidden; primarily for curl/manual installs)
+    #[command(hide = true)]
+    SelfUpdate {
+        /// Check whether a new version is available
+        #[arg(long)]
+        check: bool,
+
+        /// Update to a specific version (e.g. 0.8.2)
+        #[arg(long, value_name = "VERSION")]
+        version: Option<String>,
+    },
+
     /// Generate shell completions (hidden from main help)
     #[command(hide = true)]
     Completions {
@@ -438,61 +451,7 @@ pub enum InfoListScope {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::Cli;
-    use clap::{CommandFactory, Parser};
-
-    #[test]
-    fn parser_rejects_removed_sync_preview_subcommand() {
-        let parsed = Cli::try_parse_from(["declarch", "sync", "preview"]);
-        assert!(parsed.is_err());
-    }
-
-    #[test]
-    fn parser_rejects_removed_sync_sync_subcommand() {
-        let parsed = Cli::try_parse_from(["declarch", "sync", "sync"]);
-        assert!(parsed.is_err());
-    }
-
-    #[test]
-    fn parser_allows_switch_with_global_dry_run() {
-        let parsed = Cli::try_parse_from(["declarch", "switch", "old", "new", "--dry-run"])
-            .expect("switch with global --dry-run should parse");
-        assert!(parsed.global.dry_run);
-    }
-
-    #[test]
-    fn help_sync_no_longer_shows_removed_preview_or_gc() {
-        let mut cmd = Cli::command();
-        let sync = cmd
-            .find_subcommand_mut("sync")
-            .expect("sync subcommand exists");
-        let mut out = Vec::new();
-        sync.write_long_help(&mut out)
-            .expect("can render sync help");
-        let help = String::from_utf8(out).expect("help is valid utf8");
-        assert!(!help.contains("sync preview"));
-        assert!(!help.contains("--gc"));
-        assert!(help.contains("update"));
-        assert!(help.contains("prune"));
-    }
-
-    #[test]
-    fn help_info_uses_scope_not_legacy_list_flags() {
-        let mut cmd = Cli::command();
-        let info = cmd
-            .find_subcommand_mut("info")
-            .expect("info subcommand exists");
-        let mut out = Vec::new();
-        info.write_long_help(&mut out)
-            .expect("can render info help");
-        let help = String::from_utf8(out).expect("help is valid utf8");
-        assert!(help.contains("--scope"));
-        assert!(help.contains("unmanaged"));
-        assert!(!help.contains("--orphans"));
-        assert!(!help.contains("--synced"));
-    }
-}
+mod tests;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum SyncCommand {
@@ -568,8 +527,8 @@ pub enum SyncCommand {
     /// Useful for freeing disk space or resolving cache corruption issues.
     ///
     /// Examples:
-    ///   declarch sync cache              Clean all backend caches
-    ///   declarch sync cache --backend npm  Clean only npm cache
+    ///   <bin> sync cache              Clean all backend caches
+    ///   <bin> sync cache --backend npm  Clean only npm cache
     Cache {
         /// Target specific backend(s)
         #[arg(short, long, value_name = "BACKEND")]
@@ -578,14 +537,14 @@ pub enum SyncCommand {
 
     /// Upgrade packages to latest versions
     ///
-    /// Upgrades all packages managed by declarch to their latest versions
+    /// Upgrades all managed packages to their latest versions
     /// across all configured backends. After upgrading, automatically runs
     /// sync to adopt the new versions into state.
     ///
     /// Examples:
-    ///   declarch sync upgrade              Upgrade all packages
-    ///   declarch sync upgrade --backend npm  Upgrade only npm packages
-    ///   declarch sync upgrade --no-sync    Upgrade without auto-sync
+    ///   <bin> sync upgrade              Upgrade all packages
+    ///   <bin> sync upgrade --backend npm  Upgrade only npm packages
+    ///   <bin> sync upgrade --no-sync    Upgrade without auto-sync
     Upgrade {
         /// Target specific backend(s)
         #[arg(short, long, value_name = "BACKEND")]

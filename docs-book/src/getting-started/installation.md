@@ -49,12 +49,20 @@ sudo install declarch /usr/local/bin/
 cargo install declarch --git https://github.com/nixval/declarch
 ```
 
+Source builds can be slower on first run because Cargo compiles the full dependency graph.
+If you want a faster setup path, prefer prebuilt release binaries via install script or package manager.
+
 ## Verify
 
 ```bash
 declarch --version
 declarch --help
 ```
+
+## Updating
+
+- Package manager install (AUR/Homebrew/etc): update with your package manager.
+- Script/manual install (`curl`/`wget`): update with `declarch self-update`.
 
 If you are on macOS/Windows, run:
 

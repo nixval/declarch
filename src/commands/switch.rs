@@ -1,11 +1,15 @@
 use crate::config::types::GlobalConfig;
-use crate::core::types::Backend;
 use crate::error::{DeclarchError, Result};
 use crate::packages::{PackageManager, create_manager};
-use crate::state::{self, types::PackageState};
+use crate::project_identity;
+use crate::state;
 use crate::ui as output;
-use chrono::Utc;
 use colored::Colorize;
+use state_update::persist_successful_transition;
+use transition::{determine_target, execute_transition};
+
+mod state_update;
+mod transition;
 
 #[derive(Debug)]
 pub struct SwitchOptions {
@@ -24,8 +28,9 @@ pub fn run(options: SwitchOptions) -> Result<()> {
     let lock = state::io::acquire_lock().map_err(|e| {
         crate::error::DeclarchError::Other(format!(
             "Cannot start switch: {}\n\
-             If no other declarch process is running, delete the lock file manually.",
-            e
+             If no other {} process is running, delete the lock file manually.",
+            e,
+            project_identity::BINARY_NAME
         ))
     })?;
 
@@ -77,8 +82,9 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     if old_state_entry.is_none() && !options.force {
         return Err(DeclarchError::Other(format!(
-            "Package '{}' is not tracked by declarch. Use --force to override.",
-            old_package
+            "Package '{}' is not tracked by {}. Use --force to override.",
+            old_package,
+            project_identity::BINARY_NAME
         )));
     }
 
@@ -152,39 +158,15 @@ pub fn run(options: SwitchOptions) -> Result<()> {
 
     match execute_transition(&old_package, &new_package, &backend, &*manager) {
         Ok(()) => {
-            output::info("Updating declarch state...");
-
-            // Remove old package from state
-            state.packages.remove(&old_state_key);
-
-            // Add new package to state
-            let new_state_key = format!("{}:{}", backend, new_package);
-            let post_transition_installed = manager.list_installed().ok();
-
-            let new_pkg_state = PackageState {
-                backend: backend.clone(),
-                config_name: new_package.clone(),
-                provides_name: new_package.clone(),
-                actual_package_name: None, // Actual system package name, if different
-                installed_at: Utc::now(),
-                version: post_transition_installed
-                    .as_ref()
-                    .and_then(|pkgs| pkgs.get(&new_package))
-                    .or_else(|| installed.get(&new_package))
-                    .and_then(|m| m.version.clone()),
-                install_reason: Some("manual-sync".to_string()),
-                source_module: None,
-                last_seen_at: Some(Utc::now()),
-                backend_meta: None,
-            };
-
-            state.packages.insert(new_state_key, new_pkg_state);
-
-            // Update metadata
-            state.meta.last_sync = Utc::now();
-
-            // Save state with file locking
-            state::io::save_state_locked(&state, &lock)?;
+            persist_successful_transition(
+                &mut state,
+                &lock,
+                &backend,
+                &old_state_key,
+                &new_package,
+                &*manager,
+                &installed,
+            )?;
 
             output::separator();
             output::success(&format!(
@@ -226,118 +208,4 @@ pub fn run(options: SwitchOptions) -> Result<()> {
             )))
         }
     }
-}
-
-/// Determine backend and strip optional backend prefixes from package names
-/// Returns (backend, old_package_name, new_package_name)
-fn determine_target(
-    old_package: &str,
-    new_package: &str,
-    backend_opt: Option<&str>,
-) -> Result<(Backend, String, String)> {
-    // Helper to extract backend from prefixed name
-    fn extract_backend(name: &str) -> Option<Backend> {
-        name.split_once(':').map(|(b, _)| Backend::from(b))
-    }
-
-    // Helper to strip backend prefix
-    fn strip_prefix(name: &str) -> &str {
-        name.split_once(':').map(|(_, n)| n).unwrap_or(name)
-    }
-
-    if let Some(backend_str) = backend_opt {
-        // --backend flag specified: use same backend for both
-        let backend = Backend::from(backend_str);
-        Ok((
-            backend,
-            strip_prefix(old_package).to_string(),
-            strip_prefix(new_package).to_string(),
-        ))
-    } else {
-        // Auto-detect from prefixes
-        let old_backend = extract_backend(old_package);
-        let new_backend = extract_backend(new_package);
-
-        match (old_backend, new_backend) {
-            (Some(old), Some(new)) => {
-                if old != new {
-                    return Err(DeclarchError::Other(
-                        "Cross-backend switch is not supported. Both packages must use the same backend.".to_string()
-                    ));
-                }
-                Ok((
-                    old,
-                    strip_prefix(old_package).to_string(),
-                    strip_prefix(new_package).to_string(),
-                ))
-            }
-            (Some(old), None) => {
-                // Only old has prefix - assume same backend for new
-                Ok((
-                    old,
-                    strip_prefix(old_package).to_string(),
-                    strip_prefix(new_package).to_string(),
-                ))
-            }
-            (None, Some(new)) => {
-                // Only new has prefix - assume same backend for old
-                Ok((
-                    new,
-                    strip_prefix(old_package).to_string(),
-                    strip_prefix(new_package).to_string(),
-                ))
-            }
-            (None, None) => {
-                // Neither has prefix - show helpful error
-                let registry = crate::packages::get_registry();
-                let backends = registry
-                    .lock()
-                    .map(|r| r.available_backends())
-                    .unwrap_or_default();
-
-                let backend_list = if backends.is_empty() {
-                    "No backends configured. Run 'declarch init' first.".to_string()
-                } else {
-                    format!("Available backends: {}", backends.join(", "))
-                };
-
-                Err(DeclarchError::Other(format!(
-                    "Cannot determine backend.\n\n\
-                     Use explicit prefix syntax:\n\
-                       declarch switch {}:{} {}:{}\n\n\
-                     Or specify backend:\n\
-                       declarch switch {} {} --backend <BACKEND>\n\n\
-                     {}",
-                    backends.first().unwrap_or(&"BACKEND".to_string()),
-                    strip_prefix(old_package),
-                    backends.first().unwrap_or(&"BACKEND".to_string()),
-                    strip_prefix(new_package),
-                    strip_prefix(old_package),
-                    strip_prefix(new_package),
-                    backend_list
-                )))
-            }
-        }
-    }
-}
-
-fn execute_transition(
-    old_package: &str,
-    new_package: &str,
-    _backend: &Backend,
-    manager: &dyn PackageManager,
-) -> Result<()> {
-    output::indent(&format!("Uninstalling {}...", old_package.yellow()), 0);
-
-    manager
-        .remove(&[old_package.to_string()])
-        .map_err(|e| DeclarchError::Other(format!("Failed to uninstall {}: {}", old_package, e)))?;
-
-    output::indent(&format!("Installing {}...", new_package.green()), 0);
-
-    manager
-        .install(&[new_package.to_string()])
-        .map_err(|e| DeclarchError::Other(format!("Failed to install {}: {}", new_package, e)))?;
-
-    Ok(())
 }

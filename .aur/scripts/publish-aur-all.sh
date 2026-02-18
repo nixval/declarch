@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage:
 #   ./.aur/scripts/publish-aur-all.sh [version]
 # Example:
-#   ./.aur/scripts/publish-aur-all.sh 0.8.1
+#   ./.aur/scripts/publish-aur-all.sh 0.8.2
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

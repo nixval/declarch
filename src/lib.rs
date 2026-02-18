@@ -6,6 +6,7 @@ pub mod constants;
 pub mod core;
 pub mod error;
 pub mod packages;
+pub mod project_identity;
 pub mod state;
 pub mod traits;
 pub mod ui;

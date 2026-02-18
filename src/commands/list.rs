@@ -1,13 +1,20 @@
+mod filters;
+mod output_formats;
+mod unmanaged_output;
+
 use crate::config::loader;
 use crate::core::types::Backend;
 use crate::error::Result;
+use crate::project_identity;
 use crate::state;
 use crate::ui as output;
-use crate::utils::machine_output;
 use crate::utils::paths;
 use colored::Colorize;
+use filters::{find_orphans, find_synced};
+use output_formats::{output_json, output_yaml};
 use std::collections::HashMap;
 use std::str::FromStr;
+use unmanaged_output::emit_unmanaged_output;
 
 /// Options for the list command
 pub struct ListOptions {
@@ -20,7 +27,7 @@ pub struct ListOptions {
 }
 
 #[derive(serde::Serialize)]
-struct UnmanagedPackageOut {
+pub(super) struct UnmanagedPackageOut {
     backend: String,
     name: String,
     version: Option<String>,
@@ -147,94 +154,7 @@ fn run_unmanaged_list(options: ListOptions) -> Result<()> {
     out.sort_by(|a, b| a.backend.cmp(&b.backend).then(a.name.cmp(&b.name)));
     out.dedup_by(|a, b| a.backend == b.backend && a.name == b.name);
 
-    let format_str = options.format.as_deref().unwrap_or("table");
-    match format_str {
-        "json" => {
-            if options.output_version.as_deref() == Some("v1") {
-                machine_output::emit_v1("info --list", &out, Vec::new(), Vec::new(), "json")?;
-            } else {
-                println!("{}", serde_json::to_string_pretty(&out)?);
-            }
-            Ok(())
-        }
-        "yaml" => {
-            if options.output_version.as_deref() == Some("v1") {
-                machine_output::emit_v1("info --list", &out, Vec::new(), Vec::new(), "yaml")?;
-            } else {
-                let yaml = serde_yml::to_string(&serde_json::to_value(&out)?)?;
-                println!("{}", yaml);
-            }
-            Ok(())
-        }
-        _ => {
-            if out.is_empty() {
-                output::info("No unmanaged installed packages found");
-                return Ok(());
-            }
-            output::header(&format!("Unmanaged Installed Packages ({})", out.len()));
-            let mut by_backend: HashMap<String, Vec<&UnmanagedPackageOut>> = HashMap::new();
-            for item in &out {
-                by_backend
-                    .entry(item.backend.clone())
-                    .or_default()
-                    .push(item);
-            }
-            let mut keys: Vec<_> = by_backend.keys().cloned().collect();
-            keys.sort();
-            for backend in keys {
-                println!();
-                println!("{}", format!("Backend: {}", backend).bold().cyan());
-                if let Some(pkgs) = by_backend.get(&backend) {
-                    for pkg in pkgs {
-                        println!(
-                            "  {} {:<30} {:>10}",
-                            "•".yellow(),
-                            pkg.name,
-                            pkg.version.as_deref().unwrap_or("-").dimmed()
-                        );
-                    }
-                }
-            }
-            println!();
-            output::info("Tip: add needed packages into your config to adopt them.");
-            Ok(())
-        }
-    }
-}
-
-/// Find orphan packages (installed but not in config)
-fn find_orphans<'a>(
-    installed: Vec<&'a state::types::PackageState>,
-    config: &HashMap<crate::core::types::PackageId, Vec<std::path::PathBuf>>,
-) -> Vec<&'a state::types::PackageState> {
-    installed
-        .into_iter()
-        .filter(|pkg| {
-            // Create PackageId for lookup
-            let pkg_id = crate::core::types::PackageId {
-                backend: pkg.backend.clone(),
-                name: pkg.config_name.clone(),
-            };
-            !config.contains_key(&pkg_id)
-        })
-        .collect()
-}
-
-/// Find synced packages (installed and in config)
-fn find_synced<'a>(
-    installed: Vec<&'a state::types::PackageState>,
-    config: &HashMap<crate::core::types::PackageId, Vec<std::path::PathBuf>>,
-) -> Vec<&'a state::types::PackageState> {
-    installed
-        .into_iter()
-        .filter(|pkg| {
-            let pkg_id = crate::core::types::PackageId {
-                backend: pkg.backend.clone(),
-                name: pkg.config_name.clone(),
-            };
-            config.contains_key(&pkg_id)
-        })
-        .collect()
+    emit_unmanaged_output(&out, &options)
 }
 
 /// Display packages with formatting
@@ -284,36 +204,13 @@ fn display_packages(packages: &[&state::types::PackageState], is_orphans: bool, 
 
     if is_orphans {
         println!();
-        output::info("Orphan packages are not managed by declarch");
-        output::info("Add them to your config or use 'declarch sync prune' to remove");
+        output::info(&format!(
+            "Orphan packages are not managed by {}",
+            project_identity::BINARY_NAME
+        ));
+        output::info(&format!(
+            "Add them to your config or use '{}' to remove",
+            project_identity::cli_with("sync prune")
+        ));
     }
-}
-
-/// Output packages as JSON
-fn output_json(
-    packages: &[&state::types::PackageState],
-    output_version: Option<&str>,
-) -> Result<()> {
-    if output_version == Some("v1") {
-        return machine_output::emit_v1("info --list", packages, Vec::new(), Vec::new(), "json");
-    }
-
-    let json = serde_json::to_string_pretty(packages)?;
-    println!("{}", json);
-    Ok(())
-}
-
-/// Output packages as YAML
-fn output_yaml(
-    packages: &[&state::types::PackageState],
-    output_version: Option<&str>,
-) -> Result<()> {
-    if output_version == Some("v1") {
-        return machine_output::emit_v1("info --list", packages, Vec::new(), Vec::new(), "yaml");
-    }
-
-    let json_value = serde_json::to_value(packages)?;
-    let yaml = serde_yml::to_string(&json_value)?;
-    println!("{}", yaml);
-    Ok(())
 }

@@ -9,6 +9,7 @@
 //! - `declarch init --restore-declarch` - Restore declarch.kdl
 
 use crate::error::{DeclarchError, Result};
+use crate::project_identity;
 use crate::ui as output;
 use std::fs;
 
@@ -107,9 +108,11 @@ pub fn restore_declarch(host: Option<String>) -> Result<()> {
     // Check if declarch is initialized
     let config_dir = crate::utils::paths::config_dir()?;
     if !config_dir.exists() {
-        return Err(DeclarchError::Other(
-            "Declarch not initialized. Run 'declarch init' first.".into(),
-        ));
+        return Err(DeclarchError::Other(format!(
+            "{} not initialized. Run '{}' first.",
+            project_identity::DISPLAY_NAME,
+            project_identity::cli_with("init")
+        )));
     }
 
     output::header("Restoring Main Configuration");
@@ -147,27 +150,4 @@ pub use list::list_available_backends;
 pub use list::list_available_modules;
 
 #[cfg(test)]
-mod tests {
-    use super::normalize_backend_args;
-
-    #[test]
-    fn normalize_backend_args_supports_comma_and_space_forms() {
-        let input = vec![
-            "pnpm,yarn".to_string(),
-            "bun".to_string(),
-            "  ".to_string(),
-            "paru, yay".to_string(),
-        ];
-        let normalized = normalize_backend_args(&input);
-        assert_eq!(
-            normalized,
-            vec![
-                "pnpm".to_string(),
-                "yarn".to_string(),
-                "bun".to_string(),
-                "paru".to_string(),
-                "yay".to_string()
-            ]
-        );
-    }
-}
+mod tests;

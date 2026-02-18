@@ -81,8 +81,8 @@ meta {
 ```
 
 Compatibility:
-- Canonical keys: `kdl-maintainer`, `install-guide`
-- Legacy aliases accepted: `maintainer`, `maintained`, `installation_guide`
+- Canonical metadata keys: `kdl-maintainer`, `install-guide`
+- Legacy metadata aliases: `maintainer`, `maintained`, `installation_guide`
 
 ## Placeholders
 

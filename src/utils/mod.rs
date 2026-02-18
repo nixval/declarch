@@ -5,3 +5,4 @@ pub mod regex_cache;
 pub mod remote;
 pub mod sanitize;
 pub mod templates;
+pub mod update_check;

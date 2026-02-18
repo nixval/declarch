@@ -4,6 +4,7 @@
 //! In the future, these could be fetched dynamically from the registry API.
 
 use crate::error::Result;
+use crate::project_identity;
 use crate::ui as output;
 use colored::Colorize;
 
@@ -130,15 +131,15 @@ pub fn list_available_backends() -> Result<()> {
     output::info("To initialize a backend:");
     println!(
         "  {}        Initialize single backend",
-        "declarch init --backend <name>".green()
+        project_identity::cli_with("init --backend <name>").green()
     );
     println!(
         "  {}  Initialize multiple backends",
-        "declarch init --backend a,b,c".green()
+        project_identity::cli_with("init --backend a,b,c").green()
     );
     println!(
         "  {}        Initialize with auto-yes",
-        "declarch init --backend <name> -y".green()
+        project_identity::cli_with("init --backend <name> -y").green()
     );
 
     Ok(())
@@ -247,15 +248,15 @@ pub fn list_available_modules() -> Result<()> {
     output::info("To initialize a module:");
     println!(
         "  {}     Initialize from registry",
-        "declarch init <category>/<name>".green()
+        project_identity::cli_with("init <category>/<name>").green()
     );
     println!(
         "  {}          Create local module",
-        "declarch init --local <name>".green()
+        project_identity::cli_with("init --local <name>").green()
     );
     println!(
         "  {}             Auto-confirm import",
-        "declarch init <module> -y".green()
+        project_identity::cli_with("init <module> -y").green()
     );
 
     Ok(())

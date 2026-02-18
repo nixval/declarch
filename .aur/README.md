@@ -1,5 +1,8 @@
 # AUR Release Automation
 
+Detailed release checklist:
+- `./.aur/RELEASE_GUIDE.md`
+
 ## Directory Structure
 
 ```
@@ -8,9 +11,10 @@
 │   ├── PKGBUILD        # Template for declarch
 │   ├── PKGBUILD-bin    # Template for declarch-bin
 │   └── PKGBUILD-git    # Template for declarch-git
-├── scripts/            # Automation scripts (gitignored)
-│   ├── release.sh      # Complete release automation
-│   └── publish.sh      # AUR publish automation
+├── scripts/            # AUR automation scripts
+│   ├── publish-declarch.sh  # Publish source package to AUR
+│   ├── publish.sh           # Legacy multi-package publish helper
+│   └── release.sh           # Legacy release helper
 ├── work/               # Working directory (gitignored)
 │   ├── declarch/
 │   ├── declarch-bin/
@@ -20,33 +24,28 @@
 
 ## Release Workflow
 
-### Method 1: Full Automation (Recommended)
+### Method 1: Direct Publish (Recommended for AUR source package)
 
-Complete release process with one command:
+Publish `declarch` source package with one command:
 
 ```bash
 # From repository root
-./.aur/scripts/release.sh 0.8.0
+./.aur/scripts/publish-declarch.sh X.Y.Z
 ```
 
 This script will:
-1. ✓ Run tests
-2. ✓ Build release binary
-3. ✓ Prepare all PKGBUILDs
-4. ✓ Generate sha256sums
-5. ✓ Test build all PKGBUILDs
-6. ✓ Commit and push to main
-7. ✓ Create and push tag to GitHub
-8. ✓ Trigger GitHub Actions
-9. ✓ Wait for you to confirm GitHub Actions completion
+1. ✓ Download GitHub release tarball for the requested version
+2. ✓ Compute sha256
+3. ✓ Regenerate PKGBUILD + .SRCINFO in `.aur/work/declarch`
+4. ✓ Push update to `aur.archlinux.org/declarch`
 
 ### Method 2: Step by Step
 
 If you prefer manual control:
 
-#### Step 1: Prepare Release
+#### Step 1: Prepare release artifacts
 ```bash
-./.aur/scripts/release.sh 0.8.0
+scripts/release.sh X.Y.Z
 ```
 
 #### Step 2: Wait for GitHub Actions
@@ -54,20 +53,30 @@ Monitor at: https://github.com/nixval/declarch/actions
 
 Wait until all checks pass (±10 minutes).
 
-#### Step 3: Publish to AUR
+#### Step 3: Publish source package to AUR
 ```bash
-./.aur/scripts/publish.sh 0.8.0
+./.aur/scripts/publish-declarch.sh X.Y.Z
 ```
 
 This script will:
-1. ✓ Verify GitHub release exists
-2. ✓ Download binary release
-3. ✓ Update declarch-bin PKGBUILD sha256
-4. ✓ Test build declarch-bin
-5. ✓ Publish all 3 packages to AUR:
-   - declarch
-   - declarch-bin
-   - declarch-git
+1. ✓ Check release consistency preflight
+2. ✓ Download release source tarball
+3. ✓ Update `PKGBUILD`/`.SRCINFO`
+4. ✓ Publish `declarch` package to AUR
+
+### Release consistency guard
+
+Use this before release/publish:
+
+```bash
+scripts/check_release_consistency.sh --tag vX.Y.Z --strict
+```
+
+Optional remote info check:
+
+```bash
+scripts/check_release_consistency.sh --tag vX.Y.Z --check-aur-remote
+```
 
 ## Templates
 
@@ -113,7 +122,7 @@ Then run the script again.
 
 ### "Tag already exists"
 
-**Problem**: Tag v0.4.0 already exists
+**Problem**: Tag `vX.Y.Z` already exists
 
 **Solution**: The script will ask if you want to delete and recreate.
 - Type `y` to delete and recreate (if you made changes)
@@ -123,8 +132,9 @@ Then run the script again.
 
 | Command | Purpose |
 |---------|---------|
-| `./.aur/scripts/release.sh 0.8.0` | Complete release automation |
-| `./.aur/scripts/publish.sh 0.8.0` | Publish to AUR (after GitHub Actions) |
+| `scripts/release.sh X.Y.Z` | Prepare release/tag from repo root |
+| `./.aur/scripts/publish-declarch.sh X.Y.Z` | Publish `declarch` to AUR |
+| `scripts/check_release_consistency.sh --tag vX.Y.Z --strict` | Validate release/AUR version consistency |
 | `https://github.com/nixval/declarch/actions` | Monitor GitHub Actions |
 
 ## Version Auto-Detection
@@ -132,13 +142,13 @@ Then run the script again.
 Scripts can automatically detect version from `Cargo.toml`:
 
 ```bash
-./.aur/scripts/release.sh      # Uses version from Cargo.toml
-./.aur/scripts/publish.sh      # Uses version from Cargo.toml
+scripts/release.sh                 # Uses version from Cargo.toml
+./.aur/scripts/publish-declarch.sh # Uses version from Cargo.toml
 ```
 
 Or specify version explicitly:
 
 ```bash
-./.aur/scripts/release.sh 0.8.0
-./.aur/scripts/publish.sh 0.8.0
+scripts/release.sh X.Y.Z
+./.aur/scripts/publish-declarch.sh X.Y.Z
 ```
