@@ -13,10 +13,12 @@ use crate::utils::paths;
 use file_ops::cleanup_install_backups;
 use finalize::{finalize_edits, run_auto_sync};
 use planning::plan_installs;
+use presentation::{show_dry_run_install, show_install_summary};
 
 mod file_ops;
 mod finalize;
 mod planning;
+mod presentation;
 
 /// Options for the install command
 #[derive(Debug)]
@@ -42,36 +44,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
     let planned_installs = plan_installs(&options.packages, options.backend.as_ref())?;
 
     if options.dry_run {
-        output::header("Dry Run: Install");
-        output::keyval("Packages", &planned_installs.len().to_string());
-        output::keyval(
-            "Target module",
-            options
-                .module
-                .as_deref()
-                .unwrap_or("modules/others.kdl (default)"),
-        );
-        output::keyval(
-            "Auto sync",
-            if options.no_sync {
-                "disabled"
-            } else {
-                "enabled"
-            },
-        );
-
-        for planned in &planned_installs {
-            output::indent(&format!("+ {}:{}", planned.backend, planned.package), 1);
-        }
-
-        if options.verbose {
-            output::separator();
-            output::info("Resolution details:");
-            for raw in &options.packages {
-                output::indent(&format!("input: {}", raw), 1);
-            }
-        }
-
+        show_dry_run_install(&options, &planned_installs);
         return Ok(());
     }
 
@@ -231,12 +204,7 @@ pub fn run(options: InstallOptions) -> Result<()> {
         )?;
     }
 
-    if options.verbose && !finalize.all_packages.is_empty() {
-        output::verbose(&format!(
-            "Packages added: {}",
-            finalize.all_packages.join(", ")
-        ));
-    }
+    show_install_summary(options.verbose, &finalize.all_packages);
     cleanup_install_backups(&all_edits, finalize.root_backup.as_ref());
     Ok(())
 }
