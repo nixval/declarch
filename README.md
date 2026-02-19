@@ -1,110 +1,51 @@
 # declarch
 
-Declarch is a declarative, agnostic wrapper for many package managers.
+Declarch adalah wrapper deklaratif untuk banyak package manager.
 
-You write package config once, then run `declarch sync`.
-Declarch handles the backend commands for you.
+Kamu deklarasikan paket di file KDL, lalu jalankan `declarch sync`.
 
 ## WARNING: v0.8.0 has BREAKING CHANGES
 
-If you are upgrading from older versions, expect syntax and workflow changes.
+Kalau upgrade dari versi lama, expect perubahan syntax/workflow.
 
-Before upgrading:
+Sebelum upgrade:
 
 ```bash
 cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
-Linux example shown above. For your exact paths on macOS/Windows, run:
+Untuk cek path config/state yang benar di OS kamu:
 
 ```bash
 declarch info --doctor
 ```
 
-Reality check:
-- declarch is still evolving,
-- backend/environment coverage keeps improving,
-- not every backend combo is tested equally yet.
+## Core flow (yang wajib dipahami)
 
-Use `declarch --dry-run sync` first when unsure.
-
-## What declarch is
-
-- **Wrapper** for existing package managers.
-- **Agnostic** architecture (not locked to one ecosystem).
-- **Flexible backend config** that can evolve with upstream tools.
-
-## Common backends
-
-I call all of these "backends" in declarch (package manager, helper, wrapper, and similar tools).
-
-You can use built-in/default ones, fetch extra backend definitions from `nixval/declarch-packages`, or create your own declaratively.
-
-Discover available backends:
+1. Tulis konfigurasi paket (KDL).
+2. Preview perubahan.
+3. Apply.
 
 ```bash
-declarch init --list backends
-```
-
-Adopt one:
-
-```bash
-declarch init --backend <backend-name>
-```
-
-Examples:
-`aur`, `pacman`, `flatpak`, `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`, `nix`, `apt`, `nala`, `dnf`, `snap`, `brew`, `soar`, and more.
-
-Planned Windows backend set (experimental roadmap): `winget`, `choco`, `scoop`.
-
-Declarch started with strong Arch focus, but the same declarative pattern works for many backends.
-So you do not need to remember dozens of rarely-used commands.
-
-Common flow stays simple:
-`declarch sync`, `declarch sync prune`, `declarch sync update`, `declarch sync upgrade`, `declarch search`, `declarch info`, `declarch info --list`.
-
-## Basic config example
-
-```kdl
-pkg {
-    pacman { firefox git }
-    flatpak { org.mozilla.firefox }
-    npm { typescript pnpm }
-    nix { nil }
-}
-```
-
-Then run:
-
-```bash
+declarch --dry-run sync
 declarch sync
 ```
 
-Packages will be installed or adopted when backend is available.
-If backend is missing, declarch will skip it with warning.
-
-## Installation
+## Instalasi
 
 ### Arch Linux (AUR)
 
 ```bash
 paru -S declarch
+# atau
+yay -S declarch
 ```
 
-### Script install
+### Linux/macOS (install script)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 ```
-
-macOS support via script is currently **experimental (alpha)**.
-Installer includes lightweight smoke checks after install (`--help`, `info`).
-
-### Install performance note
-
-- Building from source can take longer on first install because Rust dependencies must compile.
-- For faster installs, prefer prebuilt release artifacts (`install.sh`, `install.ps1`, or distro package manager binaries).
-- `cargo install` is still supported, but expect higher initial compile time.
 
 ### Windows (PowerShell, experimental alpha)
 
@@ -112,121 +53,203 @@ Installer includes lightweight smoke checks after install (`--help`, `info`).
 irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
 ```
 
-Installer includes lightweight smoke checks after install (`--help`, `info`).
-
-### Update policy
-
-- If installed from package manager (AUR/Homebrew/etc), update via package manager.
-- If installed via script/manual binary (`curl`/`wget`), use `declarch self-update`.
-
-### Release consistency guard
-
-Before publishing a release or AUR update, run:
+Verifikasi:
 
 ```bash
-scripts/check_release_consistency.sh --tag vX.Y.Z --strict
+declarch --version
+declarch --help
+declarch info --doctor -v
 ```
 
-This verifies Cargo version, tag version, and `.aur/templates/PKGBUILD` `pkgver` alignment.
+## First setup (beginner path)
 
-Release docs:
-- `.aur/README.md`
-- `.aur/RELEASE_GUIDE.md`
-
-## First-time setup
-
-### 1. Initialize
+### 1) Init config
 
 ```bash
 declarch init
 ```
 
-Default config includes ready backend definitions (`aur`, `pacman`, `flatpak`, and shipped defaults).
-Add more anytime with:
+### 2) Adopt backend sesuai OS
 
 ```bash
-declarch init --backend <backend-name>
+# Arch
+declarch init --backend aur,paru,yay,pacman
+
+# Debian/Ubuntu
+declarch init --backend apt,nala
+
+# Fedora/RHEL
+declarch init --backend dnf5
+
+# SUSE
+declarch init --backend zypper
+
+# macOS
+declarch init --backend brew
+
+# lihat backend/module dari registry
+declarch init --list backends
+declarch init --list modules
 ```
 
-### 2. Add packages
+### 3) Tambah paket (declarative-first)
 
-`install` now requires explicit backend, either per package or via flag.
+Contoh `~/.config/declarch/modules/base.kdl`:
+
+```kdl
+pkg {
+    aur { bat fzf ripgrep }
+    npm { typescript }
+}
+```
+
+Lalu:
+
+```bash
+declarch --dry-run sync
+declarch sync
+```
+
+### 4) Shortcut cepat via install (opsional)
 
 ```bash
 declarch install aur:bat aur:fzf aur:ripgrep
 declarch install npm:typescript
-# or
+# atau pakai backend tunggal:
 declarch install bat fzf ripgrep --backend aur
 ```
 
-### 3. Apply
+## Contoh konfigurasi yang sering dipakai
 
-```bash
-declarch sync
+### A) Minimal portable config
+
+`~/.config/declarch/declarch.kdl`
+
+```kdl
+imports {
+    "modules/base.kdl"
+}
 ```
 
-Use preview when needed:
+`~/.config/declarch/modules/base.kdl`
 
-```bash
-declarch --dry-run sync
+```kdl
+pkg {
+    pacman { git curl }
+    flatpak { org.mozilla.firefox }
+    npm { pnpm }
+}
 ```
 
-## Backend setup
+### B) Pisah module per kebutuhan
 
-```bash
-declarch init --backend npm
-declarch init --backend pnpm,yarn
-# also valid:
-declarch init --backend pnpm yarn
+`declarch.kdl`
+
+```kdl
+imports {
+    "modules/base.kdl"
+    "modules/dev.kdl"
+    "modules/apps.kdl"
+}
 ```
 
-Use `--force` to overwrite an existing backend file.
+`modules/dev.kdl`
 
-## Common commands
+```kdl
+pkg {
+    aur { neovim tmux }
+    npm { typescript eslint prettier }
+}
+```
+
+`modules/apps.kdl`
+
+```kdl
+pkg {
+    flatpak { org.telegram.desktop com.spotify.Client }
+}
+```
+
+### C) Profile + host layering (opsional)
+
+```kdl
+profile "work" {
+    pkg {
+        npm { @angular/cli }
+    }
+}
+
+host "laptop-1" {
+    pkg {
+        flatpak { com.discordapp.Discord }
+    }
+}
+```
+
+Pakai saat sync:
+
+```bash
+declarch sync --profile work
+declarch sync --host laptop-1
+```
+
+### D) Hooks (opt-in, aman by default)
+
+```kdl
+hooks {
+    pre-sync "echo before-sync"
+    post-sync "echo after-sync"
+}
+
+experimental {
+    "enable-hooks"
+}
+```
+
+Eksekusi hooks:
+
+```bash
+declarch sync --hooks
+```
+
+### E) Policy block (kontrol perilaku sync/lint)
+
+```kdl
+policy {
+    protected "linux" "systemd"
+    orphans "ask"
+    require_backend "true"
+    forbid_hooks "false"
+    on_duplicate "warn"
+    on_conflict "warn"
+}
+```
+
+## Command yang paling sering dipakai
 
 ```bash
 declarch sync
 declarch --dry-run sync
 declarch sync update
 declarch sync prune
+declarch sync cache
+declarch sync upgrade
 declarch search firefox
-declarch lint
-declarch info
-declarch info --list
+declarch info --doctor
+declarch info --list --scope unmanaged
+declarch lint --mode validate
+declarch edit mymodule --create
 ```
 
-Machine-readable placeholder contract (v1, staged rollout):
+## Update policy
 
-```bash
-declarch info --format json --output-version v1
-declarch info --list --format yaml --output-version v1
-declarch lint --format json --output-version v1
-declarch search firefox --format json --output-version v1
-declarch --dry-run sync --format json --output-version v1
-```
+- Jika install via package manager (AUR/Homebrew/dll), update via package manager itu.
+- Jika install via script/manual binary, bisa pakai `declarch self-update`.
 
-## Documentation
+## Dokumentasi
 
-Hosted docs:
-- https://nixval.github.io/declarch/
-
-mdDocs source pages (`docs-book/src`):
-- [Introduction](docs-book/src/intro.md)
-- [Installation](docs-book/src/getting-started/installation.md)
-- [Quick Start](docs-book/src/getting-started/quick-start.md)
-- [First Run (Linear Guide)](docs-book/src/getting-started/first-run-linear.md)
-- [Common Mistakes](docs-book/src/getting-started/common-mistakes.md)
-- [Config Progression](docs-book/src/getting-started/config-progression.md)
-- [Cross-OS (Alpha)](docs-book/src/getting-started/cross-os-alpha.md)
-- [Command Overview](docs-book/src/commands/index.md)
-- [Backends](docs-book/src/configuration/backends.md)
-- [KDL Basics](docs-book/src/configuration/kdl-syntax.md)
-- [Syntax Reference (Advanced)](docs-book/src/configuration/syntax.md)
-- [Integration Roadmap RFC](docs-book/src/advanced/rfc-integration-roadmap.md)
-- [Integration Examples](docs-book/src/advanced/integration-examples.md)
-- [Troubleshooting](docs-book/src/advanced/troubleshooting.md)
-- [Full sidebar](docs-book/src/SUMMARY.md)
+- https://nixval.githu.io/declarch/
 
 ## License
 
-MIT - see `LICENSE`.
+MIT - lihat `LICENSE`.
