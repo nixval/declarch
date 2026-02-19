@@ -1,29 +1,35 @@
 # declarch
 
-Declarch adalah wrapper deklaratif untuk banyak package manager.
+Declarch is a declarative wrapper for multiple package managers.
 
-Kamu deklarasikan paket di file KDL, lalu jalankan `declarch sync`.
+It can orchestrate many package managers/helpers through configuration.
+In declarch terminology, we call those integrations **backends**.
+
+You declare packages in KDL files, then apply with `declarch sync`.
 
 ## WARNING: v0.8.0 has BREAKING CHANGES
 
-Kalau upgrade dari versi lama, expect perubahan syntax/workflow.
+If you are upgrading from older versions, expect syntax and workflow changes.
+This warning matters most if your config was created before the v0.8 line.
 
-Sebelum upgrade:
+Before upgrading:
 
 ```bash
 cp -r ~/.config/declarch ~/.config/declarch.backup
 ```
 
-Untuk cek path config/state yang benar di OS kamu:
+To check your actual config/state paths on your OS:
 
 ```bash
 declarch info --doctor
 ```
 
-## Core flow (yang wajib dipahami)
+## Core flow (must understand)
 
-1. Tulis konfigurasi paket (KDL).
-2. Preview perubahan.
+This is the daily loop most users follow. Keep it simple:
+
+1. Declare packages in config.
+2. Preview changes.
 3. Apply.
 
 ```bash
@@ -31,17 +37,23 @@ declarch --dry-run sync
 declarch sync
 ```
 
-## Instalasi
+## Installation
+
+Pick one installation path first, then verify CLI + doctor output.
 
 ### Arch Linux (AUR)
 
+Best path if you are already on Arch and use AUR helpers.
+
 ```bash
 paru -S declarch
-# atau
+# or
 yay -S declarch
 ```
 
 ### Linux/macOS (install script)
+
+Fastest way to get a ready binary from GitHub releases.
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
@@ -49,11 +61,13 @@ curl -sSL https://raw.githubusercontent.com/nixval/declarch/main/install.sh | sh
 
 ### Windows (PowerShell, experimental alpha)
 
+Windows support is still evolving, but this gives you a quick first install.
+
 ```powershell
 irm https://raw.githubusercontent.com/nixval/declarch/main/install.ps1 | iex
 ```
 
-Verifikasi:
+Verify installation:
 
 ```bash
 declarch --version
@@ -63,13 +77,19 @@ declarch info --doctor -v
 
 ## First setup (beginner path)
 
-### 1) Init config
+After install, this is the shortest path to a working declarative setup.
+
+### 1) Initialize config
+
+This creates the base config structure and default entrypoints.
 
 ```bash
 declarch init
 ```
 
-### 2) Adopt backend sesuai OS
+### 2) Adopt backends for your OS
+
+Backends define how declarch talks to each package manager/helper.
 
 ```bash
 # Arch
@@ -87,14 +107,21 @@ declarch init --backend zypper
 # macOS
 declarch init --backend brew
 
-# lihat backend/module dari registry
+# discover registry options
 declarch init --list backends
 declarch init --list modules
 ```
 
-### 3) Tambah paket (declarative-first)
+Common backend examples you can `init`:
+- System/distro: `pacman`, `aur`, `paru`, `yay`, `apt`, `nala`, `dnf`, `dnf5`, `zypper`, `brew`
+- Universal/app: `flatpak`, `snap`, `nix`, `soar`
+- Dev/language: `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `pip`, `gem`, `go`
 
-Contoh `~/.config/declarch/modules/base.kdl`:
+### 3) Add packages (declarative-first)
+
+This is the core value: one config can drive multiple ecosystems.
+
+Example `~/.config/declarch/modules/base.kdl`:
 
 ```kdl
 pkg {
@@ -103,25 +130,31 @@ pkg {
 }
 ```
 
-Lalu:
+Then run:
 
 ```bash
 declarch --dry-run sync
 declarch sync
 ```
 
-### 4) Shortcut cepat via install (opsional)
+### 4) Install shortcut (optional)
+
+Use this when you want fast onboarding; you can refactor into modules later.
 
 ```bash
 declarch install aur:bat aur:fzf aur:ripgrep
 declarch install npm:typescript
-# atau pakai backend tunggal:
+# or apply one backend to all packages
 declarch install bat fzf ripgrep --backend aur
 ```
 
-## Contoh konfigurasi yang sering dipakai
+## Configuration examples
 
-### A) Minimal portable config
+If you are unsure where to start, copy one of these and iterate.
+
+### A) Minimal portable setup
+
+Good default for a single machine or fresh setup.
 
 `~/.config/declarch/declarch.kdl`
 
@@ -141,7 +174,9 @@ pkg {
 }
 ```
 
-### B) Pisah module per kebutuhan
+### B) Modular setup by context
+
+Use this when your config starts growing (dev/apps/workstation split).
 
 `declarch.kdl`
 
@@ -170,62 +205,11 @@ pkg {
 }
 ```
 
-### C) Profile + host layering (opsional)
+For advanced topics (policy, hooks, profile/host layering, MCP, and deeper syntax), use the docs site.
 
-```kdl
-profile "work" {
-    pkg {
-        npm { @angular/cli }
-    }
-}
+## Most-used commands
 
-host "laptop-1" {
-    pkg {
-        flatpak { com.discordapp.Discord }
-    }
-}
-```
-
-Pakai saat sync:
-
-```bash
-declarch sync --profile work
-declarch sync --host laptop-1
-```
-
-### D) Hooks (opt-in, aman by default)
-
-```kdl
-hooks {
-    pre-sync "echo before-sync"
-    post-sync "echo after-sync"
-}
-
-experimental {
-    "enable-hooks"
-}
-```
-
-Eksekusi hooks:
-
-```bash
-declarch sync --hooks
-```
-
-### E) Policy block (kontrol perilaku sync/lint)
-
-```kdl
-policy {
-    protected "linux" "systemd"
-    orphans "ask"
-    require_backend "true"
-    forbid_hooks "false"
-    on_duplicate "warn"
-    on_conflict "warn"
-}
-```
-
-## Command yang paling sering dipakai
+These cover most day-to-day workflows without touching advanced features.
 
 ```bash
 declarch sync
@@ -243,13 +227,15 @@ declarch edit mymodule --create
 
 ## Update policy
 
-- Jika install via package manager (AUR/Homebrew/dll), update via package manager itu.
-- Jika install via script/manual binary, bisa pakai `declarch self-update`.
+Use the update path that matches how you installed declarch.
 
-## Dokumentasi
+- If installed via package manager (AUR/Homebrew/etc), update via that package manager.
+- If installed via script/manual binary, you can use `declarch self-update`.
+
+## Documentation
 
 - https://nixval.githu.io/declarch/
 
 ## License
 
-MIT - lihat `LICENSE`.
+MIT - see `LICENSE`.
