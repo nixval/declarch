@@ -80,6 +80,7 @@ jobs:
 
       - name: Smoke check (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           .\target\debug\declarch.exe --help
           .\target\debug\declarch.exe info --doctor
