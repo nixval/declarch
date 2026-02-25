@@ -7,36 +7,6 @@ In declarch terminology, we call those integrations **backends**.
 
 You declare packages in KDL files, then apply with `declarch sync`.
 
-## WARNING: v0.8.0 has BREAKING CHANGES
-
-If you are upgrading from older versions, expect syntax and workflow changes.
-This warning matters most if your config was created before the v0.8 line.
-
-Before upgrading:
-
-```bash
-cp -r ~/.config/declarch ~/.config/declarch.backup
-```
-
-To check your actual config/state paths on your OS:
-
-```bash
-declarch info --doctor
-```
-
-## Core flow (must understand)
-
-This is the daily loop most users follow. Keep it simple:
-
-1. Declare packages in config.
-2. Preview changes.
-3. Apply.
-
-```bash
-declarch --dry-run sync
-declarch sync
-```
-
 ## Installation
 
 Pick one installation path first, then verify CLI + doctor output.
@@ -46,9 +16,7 @@ Pick one installation path first, then verify CLI + doctor output.
 Best path if you are already on Arch and use AUR helpers.
 
 ```bash
-paru -S declarch
-# or
-yay -S declarch
+paru -S declarch-bin
 ```
 
 ### Linux/macOS (install script)
@@ -75,9 +43,7 @@ declarch --help
 declarch info --doctor -v
 ```
 
-## First setup (beginner path)
-
-After install, this is the shortest path to a working declarative setup.
+## First setup
 
 ### 1) Initialize config
 
@@ -110,6 +76,9 @@ declarch init --backend brew
 # discover registry options
 declarch init --list backends
 declarch init --list modules
+
+# any backend you can init freely
+decl init --backend pnpm brew bun npm pip soar
 ```
 
 Common backend examples you can `init`:
@@ -123,6 +92,12 @@ This is the core value: one config can drive multiple ecosystems.
 
 Example `~/.config/declarch/modules/base.kdl`:
 
+```bash
+decl edit base
+
+```
+
+write the config:
 ```kdl
 pkg {
     aur { bat fzf ripgrep }
@@ -139,7 +114,7 @@ declarch sync
 
 ### 4) Install shortcut (optional)
 
-Use this when you want fast onboarding; you can refactor into modules later.
+Use this when you want fast onboarding; it will installed in ./modules/others.kdl
 
 ```bash
 declarch install aur:bat aur:fzf aur:ripgrep
@@ -187,6 +162,17 @@ imports {
     "modules/apps.kdl"
 }
 ```
+you can create that file via cli:
+```bash
+decl edit base
+decl edit dev --create
+decl edit apps --create
+
+# to edit declarch.kdl
+decl edit
+# you can change editor you prefer
+# eg. editor "nvim"
+```
 
 `modules/dev.kdl`
 
@@ -217,8 +203,8 @@ declarch --dry-run sync
 declarch sync update
 declarch sync prune
 declarch sync cache
-declarch sync upgrade
-declarch search firefox
+declarch sync upgrade # upgrade all package manager at once
+declarch search firefox # search all package manager at once
 declarch info --doctor
 declarch info --list --scope unmanaged
 declarch lint --mode validate
@@ -234,7 +220,7 @@ Use the update path that matches how you installed declarch.
 
 ## Documentation
 
-- https://nixval.githu.io/declarch/
+- https://nixval.github.io/declarch/
 
 ## License
 
